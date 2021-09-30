@@ -20,3 +20,6 @@ pub use crate::codecs::game_register_all_decoders;
 #[allow(clippy::upper_case_acronyms)]
 mod demuxers;
 pub use crate::demuxers::game_register_all_demuxers;
+
+mod muxers;
+pub use crate::muxers::game_register_all_muxers;

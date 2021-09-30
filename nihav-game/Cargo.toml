@@ -16,7 +16,7 @@ features = ["qmf"]
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
 
 [features]
-default = ["all_decoders", "all_demuxers"]
+default = ["all_decoders", "all_demuxers", "all_muxers"]
 demuxers = []
 all_demuxers = ["demuxer_bmv", "demuxer_bmv3", "demuxer_cnm", "demuxer_fcmp", "demuxer_fst", "demuxer_gdv", "demuxer_hl_fmv", "demuxer_imax", "demuxer_q", "demuxer_sga", "demuxer_siff", "demuxer_smush", "demuxer_vmd", "demuxer_vx"]
 demuxer_bmv = ["demuxers"]
@@ -60,3 +60,7 @@ all_audio_decoders = ["decoder_fstaud", "decoder_lhst500f22", "decoder_smush_aud
 decoder_fstaud = ["decoders"]
 decoder_lhst500f22 = ["decoders"]
 decoder_smush_audio = ["decoders"]
+
+all_muxers = ["muxer_ea"]
+muxers = []
+muxer_ea = ["muxers"]
