@@ -299,7 +299,7 @@ impl FLACEncoder {
         let mut dbuf = bw.end();
         calc_header_crc(&mut dbuf[..hdr_crc_pos]);
         calc_frame_crc(&mut dbuf);
-        let ts = NATimeInfo::new(None, None, Some(nsamples as u64), 1, self.srate);
+        let ts = NATimeInfo::new(Some(self.cur_pos as u64), None, Some(nsamples as u64), 1, self.srate);
 
         for samp in self.samples.iter_mut() {
             samp.drain(..nsamples);
