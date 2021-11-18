@@ -753,13 +753,12 @@ impl<T: Read+Seek> ByteIO for BoundedFileReader<T> {
         if ret.is_err() { return Err(ByteIOError::ReadError); }
         let sz = ret.unwrap();
         if sz < len {
-            if let Err(_err) = self.file.read(&mut buf[sz..][..1]) {
-                self.eof = true;
-                if sz == 0 {
-                    return Err(ByteIOError::EOF);
-                }
-            } else {
+            if let Ok(1) = self.file.read(&mut buf[sz..][..1]) {
                 return Ok(sz + 1);
+            }
+            self.eof = true;
+            if sz == 0 {
+                return Err(ByteIOError::EOF);
             }
         }
         Ok(sz)
