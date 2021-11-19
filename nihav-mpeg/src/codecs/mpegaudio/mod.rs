@@ -426,6 +426,7 @@ impl NAPacketiser for MPAPacketiser {
     fn reset(&mut self) {
         self.buf.clear();
     }
+    fn bytes_left(&self) -> usize { self.buf.len() }
 }
 
 pub fn get_packetiser() -> Box<dyn NAPacketiser + Send> {

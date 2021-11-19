@@ -622,6 +622,7 @@ impl NAPacketiser for FLACPacketiser {
         self.end = 0;
         self.hdr_ok = false;
     }
+    fn bytes_left(&self) -> usize { self.buf.len() }
 }
 
 pub fn get_packetiser() -> Box<dyn NAPacketiser + Send> {

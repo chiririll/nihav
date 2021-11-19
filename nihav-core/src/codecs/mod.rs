@@ -374,6 +374,8 @@ pub trait NAPacketiser {
     fn get_packet(&mut self, stream: NAStreamRef) -> DecoderResult<Option<NAPacket>>;
     /// Resets the internal buffer.
     fn reset(&mut self);
+    /// Tells how much data is left in the internal buffer.
+    fn bytes_left(&self) -> usize;
 }
 
 /// Decoder information used during creating a packetiser for requested codec.
