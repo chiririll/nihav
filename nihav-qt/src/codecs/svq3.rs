@@ -1230,6 +1230,7 @@ mod test {
 //let file = "assets/QT/broken_sword_Large.mov";
 //test_file_decoding("mov", file, Some(264), true, false, Some("svq3"), &dmx_reg, &dec_reg);
 //panic!("end");
+        // sample: https://samples.mplayerhq.hu/V-codecs/SVQ3/broken_sword_Large.mov
         test_decoding("mov", "sorenson-video3", "assets/QT/broken_sword_Large.mov", Some(40), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                         [0x16924d18, 0xccc5a0b4, 0xc2bb9412, 0x93d41f10],

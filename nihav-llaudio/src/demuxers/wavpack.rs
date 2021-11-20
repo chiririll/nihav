@@ -279,6 +279,7 @@ mod test {
 
     #[test]
     fn test_wavpack_demux() {
+        // sample from the official WavPack test samples set
         let mut file = File::open("assets/LLaudio/wv/false_stereo.wv").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

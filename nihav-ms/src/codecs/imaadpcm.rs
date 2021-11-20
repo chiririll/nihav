@@ -106,6 +106,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         ms_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/ima-adpcm/ima-adpcm-stutter/IMAG0006.AVI
         test_decoding("avi", "ima-adpcm-ms", "assets/MS/IMAG0006.AVI", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x0cdc640f, 0xb00df235, 0x1ec4a280, 0x065b5e9e]));
     }

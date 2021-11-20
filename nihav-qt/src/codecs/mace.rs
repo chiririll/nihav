@@ -183,6 +183,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::qt_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
+    // samples from https://samples.mplayerhq.hu/A-codecs/MACE/surge-samples/
     #[test]
     fn test_mace3() {
         let mut dmx_reg = RegisteredDemuxers::new();

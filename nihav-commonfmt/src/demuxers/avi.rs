@@ -857,6 +857,7 @@ mod test {
 
     #[test]
     fn test_avi_demux() {
+        //test sample: https://samples.mplayerhq.hu/V-codecs/RT21/320x240/laser05.avi
         let mut file = File::open("assets/Indeo/laser05.avi").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

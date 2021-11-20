@@ -142,6 +142,7 @@ mod test {
 
     #[test]
     fn test_vx_demux() {
+        // sample from some game
         let mut file = File::open("assets/Game/bioware.vx").unwrap();
         //let mut file = File::open("assets/Game/BS_01_Intro.vx").unwrap();
         //let mut file = File::open("assets/Game/sega.vx").unwrap();

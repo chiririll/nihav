@@ -1331,6 +1331,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
+        // sample from some game
         test_decoding("vx", "vxvideo", "assets/Game/bioware.vx", Some(31), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                                 [0x33de14fa, 0x00948eb7, 0x028141d7, 0x1d07abd6],

@@ -261,6 +261,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::ms_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
+    // samples from https://samples.mplayerhq.hu/V-codecs/RLE
     #[test]
     fn test_ms_rle_8bit() {
         let mut dmx_reg = RegisteredDemuxers::new();

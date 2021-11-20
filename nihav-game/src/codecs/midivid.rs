@@ -201,6 +201,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/MVDV.avi
         test_decoding("avi", "midivid", "assets/Game/MVDV.avi", Some(16), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                         [0x383e1995, 0x32bf000d, 0x2067aa2e, 0x54425bd4],

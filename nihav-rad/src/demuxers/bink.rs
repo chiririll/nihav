@@ -205,6 +205,7 @@ mod test {
 
     #[test]
     fn test_bink_demux() {
+        // sample: https://samples.mplayerhq.hu/game-formats/bink/ActivisionLogo.bik
         let mut file = File::open("assets/RAD/ActivisionLogo.bik").unwrap();
 //        let mut file = File::open("assets/RAD/original.bik").unwrap();
 //        let mut file = File::open("assets/RAD/Snd0a110c51.dee").unwrap();

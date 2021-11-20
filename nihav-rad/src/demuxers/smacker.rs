@@ -314,6 +314,7 @@ mod test {
 
     #[test]
     fn test_smk_demux() {
+        // sample: https://samples.mplayerhq.hu/game-formats/smacker/20130507_audio-distortion.smk
         let mut file = File::open("assets/RAD/20130507_audio-distortion.smk").unwrap();
 //        let mut file = File::open("assets/RAD/ajfstr1.smk").unwrap();
 //        let mut file = File::open("assets/RAD/credits.smk").unwrap();

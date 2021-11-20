@@ -513,6 +513,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::qt_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
+    // samples from https://samples.mplayerhq.hu/V-codecs/QTRLE
     #[test]
     fn test_qt_rle_1bit() {
         let mut dmx_reg = RegisteredDemuxers::new();

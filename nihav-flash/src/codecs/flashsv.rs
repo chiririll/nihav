@@ -347,6 +347,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         flash_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/FLV/flash_screen/screen.flv
         test_decoding("flv", "flashsv", "assets/Flash/screen.flv",
                       Some(3000), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0xb45b899e, 0x417b17d5, 0x7bfe898b, 0x026b289f],
@@ -367,6 +368,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         flash_register_all_decoders(&mut dec_reg);
 
+        // sample created from https://samples.mplayerhq.hu/FLV/flash_screen/screen.flv by recoding
         test_decoding("flv", "flashsv2", "assets/Flash/screen2.flv",
                       Some(4700), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0x55522afa, 0x9c7dd794, 0xdd67aa2e, 0x8b8c525e],

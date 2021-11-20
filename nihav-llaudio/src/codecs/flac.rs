@@ -636,6 +636,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::llaudio_register_all_decoders;
     use crate::llaudio_register_all_demuxers;
+    // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.flac
     #[test]
     fn test_flac() {
         let mut dmx_reg = RegisteredDemuxers::new();

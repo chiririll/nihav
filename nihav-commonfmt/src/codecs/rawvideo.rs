@@ -103,6 +103,7 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
+        // sample: self-created with avconv
         test_decoding("yuv4mpeg", "rawvideo", "assets/Misc/test.y4m", None, &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
                                 [0xd58326b0, 0xdbfc1dcc, 0x6d66a04c, 0x08a21bbb],

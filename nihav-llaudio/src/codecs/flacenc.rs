@@ -599,6 +599,7 @@ mod test {
         let mut enc_reg = RegisteredEncoders::new();
         llaudio_register_all_encoders(&mut enc_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.flac
         let dec_config = DecoderTestParams {
                 demuxer:        "flac",
                 in_name:        "assets/LLaudio/luckynight.flac",

@@ -335,6 +335,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/real/AC-14_4/ra3_in_rm_file.rm
         let file = "assets/RV/ra3_in_rm_file.rm";
         test_decode_audio("realmedia", file, Some(5000), None/*Some("ra14.4")*/, &dmx_reg, &dec_reg);
     }

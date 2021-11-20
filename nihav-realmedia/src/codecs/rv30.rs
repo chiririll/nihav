@@ -189,6 +189,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_decoders(&mut dec_reg);
 
+        // sample from a private collection
         test_decoding("realmedia", "realvideo3", "assets/RV/rv30_weighted_mc.rm", Some(700),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0x2a4d13bf, 0x2f21f3c9, 0xcbd601be, 0x61a6405c],
@@ -206,6 +207,7 @@ mod test {
                             [0x7b38660e, 0xa46f4080, 0xa493f422, 0x36eaaa3b],
                             [0x6375934a, 0xf2a23087, 0x367f9738, 0xf2251e09],
                             [0x54bcefe7, 0xbbc91dc7, 0x0acec7d7, 0x95cf6d02]]));
+        // sample: https://samples.mplayerhq.hu/real/VC-RV30/simpsons-clip.rm
         test_decoding("realmedia", "realvideo3", "assets/RV/simpsons-clip.rm", Some(1337),
                       &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x36604117, 0x415f95cc, 0xec38e776, 0x9818d3be]));

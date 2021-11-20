@@ -625,6 +625,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_decoders(&mut dec_reg);
 
+        // sample from Heroes of Might and Magic 2
         test_decoding("smacker", "smacker-video", "assets/RAD/credits.smk", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x0983944a, 0xa23503f8, 0x2602b589, 0x13b53480],
@@ -645,6 +646,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/game-formats/smacker/wetlands/wetlogo.smk
         test_decoding("smacker", "smacker-audio", "assets/RAD/wetlogo.smk", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xc686b833, 0x0a203038, 0x012f6d9b, 0xa4186d44]));
     }
@@ -655,6 +657,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/game-formats/smacker/20130507_audio-distortion.smk
         test_decoding("smacker", "smacker-audio", "assets/RAD/20130507_audio-distortion.smk", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x942a0922, 0x182bb5fd, 0x94ab7a59, 0x2028d810]));
     }

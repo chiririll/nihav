@@ -702,6 +702,7 @@ mod test {
         realmedia_register_all_decoders(&mut dec_reg);
 
 //        let file = "assets/RV/rv30_weighted_mc.rm";
+        // sample: https://samples.mplayerhq.hu/real/AC-cook/cook_5.1/multichannel.rma
         let file = "assets/RV/multichannel.rma";
         test_decode_audio("realmedia", file, Some(2000), None/*Some("cook")*/, &dmx_reg, &dec_reg);
     }

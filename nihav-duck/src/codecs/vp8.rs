@@ -1547,6 +1547,7 @@ mod test {
     use crate::duck_register_all_decoders;
     use crate::duck_register_all_demuxers;
 
+    // all samples are from the official VP8 test bitstreams set
     fn test_vp8_core(name: &str, hash: [u32; 4]) {
         let mut dmx_reg = RegisteredDemuxers::new();
         duck_register_all_demuxers(&mut dmx_reg);

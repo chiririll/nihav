@@ -759,6 +759,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/real/AC-sipr/autahi-vox.rm
         let file = "assets/RV/autahi-vox.rm";
         test_decode_audio("realmedia", file, Some(5000), None/*Some("sipro")*/, &dmx_reg, &dec_reg);
     }

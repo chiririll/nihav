@@ -109,6 +109,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
+        // sample from a private collection
         test_decoding("avi", "truemotionrt", "assets/Duck/tr20_low.avi", Some(10),
                         &dmx_reg, &dec_reg,
                         ExpectedTestResult::MD5([0x24c3d26c, 0x1e8bbdc4, 0xfb0fba5d, 0xaa04be81]));

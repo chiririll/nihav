@@ -223,6 +223,7 @@ mod test {
 
     #[test]
     fn test_vmd_demux() {
+        // sample: https://samples.mplayerhq.hu/game-formats/sierra-vmd/Lighthouse/128.vmd
         let mut file = File::open("assets/Game/128.vmd").unwrap();
         //let mut file = File::open("assets/Game/1491.VMD").unwrap();
         let mut fr = FileReader::new_read(&mut file);

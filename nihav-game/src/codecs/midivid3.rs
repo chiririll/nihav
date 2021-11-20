@@ -536,6 +536,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/mv30.avi
         test_decoding("avi", "midivid3", "assets/Game/mv30.avi", Some(16), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x0f4f2377, 0xe017458f, 0xebf6d59d, 0x238a3e64],

@@ -303,6 +303,7 @@ mod test {
         qt_register_all_decoders(&mut dec_reg);
 
         //test_decode_audio("mov", "assets/QT/0-22050HzSweep8kb.mov", None, Some("qdm2"), &dmx_reg, &dec_reg);
+        // sample: https://samples.mplayerhq.hu/A-codecs/QDM2/sweep/0-22050HzSweep10kb.mov
         test_decoding("mov", "qdesign-music2", "assets/QT/0-22050HzSweep10kb.mov", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::Decodes);
     }

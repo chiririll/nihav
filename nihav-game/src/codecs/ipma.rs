@@ -221,6 +221,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::game_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
+    // samples from https://misc.daniel-marschall.de/spiele/blown_away/ipma_codec/
     #[test]
     fn test_ipma_video() {
         let mut dmx_reg = RegisteredDemuxers::new();

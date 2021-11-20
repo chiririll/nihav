@@ -721,6 +721,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
 
+        // samples from private collection
         let file = "assets/RV/rv30_atrc_384x208_realproducer_plus_8.51.rm";
 //        let file = "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm";
         test_decode_audio("realmedia", file, Some(12000), None/*Some("atrac3")*/, &dmx_reg, &dec_reg);

@@ -485,6 +485,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/real/VC-RV10/thankyou.rm
         test_decoding("realmedia", "realvideo1", "assets/RV/thankyou.rm",
                       Some(1000), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0x8bba459c, 0xe6e8e01c, 0x36f90595, 0xb268adee],
@@ -503,6 +504,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_decoders(&mut dec_reg);
 
+        // sample from a private collection
         test_decoding("realmedia", "realvideo1",
                       "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm",
                       Some(1000), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![

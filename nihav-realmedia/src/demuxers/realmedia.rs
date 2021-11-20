@@ -1709,6 +1709,7 @@ mod test {
 
     #[test]
     fn test_rm_demux() {
+        // sample from a private collection
         let mut file =
             File::open("assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm").unwrap();
 //            File::open("assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm").unwrap();
@@ -1741,6 +1742,7 @@ mod test {
     }
     #[test]
     fn test_ra_demux() {
+        // sample: https://samples.mplayerhq.hu/real//RA/ra_with_comment_field/diemusik.ra
         let mut file =
 //            File::open("assets/RV/welcome288.ra").unwrap();
             File::open("assets/RV/diemusik.ra").unwrap();
@@ -1763,6 +1765,7 @@ mod test {
     }
     #[test]
     fn test_ivr_demux() {
+        // sample: https://samples.mplayerhq.hu/real/ivr/Opener_rm_hi.ivr
         let mut file =
             File::open("assets/RV/Opener_rm_hi.ivr").unwrap();
 //            File::open("assets/RV/SherwinWilliamsCommercial.ivr").unwrap();

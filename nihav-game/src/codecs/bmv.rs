@@ -322,6 +322,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::game_register_all_decoders;
     use crate::game_register_all_demuxers;
+    // samples from: https://samples.mplayerhq.hu/game-formats/bmv/
     #[test]
     fn test_bmv_video() {
         let mut dmx_reg = RegisteredDemuxers::new();

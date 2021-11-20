@@ -260,6 +260,7 @@ mod test {
     use super::*;
     use std::fs::File;
 
+    // samples from https://samples.mplayerhq.hu/game-formats/bmv
     #[test]
     fn test_bmv_demux() {
         let mut file = File::open("assets/Game/DW2-MOUSE.BMV").unwrap();

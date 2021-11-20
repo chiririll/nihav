@@ -396,6 +396,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         qt_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/QDMC/rumcoke.mov
         test_decoding("mov", "qdesign-music", "assets/QT/rumcoke.mov", Some(32), &dmx_reg, &dec_reg,
                       ExpectedTestResult::Decodes);
     }

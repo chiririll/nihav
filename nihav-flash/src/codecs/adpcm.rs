@@ -143,6 +143,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         flash_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/FLV/flash_flv_adpcm_testfiles/mono_11k.flv
         test_decoding("flv", "flv-adpcm", "assets/Flash/mono_11k.flv", Some(3000), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x4cf30e71, 0x4360c85b, 0x21c52863, 0x1782160e]));
     }
@@ -153,6 +154,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         flash_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/FLV/flash_flv_adpcm_testfiles/stereo_44k.flv
         test_decoding("flv", "flv-adpcm", "assets/Flash/stereo_44k.flv", Some(3000), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xae108d38, 0xb36236f8, 0x2bc18d31, 0xac600424]));
     }

@@ -786,6 +786,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/IV41/indeo4-avi/volcano.avi
         test_decoding("avi", "indeo4", "assets/Indeo/IV4/volcano.avi", Some(16),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0x194f626b, 0x023fdfd0, 0x9809665a, 0xd68f6f47],
@@ -805,6 +806,7 @@ mod test {
                             [0x4b04dc0e, 0x684533a7, 0x6a4e4b16, 0x0b8a5e68],
                             [0xa3eb64fc, 0x5e02a31b, 0x6b484eae, 0xbb6e6c49],
                             [0x7d4ef46e, 0x6761c447, 0x02e002f5, 0x02d0231c]]));
+        // a sample from Civilization II
         test_decoding("avi", "indeo4", "assets/Indeo/IV4/HRLDVIK.AVI", Some(8),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0x239b8b87, 0x6dbec08c, 0x82bae1f0, 0x868e00c2],

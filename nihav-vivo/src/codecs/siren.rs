@@ -404,6 +404,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         vivo_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/vivo/vivo2/favmovie.viv
         let file = "assets/Misc/favmovie.viv";
         //let file = "assets/Misc/gr_al.viv";
         test_decode_audio("vivo", file, None, None/*Some("siren")*/, &dmx_reg, &dec_reg);

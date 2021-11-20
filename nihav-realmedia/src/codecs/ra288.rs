@@ -225,6 +225,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/real/AC-28_8/A0000044.rm
         let file = "assets/RV/A0000044.rm";
         test_decode_audio("realmedia", file, Some(5000), None/*Some("ra28.8")*/, &dmx_reg, &dec_reg);
     }

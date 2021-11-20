@@ -606,6 +606,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/TM20/tm20.avi
         test_decoding("avi", "truemotion2", "assets/Duck/tm20.avi", Some(16),
                         &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0x8c336eb4, 0x10d0d934, 0x52392306, 0xc0bc6dd3],

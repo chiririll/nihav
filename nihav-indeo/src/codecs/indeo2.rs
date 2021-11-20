@@ -389,6 +389,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/RT21/320x240/laser05.avi
         test_decoding("avi", "indeo2", "assets/Indeo/laser05.avi", Some(10),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0x55f509ad, 0x62fb52d5, 0x6e9a86b2, 0x3910ce74],

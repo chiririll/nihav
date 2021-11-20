@@ -495,6 +495,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_decoders(&mut dec_reg);
 
+        // sample from a private collection
         test_decoding("realmedia", "ralf", "assets/RV/rv40_ralf.rmvb", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x6cf18361, 0x9548b5ce, 0x5dfc0b5c, 0x2bd6f392]));
     }

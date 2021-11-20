@@ -549,6 +549,7 @@ mod test {
     use nihav_codec_support::test::enc_video::*;
     use super::{RGB555_FORMAT, RGB24_0_FORMAT};
 
+    // samples are from https://samples.mplayerhq.hu/V-codecs/ZMBV/
     #[test]
     fn test_zmbv_encoder_8bit() {
         let mut dmx_reg = RegisteredDemuxers::new();

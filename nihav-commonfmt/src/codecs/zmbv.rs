@@ -320,6 +320,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::generic_register_all_decoders;
     use crate::generic_register_all_demuxers;
+    // samples are from https://samples.mplayerhq.hu/V-codecs/ZMBV/
     #[test]
     fn test_zmbv_8() {
         let mut dmx_reg = RegisteredDemuxers::new();

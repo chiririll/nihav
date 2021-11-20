@@ -126,6 +126,7 @@ mod test {
     fn test_wav_muxer() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
+        // sample: https://samples.mplayerhq.hu/V-codecs/RT21/320x240/laser05.avi
         let dec_config = DecoderTestParams {
                 demuxer:        "avi",
                 in_name:        "assets/Indeo/laser05.avi",

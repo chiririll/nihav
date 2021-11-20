@@ -582,6 +582,7 @@ mod test {
         let mut enc_reg = RegisteredEncoders::new();
         ms_register_all_encoders(&mut enc_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/UCOD/TalkingHead_352x288.avi
         let dec_config = DecoderTestParams {
                 demuxer:        "avi",
                 in_name:        "assets/Misc/TalkingHead_352x288.avi",

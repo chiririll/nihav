@@ -504,6 +504,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         qt_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/ima-adpcm/adpcm-bug.mov
         test_decoding("mov", "sorenson-video", "assets/QT/adpcm-bug.mov", Some(6), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x90c5eb74, 0xcb942d7d, 0x84c5e444, 0x7f1ba2c2],

@@ -209,6 +209,7 @@ mod test {
 
     #[test]
     fn test_wav_demux() {
+        // sample: https://samples.mplayerhq.hu/A-codecs/msadpcm-stereo/scatter.wav
         let mut file = File::open("assets/MS/scatter.wav").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

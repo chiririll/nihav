@@ -566,6 +566,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
+        // sample from a private collection
         test_decoding("avi", "vp6", "assets/Duck/selection_720x576_300kBit_vp60i.avi", Some(16),
                       &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x042c3e96, 0x8a9b26a2, 0x4dcbaf66, 0x1b788d03]));
@@ -577,6 +578,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/VP6/vp6_crash.avi
         test_decoding("avi", "vp6", "assets/Duck/vp6_crash.avi", Some(4),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0xdcd70fa0, 0x0d075ce2, 0xc9e65077, 0xb003a92e],
@@ -592,6 +594,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
+        // sample created by remuxing some VP6A in FLV
         test_decoding("avi", "vp6a", "assets/Duck/vp6a.avi", Some(25),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0xaf903d79, 0x17ddb3c7, 0xf0a381e8, 0x26b36a7d],

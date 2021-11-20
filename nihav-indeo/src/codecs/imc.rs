@@ -1130,6 +1130,7 @@ mod test {
 
 //        let file = "assets/Indeo/neal73_saber.avi";
 //        let file = "assets/Indeo/IMC/hvalen.avi";
+        // sample from a private collection
         let file = "assets/Indeo/IMC/8khz.avi";
 //        let file = "assets/Indeo/STsKlassFist-1a.avi";
 //        let file = "assets/Indeo/IMC/Angel Bday.avi";

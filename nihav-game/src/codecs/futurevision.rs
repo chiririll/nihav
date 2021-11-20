@@ -242,6 +242,7 @@ mod test {
     use crate::game_register_all_decoders;
     use crate::game_register_all_demuxers;
 
+    // samples come from the Harvester game
     #[test]
     fn test_fst_video() {
         let mut dmx_reg = RegisteredDemuxers::new();

@@ -175,6 +175,7 @@ mod test {
         let mut enc_reg = RegisteredEncoders::new();
         flash_register_all_encoders(&mut enc_reg);
 
+        // sample: https://samples.mplayerhq.hu/FLV/flash_flv_adpcm_testfiles/mono_11k.flv
         let dec_config = DecoderTestParams {
                 demuxer:        "flv",
                 in_name:        "assets/Flash/mono_11k.flv",

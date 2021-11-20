@@ -450,6 +450,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         mpeg_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/FLV/flash_video_5/i_004.flv
         let file = "assets/Flash/i_004.flv";
         test_decode_audio("flv", file, Some(6000), None/*Some("mp3_1")*/, &dmx_reg, &dec_reg);
     }
@@ -460,6 +461,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         mpeg_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/FLV/venture_030_ivcp_001_8bit.flv
         let file = "assets/Flash/venture_030_ivcp_001_8bit.flv";
         test_decode_audio("flv", file, Some(7200), None/*Some("mp3_2")*/, &dmx_reg, &dec_reg);
     }
@@ -470,12 +472,14 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         mpeg_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/FLV/flash_with_alpha/lection2-2.flv
         let file = "assets/Flash/lection2-2.flv";
         test_decode_audio("flv", file, Some(6000), None/*Some("mp3_3")*/, &dmx_reg, &dec_reg);
     }
     #[test]
     fn test_mpa_packetiser() {
         let mut buf = [0; 16384];
+        // sample from a private collection
         let mut file = std::fs::File::open("assets/MPEG/1.mp3").unwrap();
 
         let mut pkts = super::MPAPacketiser::new();

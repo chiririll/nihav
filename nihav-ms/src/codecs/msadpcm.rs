@@ -448,6 +448,7 @@ mod test {
         let mut enc_reg = RegisteredEncoders::new();
         ms_register_all_encoders(&mut enc_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/RT21/320x240/laser05.avi
         let dec_config = DecoderTestParams {
                 demuxer:        "avi",
                 in_name:        "assets/Indeo/laser05.avi",

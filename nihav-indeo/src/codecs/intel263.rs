@@ -758,6 +758,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/IMC/neal73_saber.avi
         test_decoding("avi", "intel263", "assets/Indeo/neal73_saber.avi", Some(16),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0x698c4f70, 0xf727bfc1, 0x96e687e9, 0xc9e37073],

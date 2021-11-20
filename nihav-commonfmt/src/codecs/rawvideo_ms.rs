@@ -126,6 +126,7 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
+        // sample: https://samples.mplayerhq.hu/V-codecs/Uncompressed/8bpp.avi
         test_decoding("avi", "rawvideo-ms", "assets/Misc/8bpp.avi", Some(0), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5([0xb6629439, 0x6ea482e9, 0x42c84d7c, 0x46c94431]));
     }
@@ -135,6 +136,7 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
+        // sample: https://samples.mplayerhq.hu/V-codecs/Uncompressed/16bpp.avi
         test_decoding("avi", "rawvideo-ms", "assets/Misc/16bpp.avi", Some(0), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5([0xe80e16a1, 0x2d50659e, 0x413d24af, 0xea3bee05]));
     }
@@ -144,6 +146,7 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
+        // sample:https://samples.mplayerhq.hu/V-codecs/Uncompressed/keve.avi
         test_decoding("avi", "rawvideo-ms", "assets/Misc/keve.avi", Some(0), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5([0x9514ac1f, 0x4512cc62, 0x069485ba, 0x084a1e63]));
     }
@@ -153,6 +156,7 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
+        // sample: https://samples.mplayerhq.hu/V-codecs/Uncompressed/Logo-Uncompressed.zip
         test_decoding("avi", "rawvideo-ms", "assets/Misc/VRMLuncompressed.avi", Some(0), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5([0xf4c9d468, 0x8f42c576, 0xc8eb522a, 0x75f654b1]));
     }

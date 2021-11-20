@@ -1461,6 +1461,7 @@ mod test {
     use crate::itu_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
 
+    // samples if not specified otherwise come from H.264 conformance suite
     mod raw_demux;
     mod conformance;
     use self::raw_demux::RawH264DemuxerCreator;
@@ -1503,6 +1504,7 @@ mod test {
                         [0xa90454f5, 0x7875d5db, 0xbab234bd, 0xe6ce1193]]));
     }
 
+    // mostly static music video downloaded with youtube-dl
     #[test]
     fn test_h264_real1() {
         let mut dmx_reg = RegisteredDemuxers::new();
@@ -1576,6 +1578,7 @@ mod test {
                             [0x94fee093, 0x78ad89b3, 0xf20e882b, 0x941425db],
                             [0xc3eb1a78, 0x4b4e098a, 0xcbcf9bb4, 0xfd5b5426]]));
     }
+    // a sample downloaded from gfycat.com
     #[test]
     fn test_h264_real2() {
         let mut dmx_reg = RegisteredDemuxers::new();

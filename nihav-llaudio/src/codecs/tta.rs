@@ -341,6 +341,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         llaudio_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.tta
         test_decoding("tta", "tta", "assets/LLaudio/luckynight.tta", Some(3), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xce0fe9c4, 0xa69eefda, 0xe182008c, 0xe941db3f]));
     }

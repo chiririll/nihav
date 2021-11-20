@@ -526,6 +526,7 @@ mod test {
     use crate::game_register_all_decoders;
     use crate::game_register_all_demuxers;
 
+    // samples from Deathgate, Mission Critical and Shannara games
     #[test]
     fn test_q_video3() {
         let mut dmx_reg = RegisteredDemuxers::new();

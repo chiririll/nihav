@@ -187,6 +187,7 @@ mod test {
     use super::*;
     use std::fs::File;
 
+    // samples from Death Gate, Mission Critical and Shannara games
     #[test]
     fn test_q_demux_v3() {
         let mut file = File::open("assets/Game/dgate101.q").unwrap();

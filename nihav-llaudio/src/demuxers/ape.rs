@@ -251,6 +251,7 @@ mod test {
 
     #[test]
     fn test_ape_demux() {
+        // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.ape
         let mut file = File::open("assets/LLaudio/ape/luckynight.ape").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

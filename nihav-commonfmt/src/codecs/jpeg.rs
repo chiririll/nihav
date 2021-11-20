@@ -756,6 +756,7 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
+        // sample: self-created with avconv
         test_decoding("avi", "jpeg", "assets/Misc/mjpeg.avi", Some(1), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0xe07f7128, 0x8c55eb5d, 0x03bfdee5, 0x358b24a4],

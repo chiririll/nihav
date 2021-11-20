@@ -262,6 +262,7 @@ mod test {
     #[test]
     fn test_vivo_demux() {
 //        let mut file = File::open("assets/Misc/greetings.viv").unwrap();
+        // sample: https://samples.mplayerhq.hu/vivo/vivo2/favmovie.viv
         let mut file = File::open("assets/Misc/favmovie.viv").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

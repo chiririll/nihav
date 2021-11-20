@@ -103,6 +103,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         qt_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/ima-adpcm/shuffle-ima41.mov
         test_decoding("mov", "ima-adpcm-qt", "assets/QT/shuffle-ima41.mov", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xba2ad472, 0xd6aee026, 0xb915dd7d, 0xac51314c]));
     }

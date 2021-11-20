@@ -308,6 +308,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/game-formats/bink/ActivisionLogo.bik
         let file = "assets/RAD/ActivisionLogo.bik";
         test_decode_audio("bink", file, None, None/*Some("bink")*/, &dmx_reg, &dec_reg);
     }
@@ -318,6 +319,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_decoders(&mut dec_reg);
 
+        // sample from Heroes of Might and Magic 3
         let file = "assets/RAD/NWCLOGO.BIK";
         test_decode_audio("bink", file, None, None/*Some("bink")*/, &dmx_reg, &dec_reg);
     }

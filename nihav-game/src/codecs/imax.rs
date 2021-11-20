@@ -158,6 +158,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
+        // sample from Fable game
         test_decoding("fable-imax", "fable-imax", "assets/Game/present.imx",
                       Some(64), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x775e1326, 0x7aa63674, 0x9b8aec54, 0x5caee2e3]));

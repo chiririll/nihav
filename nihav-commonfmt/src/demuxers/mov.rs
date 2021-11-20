@@ -2045,6 +2045,7 @@ mod test {
 
     #[test]
     fn test_mov_demux() {
+        // sample: https://samples.mplayerhq.hu/V-codecs/IV32/cubes.mov
         let mut file = File::open("assets/Indeo/cubes.mov").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
@@ -2066,6 +2067,7 @@ mod test {
 
     #[test]
     fn test_dash_demux() {
+        // sample: a stream downloaded with youtube-dl
         let mut file = File::open("assets/ITU/dash.m4a").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

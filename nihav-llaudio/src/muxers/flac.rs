@@ -108,6 +108,7 @@ mod test {
     fn test_flac_muxer() {
         let mut dmx_reg = RegisteredDemuxers::new();
         llaudio_register_all_demuxers(&mut dmx_reg);
+        // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.flac
         let dec_config = DecoderTestParams {
                 demuxer:        "flac",
                 in_name:        "assets/LLaudio/luckynight.flac",

@@ -740,6 +740,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/IV50/sample.avi
         test_decoding("avi", "indeo5", "assets/Indeo/IV5/sample.avi", Some(100),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                            [0xd73ef6e2, 0x099dc18f, 0x46450af9, 0x1b390a48],

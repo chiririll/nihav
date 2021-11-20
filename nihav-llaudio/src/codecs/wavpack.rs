@@ -1063,6 +1063,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::llaudio_register_all_decoders;
     use crate::llaudio_register_all_demuxers;
+    // samples come from the official WavPack test samples set
     #[test]
     fn test_wavpack_8bit() {
         let mut dmx_reg = RegisteredDemuxers::new();

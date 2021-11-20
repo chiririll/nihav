@@ -1265,6 +1265,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/real/VC-RV10/sp_sample1.rm
         let file = "assets/RV/sp_sample1.rm";
         test_decode_audio("realmedia", file, Some(12000), None/*Some("ac3")*/, &dmx_reg, &dec_reg);
     }

@@ -683,6 +683,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/DUCK/phant2-940.duk
         test_decoding("avi", "truemotion1", "assets/Duck/phant2-940.duk", Some(12), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                         [0x989e62b8, 0x5d85c23c, 0x1cffba6d, 0xe599f1c4],

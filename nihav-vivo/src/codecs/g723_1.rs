@@ -984,6 +984,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         vivo_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/vivo/viv1/adalogo.viv
         let file = "assets/Misc/adalogo.viv";
         //let file = "assets/Misc/gr_al.viv";
         //test_decode_audio("vivo", file, Some(1500), None/*Some("g7231")*/, &dmx_reg, &dec_reg);

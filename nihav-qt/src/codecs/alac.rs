@@ -460,6 +460,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         qt_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.m4a
         test_decoding("mov", "alac", "assets/LLaudio/alac/luckynight.m4a", Some(48000 * 16), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x8b6562ac, 0x95981733, 0x47e14709, 0x45d4f05a]));
     }
@@ -470,6 +471,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         qt_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/lossless/ALAC/ALAC_6ch.mov
         test_decoding("mov", "alac", "assets/LLaudio/alac/ALAC_6ch.mov", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x0356ff3d, 0x1ddd3684, 0xb4da8b00, 0x8e8671a7]));
     }
@@ -480,6 +482,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         qt_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/A-codecs/lossless/ALAC/ALAC_24bits2.mov
         test_decoding("mov", "alac", "assets/LLaudio/alac/ALAC_24bits2.mov", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x15d58ed9, 0x9ee74f5e, 0x0fb82c0b, 0x27da35f9]));
     }

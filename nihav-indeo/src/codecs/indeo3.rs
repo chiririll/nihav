@@ -817,6 +817,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/IV32/iv32_example.avi
         test_decoding("avi", "indeo3", "assets/Indeo/iv32_example.avi", Some(10),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0x90be698e, 0x326db071, 0x08e8c6a5, 0x39349acc],

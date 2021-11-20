@@ -188,6 +188,7 @@ mod test {
     use super::*;
     use std::fs::File;
 
+    // samples from the Harvester game
     #[test]
     fn test_fst_demux() {
         let mut file = File::open("assets/Game/c007.fst").unwrap();

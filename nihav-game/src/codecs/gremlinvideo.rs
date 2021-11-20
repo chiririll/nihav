@@ -755,6 +755,7 @@ mod test {
     use crate::game_register_all_decoders;
     use crate::game_register_all_demuxers;
 
+    // samples: intro1.gdv from Normality, SHELI_S.GDV from Jungle Strike
     #[test]
     fn test_gdv_video() {
         let mut dmx_reg = RegisteredDemuxers::new();

@@ -998,6 +998,7 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
+        // sample: https://samples.mplayerhq.hu/V-codecs/UCOD/TalkingHead_352x288.avi
         test_decoding("avi", "clearvideo", "assets/Misc/TalkingHead_352x288.avi", Some(10), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0xb432376c, 0xf1dce57b, 0x8e79c7ee, 0xdd51850d],
@@ -1018,6 +1019,7 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
+        // sample: https://samples.mplayerhq.hu/V-codecs/UCOD/Nick%20Pope.avi
         test_decoding("avi", "clearvideo", "assets/Misc/Nick Pope.avi", Some(20), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0xca265763, 0xd7d40e35, 0x1c27d4fb, 0xbb76b9c6],

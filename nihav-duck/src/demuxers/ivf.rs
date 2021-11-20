@@ -97,6 +97,7 @@ mod test {
 
     #[test]
     fn test_ivf_demux() {
+        // sample is from the official VP8 test bitstream set
         let mut file = File::open("assets/Duck/VP8/vp80-00-comprehensive-001.ivf").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

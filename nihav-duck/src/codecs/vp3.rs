@@ -1910,6 +1910,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/VP3/vp30-logo.avi
         test_decoding("avi", "vp3", "assets/Duck/vp30-logo.avi", Some(23), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x51aba7df, 0x6e42534d, 0xef6c5b13, 0x26c38d1f]));
     }
@@ -1926,6 +1927,7 @@ mod test {
 //        let file = "assets/Duck/01-vp31-0500.avi";
 //        test_file_decoding("avi", file, Some(3), true, false, None/*Some("vp31")*/, &dmx_reg, &dec_reg);
 //panic!("end");
+        // sample: https://samples.mplayerhq.hu/V-codecs/VP3/01-vp31-0500.avi
         test_decoding("avi", "vp3", "assets/Duck/01-vp31-0500.avi", Some(16), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x65112f7e, 0x2914f29b, 0x2908ed2f, 0xce5fc8c5]));
     }
@@ -1937,6 +1939,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/V-codecs/VP4/ot171_vp40.avi
         test_decoding("avi", "vp3", "assets/Duck/ot171_vp40.avi", Some(86), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xd41d8cd9, 0x8f00b204, 0xe9800998, 0xecf8427e]));
     }

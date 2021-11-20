@@ -1598,6 +1598,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_decoders(&mut dec_reg);
 
+        // sample from a private collection
         test_decoding("realmedia", "realvideo6", "assets/RV/RV60.rmhd", Some(1000), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],

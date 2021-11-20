@@ -286,6 +286,7 @@ mod test {
 
     #[test]
     fn test_flac_demux() {
+        // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.flac
         let mut file = File::open("assets/LLaudio/luckynight.flac").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

@@ -194,6 +194,7 @@ mod test {
 
     #[test]
     fn test_y4m_demux() {
+        // sample: self-created with avconv
         let mut file = File::open("assets/Misc/test.y4m").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

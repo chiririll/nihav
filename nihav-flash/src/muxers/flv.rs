@@ -301,6 +301,7 @@ mod test {
     fn test_flv_muxer() {
         let mut dmx_reg = RegisteredDemuxers::new();
         flash_register_all_demuxers(&mut dmx_reg);
+        // sample: https://samples.mplayerhq.hu/A-codecs/Nelly_Moser/input.flv
         let dec_config = DecoderTestParams {
                 demuxer:        "flv",
                 in_name:        "assets/Flash/input.flv",

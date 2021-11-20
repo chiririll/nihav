@@ -1273,6 +1273,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/game-formats/bink/bikb/NEW.BIK
         test_decoding("bink", "bink-video", "assets/RAD/NEW.BIK", Some(16), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x00edef7e, 0x7efad3b1, 0x7e8bdd74, 0x3f6b00ba],
@@ -1300,6 +1301,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_decoders(&mut dec_reg);
 
+        // sample: https://samples.mplayerhq.hu/game-formats/bink/ActivisionLogo.bik
         test_decoding("bink", "bink-video", "assets/RAD/ActivisionLogo.bik", Some(42),
                       &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x41128884, 0x73a8c710, 0x5072ea4a, 0x8caca428]));

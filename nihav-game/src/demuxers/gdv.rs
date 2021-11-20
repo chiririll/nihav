@@ -180,6 +180,7 @@ mod test {
 
     #[test]
     fn test_gdv_demux() {
+        // sample from Normality game
         let mut file = File::open("assets/Game/intro1.gdv").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);

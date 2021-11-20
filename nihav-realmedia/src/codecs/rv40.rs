@@ -375,6 +375,7 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::realmedia_register_all_decoders;
     use crate::realmedia_register_all_demuxers;
+    // samples from a private collection
     #[test]
     fn test_rv40() {
         let mut dmx_reg = RegisteredDemuxers::new();
