@@ -382,8 +382,6 @@ pub struct MVEstimator {
     filter_alpha:   usize,
     loop_thr:       i16,
     mv_range:       i16,
-pub count: usize,
-pub count2: usize,
 }
 
 impl MVEstimator {
@@ -399,8 +397,6 @@ impl MVEstimator {
             filter_alpha:   0,
             loop_thr,
             mv_range,
-count: 0,
-count2: 0,
         }
     }
     pub fn mc_block(&mut self, dst_idx: usize, plane: usize, x: usize, y: usize, mv: MV) {
@@ -459,7 +455,6 @@ count2: 0,
         for i in 0..4 {
             self.mc_block(i, 0, mb_x * 16 + (i & 1) * 8, mb_y * 16 + (i >> 1) * 8, cur_mv);
             dist += sad(&cur_blk[i], &self.ref_blk[i]);
-self.count2 += 1;
             if dist > best_dist {
                 break;
             }
@@ -468,13 +463,11 @@ self.count2 += 1;
             for plane in 1..3 {
                 self.mc_block(plane + 3, plane, mb_x * 8, mb_y * 8, cur_mv);
                 dist += sad(&cur_blk[plane + 3], &self.ref_blk[plane + 3]);
-self.count2 += 1;
                 if dist > best_dist {
                     break;
                 }
             }
         }
-self.count += 1;
         dist
     }
     fn sad_blk(&mut self, cur_blk: &[u8; 64], xpos: usize, ypos: usize, cur_mv: MV, _: u32) -> u32 {
