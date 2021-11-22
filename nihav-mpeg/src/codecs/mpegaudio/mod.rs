@@ -1,4 +1,5 @@
 use nihav_core::codecs::*;
+use nihav_core::io::byteio::read_u32be;
 use nihav_core::io::bitreader::*;
 use nihav_codec_support::dsp::qmf::QMF;
 
@@ -361,9 +362,25 @@ impl NAPacketiser for MPAPacketiser {
             self.hdr = Some(hdr);
         }
         let hdr = self.hdr.unwrap();
+        let mut duration = 0;
+        if hdr.layer == 2 { // check for Xing/LAME info
+            let mpeg1 = hdr.srate >= 32000;
+            let offset = match (mpeg1, hdr.channels) {
+                    (true, 1)  => 24,
+                    (true, _)  => 36,
+                    (false, 1) => 13,
+                    (false, _) => 21,
+                };
+            if self.buf.len() >= offset + 12 && (&self.buf[offset..][..4] == b"Xing" || &self.buf[offset..][..4] == b"Info") {
+                let flags   = read_u32be(&self.buf[offset + 4..]).unwrap_or(0);
+                if (flags & 1) != 0 {
+                    duration = u64::from(read_u32be(&self.buf[offset + 8..]).unwrap_or(0));
+                }
+            }
+        }
         let ainfo = NAAudioInfo::new(hdr.srate, hdr.channels, SND_F32P_FORMAT, hdr.nsamples);
         let info = NACodecInfo::new("mp3", NACodecTypeInfo::Audio(ainfo), None);
-        Ok(NAStream::new(StreamType::Audio, id, info, hdr.nsamples as u32, hdr.srate, 0).into_ref())
+        Ok(NAStream::new(StreamType::Audio, id, info, hdr.nsamples as u32, hdr.srate, duration).into_ref())
     }
     fn skip_junk(&mut self) -> DecoderResult<usize> {
         if self.buf.len() <= 2 {
