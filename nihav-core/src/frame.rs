@@ -1357,7 +1357,7 @@ impl NAStream {
         self.tb_den = d;
     }
     /// Returns stream duration.
-    pub fn get_duration(&self) -> usize { self.num }
+    pub fn get_duration(&self) -> u64 { self.duration }
     /// Converts current instance into a reference-counted one.
     pub fn into_ref(self) -> NAStreamRef { Arc::new(self) }
 }
