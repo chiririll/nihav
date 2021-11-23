@@ -376,6 +376,8 @@ impl NAPacketiser for MPAPacketiser {
                 if (flags & 1) != 0 {
                     duration = u64::from(read_u32be(&self.buf[offset + 8..]).unwrap_or(0));
                 }
+            } else if self.buf.len() >= offset + 18 && &self.buf[offset..][..6] == b"VBRI\x00\x01" {
+                duration = u64::from(read_u32be(&self.buf[offset + 14..]).unwrap_or(0));
             }
         }
         let ainfo = NAAudioInfo::new(hdr.srate, hdr.channels, SND_F32P_FORMAT, hdr.nsamples);
