@@ -16,6 +16,8 @@ const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_aac")]
     DecoderInfo { name: "aac", get_decoder: aac::get_decoder },
 #[cfg(feature="decoder_mpa")]
+    DecoderInfo { name: "mp2", get_decoder: mpegaudio::get_decoder_mp2 },
+#[cfg(feature="decoder_mpa")]
     DecoderInfo { name: "mp3", get_decoder: mpegaudio::get_decoder_mp3 },
 ];
 
@@ -28,7 +30,7 @@ pub fn mpeg_register_all_decoders(rd: &mut RegisteredDecoders) {
 
 const PACKETISERS: &[PacketiserInfo] = &[
 #[cfg(feature="decoder_mpa")]
-    PacketiserInfo { name: "mp3", get_packetiser: mpegaudio::get_packetiser },
+    PacketiserInfo { name: "mpa", get_packetiser: mpegaudio::get_packetiser },
 ];
 
 /// Registers all available packetisers provided by this crate.

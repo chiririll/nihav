@@ -235,6 +235,8 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio;     "asao",         "N*llym*s*r ASAO"),
     desc!(audio;     "flv-adpcm",    "Flash ADPCM"),
 
+    desc!(audio;     "mp1",          "MPEG Audio Layer I"),
+    desc!(audio;     "mp2",          "MPEG Audio Layer II"),
     desc!(audio;     "mp3",          "MPEG Audio Layer III"),
     desc!(audio;     "speex",        "Speex"),
 

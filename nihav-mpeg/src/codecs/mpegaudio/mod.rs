@@ -3,6 +3,9 @@ use nihav_core::io::byteio::read_u32be;
 use nihav_core::io::bitreader::*;
 use nihav_codec_support::dsp::qmf::QMF;
 
+mod mp2data;
+mod mp2code;
+use mp2code::*;
 mod mp3data;
 mod mp3code;
 use mp3code::*;
@@ -13,7 +16,7 @@ const BYTEBUF_SIZE: usize = 2048;
 #[allow(clippy::large_enum_variant)]
 enum LayerData {
     MP1,
-    MP2,
+    MP2(MP2Data),
     MP3(MP3Data),
 }
 
@@ -21,14 +24,14 @@ impl LayerData {
     fn layer_id(&self) -> u8 {
         match *self {
             LayerData::MP1    => 0,
-            LayerData::MP2    => 1,
+            LayerData::MP2(_) => 1,
             LayerData::MP3(_) => 2,
         }
     }
     fn reset(&mut self) {
         match self {
             LayerData::MP1 => {},
-            LayerData::MP2 => {},
+            LayerData::MP2(ref mut data) => data.reset(),
             LayerData::MP3(ref mut data) => data.reset(),
         };
     }
@@ -53,7 +56,7 @@ impl MPADecoder {
     fn new(layer: u8) -> Self {
         let ctx = match layer {
                 0 => LayerData::MP1,
-                1 => LayerData::MP2,
+                1 => LayerData::MP2(MP2Data::new()),
                 2 => LayerData::MP3(MP3Data::new()),
                 _ => unreachable!(),
             };
@@ -216,7 +219,24 @@ impl NADecoder for MPADecoder {
 
             match layer {
                 0 => unimplemented!(),
-                1 => unimplemented!(),
+                1 => {
+                    if let LayerData::MP2(ref mut ctx) = self.ctx {
+                        ctx.mpeg1 = self.sf_idx < 3;
+                        ctx.sf_idx = self.sf_idx;
+                        ctx.br_idx = bitrate_index;
+                        ctx.read_layer2(&mut br, channels as usize, &mut self.out, mode, mode_extension)?;
+                    } else {
+                        return Err(DecoderError::Bug);
+                    }
+                    for (dst, src) in ch0.chunks_exact_mut(32).zip(self.out[0].iter_mut()) {
+                        self.qmf[0].synth(src, dst);
+                    }
+                    if channels == 2 {
+                        for (dst, src) in ch1.chunks_mut(32).zip(self.out[1].iter_mut()) {
+                            self.qmf[1].synth(src, dst);
+                        }
+                    }
+                },
                 _ => {
                     let ret = self.read_mp3_side_data(&mut br, &src[..frame_size], channels == 1);
                     match ret {
@@ -267,6 +287,10 @@ impl NAOptionHandler for MPADecoder {
     fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
     fn set_options(&mut self, _options: &[NAOption]) { }
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
+pub fn get_decoder_mp2() -> Box<dyn NADecoder + Send> {
+    Box::new(MPADecoder::new(1))
 }
 
 pub fn get_decoder_mp3() -> Box<dyn NADecoder + Send> {
@@ -381,7 +405,12 @@ impl NAPacketiser for MPAPacketiser {
             }
         }
         let ainfo = NAAudioInfo::new(hdr.srate, hdr.channels, SND_F32P_FORMAT, hdr.nsamples);
-        let info = NACodecInfo::new("mp3", NACodecTypeInfo::Audio(ainfo), None);
+        let cname = match hdr.layer {
+                0 => "mp1",
+                1 => "mp2",
+                _ => "mp3",
+            };
+        let info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ainfo), None);
         Ok(NAStream::new(StreamType::Audio, id, info, hdr.nsamples as u32, hdr.srate, duration).into_ref())
     }
     fn skip_junk(&mut self) -> DecoderResult<usize> {
