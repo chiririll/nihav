@@ -752,7 +752,7 @@ fn read_region_quad(br: &mut BitReader, br_end: usize, coeffs: &mut [f32], scale
     }
     for (i, (cquad, scquad)) in coeffs[start..SAMPLES/2].chunks_exact_mut(4).zip(scales[start..].chunks_exact(4)).enumerate() {
         zero_part = start + i * 4 + 4;
-        if br.tell() >= br_end {
+        if br.tell() >= br_end || (br.tell() + 3 >= br_end && cb.is_none()) {
             break;
         }
         let val = if let Some(cbook) = cb { br.read_cb(cbook)? } else { (br.read(4)? as u8) ^ 0xF };
