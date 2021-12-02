@@ -611,7 +611,7 @@ impl MP3Data {
                     let coef1 = &mut coef1[0][gr_no * SAMPLES/2..];
                     let is_mode = &self.is_mode[gr_no * SAMPLES/2..];
                     let start = band_end[gr_no][bound_band[gr_no]];
-                    let end = grans[0].zero_part;
+                    let end = grans[0].zero_part.max(start);
 
                     if self.mpeg1 {
                         let coef0 = &mut coef0[start..end];
@@ -628,11 +628,13 @@ impl MP3Data {
                         let iscale = (grans[1].scalefac_compress & 1) as u8;
                         for band in 0..num_bands[gr_no] {
                             if (band_flags[gr_no][band] & IS_MODE) != 0 {
+                                let start = band_start[gr_no][band];
+                                let end   = band_end[gr_no][band];
                                 apply_istereo(&mut coef0[start..end], &mut coef1[start..end], is_mode[start], iscale, (band_flags[gr_no][band] & MS_MODE) != 0);
                             }
                         }
                     }
-                    end_freq[gr_no][1] = end_freq[gr_no][1].min(end);
+                    end_freq[gr_no][1] = end_freq[gr_no][1].max(end);
                 }
             }
             if (mode_ext & MS_MODE) != 0 {
@@ -645,7 +647,7 @@ impl MP3Data {
                         if band_start[gr_no][band] >= end {
                             break;
                         }
-                        if (band_flags[gr_no][band] & MS_MODE) != 0 {
+                        if band_flags[gr_no][band] == MS_MODE {
                             let start = band_start[gr_no][band];
                             let end   = band_end[gr_no][band];
                             super::apply_ms(&mut coef0[start..end], &mut coef1[start..end]);
