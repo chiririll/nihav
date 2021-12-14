@@ -104,15 +104,15 @@ fn decode_inter(frm: &mut [u8], prev: &[u8], dpal: bool, pal: &mut [u8; 768], pp
                 }
             } else {
                 let mut doff = off;
-                let mut soff = (off as isize) + xoff + yoff * (stride as isize);
+                let mut soff = xoff * (pparms.bpp as isize) + yoff * (stride as isize);
                 for j in 0..cur_h {
                     let cy = yoff + (j as isize);
-                    if cy >= 0 && (cy as usize) + cur_h <= pparms.height {
+                    if cy >= 0 && (cy as usize) < pparms.height {
                         for i in 0..cur_w {
                             let cx = xoff + (i as isize);
-                            if cx >= 0 && (cx as usize) + cur_w <= pparms.width {
+                            if cx >= 0 && (cx as usize) < pparms.width {
                                 for k in 0..pparms.bpp {
-                                    frm[doff + i * pparms.bpp + k] = prev[(soff + ((i * pparms.bpp + k) as isize) + ((j * stride) as isize)) as usize]
+                                    frm[doff + i * pparms.bpp + k] = prev[(soff + ((i * pparms.bpp + k) as isize)) as usize]
                                 }
                             } else {
                                 for k in 0..pparms.bpp {
@@ -328,7 +328,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_decoders(&mut dec_reg);
         test_decoding("avi", "zmbv", "assets/Misc/td3_000.avi", Some(10),
-                     &dmx_reg, &dec_reg, ExpectedTestResult::MD5([0x90f431d3, 0x66336a2b, 0x113fd806, 0x8d53da95]));
+                     &dmx_reg, &dec_reg, ExpectedTestResult::MD5([0x83c57ac3, 0xda325d18, 0x806bd3be, 0x4b108732]));
     }
     #[test]
     fn test_zmbv_15() {

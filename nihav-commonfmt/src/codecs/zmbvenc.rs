@@ -594,7 +594,7 @@ mod test {
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0x4bcdb816, 0x57d5d1b6, 0xc9412438, 0x9416c407]);
+                          &[0x08615111, 0x6f644a35, 0xa4e28f32, 0x35d2e66c]);
     }
 
     #[test]
