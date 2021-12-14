@@ -43,10 +43,11 @@ fn read_chunk_header(br: &mut ByteReader) -> DemuxerResult<(u32, u64)> {
 
 fn read_palette(br: &mut ByteReader, size: u64, pal: &mut [u8; 1024]) -> DemuxerResult<u64> {
     let _seed           = br.read_u32be()?;
-    let _flags          = br.read_u16be()?;
+    let flags           = br.read_u16be()?;
     let palsize         = (br.read_u16be()? as usize) + 1;
     validate!(palsize <= 256);
-    validate!((palsize as u64) * 8 + 8 == size);
+    validate!(flags == 0 || flags == 0x4000 || flags == 0x8000);
+    validate!((palsize as u64) * 8 + 8 <= size);
     for i in 0..palsize {
         let a           = br.read_u16be()?;
         let r           = br.read_u16be()?;
@@ -55,7 +56,12 @@ fn read_palette(br: &mut ByteReader, size: u64, pal: &mut [u8; 1024]) -> Demuxer
         pal[i * 4]     = (r >> 8) as u8;
         pal[i * 4 + 1] = (g >> 8) as u8;
         pal[i * 4 + 2] = (b >> 8) as u8;
-        pal[i * 4 + 3] = (a >> 8) as u8;
+        if flags == 0x8000 {
+            pal[i * 4 + 3] = (a >> 8) as u8;
+        }
+    }
+    if flags == 0x4000 {
+        br.read_skip(8)?;
     }
     Ok(size)
 }
