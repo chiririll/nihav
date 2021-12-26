@@ -1,17 +1,4 @@
 //! Umbrella crate to register decoders and demuxers from all known NihAV crates.
-extern crate nihav_core;
-extern crate nihav_commonfmt;
-extern crate nihav_duck;
-extern crate nihav_game;
-extern crate nihav_indeo;
-extern crate nihav_itu;
-extern crate nihav_llaudio;
-extern crate nihav_ms;
-extern crate nihav_qt;
-extern crate nihav_rad;
-extern crate nihav_realmedia;
-extern crate nihav_vivo;
-
 use nihav_core::codecs::RegisteredDecoders;
 use nihav_core::codecs::RegisteredPacketisers;
 use nihav_core::codecs::RegisteredEncoders;
