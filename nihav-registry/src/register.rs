@@ -284,6 +284,8 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video-im; "jpeg",          "JPEG"),
     desc!(video;    "h264",          "ITU H.264", CODEC_CAP_COMPLEX_REORDER | CODEC_CAP_HYBRID),
+
+    desc!(video-im; "mwv1",          "Aware MotionWavelets"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
@@ -329,6 +331,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"VP62", "vp6"),
     (b"VP6A", "vp6a"),
     (b"VP70", "vp7"),
+
+    (b"MWV1", "mwv1"),
 ];
 
 static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
