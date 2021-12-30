@@ -347,3 +347,64 @@ println!("full hash {}", md5);
         panic!("generated hashes");
     }
 }
+
+/// Tests decoding of provided file by outputting video frames as PNM (PPM for RGB video, PGM for YUV).
+///
+/// This function expects the following arguments:
+/// * `demuxer` - container format name (used to find proper demuxer for it)
+/// * `name` - input file name
+/// * `video_pfx` - prefix for video frames written as pictures (output picture names should look like `<crate_name>/assets/test_out/PFXout00_000000.ppm`
+/// * `limit` - optional PTS value after which decoding is stopped
+/// * `dmx_reg` and `dec_reg` - registered demuxers and decoders that should contain demuxer and decoder(s) needed to decode the provided file.
+///
+/// Since the function is intended for tests, it will panic instead of returning an error.
+pub fn test_decode_images(demuxer: &str, name: &str, video_pfx: &str, limit: Option<u64>,
+                          dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders) {
+    let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
+    let mut file = File::open(name).unwrap();
+    let mut fr = FileReader::new_read(&mut file);
+    let mut br = ByteReader::new(&mut fr);
+    let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
+
+    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
+    for i in 0..dmx.get_num_streams() {
+        let s = dmx.get_stream(i).unwrap();
+        let info = s.get_info();
+        let decfunc = dec_reg.find_decoder(info.get_name());
+        if let Some(df) = decfunc {
+            if info.is_video() {
+                let mut dec = (df)();
+                let mut dsupp = Box::new(NADecoderSupport::new());
+                dec.init(&mut dsupp, info).unwrap();
+                decs.push(Some((dsupp, dec)));
+                break;
+            } else {
+                decs.push(None);
+            }
+        } else {
+            decs.push(None);
+        }
+    }
+
+    loop {
+        let pktres = dmx.get_frame();
+        if let Err(e) = pktres {
+            if e == DemuxerError::EOF { break; }
+            panic!("error");
+        }
+        let pkt = pktres.unwrap();
+        let streamno = pkt.get_stream().get_id() as usize;
+        if streamno >= decs.len() { continue; }
+        if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
+            if let (Some(lim), Some(ppts)) = (limit, pkt.get_pts()) {
+                if ppts > lim { break; }
+            }
+            let frm = dec.decode(dsupp, &pkt).unwrap();
+            if frm.get_frame_type() != FrameType::Skip {
+                let pts = if let Some(fpts) = frm.get_pts() { fpts } else { pkt.get_pts().unwrap() };
+                let pfx = OUTPUT_PREFIX.to_owned() + video_pfx + "out";
+                write_pnm(pfx.as_str(), streamno, pts, frm).unwrap();
+            }
+        }
+    }
+}
