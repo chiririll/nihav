@@ -328,20 +328,20 @@ impl MPAPacketiser {
         let mut br = BitReader::new(&self.buf[off..], BitReaderMode::BE);
 
         let syncword                = br.read(11)?;
-        validate!(syncword == 0x7FF);
+        if syncword != 0x7FF { return Err(DecoderError::InvalidData); }
         let id                      = br.read(2)?;
-        validate!(id != 1);
+        if id == 1 { return Err(DecoderError::InvalidData); }
         let layer                   = (br.read(2)? ^ 3) as u8;
-        validate!(layer != 3);
+        if layer == 3 { return Err(DecoderError::InvalidData); }
         let _protection             = br.read_bool()?;
         let bitrate_index           = br.read(4)? as usize;
-        validate!(bitrate_index < 15);
+        if bitrate_index == 15 { return Err(DecoderError::InvalidData); }
         if bitrate_index == 0 {
             //todo freeform eventually
             unimplemented!();
         }
         let mut sf_idx              = br.read(2)? as usize;
-        validate!(sf_idx != 3);
+        if sf_idx == 3 { return Err(DecoderError::InvalidData); }
         let padding                 = br.read_bool()?;
         let _private                = br.read_bool()?;
         let mode                    = br.read(2)? as u8;
