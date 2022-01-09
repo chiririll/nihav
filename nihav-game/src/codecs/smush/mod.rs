@@ -1,3 +1,4 @@
+#[cfg(feature="decoder_smush_video")]
 enum GlyphEdge {
     Left,
     Top,
@@ -6,6 +7,7 @@ enum GlyphEdge {
     None
 }
 
+#[cfg(feature="decoder_smush_video")]
 impl GlyphEdge {
     fn get(x: usize, y: usize, size: usize) -> Self {
         if y == 0 {
@@ -22,6 +24,7 @@ impl GlyphEdge {
     }
 }
 
+#[cfg(feature="decoder_smush_video")]
 enum GlyphDir {
     Left,
     Up,
@@ -30,6 +33,7 @@ enum GlyphDir {
     None
 }
 
+#[cfg(feature="decoder_smush_video")]
 impl GlyphDir {
     fn get(edge0: GlyphEdge, edge1: GlyphEdge) -> Self {
         match (edge0, edge1) {
@@ -50,11 +54,16 @@ impl GlyphDir {
     }
 }
 
+#[cfg(feature="decoder_smush_video")]
 const XVEC4: [usize; 16] = [0, 1, 2, 3, 3, 3, 3, 2, 1, 0, 0, 0, 1, 2, 2, 1];
+#[cfg(feature="decoder_smush_video")]
 const YVEC4: [usize; 16] = [0, 0, 0, 0, 1, 2, 3, 3, 3, 3, 2, 1, 1, 1, 2, 2];
+#[cfg(feature="decoder_smush_video")]
 const XVEC8: [usize; 16] = [0, 2, 5, 7, 7, 7, 7, 7, 7, 5, 2, 0, 0, 0, 0, 0];
+#[cfg(feature="decoder_smush_video")]
 const YVEC8: [usize; 16] = [0, 0, 0, 0, 1, 3, 4, 6, 7, 7, 7, 7, 6, 4, 3, 1];
 
+#[cfg(feature="decoder_smush_video")]
 fn make_glyphs_47(glyphs4: &mut [[u8; 16]; 256], glyphs8: &mut [[u8; 64]; 256]) {
     for (n, glyph) in glyphs4.iter_mut().enumerate() {
         let i = n >> 4;
@@ -67,6 +76,7 @@ fn make_glyphs_47(glyphs4: &mut [[u8; 16]; 256], glyphs8: &mut [[u8; 64]; 256]) 
         make_glyph_47(glyph, XVEC8[i], YVEC8[i], XVEC8[j], YVEC8[j], 8);
     }
 }
+#[cfg(feature="decoder_smush_video")]
 fn make_glyph_47(dst: &mut [u8], xi: usize, yi: usize, xj: usize, yj: usize, size: usize) {
     let edge0 = GlyphEdge::get(xi, yi, size);
     let edge1 = GlyphEdge::get(xj, yj, size);
@@ -105,16 +115,25 @@ fn make_glyph_47(dst: &mut [u8], xi: usize, yi: usize, xj: usize, yj: usize, siz
         };
     }
 }
+#[cfg(feature="decoder_smush_video")]
 fn interpolate(a: usize, b: usize, pos1: usize, range: usize) -> usize {
     (a * pos1 + b * (range - pos1) + range / 2) / range
 }
 
+#[cfg(feature="decoder_smush_video")]
 mod v1;
+#[cfg(feature="decoder_smush_video")]
 pub use v1::get_decoder_video_v1;
+#[cfg(feature="decoder_smush_video")]
 mod v2;
+#[cfg(feature="decoder_smush_video")]
 pub use v2::get_decoder_video_v2;
 
+#[cfg(feature="decoder_smush_audio")]
 mod iact;
+#[cfg(feature="decoder_smush_audio")]
 pub use iact::get_decoder_iact;
+#[cfg(feature="decoder_smush_audio")]
 mod vima;
+#[cfg(feature="decoder_smush_audio")]
 pub use vima::get_decoder_vima;
