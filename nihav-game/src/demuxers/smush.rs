@@ -9,16 +9,21 @@ struct SmushDemuxer<'a> {
     nframes:    usize,
     chunks:     Vec<u8>,
 
-    keyframe:   bool,    
+    keyframe:   bool,
     cur_frame:  usize,
     frme_end:   u64,
     asize:      u64,
 }
 
-fn parse_iact(br: &mut ByteReader, end: u64, arate: &mut u32, abits: &mut u8, chans: &mut u8) -> DemuxerResult<()> {
+fn parse_iact(br: &mut ByteReader, end: u64, arate: &mut u32, abits: &mut u8, chans: &mut u8, mcmp: bool) -> DemuxerResult<()> {
+    if !mcmp {
                                           br.read_skip(14)?;
+    }
     let tag                             = br.read_tag()?;
     if &tag != b"iMUS" {
+        if mcmp {
+            return Err(DemuxerError::InvalidData);
+        }
         *arate = 22050;
         *abits = 16;
         *chans = 2;
@@ -102,7 +107,7 @@ impl<'a> SmushDemuxer<'a> {
             validate!(&tag == b"FRME");
             size                        = u64::from(src.read_u32be()?);
         }
-        
+
         let end = src.tell() + size;
         validate!(end <= self.size + 8); // some NUTs feature slightly incorrect total size
 
@@ -144,7 +149,7 @@ impl<'a> SmushDemuxer<'a> {
                     let opcode          = src.read_u16le()?;
                     let flags           = src.read_u16le()?;
                     if (opcode == 8) && (flags == 0x2E) {
-                        if parse_iact(src, end, &mut arate, &mut abits, &mut chans).is_ok() {
+                        if parse_iact(src, end, &mut arate, &mut abits, &mut chans, false).is_ok() {
                             aname = "smush-iact";
                         }
                         validate!(src.tell() <= end);
@@ -421,7 +426,7 @@ impl<'a> SmushDemuxer<'a> {
                                 nsamples = read_u32be(&buf[8..])?;
                             }
                         }
-                                
+
                         let (tb_num, tb_den) = stream.get_timebase();
                         let mut ts = NATimeInfo::new(None, None, None, tb_num, tb_den);
                         if nsamples != 0 {
@@ -496,6 +501,146 @@ impl DemuxerCreator for SmushDemuxerCreator {
     fn get_name(&self) -> &'static str { "smush" }
 }
 
+
+struct MCMPDemuxer<'a> {
+    src:        &'a mut ByteReader<'a>,
+    cur_frame:  usize,
+
+    offsets:    Vec<u64>,
+    sizes:      Vec<u32>,
+    samples:    Vec<u32>,
+    pts:        Vec<u64>,
+}
+
+impl<'a> MCMPDemuxer<'a> {
+    fn new(io: &'a mut ByteReader<'a>) -> Self {
+        MCMPDemuxer {
+            src:        io,
+            cur_frame:  0,
+
+            offsets:    Vec::new(),
+            sizes:      Vec::new(),
+            samples:    Vec::new(),
+            pts:        Vec::new(),
+        }
+    }
+}
+
+impl<'a> DemuxCore<'a> for MCMPDemuxer<'a> {
+    fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
+        let magic                       = self.src.read_tag()?;
+        validate!(&magic == b"MCMP");
+        let nframes                     = self.src.read_u16be()? as usize;
+        validate!(nframes > 1);
+        let cmp                         = self.src.read_byte()?;
+        let size1                       = self.src.read_u32be()?;
+        let hdr_size                    = self.src.read_u32be()?;
+        validate!(cmp == 0 && size1 == hdr_size);
+
+        let size = (nframes - 1) as usize;
+        self.offsets = Vec::with_capacity(size);
+        self.sizes   = Vec::with_capacity(size);
+        self.samples = Vec::with_capacity(size);
+        self.pts     = Vec::with_capacity(size);
+
+        let mut start = 0;
+        let mut pts = 0;
+        for _ in 1..nframes {
+            let compr                   = self.src.read_byte()?;
+            if compr != 1 {
+                return Err(DemuxerError::NotImplemented);
+            }
+            let samples                 = self.src.read_u32be()? / 2;
+            let size                    = self.src.read_u32be()?;
+            self.offsets.push(start);
+            self.sizes.push(size);
+            self.samples.push(samples);
+            self.pts.push(pts);
+
+            start += u64::from(size);
+            pts += u64::from(samples);
+        }
+
+        let codecs_desc_size            = self.src.read_u16be()? as usize;
+        // todo check it's NULL+VIMA
+                                          self.src.read_skip(codecs_desc_size)?;
+        let data_start = self.src.tell() + u64::from(hdr_size);
+        let mut arate = 0;
+        let mut abits = 0;
+        let mut chans = 0;
+        parse_iact(&mut self.src, data_start, &mut arate, &mut abits, &mut chans, true)?;
+        if chans == 2 {
+            for (samp, pts) in self.samples.iter_mut().zip(self.pts.iter_mut()) {
+                validate!((*samp & 1) == 0);
+                *samp >>= 1;
+                *pts  >>= 1;
+            }
+            pts >>= 1;
+        }
+
+        let ahdr = NAAudioInfo::new(arate, chans, SND_S16_FORMAT, 0);
+        let ainfo = NACodecInfo::new("smush-vima", NACodecTypeInfo::Audio(ahdr), None);
+        if strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, 1, arate, pts)).is_none() {
+            return Err(DemuxerError::MemoryError);
+        }
+
+        seek_index.mode = SeekIndexMode::Present;
+        seek_index.add_stream(0);
+        let index = seek_index.get_stream_index(0).unwrap();
+        for (i, (off, &pts)) in self.offsets.iter_mut().zip(self.pts.iter()).enumerate() {
+            *off += data_start;
+            index.add_entry(SeekEntry { time: pts * 1000 / u64::from(arate), pts, pos: i as u64 });
+        }
+        index.filled = true;
+
+        self.cur_frame = 0;
+        Ok(())
+    }
+
+    fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
+        let idx = self.cur_frame;
+        if idx >= self.offsets.len() { return Err(DemuxerError::EOF); }
+                                          self.src.seek(SeekFrom::Start(self.offsets[idx]))?;
+        let mut buf = vec![0; self.sizes[idx] as usize + 4];
+        write_u32be(&mut buf, self.samples[idx])?;
+                                          self.src.read_buf(&mut buf[4..])?;
+
+        let stream = strmgr.get_stream(0).unwrap();
+        let (tb_num, tb_den) = stream.get_timebase();
+        let ts = NATimeInfo::new(Some(self.pts[idx]), None, None, tb_num, tb_den);
+
+        self.cur_frame += 1;
+
+        Ok(NAPacket::new(stream, ts, true, buf))
+    }
+
+    fn seek(&mut self, time: NATimePoint, seek_index: &SeekIndex) -> DemuxerResult<()> {
+        if let Some(ret) = seek_index.find_pos(time) {
+            self.cur_frame = ret.pos as usize;
+            Ok(())
+        } else {
+            Err(DemuxerError::SeekError)
+        }
+    }
+    fn get_duration(&self) -> u64 { 0 }
+}
+
+impl<'a> NAOptionHandler for MCMPDemuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
+pub struct MCMPDemuxerCreator { }
+
+impl DemuxerCreator for MCMPDemuxerCreator {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+        Box::new(MCMPDemuxer::new(br))
+    }
+    fn get_name(&self) -> &'static str { "smush-mcmp" }
+}
+
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -548,6 +693,26 @@ mod test {
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = SmushDemuxer::new(&mut br);
+        let mut sm = StreamManager::new();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
+        loop {
+            let pktres = dmx.get_frame(&mut sm);
+            if let Err(e) = pktres {
+                if (e as i32) == (DemuxerError::EOF as i32) { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            println!("Got {}", pkt);
+        }
+    }
+    #[test]
+    fn test_mcmp_demux() {
+        // sample from Grim Fandango
+        let mut file = File::open("assets/Game/smush/1104 - Lupe.IMC").unwrap();
+        let mut fr = FileReader::new_read(&mut file);
+        let mut br = ByteReader::new(&mut fr);
+        let mut dmx = MCMPDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
         dmx.open(&mut sm, &mut si).unwrap();

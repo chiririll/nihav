@@ -281,6 +281,13 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 8, cond: &CC::Str(b"AHDR")}],
     },
     DetectConditions {
+        demux_name: "smush-mcmp",
+        extensions: ".imc",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"MCMP")},
+                      CheckItem{offs: 6, cond: &CC::Eq(Arg::Byte(0))},
+                      CheckItem{offs: 7, cond: &CC::Eq(Arg::Byte(0))}],
+    },
+    DetectConditions {
         demux_name: "smush",
         extensions: ".snm",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"SANM")},

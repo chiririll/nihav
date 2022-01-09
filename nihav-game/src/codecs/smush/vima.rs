@@ -167,6 +167,8 @@ mod test {
                       ExpectedTestResult::MD5([0xddd5dce1, 0xd5dc353c, 0xba176be8, 0x5afade63]));
         test_decoding("smush", "smush-vima", "assets/Game/smush/ac_bu.snm", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x97a548e7, 0xb22d082b, 0x14c4110b, 0x9723891f]));
+        test_decoding("smush-mcmp", "smush-vima", "assets/Game/smush/1104 - Lupe.IMC", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x78389e65, 0xd99458a9, 0x6c62904e, 0xcaf732ba]));
     }
 }
 

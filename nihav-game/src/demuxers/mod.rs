@@ -39,6 +39,8 @@ const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
     &q::QDemuxerCreator {},
 #[cfg(feature="demuxer_smush")]
     &smush::SmushDemuxerCreator {},
+#[cfg(feature="demuxer_smush")]
+    &smush::MCMPDemuxerCreator {},
 #[cfg(feature="demuxer_vmd")]
     &vmd::VMDDemuxerCreator {},
 #[cfg(feature="demuxer_vx")]
