@@ -15,6 +15,8 @@ mod gdv;
 mod imax;
 #[cfg(feature="demuxer_q")]
 mod q;
+#[cfg(feature="demuxer_smush")]
+mod smush;
 #[cfg(feature="demuxer_vmd")]
 mod vmd;
 #[cfg(feature="demuxer_vx")]
@@ -35,6 +37,8 @@ const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
     &imax::IMAXDemuxerCreator {},
 #[cfg(feature="demuxer_q")]
     &q::QDemuxerCreator {},
+#[cfg(feature="demuxer_smush")]
+    &smush::SmushDemuxerCreator {},
 #[cfg(feature="demuxer_vmd")]
     &vmd::VMDDemuxerCreator {},
 #[cfg(feature="demuxer_vx")]

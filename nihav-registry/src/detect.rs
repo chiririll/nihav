@@ -275,6 +275,18 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 2, cond: &CC::In(Arg::Byte(3), Arg::Byte(5))}],
     },
     DetectConditions {
+        demux_name: "smush",
+        extensions: ".san",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"ANIM")},
+                      CheckItem{offs: 8, cond: &CC::Str(b"AHDR")}],
+    },
+    DetectConditions {
+        demux_name: "smush",
+        extensions: ".snm",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"SANM")},
+                      CheckItem{offs: 8, cond: &CC::Str(b"SHDR")}],
+    },
+    DetectConditions {
         demux_name: "realaudio",
         extensions: ".ra,.ram",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b".ra\xFD")}],
