@@ -568,7 +568,17 @@ impl<'a> DemuxCore<'a> for MCMPDemuxer<'a> {
         let mut arate = 0;
         let mut abits = 0;
         let mut chans = 0;
-        parse_iact(&mut self.src, data_start, &mut arate, &mut abits, &mut chans, true)?;
+        if let Ok([b'R', b'I', b'F', b'F']) = self.src.peek_tag() {
+            validate!(hdr_size >= 44);
+                                          self.src.read_skip(22)?;
+            let c                       = self.src.read_u16le()?;
+            validate!(c == 1 || c == 2);
+            chans = c as u8;
+            arate                       = self.src.read_u32le()?;
+            validate!(arate > 0);
+        } else {
+            parse_iact(&mut self.src, data_start, &mut arate, &mut abits, &mut chans, true)?;
+        }
         if chans == 2 {
             for (samp, pts) in self.samples.iter_mut().zip(self.pts.iter_mut()) {
                 validate!((*samp & 1) == 0);
@@ -707,9 +717,29 @@ mod test {
         }
     }
     #[test]
-    fn test_mcmp_demux() {
+    fn test_mcmp_demux_imus() {
         // sample from Grim Fandango
         let mut file = File::open("assets/Game/smush/1104 - Lupe.IMC").unwrap();
+        let mut fr = FileReader::new_read(&mut file);
+        let mut br = ByteReader::new(&mut fr);
+        let mut dmx = MCMPDemuxer::new(&mut br);
+        let mut sm = StreamManager::new();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
+        loop {
+            let pktres = dmx.get_frame(&mut sm);
+            if let Err(e) = pktres {
+                if (e as i32) == (DemuxerError::EOF as i32) { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            println!("Got {}", pkt);
+        }
+    }
+    #[test]
+    fn test_mcmp_demux_wav() {
+        // sample from Grim Fandango
+        let mut file = File::open("assets/Game/smush/breadpor.WAV").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = MCMPDemuxer::new(&mut br);
