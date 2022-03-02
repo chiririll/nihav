@@ -43,7 +43,7 @@ mod vp6;
 #[allow(clippy::needless_range_loop)]
 #[allow(clippy::useless_let_if_seq)]
 mod vp7;
-#[cfg(feature="decoder_vp7")]
+#[cfg(any(feature="decoder_vp7", feature="encoder_vp7"))]
 mod vp7data;
 #[cfg(any(feature="decoder_vp7", feature="decoder_vp8"))]
 mod vp78data;
@@ -53,11 +53,11 @@ mod vp78data;
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::useless_let_if_seq)]
 mod vp7dsp;
-#[cfg(any(feature="decoder_vp7", feature="decoder_vp8"))]
+#[cfg(any(feature="decoder_vp7", feature="decoder_vp8", feature="encoder_vp7"))]
 #[allow(clippy::needless_range_loop)]
 #[allow(clippy::useless_let_if_seq)]
 mod vp78;
-#[cfg(any(feature="decoder_vp7", feature="decoder_vp8"))]
+#[cfg(any(feature="decoder_vp7", feature="decoder_vp8", feature="encoder_vp7"))]
 #[allow(clippy::erasing_op)]
 #[allow(clippy::needless_range_loop)]
 #[allow(clippy::too_many_arguments)]
@@ -132,12 +132,17 @@ mod vpenc;
 #[cfg(feature="encoder_vp6")]
 #[allow(clippy::needless_range_loop)]
 mod vp6enc;
+#[cfg(feature="encoder_vp7")]
+#[allow(clippy::needless_range_loop)]
+mod vp7enc;
 
 const DUCK_ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_vp6")]
     EncoderInfo { name: "vp6", get_encoder: vp6enc::get_encoder },
 #[cfg(feature="encoder_vp6")]
     EncoderInfo { name: "vp6f", get_encoder: vp6enc::get_encoder_flv },
+#[cfg(feature="encoder_vp7")]
+    EncoderInfo { name: "vp7", get_encoder: vp7enc::get_encoder },
 ];
 
 /// Registers all available encoders provided by this crate.

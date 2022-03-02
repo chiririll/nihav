@@ -69,6 +69,21 @@ pub fn vp_fdct(blk: &mut [i16; 64]) {
     }
 }
 
+pub trait MVSearchModeCreate {
+    fn create_search(&self) -> Box<dyn MVSearch + Send>;
+}
+
+impl MVSearchModeCreate for MVSearchMode {
+    fn create_search(&self) -> Box<dyn MVSearch + Send> {
+        match *self {
+            MVSearchMode::Full      => Box::new(FullMVSearch::new()),
+            MVSearchMode::Diamond   => Box::new(DiaSearch::new()),
+            MVSearchMode::Hexagon   => Box::new(HexSearch::new()),
+            _ => unreachable!(),
+        }
+    }
+}
+
 const MAX_DIST: u32 = std::u32::MAX;
 const DIST_THRESH: u32 = 256;
 
@@ -190,10 +205,10 @@ macro_rules! pattern_search {
 
         impl MVSearch for $struct_name {
             fn search_mb(&mut self, mv_est: &mut MVEstimator, cur_blk: &[[u8; 64]; 6], mb_x: usize, mb_y: usize) -> (MV, u32) {
-                search_template!(self, mv_est, cur_blk, mb_x, mb_y, sad_mb)
+                search_template!(self, mv_est, cur_blk, mb_x, mb_y, sad_mb, DIST_THRESH)
             }
             fn search_blk(&mut self, mv_est: &mut MVEstimator, cur_blk: &[u8; 64], xpos: usize, ypos: usize) -> (MV, u32) {
-                search_template!(self, mv_est, cur_blk, xpos, ypos, sad_blk)
+                search_template!(self, mv_est, cur_blk, xpos, ypos, sad_blk, DIST_THRESH)
             }
         }
     }

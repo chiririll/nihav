@@ -355,11 +355,8 @@ impl FrameEncoder {
 
         let mut mv_est = MVEstimator::new(ref_frame, mc_buf, loop_thr, self.me_range);
 
-        let mut mv_search: Box<dyn MVSearch> = match self.me_mode {
-                MVSearchMode::Full      => Box::new(FullMVSearch::new()),
-                MVSearchMode::Diamond   => Box::new(DiaSearch::new()),
-                MVSearchMode::Hexagon   => Box::new(HexSearch::new()),
-            };
+        let mut mv_search = self.me_mode.create_search();
+
         let mut mb_pos = 0;
         for (mb_y, row) in inter_mbs.chunks_mut(self.mb_w).enumerate() {
             for (mb_x, mb) in row.iter_mut().enumerate() {
@@ -406,11 +403,7 @@ impl FrameEncoder {
 
         let mut mv_est = MVEstimator::new(ref_frame, mc_buf, loop_thr, self.me_range);
 
-        let mut mv_search: Box<dyn MVSearch> = match self.me_mode {
-                MVSearchMode::Full      => Box::new(FullMVSearch::new()),
-                MVSearchMode::Diamond   => Box::new(DiaSearch::new()),
-                MVSearchMode::Hexagon   => Box::new(HexSearch::new()),
-            };
+        let mut mv_search = self.me_mode.create_search();
 
         for i in 0..4 {
             let xpos = mb_x * 16 + (i &  1) * 8;

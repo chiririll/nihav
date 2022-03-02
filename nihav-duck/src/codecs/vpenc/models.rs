@@ -1,7 +1,7 @@
 #[derive(Clone,Copy,Default)]
 pub struct ProbCounter {
-    zeroes: u32,
-    total:  u32,
+    pub zeroes: u32,
+    pub total:  u32,
 }
 
 // bits to code zero probability multiplied by eight
@@ -69,7 +69,7 @@ impl ProbCounter {
             old_prob
         }
     }
-    fn est_bits(prob: u8, zeroes: u32, total: u32) -> u32 {
+    pub fn est_bits(prob: u8, zeroes: u32, total: u32) -> u32 {
         (u32::from(PROB_BITS[prob as usize]) * zeroes + u32::from(PROB_BITS[256 - (prob as usize)]) * (total - zeroes) + 7) >> 3
     }
 }
