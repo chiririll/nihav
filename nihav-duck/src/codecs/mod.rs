@@ -125,6 +125,9 @@ pub fn duck_register_all_decoders(rd: &mut RegisteredDecoders) {
 }
 
 #[cfg(feature="encoder_vp6")]
+#[macro_use]
+mod vpenc;
+#[cfg(feature="encoder_vp6")]
 #[allow(clippy::needless_range_loop)]
 mod vp6enc;
 
