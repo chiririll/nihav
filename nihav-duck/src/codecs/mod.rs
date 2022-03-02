@@ -43,6 +43,8 @@ mod vp6;
 #[allow(clippy::needless_range_loop)]
 #[allow(clippy::useless_let_if_seq)]
 mod vp7;
+#[cfg(feature="decoder_vp7")]
+mod vp7data;
 #[cfg(any(feature="decoder_vp7", feature="decoder_vp8"))]
 mod vp78data;
 #[cfg(feature="decoder_vp7")]
