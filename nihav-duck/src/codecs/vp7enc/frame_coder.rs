@@ -147,6 +147,10 @@ impl FrameEncoder {
                     self.features.push(0);
                 }
             }
+        } else {
+            for _ in 0..(self.mb_w * self.mb_h) {
+                self.features.push(0);
+            }
         }
 
         let mut imctx = IntraModePredCtx {
