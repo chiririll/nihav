@@ -596,6 +596,4 @@ pub fn estimate_subblock_nits(blk: &[i16; 16], ctype: usize, pctx: u8, probs: &[
     nits
 }
 
-const COEF_BANDS: [usize; 16] = [ 0, 1, 2, 3, 6, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7 ];
 const VP6_COEF_ADD_BITS: [u8; 6] = [ 1, 2, 3, 4, 5, 11 ];
-const LONG_VECTOR_ORDER: [usize; 7] = [ 0, 1, 2, 7, 6, 5, 4 ];

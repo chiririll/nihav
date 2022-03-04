@@ -1,3 +1,4 @@
+use super::super::vp7data::DEFAULT_MV_PROBS;
 use super::super::vp78data::*;
 pub use crate::codecs::vpenc::models::*;
 
@@ -12,11 +13,6 @@ pub struct VP7Models {
     pub feature_present:    [u8; 4],
     pub feature_tree_probs: [[u8; 3]; 4],
 }
-
-const DEFAULT_MV_PROBS: [[u8; 17]; 2] = [
-    [ 162, 128, 225, 146, 172, 147, 214,  39, 156, 247, 210, 135,  68, 138, 220, 239, 246 ],
-    [ 164, 128, 204, 170, 119, 235, 140, 230, 228, 244, 184, 201,  44, 173, 221, 239, 253 ]
-];
 
 impl VP7Models {
     pub fn new() -> Self {

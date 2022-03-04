@@ -2,6 +2,7 @@ use nihav_core::codecs::*;
 use nihav_codec_support::codecs::ZERO_MV;
 use super::super::vp78::PredMode;
 use super::super::vp78dsp::*;
+use super::super::vp7data::HIGH_EDGE_VAR_THR;
 use super::super::vp7dsp::*;
 use super::blocks::*;
 use super::coder::*;
@@ -544,19 +545,6 @@ impl FrameEncoder {
 }
 
 fn loop_filter_mb(dframe: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, loop_str: u8, loop_params: &LoopParams, is_intra: bool) {
-    const HIGH_EDGE_VAR_THR: [[u8; 64]; 2] = [
-      [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-      ], [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
-      ]];
-
     let edge_thr    = i16::from(loop_str) + 2;
     let luma_thr    = i16::from(loop_str);
     let chroma_thr  = i16::from(loop_str) * 2;
