@@ -505,6 +505,152 @@ impl FrameEncoder {
             }
         }
     }
+    fn motion_est_mb(src_mb: &ResidueMB, cur_blk: &mut [[u8; 64]; 6], mb: &mut InterMB, mv_search: &mut Box<dyn MVSearch+Send>, mv_est: &mut MVEstimator, mb_x: usize, mb_y: usize) {
+        src_mb.fill(cur_blk);
+        let (best_mv, _best_dist) = mv_search.search_mb(mv_est, &cur_blk, mb_x, mb_y);
+        mb.mv[3] = best_mv;
+
+        for i in 0..4 {
+            mv_est.mc_block(i, 0, mb_x * 16 + (i & 1) * 8, mb_y * 16 + (i >> 1) * 8, best_mv);
+            sub_blk(&mut mb.residue.coeffs[i], &cur_blk[i], &mv_est.ref_blk[i]);
+        }
+        for plane in 1..3 {
+            mv_est.mc_block(plane + 3, plane, mb_x * 8, mb_y * 8, best_mv);
+            sub_blk(&mut mb.residue.coeffs[plane + 3], &cur_blk[plane + 3], &mv_est.ref_blk[plane + 3]);
+        }
+
+        for (dblk, sblk) in mb.reference.iter_mut().zip(mv_est.ref_blk.iter()) {
+            for (dst, &src) in dblk.iter_mut().zip(sblk.iter()) {
+                *dst = i16::from(src);
+            }
+        }
+    }
+    pub fn select_inter_blocks_fast(&mut self, ref_frame: NAVideoBufferRef<u8>, gold_frame: Option<NAVideoBufferRef<u8>>, mc_buf: NAVideoBufferRef<u8>, lambda: f32) {
+        let loop_thr = i16::from(VP56_FILTER_LIMITS[self.quant as usize]);
+
+        if self.inter_mbs.is_empty() {
+            for _ in 0..self.mb_w * self.mb_h {
+                self.inter_mbs.push(InterMB::new());
+            }
+        }
+        if self.golden_mbs.is_empty() {
+            for _ in 0..self.mb_w * self.mb_h {
+                self.golden_mbs.push(InterMB::new());
+            }
+        }
+
+        let mut cur_blk = [[0u8; 64]; 6];
+
+        let mut mv_est = MVEstimator::new(ref_frame.clone(), mc_buf.clone(), loop_thr, self.me_range);
+        let mut mv_est_g = if let Some(gold_frm) = gold_frame {
+                Some(MVEstimator::new(gold_frm, mc_buf.clone(), loop_thr, self.me_range))
+            } else {
+                None
+            };
+
+        let mut mv_search = self.me_mode.create_search();
+
+        let mut tmp_mb = ResidueMB::new();
+
+        let mut mb_idx = 0;
+        for mb_y in 0..self.mb_h {
+            for mb_x in 0..self.mb_w {
+                let smb = &self.src_mbs[mb_idx];
+
+                let inter_mb = &mut self.inter_mbs[mb_idx];
+                Self::motion_est_mb(smb, &mut cur_blk, inter_mb, &mut mv_search, &mut mv_est, mb_x, mb_y);
+                inter_mb.residue.fdct();
+                inter_mb.residue.quant(self.quant);
+                self.mb_types[mb_idx] = VPMBType::InterMV;
+
+                tmp_mb.dequant_from(&inter_mb.residue, self.quant);
+                tmp_mb.idct();
+                for (blk, res) in tmp_mb.coeffs.iter_mut().zip(inter_mb.reference.iter()) {
+                    for (coef, add) in blk.iter_mut().zip(res.iter()) {
+                        *coef = (*coef + add).max(0).min(255);
+                    }
+                }
+                let mut best_dist = calc_mb_dist(smb, &tmp_mb);
+                let mut inter_nits = estimate_inter_mb_nits(inter_mb, self.quant, false);
+                if inter_mb.mv[3] != ZERO_MV {
+                    inter_nits += estimate_mv_nits(inter_mb.mv[3]);
+                }
+                let mut best_cost = (best_dist as f32) + lambda * (inter_nits as f32);
+                if best_dist > 512 {
+                    self.estimate_fourmv(ref_frame.clone(), mc_buf.clone(), mb_idx % self.mb_w, mb_idx / self.mb_w);
+                    self.fourmv_mbs[mb_idx].residue.fdct();
+                    self.fourmv_mbs[mb_idx].residue.quant(self.quant);
+
+                    let smb = &self.src_mbs[mb_idx];
+                    tmp_mb.dequant_from(&self.fourmv_mbs[mb_idx].residue, self.quant);
+                    tmp_mb.idct();
+                    for (blk, res) in tmp_mb.coeffs.iter_mut().zip(self.fourmv_mbs[mb_idx].reference.iter()) {
+                        for (coef, add) in blk.iter_mut().zip(res.iter()) {
+                            *coef = (*coef + add).max(0).min(255);
+                        }
+                    }
+                    let fourmv_dist = calc_mb_dist(smb, &tmp_mb);
+                    let fourmv_nits = estimate_inter_mb_nits(&self.fourmv_mbs[mb_idx], self.quant, true);
+                    let fourmv_cost = (fourmv_dist as f32) + lambda * (fourmv_nits as f32);
+                    if fourmv_cost < best_cost {
+                        self.mb_types[mb_idx] = VPMBType::InterFourMV;
+                        best_cost = fourmv_cost;
+                        best_dist = fourmv_dist;
+                    }
+                }
+                let smb = &self.src_mbs[mb_idx];
+                if best_dist > 512 {
+                    if let Some(ref mut mve_gold) = mv_est_g {
+                        let gold_mb = &mut self.golden_mbs[mb_idx];
+                        Self::motion_est_mb(smb, &mut cur_blk, gold_mb, &mut mv_search, mve_gold, mb_x, mb_y);
+                        gold_mb.residue.fdct();
+                        gold_mb.residue.quant(self.quant);
+
+                        tmp_mb.dequant_from(&gold_mb.residue, self.quant);
+                        tmp_mb.idct();
+                        for (blk, res) in tmp_mb.coeffs.iter_mut().zip(gold_mb.reference.iter()) {
+                            for (coef, add) in blk.iter_mut().zip(res.iter()) {
+                                *coef = (*coef + add).max(0).min(255);
+                            }
+                        }
+                        let golden_dist = calc_mb_dist(smb, &tmp_mb);
+                        let golden_nits = estimate_inter_mb_nits(gold_mb, self.quant, false);
+                        let golden_cost = (golden_dist as f32) + lambda * (golden_nits as f32);
+                        if golden_cost < best_cost {
+                            self.mb_types[mb_idx] = VPMBType::GoldenMV;
+                            best_cost = golden_cost;
+                            best_dist = golden_dist;
+                        }
+                    }
+                }
+                if best_dist > 512 {
+                    let intra_mb = &mut self.intra_mbs[mb_idx];
+                    *intra_mb = smb.clone();
+                    intra_mb.fdct();
+                    for blk in intra_mb.coeffs.iter_mut() {
+                        blk[0] -= 4096;
+                    }
+                    intra_mb.quant(self.quant);
+
+                    tmp_mb.dequant_from(intra_mb, self.quant);
+                    tmp_mb.idct();
+                    for blk in tmp_mb.coeffs.iter_mut() {
+                        for coef in blk.iter_mut() {
+                            *coef = (*coef + 128).max(0).min(255);
+                        }
+                    }
+                    let intra_dist = calc_mb_dist(smb, &tmp_mb);
+                    let intra_nits = estimate_intra_mb_nits(&intra_mb.coeffs, self.quant);
+                    let intra_cost = (intra_dist as f32) + lambda * (intra_nits as f32);
+                    if intra_cost < best_cost {
+                        self.mb_types[mb_idx] = VPMBType::Intra;
+                    }
+                }
+
+                mb_idx += 1;
+            }
+        }
+    }
     pub fn decide_frame_type(&self) -> (bool, bool) {
         let mut intra_count = 0usize;
         let mut non_intra   = 0usize;

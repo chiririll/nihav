@@ -189,6 +189,7 @@ struct VP6Encoder {
     me_range:   i16,
 
     force_q:    Option<usize>,
+    fast:       bool,
 }
 
 impl VP6Encoder {
@@ -225,6 +226,7 @@ impl VP6Encoder {
             me_range:   16,
 
             force_q:    None,
+            fast:       false,
         }
     }
     fn decide_encoding(&mut self) -> bool {
@@ -482,6 +484,12 @@ impl VP6Encoder {
         let (_force_intra, golden_frame) = self.fenc.decide_frame_type();
         self.fenc.apply_dc_prediction(&mut self.dc_pred);
         self.fenc.predict_mvs();
+
+        self.write_inter_frame(bw, quant, multistream, loop_filter, golden_frame)?;
+
+        Ok(golden_frame)
+    }
+    fn write_inter_frame(&mut self, bw: &mut ByteWriter, quant: usize, multistream: bool, loop_filter: bool, golden_frame: bool) -> EncoderResult<()> {
         self.estimate_blocks(false);
 
         self.stats.generate(&mut self.models, false);
@@ -560,7 +568,31 @@ impl VP6Encoder {
                 VP6Writer::Huffman(HuffEncoder::new(bw))
             };
         self.encode_coeffs(writer)?;
-        Ok(golden_frame)
+
+        Ok(())
+    }
+    fn encode_inter_fast(&mut self, bw: &mut ByteWriter, quant: usize) -> EncoderResult<bool> {
+        self.stats.reset();
+
+        let multistream = self.huffman || self.version != VERSION_VP60;
+        let loop_filter = false;
+
+        let last_frm = self.last_frame.get_vbuf().unwrap();
+        let gold_frm = if !self.last_gold {
+                Some(self.gold_frame.get_vbuf().unwrap())
+            } else {
+                None
+            };
+        let lambda = if self.force_q.is_some() { 1.0 } else { self.ratectl.lambda };
+        self.fenc.select_inter_blocks_fast(last_frm, gold_frm, self.mc_buf.clone(), lambda);
+        let golden_frame = false;
+        self.fenc.apply_dc_prediction(&mut self.dc_pred);
+        self.fenc.predict_mvs();
+        self.estimate_blocks(false);
+
+        self.write_inter_frame(bw, quant, multistream, loop_filter, golden_frame)?;
+
+        Ok(false)
     }
     fn encode_coeffs(&mut self, mut writer: VP6Writer) -> EncoderResult<()> {
         if self.huffman {
@@ -709,12 +741,14 @@ impl NAEncoder for VP6Encoder {
             self.fenc.me_range = self.me_range;
             let golden_frame = if is_intra {
                     self.encode_intra(&mut bw, quant)?
-                } else {
+                } else if !self.fast {
                     self.fenc.estimate_mvs(self.last_frame.get_vbuf().unwrap(), self.mc_buf.clone(), false);
                     if !self.last_gold {
                         self.fenc.estimate_mvs(self.gold_frame.get_vbuf().unwrap(), self.mc_buf.clone(), true);
                     }
                     self.encode_inter(&mut bw, quant)?
+                } else {
+                    self.encode_inter_fast(&mut bw, quant)?
                 };
             self.fenc.reconstruct_frame(&mut self.dc_pred, self.last_frame.get_vbuf().unwrap());
             self.last_gold = golden_frame;
@@ -758,6 +792,7 @@ const QUANT_OPTION: &str = "quant";
 const VERSION_OPTION: &str = "version";
 const MV_SEARCH_OPTION: &str = "mv_mode";
 const MV_RANGE_OPTION: &str = "mv_range";
+const FAST_OPTION: &str = "fast";
 
 const ENCODER_OPTS: &[NAOptionDefinition] = &[
     NAOptionDefinition {
@@ -778,6 +813,9 @@ const ENCODER_OPTS: &[NAOptionDefinition] = &[
     NAOptionDefinition {
         name: MV_RANGE_OPTION, description: "motion search range (in pixels)",
         opt_type: NAOptionDefinitionType::Int(Some(0), Some(30)) },
+    NAOptionDefinition {
+        name: FAST_OPTION, description: "faster (but worse) encoding",
+        opt_type: NAOptionDefinitionType::Bool },
 ];
 
 impl NAOptionHandler for VP6Encoder {
@@ -824,6 +862,11 @@ impl NAOptionHandler for VP6Encoder {
                                 self.me_range = intval as i16;
                             }
                         },
+                        FAST_OPTION => {
+                            if let NAValue::Bool(bval) = option.value {
+                                self.fast = bval;
+                            }
+                        },
                         _ => {},
                     };
                 }
@@ -850,6 +893,7 @@ impl NAOptionHandler for VP6Encoder {
                 },
             MV_SEARCH_OPTION => Some(NAValue::String(self.me_mode.to_string())),
             MV_RANGE_OPTION => Some(NAValue::Int(i64::from(self.me_range))),
+            FAST_OPTION => Some(NAValue::Bool(self.fast)),
             _ => None,
         }
     }
@@ -921,6 +965,14 @@ mod test {
                 NAOption { name: super::QUANT_OPTION, value: NAValue::Int(42) },
             ];
         encode_test("vp6-bool.avi", enc_options, &[0xb57f49e5, 0x6b48accd, 0xc28fadb3, 0xc89a30d2]);
+    }
+    #[test]
+    fn test_vp6_encoder_fast() {
+        let enc_options = &[
+                NAOption { name: super::QUANT_OPTION, value: NAValue::Int(42) },
+                NAOption { name: super::FAST_OPTION, value: NAValue::Bool(true) },
+            ];
+        encode_test("vp6-fast.avi", enc_options, &[0xb8037ce1, 0xc00ade72, 0x3c0b73c2, 0xbfc4113d]);
     }
     #[test]
     fn test_vp6_encoder_rc() {
