@@ -272,7 +272,7 @@ const DETECTORS: &[DetectConditions] = &[
         demux_name: "legend-q",
         extensions: ".q",
         conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U16LE(0x6839))},
-                      CheckItem{offs: 2, cond: &CC::In(Arg::Byte(3), Arg::Byte(5))}],
+                      CheckItem{offs: 2, cond: &CC::In(Arg::Byte(3), Arg::Byte(7))}],
     },
     DetectConditions {
         demux_name: "smush",

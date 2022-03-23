@@ -29,6 +29,7 @@ struct QVideoDecoder {
     mode:       u8,
     patterns:   [u16; 128],
     version:    u8,
+    f8_cache:   [[u8; 16]; 240],
 }
 
 macro_rules! copy_tile {
@@ -59,6 +60,7 @@ impl QVideoDecoder {
             tile_h:     0,
             patterns:   [0; 128],
             version:    0,
+            f8_cache:   [[0; 16]; 240],
         }
     }
 
@@ -186,7 +188,7 @@ impl QVideoDecoder {
         Ok(())
     }
 
-    fn decode_frame(&mut self, br: &mut ByteReader, _ctype: u16) -> DecoderResult<()> {
+    fn decode_frame_5(&mut self, br: &mut ByteReader, _ctype: u16) -> DecoderResult<()> {
         let mut titer = self.tile_off.iter().enumerate();
         let mut last_mode = TileMode::Start;
 
@@ -222,6 +224,245 @@ impl QVideoDecoder {
                 match op {
                     0xF8 => {
                         unimplemented!();
+                    },
+                    0xF9 => {
+                        let run         = br.read_byte()? as usize;
+                        validate!(run > 0);
+
+                        validate!(tile_no > 0);
+                        validate!(last_mode != TileMode::Start);
+                        let mut tile_no  = tile_no;
+                        let mut tile_off = tile_off;
+                        for i in 0..run {
+                            let copy_off = match last_mode {
+                                    TileMode::Forward(off) => {
+                                        tile_no + (off as usize)
+                                    },
+                                    TileMode::Backward(off) => {
+                                        validate!(tile_no >= (off as usize));
+                                        tile_no - (off as usize)
+                                    },
+                                    TileMode::Skip => self.tile_off.len(),
+                                    _ => tile_no - 1,
+                                };
+                            if copy_off < self.tile_off.len() {
+                                copy_tile!(self, tile_off, self.tile_off[copy_off]);
+                            }
+                            if i + 1 < run {
+                                let (tno, &toff) = titer.next().unwrap();
+                                tile_no  = tno;
+                                tile_off = toff;
+                            }
+                        }
+                        last_mode = TileMode::Run;
+                    },
+                    0xFA => {
+                        let rtile       = br.read_u16le()? as usize;
+                        validate!(rtile < self.tile_off.len());
+                        copy_tile!(self, tile_off, self.tile_off[rtile]);
+                        last_mode = TileMode::Reuse;
+                    },
+                    0xFB => {
+                        match self.mode {
+                            6 => {
+                                let run = br.read_byte()? as usize;
+                                validate!(run >= 2);
+                                let mut tile_no  = tile_no;
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    match last_mode {
+                                        TileMode::Start => return Err(DecoderError::InvalidData),
+                                        TileMode::Fill => {
+                                            let clr = br.read_byte()?;
+                                            for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                                                for el in dline[..self.tile_w].iter_mut() {
+                                                    *el = clr;
+                                                }
+                                            }
+                                        },
+                                        TileMode::ShortPattern(clr0, clr1) => {
+                                            let pat = br.read_byte()?;
+                                            let mut pattern = if pat < 128 {
+                                                    self.patterns[pat as usize]
+                                                } else {
+                                                    u16::from(pat) | (u16::from(br.read_byte()?) << 8)
+                                                };
+                                            for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                                                for el in dline[..self.tile_w].iter_mut() {
+                                                    *el = if (pattern & 0x8000) == 0 { clr0 } else { clr1 };
+                                                    pattern <<= 1;
+                                                }
+                                            }
+                                        },
+                                        TileMode::LongPattern(clr0, clr1) => {
+                                            let mut pattern = br.read_u16le()?;
+                                            for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                                                for el in dline[..self.tile_w].iter_mut() {
+                                                    *el = if (pattern & 0x8000) == 0 { clr0 } else { clr1 };
+                                                    pattern <<= 1;
+                                                }
+                                            }
+                                        },
+                                        TileMode::Reuse => {
+                                            let rtile       = br.read_u16le()? as usize;
+                                            validate!(rtile < self.tile_off.len());
+                                            copy_tile!(self, tile_off, self.tile_off[rtile]);
+                                        },
+                                        TileMode::MV => {
+                                            let idx         = br.read_byte()? as usize;
+                                            let (x, y) = DEF_MVS[idx];
+                                            let src_off = (tile_off as isize) + (x as isize) * 4 + (y as isize) * 4 * (self.w as isize);
+                                            validate!(src_off >= 0);
+                                            validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);
+                                            copy_tile!(self, tile_off, src_off as usize);
+                                        },
+                                        TileMode::Forward(_) => {
+                                            let off         = (br.read_byte()? as usize) + 1;
+                                            validate!(tile_no + off < self.tile_off.len());
+                                            copy_tile!(self, tile_off, self.tile_off[tile_no + off]);
+                                        },
+                                        TileMode::Backward(_) => {
+                                            let off         = (br.read_byte()? as usize) + 1;
+                                            validate!(off <= tile_no);
+                                            copy_tile!(self, tile_off, self.tile_off[tile_no - off]);
+                                        },
+                                        _ => unimplemented!(),
+                                    };
+
+                                    if i + 1 < run {
+                                        let (tno, &toff) = titer.next().unwrap();
+                                        tile_no  = tno;
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            7 => {
+                                validate!(self.tile_w == 4 && self.tile_h == 4);
+                                let run = br.read_byte()? as usize;
+                                validate!(run > 0);
+
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    Self::decode_mode7_tile(&mut self.frame[tile_off..], self.w, br)?;
+
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            _ => {
+                                unimplemented!();
+                            },
+                        };
+                        last_mode = TileMode::FB;
+                    },
+                    0xFC => {
+                        let idx         = br.read_byte()? as usize;
+                        let (x, y) = DEF_MVS[idx];
+                        let src_off = (tile_off as isize) + (x as isize) * 4 + (y as isize) * 4 * (self.w as isize);
+                        validate!(src_off >= 0);
+                        validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);
+
+                        copy_tile!(self, tile_off, src_off as usize);
+                        last_mode = TileMode::MV;
+                    },
+                    0xFD => {
+                        let off         = (br.read_byte()? as usize) + 1;
+                        validate!(tile_no + off < self.tile_off.len());
+                        copy_tile!(self, tile_off, self.tile_off[tile_no + off]);
+                        last_mode = TileMode::Forward(off as u16);
+                    },
+                    0xFE => {
+                        let off         = (br.read_byte()? as usize) + 1;
+                        validate!(off <= tile_no);
+                        copy_tile!(self, tile_off, self.tile_off[tile_no - off]);
+                        last_mode = TileMode::Backward(off as u16);
+                    },
+                    _ => {
+                        last_mode = TileMode::Skip;
+                    },
+                };
+            }
+        }
+
+        Ok(())
+    }
+    fn decode_frame_7(&mut self, br: &mut ByteReader, _ctype: u16) -> DecoderResult<()> {
+        let mut titer = self.tile_off.iter().enumerate();
+        let mut last_mode = TileMode::Start;
+
+        let mut f8_mode = false;
+        let row_size = self.w / self.tile_w;
+        let mut next_row = 0;
+        let mut f8_data = [0; 16];
+        let mut f8_pos = 0;
+
+        while let Some((tile_no, &tile_off)) = titer.next()  {
+            if tile_no == next_row {
+                f8_mode = false;
+                next_row += row_size;
+            }
+            while br.peek_byte()? == 0xF8 {
+                                          br.read_byte()?;
+                if f8_mode {
+                    f8_mode = false;
+                } else {
+                    let idx             = br.read_byte()? as usize;
+                    if idx < 0x10 {
+                        validate!(f8_pos < self.f8_cache.len());
+                                          br.peek_buf(&mut self.f8_cache[f8_pos])?;
+                        if idx > 0 {
+                                          br.read_skip(idx)?;
+                        }
+                        f8_data = self.f8_cache[f8_pos];
+                    } else {
+                        f8_data = self.f8_cache[idx - 0x10];
+                        self.f8_cache[f8_pos] = f8_data;
+                    }
+                    f8_pos += 1;
+                    f8_mode = true;
+                }
+            }
+
+            let op                      = br.read_byte()?;
+            if op < 0xF8 {
+                let (clr0, clr1) = if !f8_mode {
+                        if br.peek_byte()? < 0xF8 {
+                            (op, br.read_byte()?)
+                        } else {
+                            (op, op)
+                        }
+                    } else {
+                        (f8_data[(op & 0xF) as usize], f8_data[(op >> 4) as usize])
+                    };
+                if clr0 == clr1 && (!f8_mode || ((op & 0xF) == (op >> 4))) {
+                    for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                        for el in dline[..self.tile_w].iter_mut() {
+                            *el = clr0;
+                        }
+                    }
+                    last_mode = TileMode::Fill;
+                } else {
+                    let pat             = br.read_byte()?;
+                    let mut pattern = if pat < 128 {
+                            last_mode = TileMode::ShortPattern(clr0, clr1);
+                            self.patterns[pat as usize]
+                        } else {
+                            last_mode = TileMode::LongPattern(clr0, clr1);
+                            u16::from(pat) | (u16::from(br.read_byte()?) << 8)
+                        };
+                    for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                        for el in dline[..self.tile_w].iter_mut() {
+                            *el = if (pattern & 0x8000) == 0 { clr0 } else { clr1 };
+                            pattern <<= 1;
+                        }
+                    }
+                }
+            } else {
+                match op {
+                    0xF8 => {
+                        unreachable!();
                     },
                     0xF9 => {
                         let run         = br.read_byte()? as usize;
@@ -436,6 +677,7 @@ impl NADecoder for QVideoDecoder {
             self.mode = match self.version {
                     4 => 6,
                     5 => 7,
+                    7 => 7,
                     _ => 0,
                 };
 
@@ -479,8 +721,11 @@ impl NADecoder for QVideoDecoder {
                     }
                     if self.version == 3 {
                         self.decode_frame_v3(&mut br, ctype)?;
+                    } else if self.version < 7 {
+                        self.decode_frame_5(&mut br, ctype)?;
                     } else {
-                        self.decode_frame(&mut br, ctype)?;
+                        self.mode = if ctype == 11 { 7 } else { 6 };
+                        self.decode_frame_7(&mut br, ctype)?;
                     }
                 },
                 5 => {
@@ -526,7 +771,7 @@ mod test {
     use crate::game_register_all_decoders;
     use crate::game_register_all_demuxers;
 
-    // samples from Deathgate, Mission Critical and Shannara games
+    // samples from Callahan's Crosstime Saloon, Deathgate, Mission Critical and Shannara games
     #[test]
     fn test_q_video3() {
         let mut dmx_reg = RegisteredDemuxers::new();
@@ -556,6 +801,16 @@ mod test {
 
         test_decoding("legend-q", "legend-q-video", "assets/Game/mc703.q", Some(16), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xf65ea3ce, 0x3052b2bb, 0xb10f8f69, 0x530d60f9]));
+    }
+    #[test]
+    fn test_q_video7() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        game_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        game_register_all_decoders(&mut dec_reg);
+
+        test_decoding("legend-q", "legend-q-video", "assets/Game/CCS003.Q", Some(16), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x4c0f0712, 0xc6c39f5b, 0x5bb6902f, 0x9119940e]));
     }
 }
 

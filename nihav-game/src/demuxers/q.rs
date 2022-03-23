@@ -24,7 +24,7 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
         validate!(hdr[0] == 0x39);
         validate!(hdr[1] == 0x68);
         let version = hdr[2];
-        validate!(version >= 3 && version <= 5);
+        validate!(version >= 3 && version <= 7);
         let mut width  = read_u16le(&hdr[4..])? as usize;
         let mut height = read_u16le(&hdr[6..])? as usize;
         if version > 3 {
@@ -55,14 +55,16 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                 let mut buf = vec![0; size];
                                           self.src.read_buf(&mut buf)?;
                 let arate = read_u32le(&buf[24..])?;
-                let channels = buf[22];
-                let abits    = buf[34] as usize;
-                validate!(abits == 8 || abits == 16);
-                self.bps = (channels as usize) * abits / 8;
-                let bsize    = read_u16le(&buf[32..])? as usize;
-                let ahdr = NAAudioInfo::new(arate, channels as u8, if abits == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, bsize);
-                let ainfo = NACodecInfo::new("pcm", NACodecTypeInfo::Audio(ahdr), None);
-                self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, arate, 2));
+                if arate > 0 {
+                    let channels = buf[22];
+                    let abits    = buf[34] as usize;
+                    validate!(abits == 8 || abits == 16);
+                    self.bps = (channels as usize) * abits / 8;
+                    let bsize    = read_u16le(&buf[32..])? as usize;
+                    let ahdr = NAAudioInfo::new(arate, channels as u8, if abits == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, bsize);
+                    let ainfo = NACodecInfo::new("pcm", NACodecTypeInfo::Audio(ahdr), None);
+                    self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, arate, 2));
+                }
             }
         }
         self.apts = 0;
@@ -85,7 +87,7 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                         self.apts += (size / self.bps) as u64;
                         return self.src.read_packet(str, ts, true, size);
                     } else {
-                        return Err(DemuxerError::InvalidData);
+                                          self.src.read_skip(size)?;
                     }
                 },
                 1 => {
