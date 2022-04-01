@@ -97,10 +97,10 @@ fn decode_pairs(br: &mut BitReader, cb: &Codebook<u16>, unsigned: bool, escape: 
         }
         if escape {
             if (x == 16) || (x == -16) {
-                x += read_escape(br, x > 0)?;
+                x = read_escape(br, x > 0)?;
             }
             if (y == 16) || (y == -16) {
-                y += read_escape(br, y > 0)?;
+                y = read_escape(br, y > 0)?;
             }
         }
         out[0] = iquant(f32::from(x)) * scale;
