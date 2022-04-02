@@ -11,6 +11,7 @@ mod coeff_read;
 use coeff_read::*;
 mod info;
 use info::*;
+#[allow(clippy::excessive_precision)]
 mod tables;
 use tables::*;
 mod tools;
@@ -201,6 +202,13 @@ impl ICS {
         self.coeffs = [0.0; 1024];
         decode_spectrum(br, &mut self.coeffs, &self.scales, &self.info, &self.sbinfo, &self.sfb_cb, codebooks)
     }
+    fn iquant(val: f32) -> f32 {
+        if val < 0.0 {
+            -((-val).powf(4.0 / 3.0))
+        } else {
+            val.powf(4.0 / 3.0)
+        }
+    }
     fn place_pulses(&mut self) {
         if let Some(ref pdata) = self.pulse_data {
             if pdata.pulse_start_sfb >= self.sbinfo.long_bands.len() - 1 { return; }
@@ -220,7 +228,7 @@ impl ICS {
                 } else {
                     base -= f32::from(pdata.pulse_amp[pno]);
                 }
-                self.coeffs[k] = iquant(base) * scale;
+                self.coeffs[k] = Self::iquant(base) * scale;
             }
         }
     }

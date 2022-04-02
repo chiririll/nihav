@@ -5,6 +5,7 @@ use nihav_core::io::intcode::*;
 use std::mem;
 use std::ptr;
 use super::{INTENSITY_SCALE_MIN, MAX_WINDOWS, MAX_SFBS, GASubbandInfo, ICSInfo};
+use super::tables::CBRT_TAB;
 
 pub const ZERO_HCB:         u8 = 0;
 pub const FIRST_PAIR_HCB:   u8 = 5;
@@ -41,11 +42,18 @@ impl Codebooks {
 pub fn get_scale(scale: u8) -> f32 {
     2.0f32.powf(0.25 * (f32::from(scale) - 100.0 - 56.0))
 }
-pub fn iquant(val: f32) -> f32 {
-    if val < 0.0 {
-        -((-val).powf(4.0 / 3.0))
+fn iquant(val: i16) -> f32 {
+    let idx = val.abs() as usize;
+    if idx < CBRT_TAB.len() {
+        if val < 0 {
+            -CBRT_TAB[idx]
+        } else {
+             CBRT_TAB[idx]
+        }
+    } else if val < 0 {
+        -((-f32::from(val)).powf(4.0 / 3.0))
     } else {
-        val.powf(4.0 / 3.0)
+        f32::from(val).powf(4.0 / 3.0)
     }
 }
 pub fn requant(val: f32, scale: f32) -> f32 {
@@ -65,15 +73,20 @@ fn decode_quads(br: &mut BitReader, cb: &Codebook<u16>, unsigned: bool, scale: f
                 let val = AAC_QUADS[cw][i];
                 if val != 0 {
                     if br.read_bool()? {
-                        out[i] = iquant(-f32::from(val)) * scale;
+                        out[i] = -CBRT_TAB[val as usize] * scale;
                     } else {
-                        out[i] = iquant( f32::from(val)) * scale;
+                        out[i] =  CBRT_TAB[val as usize] * scale;
                     }
                 }
             }
         } else {
             for i in 0..4 {
-                out[i] = iquant(f32::from(AAC_QUADS[cw][i] - 1)) * scale;
+                let val = AAC_QUADS[cw][i] - 1;
+                if val < 0 {
+                    out[i] = -CBRT_TAB[val.abs() as usize] * scale;
+                } else {
+                    out[i] =  CBRT_TAB[val.abs() as usize] * scale;
+                }
             }
         }
     }
@@ -102,9 +115,12 @@ fn decode_pairs(br: &mut BitReader, cb: &Codebook<u16>, unsigned: bool, escape: 
             if (y == 16) || (y == -16) {
                 y = read_escape(br, y > 0)?;
             }
+            out[0] = iquant(x) * scale;
+            out[1] = iquant(y) * scale;
+        } else {
+            out[0] = scale * if x < 0 { -CBRT_TAB[x.abs() as usize] } else { CBRT_TAB[x as usize] };
+            out[1] = scale * if y < 0 { -CBRT_TAB[y.abs() as usize] } else { CBRT_TAB[y as usize] };
         }
-        out[0] = iquant(f32::from(x)) * scale;
-        out[1] = iquant(f32::from(y)) * scale;
     }
     Ok(())
 }
