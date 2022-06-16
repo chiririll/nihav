@@ -1,6 +1,6 @@
 //! FFT and RDFT implementation.
 use std::f32::{self, consts};
-use std::ops::{Not, Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
+use std::ops::{Not, Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div};
 use std::fmt;
 
 /// Complex number.
@@ -25,6 +25,14 @@ impl FFTComplex {
     /// Multiplies complex number by scalar.
     pub fn scale(self, scale: f32) -> Self {
         FFTComplex { re: self.re * scale, im: self.im * scale }
+    }
+    /// Returns squared modulus value of the complex number.
+    pub fn sq_modulus(self) -> f32 {
+        self.re * self.re + self.im * self.im
+    }
+    /// Returns reciprocal of the complex number.
+    pub fn reciprocal(self) -> Self {
+        !self.scale(self.sq_modulus())
     }
 }
 
@@ -84,6 +92,13 @@ impl MulAssign for FFTComplex {
         let im = self.im * other.re + self.re * other.im;
         self.re = re;
         self.im = im;
+    }
+}
+
+impl Div for FFTComplex {
+    type Output = FFTComplex;
+    fn div(self, other: Self) -> Self::Output {
+        self * other.reciprocal()
     }
 }
 
