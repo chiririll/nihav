@@ -570,7 +570,7 @@ impl AACDecoder {
                                                           br.skip(count * 8)?; // no SBR payload or such
                     },
                 5 => { // ID_PCE
-                        unimplemented!("program config");
+                        skimp_through_program_config_element(br)?;
                     },
                 6 => { // ID_FIL
                         let mut count                   = br.read(4)? as usize;

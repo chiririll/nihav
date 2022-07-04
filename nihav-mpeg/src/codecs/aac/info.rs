@@ -168,7 +168,11 @@ impl M4AInfo {
                     }
                     let extension_flag                  = br.read_bool()?;
                     if self.channels == 0 {
-                        unimplemented!("program config element");
+                        let (channels, sf_code) = skimp_through_program_config_element(&mut br)?;
+                        validate!(channels > 0);
+                        self.channels = channels;
+                        validate!(AAC_SAMPLE_RATES[sf_code] != 0);
+                        self.srate = AAC_SAMPLE_RATES[sf_code];
                     }
                     if (self.otype == M4AType::Scalable) || (self.otype == M4AType::ER_AAC_Scalable) {
                         let _layer                      = br.read(3)?;
@@ -258,6 +262,61 @@ impl M4AInfo {
 
         Ok(())
     }
+}
+
+pub fn skimp_through_program_config_element(br: &mut BitReader) -> DecoderResult<(usize, usize)> {
+    let _id                             = br.read(4)?;
+    let _object_type                    = br.read(2)?;
+    let sampling_frequency_index        = br.read(4)? as usize;
+    let num_front_channel_elements      = br.read(4)? as usize;
+    let num_side_channel_elements       = br.read(4)? as usize;
+    let num_back_channel_elements       = br.read(4)? as usize;
+    let num_lfe_channel_elements        = br.read(2)? as usize;
+    let num_assoc_data_elements         = br.read(3)? as usize;
+    let num_valid_cc_elements           = br.read(4)? as usize;
+    let mono_mixdown_present            = br.read_bool()?;
+    if mono_mixdown_present {
+        let _mono_mixdown_element_number = br.read(4)?;
+    }
+    let stereo_mixdown_present           = br.read_bool()?;
+    if stereo_mixdown_present {
+        let _stereo_mixdown_element_number = br.read(4)?;
+    }
+    let matrix_mixdown_idx_present      = br.read_bool()?;
+    if matrix_mixdown_idx_present {
+        let _matrix_mixdown_idx         = br.read(2)?;
+        let _pseudo_surround_enable     = br.read_bool()?;
+    }
+    for _i in 0..num_front_channel_elements {
+        let _front_element_is_cpe       = br.read_bool()?;
+        let _front_element_tag_select   = br.read(4)?;
+    }
+    for _i in 0..num_side_channel_elements {
+        let _side_element_is_cpe        = br.read_bool()?;
+        let _side_element_tag_select    = br.read(4)?;
+    }
+    for _i in 0..num_back_channel_elements {
+        let _back_element_is_cpe        = br.read_bool()?;
+        let _back_element_tag_select    = br.read(4)?;
+    }
+    for _i in 0..num_lfe_channel_elements {
+        let _lfe_element_tag_select     = br.read(4)?;
+    }
+    for _i in 0..num_assoc_data_elements {
+        let _assoc_data_element_tag_select = br.read(4)?;
+    }
+    for _i in 0..num_valid_cc_elements {
+        let _cc_element_is_ind_sw       = br.read_bool()?;
+        let _valid_cc_element_tag_select = br.read(4)?;
+    }
+                                          br.align();
+    let comment_field_bytes             = br.read(8)?;
+                                          br.skip(comment_field_bytes * 8)?;
+
+    Ok((num_front_channel_elements +
+        num_side_channel_elements +
+        num_back_channel_elements +
+        num_lfe_channel_elements, sampling_frequency_index))
 }
 
 impl fmt::Display for M4AInfo {
