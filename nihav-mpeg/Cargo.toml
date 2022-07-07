@@ -14,6 +14,7 @@ features = ["qmf", "fft", "mdct", "dsp_window"]
 [dev-dependencies]
 nihav_flash = { path = "../nihav-flash", default-features=false, features = ["all_demuxers"] }
 nihav_realmedia = { path = "../nihav-realmedia", default-features=false, features = ["all_demuxers"] }
+nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
 
 [features]
 default = ["all_decoders"]

@@ -5,6 +5,8 @@ macro_rules! validate {
 }
 
 #[cfg(feature="decoder_aac")]
+#[allow(clippy::comparison_chain)]
+#[allow(clippy::excessive_precision)]
 #[allow(clippy::manual_memcpy)]
 #[allow(clippy::useless_let_if_seq)]
 mod aac;

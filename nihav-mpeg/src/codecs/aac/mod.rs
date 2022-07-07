@@ -11,6 +11,8 @@ mod coeff_read;
 use coeff_read::*;
 mod info;
 use info::*;
+mod sbr;
+use sbr::{SBRHeader, SBRCodebooks, SBRState, SBRChannel, SBRDSP, sbr_read_sce, sbr_read_cpe};
 #[allow(clippy::excessive_precision)]
 mod tables;
 use tables::*;
@@ -288,6 +290,10 @@ struct ChannelPair {
     ms_mask_present:    u8,
     ms_used:            [[bool; MAX_SFBS]; MAX_WINDOWS],
     ics:                [ICS; 2],
+    sbr_hdr:            SBRHeader,
+    sbr_state:          SBRState,
+    sbr_ch:             [SBRChannel; 2],
+    do_sbr:             bool,
 }
 
 impl ChannelPair {
@@ -298,6 +304,10 @@ impl ChannelPair {
             ms_mask_present:    0,
             ms_used:            [[false; MAX_SFBS]; MAX_WINDOWS],
             ics:                [ICS::new(sbinfo), ICS::new(sbinfo)],
+            sbr_hdr:            SBRHeader::new(),
+            sbr_state:          SBRState::new(),
+            sbr_ch:             [SBRChannel::new(), SBRChannel::new()],
+            do_sbr:             false,
         }
     }
     fn decode_ga_sce(&mut self, br: &mut BitReader, codebooks: &Codebooks, m4atype: M4AType) -> DecoderResult<()> {
@@ -356,14 +366,59 @@ impl ChannelPair {
         }
         Ok(())
     }
-    fn synth_audio(&mut self, dsp: &mut DSP, abuf: &mut NABufferType, srate_idx: usize) {
+    fn decode_sbr(&mut self, buf: &[u8], has_crc: bool, cbs: &SBRCodebooks, srate: u32) -> DecoderResult<()> {
+        let mut br = BitReader::new(buf, BitReaderMode::BE);
+        if has_crc {
+            let _bs_sbr_crc_bits        = br.read(10)?;
+        }
+        if br.read_bool()? {
+            if let Ok(hdr) = SBRHeader::read(&mut br) {
+                if self.sbr_hdr.differs_from(&hdr) {
+                    self.do_sbr = self.sbr_state.init(&hdr, srate).is_ok();
+                    self.sbr_ch[0].reset();
+                    self.sbr_ch[1].reset();
+                }
+                self.sbr_hdr = hdr;
+            } else {
+                self.do_sbr = false;
+            }
+        }
+        if self.do_sbr {
+            if !self.pair {
+                sbr_read_sce(&mut br, self.sbr_hdr.amp_res, &self.sbr_state, cbs, &mut self.sbr_ch[0])?;
+            } else {
+                sbr_read_cpe(&mut br, self.sbr_hdr.amp_res, &self.sbr_state, cbs, &mut self.sbr_ch)?;
+            }
+        }
+
+        Ok(())
+    }
+    fn synth_audio(&mut self, dsp: &mut DSP, abuf: &mut NABufferType, srate_idx: usize, upsample: bool) {
         let mut adata = abuf.get_abuf_f32().unwrap();
         let output = adata.get_data_mut().unwrap();
         let off0 = abuf.get_offset(self.channel);
         let off1 = abuf.get_offset(self.channel + 1);
-        self.ics[0].synth_channel(dsp, &mut output[off0..], srate_idx);
-        if self.pair {
-            self.ics[1].synth_channel(dsp, &mut output[off1..], srate_idx);
+        if !upsample {
+            self.ics[0].synth_channel(dsp, &mut output[off0..], srate_idx);
+            if self.pair {
+                self.ics[1].synth_channel(dsp, &mut output[off1..], srate_idx);
+            }
+        } else {
+            let mut tmp = [0.0; 1024];
+            let nchannels = if self.pair { 2 } else { 1 };
+            for ch in 0..nchannels {
+                let off = if ch == 0 { off0 } else { off1 };
+                self.ics[ch].synth_channel(dsp, &mut tmp, srate_idx);
+                self.sbr_ch[ch].analysis(&mut dsp.sbr_dsp, &tmp);
+                if self.do_sbr {
+                    self.sbr_ch[ch].hf_generate(&self.sbr_state);
+                    self.sbr_ch[ch].hf_adjust(&self.sbr_state, &self.sbr_hdr);
+                } else {
+                    self.sbr_ch[ch].bypass();
+                }
+                self.sbr_ch[ch].synthesis(&mut dsp.sbr_dsp, &mut output[off..][..2048]);
+                self.sbr_ch[ch].update_frame();
+            }
         }
     }
 }
@@ -377,6 +432,7 @@ struct DSP {
     imdct_short:    IMDCT,
     tmp:            [f32; 2048],
     ew_buf:         [f32; 1152],
+    sbr_dsp:        SBRDSP,
 }
 
 const SHORT_WIN_POINT0: usize = 512 - 64;
@@ -398,6 +454,7 @@ impl DSP {
             imdct_long: IMDCT::new(1024 * 2, true),
             imdct_short: IMDCT::new(128 * 2, true),
             tmp: [0.0; 2048], ew_buf: [0.0; 1152],
+            sbr_dsp: SBRDSP::new(),
         }
     }
     #[allow(clippy::cognitive_complexity)]
@@ -507,6 +564,8 @@ struct AACDecoder {
     codebooks:  Codebooks,
     dsp:        DSP,
     sbinfo:     GASubbandInfo,
+    sbr_cbs:    SBRCodebooks,
+    upsample:   bool,
 }
 
 impl AACDecoder {
@@ -519,6 +578,8 @@ impl AACDecoder {
             codebooks:  Codebooks::new(),
             dsp:        DSP::new(),
             sbinfo:     AAC_SUBBAND_INFO[0],
+            sbr_cbs:    SBRCodebooks::new(),
+            upsample:   false,
         }
     }
     fn set_pair(&mut self, pair_no: usize, channel: usize, pair: bool) -> DecoderResult<()> {
@@ -578,9 +639,28 @@ impl AACDecoder {
                             count                      += br.read(8)? as usize;
                             count -= 1;
                         }
-                        for _ in 0..count {
-                            // ext payload
+                        if count > 0 {
+                            let extension_type          = br.read(4)?;
+                            match extension_type {
+                                0xD | 0xE => { // SBR data without or with CRC
+                                    let has_crc = extension_type == 0xE;
+
+                                    let mut buf = [0; 256 + 16];
+                                    for el in buf[..count - 1].iter_mut() {
+                                        *el             = br.read(8)? as u8;
+                                    }
+                                    buf[count - 1]      = br.read(4)? as u8;
+                                    if cur_pair > 0 {
+                                        self.pairs[cur_pair - 1].decode_sbr(&buf[..count], has_crc, &self.sbr_cbs, self.m4ainfo.srate * 2)?;
+                                    }
+                                },
+                                _ => {
+                                    for _ in 0..count-1 {
                                                           br.skip(8)?;
+                                    }
+                                                          br.skip(4)?;
+                                },
+                            };
                         }
                     },
                 7 => { // ID_TERM
@@ -591,7 +671,7 @@ impl AACDecoder {
         }
         let srate_idx = GASubbandInfo::find_idx(self.m4ainfo.srate);
         for pair in 0..cur_pair {
-            self.pairs[pair].synth_audio(&mut self.dsp, abuf, srate_idx);
+            self.pairs[pair].synth_audio(&mut self.dsp, abuf, srate_idx, self.upsample);
         }
         Ok(())
     }
@@ -665,8 +745,15 @@ impl NADecoder for AACDecoder {
             }
             self.sbinfo = GASubbandInfo::find(self.m4ainfo.srate);
 
-            let ainfo = NAAudioInfo::new(self.m4ainfo.srate, self.m4ainfo.channels as u8,
-                                         SND_F32P_FORMAT, self.m4ainfo.samples);
+            self.upsample = self.m4ainfo.srate < 32000;
+            let (srate, samples) = if !self.upsample {
+                    (self.m4ainfo.srate, self.m4ainfo.samples)
+                } else {
+                    (self.m4ainfo.srate * 2, self.m4ainfo.samples * 2)
+                };
+
+            let ainfo = NAAudioInfo::new(srate, self.m4ainfo.channels as u8,
+                                         SND_F32P_FORMAT, samples);
             self.info = info.replace_info(NACodecTypeInfo::Audio(ainfo));
 
             if self.m4ainfo.channels >= DEFAULT_CHANNEL_MAP.len() {
@@ -687,7 +774,8 @@ impl NADecoder for AACDecoder {
         let pktbuf = pkt.get_buffer();
 
         let ainfo = self.info.get_properties().get_audio_info().unwrap();
-        let mut abuf = alloc_audio_buffer(ainfo, self.m4ainfo.samples, self.chmap.clone())?;
+        let samples = if !self.upsample { self.m4ainfo.samples } else { self.m4ainfo.samples * 2 };
+        let mut abuf = alloc_audio_buffer(ainfo, samples, self.chmap.clone())?;
 
         let mut br = BitReader::new(&pktbuf, BitReaderMode::BE);
         match self.m4ainfo.otype {
@@ -736,6 +824,16 @@ mod test {
 //        let file = "assets/RV/rv40_weighted_mc.rmvb";
         let file = "assets/RV/rv40_weighted_mc_2.rmvb";
         test_decode_audio("realmedia", file, Some(12000), None/*Some("aac")*/, &dmx_reg, &dec_reg);
+    }
+    #[test]
+    fn test_aac_sbr() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        nihav_commonfmt::generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        mpeg_register_all_decoders(&mut dec_reg);
+
+        let file = "assets/MPEG/SBRtestStereoAot29Sig0.mp4";
+        test_decode_audio("mov", file, Some(400), None/*Some("aacsbr")*/, &dmx_reg, &dec_reg);
     }
 }
 
