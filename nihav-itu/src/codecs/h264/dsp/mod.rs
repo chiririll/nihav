@@ -521,7 +521,7 @@ impl IPred8Context {
             tl:     128,
         }
     }
-    pub fn fill(&mut self, buf: &mut [u8], idx: usize, stride: usize, has_t: bool, has_tr: bool, has_l: bool, has_tl: bool) {
+    pub fn fill(&mut self, buf: &[u8], idx: usize, stride: usize, has_t: bool, has_tr: bool, has_l: bool, has_tl: bool) {
         let mut t = [0x80u8; 19];
         let mut l = [0x80u8; 11];
         if has_t {
