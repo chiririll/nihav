@@ -156,11 +156,11 @@ pub fn idct(blk: &mut [i16; 16], qp: u8, quant_dc: bool) {
     for (el, &idx) in blk.iter_mut().zip(BLK_INDEX.iter()).skip(start) {
         *el = (*el * LEVEL_SCALE[idx][qidx]) << shift;
     }
-    for i in 0..4 {
-        transform!(blk[i], blk[i + 4], blk[i + 8], blk[i + 12], 0);
-    }
     for row in blk.chunks_mut(4) {
-        transform!(row[0], row[1], row[2], row[3], 6);
+        transform!(row[0], row[1], row[2], row[3], 0);
+    }
+    for i in 0..4 {
+        transform!(blk[i], blk[i + 4], blk[i + 8], blk[i + 12], 6);
     }
 }
 
