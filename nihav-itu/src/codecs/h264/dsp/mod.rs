@@ -277,101 +277,101 @@ pub fn avg(dst: &mut [u8], dstride: usize,
 
 fn clip8(val: i16) -> u8 { val.max(0).min(255) as u8 }
 
-fn ipred_dc128(buf: &mut [u8], mut idx: usize, stride: usize, bsize: usize) {
-    for _ in 0..bsize {
-        for x in 0..bsize { buf[idx + x] = 128; }
-        idx += stride;
+fn ipred_dc128(buf: &mut [u8], stride: usize, bsize: usize) {
+    for row in buf.chunks_mut(stride).take(bsize) {
+        for el in row[..bsize].iter_mut() {
+            *el = 128;
+        }
     }
 }
-fn ipred_ver(buf: &mut [u8], mut idx: usize, stride: usize, bsize: usize) {
-    let oidx = idx - stride;
-    for _ in 0..bsize {
-        for x in 0..bsize { buf[idx + x] = buf[oidx + x]; }
-        idx += stride;
+fn ipred_ver(buf: &mut [u8], stride: usize, top: &[u8], bsize: usize) {
+    for row in buf.chunks_mut(stride).take(bsize) {
+        row[..bsize].copy_from_slice(&top[..bsize]);
     }
 }
-fn ipred_hor(buf: &mut [u8], mut idx: usize, stride: usize, bsize: usize) {
-    for _ in 0..bsize {
-        for x in 0..bsize { buf[idx + x] = buf[idx - 1]; }
-        idx += stride;
+fn ipred_hor(buf: &mut [u8], stride: usize, left: &[u8], bsize: usize) {
+    for (row, &left) in buf.chunks_mut(stride).zip(left[1..].iter()).take(bsize) {
+        for el in row[..bsize].iter_mut() {
+            *el = left;
+        }
     }
 }
-fn ipred_dc(buf: &mut [u8], mut idx: usize, stride: usize, bsize: usize, shift: u8) {
+fn ipred_dc(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], bsize: usize, shift: u8) {
     let mut adc: u16 = 0;
-    for i in 0..bsize { adc += u16::from(buf[idx - stride + i]); }
-    for i in 0..bsize { adc += u16::from(buf[idx - 1 + i * stride]); }
+    for i in 0..bsize { adc += u16::from(top[i]); }
+    for i in 0..bsize { adc += u16::from(left[i + 1]); }
     let dc = ((adc + (1 << (shift - 1))) >> shift) as u8;
 
-    for _ in 0..bsize {
-        for x in 0..bsize { buf[idx + x] = dc; }
-        idx += stride;
+    for row in buf.chunks_mut(stride).take(bsize) {
+        for el in row[..bsize].iter_mut() {
+            *el = dc;
+        }
     }
 }
-fn ipred_left_dc(buf: &mut [u8], mut idx: usize, stride: usize, bsize: usize, shift: u8) {
+fn ipred_left_dc(buf: &mut [u8], stride: usize, left: &[u8], bsize: usize, shift: u8) {
     let mut adc: u16 = 0;
-    for i in 0..bsize { adc += u16::from(buf[idx - 1 + i * stride]); }
+    for i in 0..bsize { adc += u16::from(left[i + 1]); }
     let dc = ((adc + (1 << (shift - 1))) >> shift) as u8;
 
-    for _ in 0..bsize {
-        for x in 0..bsize { buf[idx + x] = dc; }
-        idx += stride;
+    for row in buf.chunks_mut(stride).take(bsize) {
+        for el in row[..bsize].iter_mut() {
+            *el = dc;
+        }
     }
 }
-fn ipred_top_dc(buf: &mut [u8], mut idx: usize, stride: usize, bsize: usize, shift: u8) {
+fn ipred_top_dc(buf: &mut [u8], stride: usize, top: &[u8], bsize: usize, shift: u8) {
     let mut adc: u16 = 0;
-    for i in 0..bsize { adc += u16::from(buf[idx - stride + i]); }
+    for i in 0..bsize { adc += u16::from(top[i]); }
     let dc = ((adc + (1 << (shift - 1))) >> shift) as u8;
 
-    for _ in 0..bsize {
-        for x in 0..bsize { buf[idx + x] = dc; }
-        idx += stride;
+    for row in buf.chunks_mut(stride).take(bsize) {
+        for el in row[..bsize].iter_mut() {
+            *el = dc;
+        }
     }
 }
 
-fn load_top(dst: &mut [u16], buf: &mut [u8], idx: usize, stride: usize, len: usize) {
-    for i in 0..len { dst[i] = u16::from(buf[idx - stride + i]); }
-}
-fn load_left(dst: &mut [u16], buf: &mut [u8], idx: usize, stride: usize, len: usize) {
-    for i in 0..len { dst[i] = u16::from(buf[idx - 1 + i * stride]); }
+fn load(dst: &mut [u16], src: &[u8]) {
+    for (dst, &src) in dst.iter_mut().zip(src.iter()) {
+        *dst = u16::from(src);
+    }
 }
 
-fn ipred_4x4_ver(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
-    ipred_ver(buf, idx, stride, 4);
+fn ipred_4x4_ver(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8], _tr: &[u8]) {
+    ipred_ver(buf, stride, top, 4);
 }
-fn ipred_4x4_hor(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
-    ipred_hor(buf, idx, stride, 4);
+fn ipred_4x4_hor(buf: &mut [u8], stride: usize, _top: &[u8], left: &[u8], _tr: &[u8]) {
+    ipred_hor(buf, stride, left, 4);
 }
-fn ipred_4x4_diag_down_left(buf: &mut [u8], idx: usize, stride: usize, tr: &[u8]) {
+fn ipred_4x4_diag_down_left(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8], tr: &[u8]) {
     let mut t: [u16; 9] = [0; 9];
-    load_top(&mut t, buf, idx, stride, 4);
-    for i in 0..4 {
-        t[i + 4] = u16::from(tr[i]);
-    }
+    load(&mut t[..4], top);
+    load(&mut t[4..8], tr);
     t[8] = t[7];
 
-    let dst = &mut buf[idx..];
     for i in 0..4 {
-        dst[i] = ((t[i]     + 2 * t[i + 1] + t[i + 2] + 2) >> 2) as u8;
+        buf[i] = ((t[i]     + 2 * t[i + 1] + t[i + 2] + 2) >> 2) as u8;
     }
-    let dst = &mut buf[idx + stride..];
+    let dst = &mut buf[stride..];
     for i in 0..4 {
         dst[i] = ((t[i + 1] + 2 * t[i + 2] + t[i + 3] + 2) >> 2) as u8;
     }
-    let dst = &mut buf[idx + stride * 2..];
+    let dst = &mut buf[stride * 2..];
     for i in 0..4 {
         dst[i] = ((t[i + 2] + 2 * t[i + 3] + t[i + 4] + 2) >> 2) as u8;
     }
-    let dst = &mut buf[idx + stride * 3..];
+    let dst = &mut buf[stride * 3..];
     for i in 0..4 {
         dst[i] = ((t[i + 3] + 2 * t[i + 4] + t[i + 5] + 2) >> 2) as u8;
     }
 }
-fn ipred_4x4_diag_down_right(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
+fn ipred_4x4_diag_down_right(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], _tr: &[u8]) {
     let mut t: [u16; 5] = [0; 5];
+    t[0] = u16::from(left[0]);
+    load(&mut t[1..], &top);
     let mut l: [u16; 5] = [0; 5];
-    load_top(&mut t, buf, idx - 1, stride, 5);
-    load_left(&mut l, buf, idx - stride, stride, 5);
-    let dst = &mut buf[idx..];
+    load(&mut l, left);
+    let dst = buf;
 
     for j in 0..4 {
         for i in 0..j {
@@ -383,12 +383,13 @@ fn ipred_4x4_diag_down_right(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u
         }
     }
 }
-fn ipred_4x4_ver_right(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
+fn ipred_4x4_ver_right(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], _tr: &[u8]) {
     let mut t: [u16; 5] = [0; 5];
+    t[0] = u16::from(left[0]);
+    load(&mut t[1..], &top);
     let mut l: [u16; 5] = [0; 5];
-    load_top(&mut t, buf, idx - 1, stride, 5);
-    load_left(&mut l, buf, idx - stride, stride, 5);
-    let dst = &mut buf[idx..];
+    load(&mut l, left);
+    let dst = buf;
 
     for j in 0..4 {
         for i in 0..4 {
@@ -411,11 +412,11 @@ fn ipred_4x4_ver_right(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
         }
     }
 }
-fn ipred_4x4_ver_left(buf: &mut [u8], idx: usize, stride: usize, tr: &[u8]) {
+fn ipred_4x4_ver_left(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8], tr: &[u8]) {
     let mut t: [u16; 8] = [0; 8];
-    load_top(&mut t, buf, idx, stride, 4);
-    for i in 0..4 { t[i + 4] = u16::from(tr[i]); }
-    let dst = &mut buf[idx..];
+    load(&mut t[..4], &top);
+    load(&mut t[4..], tr);
+    let dst = buf;
 
     dst[0 + 0 * stride] = ((t[0] + t[1] + 1) >> 1) as u8;
     let pix = ((t[1] + t[2] + 1) >> 1) as u8;
@@ -440,12 +441,13 @@ fn ipred_4x4_ver_left(buf: &mut [u8], idx: usize, stride: usize, tr: &[u8]) {
     dst[2 + 3 * stride] = pix;
     dst[3 + 3 * stride] = ((t[4] + 2*t[5] + t[6] + 2) >> 2) as u8;
 }
-fn ipred_4x4_hor_down(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
+fn ipred_4x4_hor_down(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], _tr: &[u8]) {
     let mut t: [u16; 5] = [0; 5];
+    t[0] = u16::from(left[0]);
+    load(&mut t[1..], &top);
     let mut l: [u16; 5] = [0; 5];
-    load_top(&mut t, buf, idx - 1, stride, 5);
-    load_left(&mut l, buf, idx - stride, stride, 5);
-    let dst = &mut buf[idx..];
+    load(&mut l, left);
+    let dst = buf;
 
     for j in 0..4 {
         for i in 0..4 {
@@ -468,10 +470,10 @@ fn ipred_4x4_hor_down(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
         }
     }
 }
-fn ipred_4x4_hor_up(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
+fn ipred_4x4_hor_up(buf: &mut [u8], stride: usize, _top: &[u8], left: &[u8], _tr: &[u8]) {
     let mut l: [u16; 8] = [0; 8];
-    load_left(&mut l, buf, idx, stride, 8);
-    let dst = &mut buf[idx..];
+    load(&mut l, &left[1..]);
+    let dst = buf;
 
     dst[0 + 0 * stride] = ((l[0] + l[1] + 1) >> 1) as u8;
     dst[1 + 0 * stride] = ((l[0] + 2*l[1] + l[2] + 2) >> 2) as u8;
@@ -494,17 +496,17 @@ fn ipred_4x4_hor_up(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
     dst[2 + 3 * stride] = l[3] as u8;
     dst[3 + 3 * stride] = l[3] as u8;
 }
-fn ipred_4x4_dc(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
-    ipred_dc(buf, idx, stride, 4, 3);
+fn ipred_4x4_dc(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], _tr: &[u8]) {
+    ipred_dc(buf, stride, top, left, 4, 3);
 }
-fn ipred_4x4_left_dc(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
-    ipred_left_dc(buf, idx, stride, 4, 2);
+fn ipred_4x4_left_dc(buf: &mut [u8], stride: usize, _top: &[u8], left: &[u8], _tr: &[u8]) {
+    ipred_left_dc(buf, stride, left, 4, 2);
 }
-fn ipred_4x4_top_dc(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
-    ipred_top_dc(buf, idx, stride, 4, 2);
+fn ipred_4x4_top_dc(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8], _tr: &[u8]) {
+    ipred_top_dc(buf, stride, top, 4, 2);
 }
-fn ipred_4x4_dc128(buf: &mut [u8], idx: usize, stride: usize, _tr: &[u8]) {
-    ipred_dc128(buf, idx, stride, 4);
+fn ipred_4x4_dc128(buf: &mut [u8], stride: usize, _top: &[u8], _left: &[u8], _tr: &[u8]) {
+    ipred_dc128(buf, stride, 4);
 }
 
 pub struct IPred8Context {
@@ -521,14 +523,14 @@ impl IPred8Context {
             tl:     128,
         }
     }
-    pub fn fill(&mut self, buf: &[u8], idx: usize, stride: usize, has_t: bool, has_tr: bool, has_l: bool, has_tl: bool) {
+    pub fn fill(&mut self, top: &[u8], left: &[u8], has_t: bool, has_tr: bool, has_l: bool, has_tl: bool) {
         let mut t = [0x80u8; 19];
         let mut l = [0x80u8; 11];
         if has_t {
-            t[1..8 + 1].copy_from_slice(&buf[idx - stride..][..8]);
+            t[1..8 + 1].copy_from_slice(&top[..8]);
         }
         if has_tr {
-            t[8 + 1..16 + 1].copy_from_slice(&buf[idx - stride + 8..][..8]);
+            t[8 + 1..16 + 1].copy_from_slice(&top[8..][..8]);
             t[16 + 1] = t[15 + 1];
             t[17 + 1] = t[15 + 1];
         } else {
@@ -538,15 +540,13 @@ impl IPred8Context {
             }
         }
         if has_l {
-            for i in 0..8 {
-                l[i + 1] = buf[idx - 1 + stride * i];
-            }
+            l[1..9].copy_from_slice(&left[1..9]);
             l[8 + 1] = l[7 + 1];
             l[9 + 1] = l[7 + 1];
         }
         if has_tl {
-            t[0] = buf[idx - 1 - stride];
-            l[0] = buf[idx - 1 - stride];
+            t[0] = left[0];
+            l[0] = left[0];
         } else {
             t[0] = t[1];
             l[0] = l[1];
@@ -582,9 +582,7 @@ fn ipred_y_8x8_hor(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
 }
 fn ipred_y_8x8_diag_down_left(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
     let mut t = [0u16; 16];
-    for (dt, &st) in t.iter_mut().zip(ctx.t.iter()) {
-        *dt = u16::from(st);
-    }
+    load(&mut t, &ctx.t);
 
     for (y, row) in buf.chunks_mut(stride).take(8).enumerate() {
         for (x, pix) in row.iter_mut().take(8).enumerate() {
@@ -599,14 +597,10 @@ fn ipred_y_8x8_diag_down_left(buf: &mut [u8], stride: usize, ctx: &IPred8Context
 fn ipred_y_8x8_diag_down_right(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
     let mut t = [0u16; 9];
     t[0] = u16::from(ctx.tl);
-    for (dt, &st) in t[1..].iter_mut().zip(ctx.t.iter()) {
-        *dt = u16::from(st);
-    }
+    load(&mut t[1..], &ctx.t);
     let mut l = [0u16; 9];
     l[0] = u16::from(ctx.tl);
-    for (dl, &sl) in l[1..].iter_mut().zip(ctx.l.iter()) {
-        *dl = u16::from(sl);
-    }
+    load(&mut l[1..], &ctx.l);
     let diag = t[1] + 2 * t[0] + l[1];
 
     for (y, row) in buf.chunks_mut(stride).take(8).enumerate() {
@@ -624,14 +618,10 @@ fn ipred_y_8x8_diag_down_right(buf: &mut [u8], stride: usize, ctx: &IPred8Contex
 fn ipred_y_8x8_ver_right(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
     let mut t = [0u16; 9];
     t[0] = u16::from(ctx.tl);
-    for (dt, &st) in t[1..].iter_mut().zip(ctx.t.iter()) {
-        *dt = u16::from(st);
-    }
+    load(&mut t[1..], &ctx.t);
     let mut l = [0u16; 9];
     l[0] = u16::from(ctx.tl);
-    for (dl, &sl) in l[1..].iter_mut().zip(ctx.l.iter()) {
-        *dl = u16::from(sl);
-    }
+    load(&mut l[1..], &ctx.l);
 
     for (y, row) in buf.chunks_mut(stride).take(8).enumerate() {
         for (x, pix) in row.iter_mut().take(8).enumerate() {
@@ -654,9 +644,7 @@ fn ipred_y_8x8_ver_right(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
 }
 fn ipred_y_8x8_ver_left(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
     let mut t = [0u16; 16];
-    for (dt, &st) in t.iter_mut().zip(ctx.t.iter()) {
-        *dt = u16::from(st);
-    }
+    load(&mut t, &ctx.t);
 
     for (y, row) in buf.chunks_mut(stride).take(8).enumerate() {
         for (x, pix) in row.iter_mut().take(8).enumerate() {
@@ -673,14 +661,10 @@ fn ipred_y_8x8_ver_left(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
 fn ipred_y_8x8_hor_down(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
     let mut t = [0u16; 9];
     t[0] = u16::from(ctx.tl);
-    for (dt, &st) in t[1..].iter_mut().zip(ctx.t.iter()) {
-        *dt = u16::from(st);
-    }
+    load(&mut t[1..], &ctx.t);
     let mut l = [0u16; 9];
     l[0] = u16::from(ctx.tl);
-    for (dl, &sl) in l[1..].iter_mut().zip(ctx.l.iter()) {
-        *dl = u16::from(sl);
-    }
+    load(&mut l[1..], &ctx.l);
 
     for (y, row) in buf.chunks_mut(stride).take(8).enumerate() {
         for (x, pix) in row.iter_mut().take(8).enumerate() {
@@ -703,9 +687,7 @@ fn ipred_y_8x8_hor_down(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
 }
 fn ipred_y_8x8_hor_up(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
     let mut l = [0u16; 8];
-    for (dl, &sl) in l.iter_mut().zip(ctx.l.iter()) {
-        *dl = u16::from(sl);
-    }
+    load(&mut l, &ctx.l);
 
     for (y, row) in buf.chunks_mut(stride).take(8).enumerate() {
         for (x, pix) in row.iter_mut().take(8).enumerate() {
@@ -763,20 +745,20 @@ fn ipred_y_8x8_top_dc(buf: &mut [u8], stride: usize, ctx: &IPred8Context) {
     }
 }
 fn ipred_y_8x8_dc128(buf: &mut [u8], stride: usize, _ctx: &IPred8Context) {
-    ipred_dc128(buf, 0, stride, 8);
+    ipred_dc128(buf, stride, 8);
 }
 
-fn ipred_8x8_ver(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_ver(buf, idx, stride, 8);
+fn ipred_8x8_ver(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8]) {
+    ipred_ver(buf, stride, top, 8);
 }
-fn ipred_8x8_hor(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_hor(buf, idx, stride, 8);
+fn ipred_8x8_hor(buf: &mut [u8], stride: usize, _top: &[u8], left: &[u8]) {
+    ipred_hor(buf, stride, left, 8);
 }
-fn ipred_8x8_dc(buf: &mut [u8], idx: usize, stride: usize) {
-    let mut t: [u16; 8] = [0; 8];
-    load_top(&mut t, buf, idx, stride, 8);
-    let mut l: [u16; 8] = [0; 8];
-    load_left(&mut l, buf, idx, stride, 8);
+fn ipred_8x8_dc(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8]) {
+    let mut l = [0; 8];
+    load(&mut l, &left[1..]);
+    let mut t = [0; 8];
+    load(&mut t, &top);
 
     let dc0 = ((t[0] + t[1] + t[2] + t[3] + l[0] + l[1] + l[2] + l[3] + 4) >> 3) as u8;
     let sum1 = t[4] + t[5] + t[6] + t[7];
@@ -785,60 +767,56 @@ fn ipred_8x8_dc(buf: &mut [u8], idx: usize, stride: usize) {
     let dc2 = ((sum2 + 2) >> 2) as u8;
     let dc3 = ((sum1 + sum2 + 4) >> 3) as u8;
 
-    let dst = &mut buf[idx..];
-    for row in dst.chunks_mut(stride).take(4) {
+    for row in buf.chunks_mut(stride).take(4) {
         row[..4].copy_from_slice(&[dc0; 4]);
         row[4..8].copy_from_slice(&[dc1; 4]);
     }
-    for row in dst.chunks_mut(stride).skip(4).take(4) {
+    for row in buf.chunks_mut(stride).skip(4).take(4) {
         row[..4].copy_from_slice(&[dc2; 4]);
         row[4..8].copy_from_slice(&[dc3; 4]);
     }
 }
-fn ipred_8x8_left_dc(buf: &mut [u8], idx: usize, stride: usize) {
+fn ipred_8x8_left_dc(buf: &mut [u8], stride: usize, _top: &[u8], left: &[u8]) {
     let mut left_dc0 = 0;
     let mut left_dc1 = 0;
-    for row in buf[idx - 1..].chunks(stride).take(4) {
-        left_dc0 += u16::from(row[0]);
+    for &el in left[1..].iter().take(4) {
+        left_dc0 += u16::from(el);
     }
-    for row in buf[idx - 1..].chunks(stride).skip(4).take(4) {
-        left_dc1 += u16::from(row[0]);
+    for &el in left[1..].iter().skip(4).take(4) {
+        left_dc1 += u16::from(el);
     }
     let dc0 = ((left_dc0 + 2) >> 2) as u8;
     let dc2 = ((left_dc1 + 2) >> 2) as u8;
-    for row in buf[idx..].chunks_mut(stride).take(4) {
+    for row in buf.chunks_mut(stride).take(4) {
         row[..8].copy_from_slice(&[dc0; 8]);
     }
-    for row in buf[idx..].chunks_mut(stride).skip(4).take(4) {
+    for row in buf.chunks_mut(stride).skip(4).take(4) {
         row[..8].copy_from_slice(&[dc2; 8]);
     }
 }
-fn ipred_8x8_top_dc(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_top_dc(buf, idx, stride, 4, 2);
-    ipred_top_dc(buf, idx + 4, stride, 4, 2);
-    ipred_top_dc(buf, idx + 4 * stride, stride, 4, 2);
-    ipred_top_dc(buf, idx + 4 + 4 * stride, stride, 4, 2);
+fn ipred_8x8_top_dc(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8]) {
+    ipred_top_dc(buf,           stride, top,       4, 2);
+    ipred_top_dc(&mut buf[4..], stride, &top[4..], 4, 2);
+    let mut top = [0; 8];
+    top.copy_from_slice(&buf[stride * 3..][..8]);
+    ipred_top_dc(&mut buf[4 * stride..],     stride, &top,      4, 2);
+    ipred_top_dc(&mut buf[4 + 4 * stride..], stride, &top[4..], 4, 2);
 }
-fn ipred_8x8_dc128(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_dc128(buf, idx, stride, 8);
+fn ipred_8x8_dc128(buf: &mut [u8], stride: usize, _top: &[u8], _left: &[u8]) {
+    ipred_dc128(buf, stride, 8);
 }
-fn ipred_8x8_plane(buf: &mut [u8], idx: usize, stride: usize) {
-    let mut h: i32 = 0;
-    let mut v: i32 = 0;
-    let     idx0 = idx + 3 - stride;
-    let mut idx1 = idx + 4 * stride - 1;
-    let mut idx2 = idx + 2 * stride - 1;
-    for i in 0..4 {
+fn ipred_8x8_plane(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8]) {
+    let mut h: i32 = 4 * (i32::from(top[7]) - i32::from(left[0]));
+    let mut v: i32 = 4 * (i32::from(left[8]) - i32::from(left[0]));
+    for i in 0..3 {
         let i1 = (i + 1) as i32;
-        h += i1 * (i32::from(buf[idx0 + i + 1]) - i32::from(buf[idx0 - i - 1]));
-        v += i1 * (i32::from(buf[idx1]) - i32::from(buf[idx2]));
-        idx1 += stride;
-        idx2 -= stride;
+        h += i1 * (i32::from(top[4 + i]) - i32::from(top[2 - i]));
+        v += i1 * (i32::from(left[5 + i]) - i32::from(left[3 - i]));
     }
     let b = (17 * h + 16) >> 5;
     let c = (17 * v + 16) >> 5;
-    let mut a = 16 * (i32::from(buf[idx - 1 + 7 * stride]) + i32::from(buf[idx + 7 - stride])) - 3 * (b + c) + 16;
-    for line in buf[idx..].chunks_mut(stride).take(8) {
+    let mut a = 16 * (i32::from(left[8]) + i32::from(top[7])) - 3 * (b + c) + 16;
+    for line in buf.chunks_mut(stride).take(8) {
         let mut acc = a;
         for el in line.iter_mut().take(8) {
             *el = clip8((acc >> 5) as i16);
@@ -848,44 +826,38 @@ fn ipred_8x8_plane(buf: &mut [u8], idx: usize, stride: usize) {
     }
 }
 
-fn ipred_16x16_ver(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_ver(buf, idx, stride, 16);
+fn ipred_16x16_ver(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8]) {
+    ipred_ver(buf, stride, top, 16);
 }
-fn ipred_16x16_hor(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_hor(buf, idx, stride, 16);
+fn ipred_16x16_hor(buf: &mut [u8], stride: usize, _top: &[u8], left: &[u8]) {
+    ipred_hor(buf, stride, left, 16);
 }
-fn ipred_16x16_dc(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_dc(buf, idx, stride, 16, 5);
+fn ipred_16x16_dc(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8]) {
+    ipred_dc(buf, stride, top, left, 16, 5);
 }
-fn ipred_16x16_left_dc(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_left_dc(buf, idx, stride, 16, 4);
+fn ipred_16x16_left_dc(buf: &mut [u8], stride: usize, _top: &[u8], left: &[u8]) {
+    ipred_left_dc(buf, stride, left, 16, 4);
 }
-fn ipred_16x16_top_dc(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_top_dc(buf, idx, stride, 16, 4);
+fn ipred_16x16_top_dc(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8]) {
+    ipred_top_dc(buf, stride, top, 16, 4);
 }
-fn ipred_16x16_dc128(buf: &mut [u8], idx: usize, stride: usize) {
-    ipred_dc128(buf, idx, stride, 16);
+fn ipred_16x16_dc128(buf: &mut [u8], stride: usize, _top: &[u8], _left: &[u8]) {
+    ipred_dc128(buf, stride, 16);
 }
-fn ipred_16x16_plane(buf: &mut [u8], idx: usize, stride: usize) {
-    let     idx0 = idx + 7 - stride;
-    let mut idx1 = idx + 8 * stride - 1;
-    let mut idx2 = idx1 - 2 * stride;
-
-    let mut h = i32::from(buf[idx0 + 1]) - i32::from(buf[idx0 - 1]);
-    let mut v = i32::from(buf[idx1])     - i32::from(buf[idx2]);
-
-    for k in 2..9 {
-        idx1 += stride;
-        idx2 -= stride;
-        h += (k as i32) * (i32::from(buf[idx0 + k]) - i32::from(buf[idx0 - k]));
-        v += (k as i32) * (i32::from(buf[idx1])     - i32::from(buf[idx2]));
+fn ipred_16x16_plane(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8]) {
+    let mut h = 8 * (i32::from(top[15]) - i32::from(left[0]));
+    let mut v = 8 * (i32::from(left[16]) - i32::from(left[0]));
+    for k in 0..7 {
+        h += ((k as i32) + 1) * (i32::from(top[8 + k])  - i32::from(top[6 - k]));
+        v += ((k as i32) + 1) * (i32::from(left[9 + k]) - i32::from(left[7 - k]));
     }
+
     h = (5 * h + 32) >> 6;
     v = (5 * v + 32) >> 6;
 
-    let mut a = 16 * (i32::from(buf[idx - 1 + 15 * stride]) + i32::from(buf[idx + 15 - stride]) + 1) - 7 * (v + h);
+    let mut a = 16 * (i32::from(left[16]) + i32::from(top[15]) + 1) - 7 * (v + h);
 
-    for row in buf[idx..].chunks_mut(stride).take(16) {
+    for row in buf.chunks_mut(stride).take(16) {
         let mut b = a;
         a += v;
 
@@ -899,8 +871,8 @@ fn ipred_16x16_plane(buf: &mut [u8], idx: usize, stride: usize) {
     }
 }
 
-pub type IPred4x4Func = fn(buf: &mut [u8], off: usize, stride: usize, tr: &[u8]);
-pub type IPred8x8Func = fn(buf: &mut [u8], off: usize, stride: usize);
+pub type IPred4x4Func = fn(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], tr: &[u8]);
+pub type IPred8x8Func = fn(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8]);
 pub type IPred8x8LumaFunc = fn(buf: &mut [u8], stride: usize, ctx: &IPred8Context);
 
 pub const IPRED4_DC128: usize = 11;
@@ -976,14 +948,14 @@ pub fn gray_block(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, w: usize
     let coff = [frm.offset[1] + x / 2 + y / 2 * frm.stride[1],
                 frm.offset[2] + x / 2 + y / 2 * frm.stride[2]];
     if w == 16 && h == 16 {
-        IPRED_FUNCS16X16[IPRED8_DC128](frm.data, yoff, frm.stride[0]);
+        IPRED_FUNCS16X16[IPRED8_DC128](&mut frm.data[yoff..], frm.stride[0], &[], &[]);
         for chroma in 1..2 {
-            IPRED_FUNCS8X8_CHROMA[IPRED8_DC128](frm.data, coff[chroma - 1], frm.stride[chroma]);
+            IPRED_FUNCS8X8_CHROMA[IPRED8_DC128](&mut frm.data[coff[chroma - 1]..], frm.stride[chroma], &[], &[]);
         }
     } else if w == 8 && h == 8 {
-        IPRED_FUNCS8X8_CHROMA[IPRED8_DC128](frm.data, yoff, frm.stride[0]);
+        IPRED_FUNCS8X8_CHROMA[IPRED8_DC128](&mut frm.data[yoff..], frm.stride[0], &[], &[]);
         for chroma in 1..2 {
-            IPRED_FUNCS4X4[IPRED4_DC128](frm.data, coff[chroma - 1], frm.stride[chroma], &[128; 4]);
+            IPRED_FUNCS4X4[IPRED4_DC128](&mut frm.data[coff[chroma - 1]..], frm.stride[chroma], &[128; 4], &[128; 4], &[128; 4]);
         }
     } else {
         for row in frm.data[yoff..].chunks_mut(frm.stride[0]).take(h) {
@@ -1117,7 +1089,7 @@ pub fn loop_filter_lumanormal_h(dst: &mut [u8], off: usize, stride: usize, alpha
     }
 }
 pub fn loop_filter_chromaedge_v(dst: &mut [u8], mut off: usize, stride: usize, alpha: i16, beta: i16) {
-    for _ in 0..4 {
+    for _ in 0..2 {
         if check_filter(dst, off, 1, alpha, beta) {
             loop_filter!(chromaedge; dst, off, 1);
         }
@@ -1125,14 +1097,14 @@ pub fn loop_filter_chromaedge_v(dst: &mut [u8], mut off: usize, stride: usize, a
     }
 }
 pub fn loop_filter_chromaedge_h(dst: &mut [u8], off: usize, stride: usize, alpha: i16, beta: i16) {
-    for x in 0..4 {
+    for x in 0..2 {
         if check_filter(dst, off + x, stride, alpha, beta) {
             loop_filter!(chromaedge; dst, off + x, stride);
         }
     }
 }
 pub fn loop_filter_chromanormal_v(dst: &mut [u8], mut off: usize, stride: usize, alpha: i16, beta: i16, tc0: i16) {
-    for _ in 0..4 {
+    for _ in 0..2 {
         if check_filter(dst, off, 1, alpha, beta) {
             loop_filter!(chromanormal; dst, off, 1, tc0);
         }
@@ -1140,7 +1112,7 @@ pub fn loop_filter_chromanormal_v(dst: &mut [u8], mut off: usize, stride: usize,
     }
 }
 pub fn loop_filter_chromanormal_h(dst: &mut [u8], off: usize, stride: usize, alpha: i16, beta: i16, tc0: i16) {
-    for x in 0..4 {
+    for x in 0..2 {
         if check_filter(dst, off + x, stride, alpha, beta) {
             loop_filter!(chromanormal; dst, off + x, stride, tc0);
         }

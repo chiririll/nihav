@@ -35,176 +35,77 @@ fn get_lf_idx(qp0: u8, qp1: u8, off: i8) -> usize {
     (i16::from((qp0 + qp1 + 1) >> 1) + i16::from(off)).max(0).min(51) as usize
 }
 
-fn filter_mb_row4_y(dst: &mut [u8], off: usize, stride: usize, dmodes: [u8; 4], quants: [u8; 3], alpha_off: i8, beta_off: i8) {
-    let q = quants[0];
-    let qleft = quants[1];
-    let dmode = dmodes[0] & 0xF;
-    if dmode != 0 {
-        let index_a_y = get_lf_idx(q, qleft, alpha_off);
-        let alpha_y = ALPHA[index_a_y];
-        let beta_y = BETA[get_lf_idx(q, qleft, beta_off)];
-        if dmode == 4 {
-            loop_filter_lumaedge_v(dst, off, stride, alpha_y, beta_y);
-        } else {
-            let tc0 = i16::from(TC0[index_a_y][(dmode - 1) as usize]);
-            loop_filter_lumanormal_v(dst, off, stride, alpha_y, beta_y, tc0);
-        }
-    }
-    let index_a_y = get_lf_idx(q, q, alpha_off);
-    let alpha_y = ALPHA[index_a_y];
-    let beta_y = BETA[get_lf_idx(q, q, beta_off)];
-
-    for i in 1..4 {
-        let dmode = dmodes[i] & 0xF;
-        if dmode != 0 {
-            let tc0 = i16::from(TC0[index_a_y][(dmode - 1) as usize]);
-            loop_filter_lumanormal_v(dst, off + i * 4, stride, alpha_y, beta_y, tc0);
-        }
-    }
-
-    let qtop = quants[2];
-    let index_a_y = get_lf_idx(q, qtop, alpha_off);
-    let alpha_y = ALPHA[index_a_y];
-    let beta_y = BETA[get_lf_idx(q, qtop, beta_off)];
-    for i in 0..4 {
-        let dmode = dmodes[i] >> 4;
-        if dmode == 4 {
-            loop_filter_lumaedge_h(dst, off + i * 4, stride, alpha_y, beta_y);
-        } else if dmode != 0 {
-            let tc0 = i16::from(TC0[index_a_y][(dmode - 1) as usize]);
-            loop_filter_lumanormal_h(dst, off + i * 4, stride, alpha_y, beta_y, tc0);
-        }
-    }
-}
-
-fn filter_mb_row4_c(dst: &mut [u8], off: usize, stride: usize, dmodes: [u8; 4], quants: [u8; 3], alpha_off: i8, beta_off: i8) {
-    let q = quants[0];
-    let qleft = quants[1];
-
-    let dmode = dmodes[0] & 0xF;
-    if dmode != 0 {
-        let index_a_c = get_lf_idx(q, qleft, alpha_off);
-        let alpha_c = ALPHA[index_a_c];
-        let beta_c = BETA[get_lf_idx(q, qleft, beta_off)];
-        if dmode == 4 {
-            loop_filter_chromaedge_v(dst, off, stride, alpha_c, beta_c);
-        } else {
-            let tc0 = i16::from(TC0[index_a_c][(dmode - 1) as usize]);
-            loop_filter_chromanormal_v(dst, off, stride, alpha_c, beta_c, tc0);
-        }
-    }
-    let dmode = dmodes[2] & 0xF;
-    if dmode != 0 {
-        let index_a_c = get_lf_idx(q, q, alpha_off);
-        let alpha_c = ALPHA[index_a_c];
-        let beta_c = BETA[get_lf_idx(q, q, beta_off)];
-        let tc0 = i16::from(TC0[index_a_c][(dmode - 1) as usize]);
-        loop_filter_chromanormal_v(dst, off + 4, stride, alpha_c, beta_c, tc0);
-    }
-
-    let qtop = quants[2];
-    let index_a_c = get_lf_idx(q, qtop, alpha_off);
-    let alpha_c = ALPHA[index_a_c];
-    let beta_c = BETA[get_lf_idx(q, qtop, beta_off)];
-    for i in 0..2 {
-        let dmode = dmodes[i * 2] >> 4;
-        if dmode == 4 {
-            loop_filter_chromaedge_h(dst, off + i * 4, stride, alpha_c, beta_c);
-        } else if dmode != 0 {
-            let tc0 = i16::from(TC0[index_a_c][(dmode - 1) as usize]);
-            loop_filter_chromanormal_h(dst, off + i * 4, stride, alpha_c, beta_c, tc0);
-        }
-    }
-}
-
-pub fn loop_filter_row(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, alpha_off: i8, beta_off: i8) {
-    let mut db_idx = sstate.deblock.xpos - sstate.deblock.stride;
-    let mut yoff = frm.offset[0] + sstate.mb_y * 16 * frm.stride[0];
-    let mut uoff = frm.offset[1] + sstate.mb_y *  8 * frm.stride[1];
-    let mut voff = frm.offset[2] + sstate.mb_y *  8 * frm.stride[2];
-    let mut tlq = [0; 3];
-    let mut lq  = [0; 3];
-    let mut mb_idx = sstate.mb.xpos;
-    for _mb_x in 0..sstate.mb_w {
-        let mut tqy = sstate.mb.data[mb_idx - sstate.mb.stride].qp_y;
-        let     tqu = sstate.mb.data[mb_idx - sstate.mb.stride].qp_u;
-        let     tqv = sstate.mb.data[mb_idx - sstate.mb.stride].qp_v;
-        if sstate.mb_y > 0 {
-            let dmodes = [sstate.deblock.data[db_idx],
-                          sstate.deblock.data[db_idx + 1],
-                          sstate.deblock.data[db_idx + 2],
-                          sstate.deblock.data[db_idx + 3]];
-
-            filter_mb_row4_y(frm.data, yoff - frm.stride[0] * 4, frm.stride[0], dmodes, [tqy, tlq[0], tqy], alpha_off, beta_off);
-            filter_mb_row4_c(frm.data, uoff - frm.stride[1] * 4, frm.stride[1], dmodes, [tqu, tlq[1], tqu], alpha_off, beta_off);
-            filter_mb_row4_c(frm.data, voff - frm.stride[2] * 4, frm.stride[2], dmodes, [tqv, tlq[2], tqv], alpha_off, beta_off);
-
-            tlq = [tqy, tqu, tqv];
-        }
-
-        let qy = sstate.mb.data[mb_idx].qp_y;
-        let qu = sstate.mb.data[mb_idx].qp_u;
-        let qv = sstate.mb.data[mb_idx].qp_v;
-
-        for y in 0..3 {
-            db_idx += sstate.deblock.stride;
-            let dmodes = [sstate.deblock.data[db_idx],
-                          sstate.deblock.data[db_idx + 1],
-                          sstate.deblock.data[db_idx + 2],
-                          sstate.deblock.data[db_idx + 3]];
-
-            filter_mb_row4_y(frm.data, yoff + frm.stride[0] * 4 * y, frm.stride[0], dmodes, [qy, lq[0], tqy], alpha_off, beta_off);
-            if y == 0 {
-                filter_mb_row4_c(frm.data, uoff + frm.stride[1] * 2 * y, frm.stride[1], dmodes, [qu, lq[1], tqu], alpha_off, beta_off);
-                filter_mb_row4_c(frm.data, voff + frm.stride[2] * 2 * y, frm.stride[2], dmodes, [qv, lq[2], tqv], alpha_off, beta_off);
+macro_rules! filter_edge_func {
+    ($funcname: ident, $edgefilter: ident, $normfilter: ident) => {
+        fn $funcname(dst: &mut [u8], off: usize, stride: usize, dmode: u8, quants: [u8; 2], alpha_off: i8, beta_off: i8) {
+            let q = quants[0];
+            let qleft = quants[1];
+            if dmode != 0 {
+                let index_a = get_lf_idx(q, qleft, alpha_off);
+                let alpha = ALPHA[index_a];
+                let beta = BETA[get_lf_idx(q, qleft, beta_off)];
+                if dmode == 4 {
+                    $edgefilter(dst, off, stride, alpha, beta);
+                } else {
+                    let tc0 = i16::from(TC0[index_a][(dmode - 1) as usize]);
+                    $normfilter(dst, off, stride, alpha, beta, tc0);
+                }
             }
-            tqy = qy;
         }
-        db_idx -= sstate.deblock.stride * 3;
-        lq = [qy, qu, qv];
-
-        mb_idx += 1;
-        db_idx += 4;
-        yoff += 16;
-        uoff += 8;
-        voff += 8;
-    }
-}
-pub fn loop_filter_last(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, alpha_off: i8, beta_off: i8) {
-    let mut db_idx = sstate.deblock.xpos + 3 * sstate.deblock.stride;
-    let mut yoff = frm.offset[0] + (sstate.mb_y * 16 + 12) * frm.stride[0];
-    let mut uoff = frm.offset[1] + (sstate.mb_y *  8 +  4) * frm.stride[1];
-    let mut voff = frm.offset[2] + (sstate.mb_y *  8 +  4) * frm.stride[2];
-
-    let mut lq = [0; 3];
-    let mut mb_idx = sstate.mb.xpos;
-    if sstate.mb_y != 0 && sstate.mb_x == 0 {
-        db_idx -= 4 * sstate.deblock.stride;
-        mb_idx -= sstate.mb.stride;
-        yoff -= 16 * frm.stride[0];
-        uoff -=  8 * frm.stride[1];
-        voff -=  8 * frm.stride[2];
-    }
-    for _mb_x in 0..sstate.mb_w {
-        let qy = sstate.mb.data[mb_idx].qp_y;
-        let qu = sstate.mb.data[mb_idx].qp_u;
-        let qv = sstate.mb.data[mb_idx].qp_v;
-
-        let dmodes = [sstate.deblock.data[db_idx],
-                      sstate.deblock.data[db_idx + 1],
-                      sstate.deblock.data[db_idx + 2],
-                      sstate.deblock.data[db_idx + 3]];
-
-        filter_mb_row4_y(frm.data, yoff, frm.stride[0], dmodes, [qy, lq[0], qy], alpha_off, beta_off);
-        filter_mb_row4_c(frm.data, uoff, frm.stride[1], dmodes, [qu, lq[1], qu], alpha_off, beta_off);
-        filter_mb_row4_c(frm.data, voff, frm.stride[2], dmodes, [qv, lq[2], qv], alpha_off, beta_off);
-
-        lq = [qy, qu, qv];
-        mb_idx += 1;
-        db_idx += 4;
-        yoff += 16;
-        uoff += 8;
-        voff += 8;
     }
 }
 
+filter_edge_func!(filter_edge_y_v, loop_filter_lumaedge_v, loop_filter_lumanormal_v);
+filter_edge_func!(filter_edge_y_h, loop_filter_lumaedge_h, loop_filter_lumanormal_h);
+filter_edge_func!(filter_edge_c_v, loop_filter_chromaedge_v, loop_filter_chromanormal_v);
+filter_edge_func!(filter_edge_c_h, loop_filter_chromaedge_h, loop_filter_chromanormal_h);
+
+pub fn loop_filter_mb(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, alpha_off: i8, beta_off: i8) {
+    let yoff = frm.offset[0] + sstate.mb_x * 16 + sstate.mb_y * 16 * frm.stride[0];
+    let uoff = frm.offset[1] + sstate.mb_x *  8 + sstate.mb_y *  8 * frm.stride[1];
+    let voff = frm.offset[2] + sstate.mb_x *  8 + sstate.mb_y *  8 * frm.stride[2];
+    let mb_idx = sstate.mb.xpos + sstate.mb_x;
+
+    let lqy = sstate.mb.data[mb_idx - 1].qp_y;
+    let lqu = sstate.mb.data[mb_idx - 1].qp_u;
+    let lqv = sstate.mb.data[mb_idx - 1].qp_v;
+    let qy = sstate.mb.data[mb_idx].qp_y;
+    let qu = sstate.mb.data[mb_idx].qp_u;
+    let qv = sstate.mb.data[mb_idx].qp_v;
+
+    for (y, dmodes) in sstate.deblock.chunks(4).enumerate() {
+        filter_edge_y_v(frm.data, yoff + y * 4 * frm.stride[0], frm.stride[0], dmodes[0] & 0xF, [qy, lqy], alpha_off, beta_off);
+        for x in 1..4 {
+            filter_edge_y_v(frm.data, yoff + x * 4 + y * 4 * frm.stride[0], frm.stride[0], dmodes[x] & 0xF, [qy, qy], alpha_off, beta_off);
+        }
+        filter_edge_c_v(frm.data, uoff + y * 2 * frm.stride[1], frm.stride[1], dmodes[0] & 0xF, [qu, lqu], alpha_off, beta_off);
+        filter_edge_c_v(frm.data, uoff + y * 2 * frm.stride[1] + 4, frm.stride[1], dmodes[2] & 0xF, [qu, qu], alpha_off, beta_off);
+        filter_edge_c_v(frm.data, voff + y * 2 * frm.stride[2], frm.stride[2], dmodes[0] & 0xF, [qv, lqv], alpha_off, beta_off);
+        filter_edge_c_v(frm.data, voff + y * 2 * frm.stride[2] + 4, frm.stride[2], dmodes[2] & 0xF, [qv, qv], alpha_off, beta_off);
+    }
+
+    let tqy = sstate.mb.data[mb_idx - sstate.mb.stride].qp_y;
+    let tqu = sstate.mb.data[mb_idx - sstate.mb.stride].qp_u;
+    let tqv = sstate.mb.data[mb_idx - sstate.mb.stride].qp_v;
+
+    let dmodes = &sstate.deblock;
+    for x in 0..4 {
+        filter_edge_y_h(frm.data, yoff + x * 4, frm.stride[0], dmodes[x] >> 4, [qy, tqy], alpha_off, beta_off);
+    }
+    for x in 0..4 {
+        filter_edge_c_h(frm.data, uoff + x * 2, frm.stride[1], dmodes[x] >> 4, [qu, tqu], alpha_off, beta_off);
+        filter_edge_c_h(frm.data, voff + x * 2, frm.stride[2], dmodes[x] >> 4, [qv, tqv], alpha_off, beta_off);
+    }
+
+    for (y, dmodes) in sstate.deblock.chunks(4).enumerate().skip(1) {
+        for x in 0..4 {
+            filter_edge_y_h(frm.data, yoff + x * 4 + y * 4 * frm.stride[0], frm.stride[0], dmodes[x] >> 4, [qy, qy], alpha_off, beta_off);
+        }
+    }
+
+    let dmodes = &sstate.deblock[4 * 2..];
+    for x in 0..4 {
+        filter_edge_c_h(frm.data, uoff + x * 2 + frm.stride[1] * 4, frm.stride[1], dmodes[x] >> 4, [qu, qu], alpha_off, beta_off);
+        filter_edge_c_h(frm.data, voff + x * 2 + frm.stride[2] * 4, frm.stride[2], dmodes[x] >> 4, [qv, qv], alpha_off, beta_off);
+    }
+}

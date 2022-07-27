@@ -407,6 +407,35 @@ impl FrameRefs {
             };
         [ref0, ref1]
     }
+    pub fn cmp_refs(&self, ref1: [PicRef; 2], ref2: [PicRef; 2]) -> bool {
+        if ref1 != ref2 {
+            self.cmp_ref(ref1[0], ref2[0], 0) && self.cmp_ref(ref1[1], ref2[1], 1)
+        } else {
+            true
+        }
+    }
+    fn cmp_ref(&self, ref1: PicRef, ref2: PicRef, list: u8) -> bool {
+        if ref1 == ref2 {
+            true
+        } else {
+            let idx0 = ref1.index();
+            let idx1 = ref2.index();
+            if idx0 == idx1 {
+                return true;
+            }
+            let src = if list == 0 { &self.ref_list0 } else { &self.ref_list1 };
+            if idx0 >= src.len() || idx1 >= src.len() {
+//panic!("wrong refs");
+                return false;
+            }
+            if let (Some(ref pic0), Some(ref pic1)) = (&src[idx0], &src[idx1]) {
+                pic0.full_id == pic1.full_id
+            } else {
+//panic!("missing pics");
+                false
+            }
+        }
+    }
 }
 
 fn form_ref_list(ref_list: &mut Vec<Option<PictureInfo>>, ref_pics: &[PictureInfo], long_term: &[Option<PictureInfo>], reord_info: &ReorderingInfo, cur_id: u16, pic_num_mask: u16) {

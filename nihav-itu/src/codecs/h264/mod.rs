@@ -398,15 +398,6 @@ println!("PAFF?");
                     let mut cabac = CABAC::new(csrc, slice_hdr.slice_type, slice_hdr.slice_qp, slice_hdr.cabac_init_idc as usize)?;
                     self.has_pic = self.decode_slice_cabac(&mut cabac, &slice_hdr)?;
                 }
-                if !self.deblock_skip && self.deblock_mode != 1 {
-                    if let Some(ref mut pic) = self.cur_pic {
-                        let mut frm = NASimpleVideoFrame::from_video_buf(&mut pic.buf).unwrap();
-                        if self.sstate.mb_x != 0 {
-                            loop_filter_row(&mut frm, &self.sstate, self.lf_alpha, self.lf_beta);
-                        }
-                        loop_filter_last(&mut frm, &self.sstate, self.lf_alpha, self.lf_beta);
-                    }
-                }
             },
              2 => { // slice data partition A
                 //slice header
@@ -469,7 +460,7 @@ println!("PAFF?");
                     } else {
                         IPRED8_DC_LEFT
                     };
-                IPRED_FUNCS16X16[id](frm.data, yoff, frm.stride[0]);
+                    IPRED_FUNCS16X16[id](&mut frm.data[yoff..], frm.stride[0], &sstate.top_line_y[sstate.mb_x * 16..], &sstate.left_y);
             },
             MBType::Intra8x8 => {
                 let mut ictx = IPred8Context::new();
@@ -496,7 +487,30 @@ println!("PAFF?");
                     let noright = (y == 2 || sstate.mb_x == sstate.mb_w - 1 || mb_idx < sstate.mb_start + sstate.mb_w) && (x == 2);
                     let has_tl = (has_top && x > 0) || (has_left && y > 0) || (x == 0 && y == 0 && sstate.mb_x > 0 && mb_idx > sstate.mb_start + sstate.mb_w);
                     if id != IPRED4_DC128 {
-                        ictx.fill(frm.data, cur_yoff, frm.stride[0], has_top, has_top && !noright, has_left, has_tl);
+                        let top = if y == 0 {
+                                &sstate.top_line_y[sstate.mb_x * 16 + x * 4..]
+                            } else {
+                                &frm.data[cur_yoff - frm.stride[0]..]
+                            };
+                        let mut left_buf = [0; 9];
+                        let left = if x == 0 {
+                                &sstate.left_y[y * 4..]
+                            } else {
+                                if has_tl {
+                                    if y == 0 {
+                                        left_buf[0] = sstate.top_line_y[sstate.mb_x * 16 + x * 4 - 1];
+                                    } else {
+                                        left_buf[0] = frm.data[cur_yoff - 1 - frm.stride[0]];
+                                    }
+                                }
+                                if has_left {
+                                    for (dst, src) in left_buf[1..].iter_mut().zip(frm.data[cur_yoff - 1..].chunks(frm.stride[0])) {
+                                        *dst = src[0];
+                                    }
+                                }
+                                &left_buf
+                            };
+                        ictx.fill(top, left, has_top, has_top && !noright, has_left, has_tl);
                     }
                     IPRED_FUNCS8X8_LUMA[id](&mut frm.data[cur_yoff..], frm.stride[0], &ictx);
                     if mb_info.coded[blk4] {
@@ -524,12 +538,11 @@ println!("PAFF?");
                         };
                     let noright = (sstate.mb_x == sstate.mb_w - 1 || sstate.mb_x + sstate.mb_y * sstate.mb_w < sstate.mb_start + sstate.mb_w) && (x == 3);
                     let tr: [u8; 4] = if y == 0 {
+                            let tsrc = &sstate.top_line_y[sstate.mb_x * 16 + x * 4..];
                             if has_top && !noright {
-                                let i = cur_yoff - frm.stride[0];
-                                [frm.data[i + 4], frm.data[i + 5], frm.data[i + 6], frm.data[i + 7]]
+                                [tsrc[4], tsrc[5], tsrc[6], tsrc[7]]
                             } else if has_top {
-                                let i = cur_yoff - frm.stride[0];
-                                [frm.data[i + 3], frm.data[i + 3], frm.data[i + 3], frm.data[i + 3]]
+                                [tsrc[3]; 4]
                             } else {
                                 [0; 4]
                             }
@@ -540,7 +553,36 @@ println!("PAFF?");
                             let i = cur_yoff - frm.stride[0];
                             [frm.data[i + 3], frm.data[i + 3], frm.data[i + 3], frm.data[i + 3]]
                         };
-                    IPRED_FUNCS4X4[id](frm.data, cur_yoff, frm.stride[0], &tr);
+                    let mut top = [128; 4];
+                    let mut left = [128; 9];
+                    if y == 0 {
+                        if has_top {
+                            top.copy_from_slice(&sstate.top_line_y[sstate.mb_x * 16 + x * 4..][..4]);
+                        }
+                    } else {
+                        top.copy_from_slice(&frm.data[cur_yoff - frm.stride[0]..][..4]);
+                    }
+                    if x == 0 {
+                        if has_left {
+                            for (dst, &src) in left.iter_mut().zip(sstate.left_y[y * 4..].iter()) {
+                                *dst = src;
+                            }
+                        }
+                    } else {
+                        if y == 0 {
+                            if x == 0 {
+                                left[0] = sstate.left_y[y * 4];
+                            } else if has_top {
+                                left[0] = sstate.top_line_y[sstate.mb_x * 16 + x * 4 - 1];
+                            }
+                        } else {
+                            left[0] = frm.data[cur_yoff - frm.stride[0] - 1];
+                        }
+                        for (dst, row) in left[1..].iter_mut().zip(frm.data[cur_yoff - 1..].chunks(frm.stride[0])) {
+                            *dst = row[0];
+                        }
+                    }
+                    IPRED_FUNCS4X4[id](&mut frm.data[cur_yoff..], frm.stride[0], &top, &left, &tr);
                     if mb_info.coded[x + y * 4] {
                         add_coeffs(frm.data, cur_yoff, frm.stride[0], &mb_info.coeffs[x + y * 4]);
                     }
@@ -559,7 +601,8 @@ println!("PAFF?");
             };
         for chroma in 1..3 {
             let off = frm.offset[chroma] + sstate.mb_x * 8 + sstate.mb_y * 8 * frm.stride[chroma];
-            IPRED_FUNCS8X8_CHROMA[id](frm.data, off, frm.stride[chroma]);
+            let top = &sstate.top_line_c[chroma - 1][sstate.mb_x * 8..];
+            IPRED_FUNCS8X8_CHROMA[id](&mut frm.data[off..], frm.stride[chroma], top, &sstate.left_c[chroma - 1]);
         }
     }
     fn add_luma(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, mb_info: &CurrentMBInfo) {
@@ -927,6 +970,7 @@ MBType::BSkip | MBType::Direct | MBType::B16x16(_) | MBType::B16x8(_, _) | MBTyp
 },
 _ => {},
 };*/
+            self.sstate.save_ipred_context(&frm);
         }
         if let Some(ref mut pic) = self.cur_pic {
             let mv_info = &mut pic.mv_info;
@@ -942,11 +986,11 @@ _ => {},
             }
             mv_info.mbs[mb_pos] = mb;
         }
-        self.sstate.fill_deblock(self.deblock_mode, self.is_s);
-        if !self.deblock_skip && self.sstate.mb_x + 1 == self.sstate.mb_w && self.deblock_mode != 1 {
+        if !self.deblock_skip && self.deblock_mode != 1 {
+            self.sstate.fill_deblock(&self.frame_refs, self.deblock_mode, self.is_s);
             if let Some(ref mut pic) = self.cur_pic {
                 let mut frm = NASimpleVideoFrame::from_video_buf(&mut pic.buf).unwrap();
-                loop_filter_row(&mut frm, &self.sstate, self.lf_alpha, self.lf_beta);
+                loop_filter_mb(&mut frm, &self.sstate, self.lf_alpha, self.lf_beta);
             }
         }
         self.sstate.next_mb();
