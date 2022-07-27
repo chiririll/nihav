@@ -448,14 +448,14 @@ println!("PAFF?");
 
         Ok(())
     }
-    fn pred_mv(sstate: &mut SliceState, frame_refs: &FrameRefs, mb_info: &mut CurrentMBInfo, cur_id: u16, temporal_mv: bool) {
+    fn pred_mv(sstate: &mut SliceState, frame_refs: &FrameRefs, mb_info: &mut CurrentMBInfo, cur_id: u16, temporal_mv: bool, direct_8x8: bool) {
         let mb_type = mb_info.mb_type;
         if !mb_type.is_4x4() {
             let (pw, ph) = mb_type.size();
             let mut xoff = 0;
             let mut yoff = 0;
             if mb_type == MBType::Direct || mb_type == MBType::BSkip {
-                sstate.predict_direct_mb(frame_refs, temporal_mv, cur_id);
+                sstate.predict_direct_mb(frame_refs, temporal_mv, direct_8x8, cur_id);
             }
             for part in 0..mb_type.num_parts() {
                 if !mb_type.is_l1(part) {
@@ -495,7 +495,7 @@ println!("PAFF?");
                         }
                     } else {
                         for sblk in 0..4 {
-                            sstate.predict_direct_sub(frame_refs, temporal_mv, cur_id, (xoff / 4) + (sblk & 1) + (yoff / 4) * 4 + (sblk & 2) * 2);
+                            sstate.predict_direct_sub(frame_refs, temporal_mv, direct_8x8, cur_id, (xoff / 4) + (sblk & 1) + (yoff / 4) * 4 + (sblk & 2) * 2);
                         }
                     }
                     xoff += pw;
@@ -575,7 +575,7 @@ println!("PAFF?");
             self.sstate.reset_mb_mv();
         }
         if !mb_info.mb_type.is_intra() {
-            Self::pred_mv(&mut self.sstate, &self.frame_refs, mb_info, self.cur_id, self.temporal_mv);
+            Self::pred_mv(&mut self.sstate, &self.frame_refs, mb_info, self.cur_id, self.temporal_mv, self.sps[self.cur_sps].direct_8x8_inference);
         }
         if !pps.constrained_intra_pred && mb_info.mb_type != MBType::Intra4x4 && mb_info.mb_type != MBType::Intra8x8 {
             self.sstate.fill_ipred(IntraPredMode::DC);
