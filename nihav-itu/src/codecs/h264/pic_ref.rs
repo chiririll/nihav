@@ -50,12 +50,14 @@ pub struct FrameRefs {
     pub ref_list0:  Vec<Option<PictureInfo>>,
     pub ref_list1:  Vec<Option<PictureInfo>>,
     pub long_term:  Vec<Option<PictureInfo>>,
+    pub cur_id:         u32,
 
     prev_poc_msb:       u32,
     prev_poc_lsb:       u16,
     prev_ref_poc_lsb:   u16,
     prev_frame_num:     u16,
     frame_num_offset:   u32,
+    max_frame_num:      i32,
 }
 
 impl FrameRefs {
@@ -65,15 +67,18 @@ impl FrameRefs {
             ref_list0:  Vec::with_capacity(3),
             ref_list1:  Vec::with_capacity(3),
             long_term:  Vec::new(),
+            cur_id:     0,
 
             prev_poc_msb:       0,
             prev_poc_lsb:       0,
             prev_ref_poc_lsb:   0,
             prev_frame_num:     0,
             frame_num_offset:   0,
+            max_frame_num:      0,
         }
     }
     pub fn calc_picture_num(&mut self, slice_hdr: &SliceHeader, is_idr: bool, ref_id: u8, sps: &SeqParameterSet) -> u32 {
+        self.max_frame_num = 1 << sps.log2_max_frame_num;
         match sps.pic_order_cnt_type {
             0 => {
                 if is_idr {
@@ -217,6 +222,7 @@ impl FrameRefs {
     }
     #[allow(clippy::cognitive_complexity)]
     pub fn select_refs(&mut self, sps: &SeqParameterSet, slice_hdr: &SliceHeader, cur_id: u32) {
+        self.cur_id = cur_id;
         self.ref_list0.clear();
         self.ref_list1.clear();
         let pic_num_mask = if sps.log2_max_frame_num == 16 {
@@ -328,7 +334,20 @@ impl FrameRefs {
     }
     pub fn add_short_term(&mut self, cpic: PictureInfo, num_ref_frames: usize) {
         if !self.ref_pics.is_empty() && self.ref_pics.len() >= num_ref_frames {
-            self.ref_pics.remove(0);
+            let base_id = i32::from(cpic.id);
+            let mut min_id  = base_id;
+            let mut min_idx = 0;
+            for (i, pic) in self.ref_pics.iter().enumerate() {
+                let mut pic_id = i32::from(pic.id);
+                if pic_id > base_id {
+                    pic_id -= self.max_frame_num;
+                }
+                if pic_id < min_id {
+                    min_id = pic_id;
+                    min_idx = i;
+                }
+            }
+            self.ref_pics.remove(min_idx);
         }
         if self.ref_pics.is_empty() || self.ref_pics.last().unwrap().full_id < cpic.full_id {
             self.ref_pics.push(cpic);
