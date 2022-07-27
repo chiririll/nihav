@@ -50,14 +50,22 @@ const SLICE_TYPES: [SliceType; 10] = [
     SliceType::P, SliceType::B, SliceType::I, SliceType::SP, SliceType::SI,
 ];
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Default)]
 pub struct WeightInfo {
     pub luma_weighted:                      bool,
     pub luma_weight:                        i8,
     pub luma_offset:                        i8,
+    pub luma_shift:                         u8,
     pub chroma_weighted:                    bool,
     pub chroma_weight:                      [i8; 2],
     pub chroma_offset:                      [i8; 2],
+    pub chroma_shift:                       u8,
+}
+
+impl WeightInfo {
+    pub fn is_weighted(&self) -> bool {
+        self.luma_weighted || self.chroma_weighted
+    }
 }
 
 #[derive(Clone,Copy)]
@@ -115,6 +123,35 @@ pub struct SliceHeader {
     pub slice_alpha_c0_offset:              i8,
     pub slice_beta_offset:                  i8,
     pub slice_group_change_cycle:           u32,
+}
+
+pub const DEF_WEIGHT_INFO: WeightInfo = WeightInfo {
+    luma_weighted:                      false,
+    luma_weight:                        0,
+    luma_offset:                        0,
+    luma_shift:                         0,
+    chroma_weighted:                    false,
+    chroma_weight:                      [0; 2],
+    chroma_offset:                      [0; 2],
+    chroma_shift:                       0,
+};
+
+impl SliceHeader {
+    pub fn get_weight(&self, list_id: u8, idx: usize) -> WeightInfo {
+        if list_id == 0 {
+            if idx < self.num_ref_idx_l0_active {
+                self.weights_l0[idx]
+            } else {
+                DEF_WEIGHT_INFO
+            }
+        } else {
+            if idx < self.num_ref_idx_l1_active {
+                self.weights_l1[idx]
+            } else {
+                DEF_WEIGHT_INFO
+            }
+        }
+    }
 }
 
 pub fn parse_slice_header_minimal(br: &mut BitReader) -> DecoderResult<(usize, SliceType)> {
@@ -199,6 +236,15 @@ pub fn parse_slice_header(br: &mut BitReader, sps_arr: &[SeqParameterSet], pps_a
     if (pps.weighted_pred && hdr.slice_type.is_p()) ||
         (pps.weighted_bipred_idc == 1 && hdr.slice_type.is_b()) {
         parse_pred_weight_table(&mut hdr, br)?;
+    } else {
+        for weight in hdr.weights_l0[..hdr.num_ref_idx_l0_active].iter_mut() {
+            weight.luma_weighted = false;
+            weight.chroma_weighted = false;
+        }
+        for weight in hdr.weights_l1[..hdr.num_ref_idx_l1_active].iter_mut() {
+            weight.luma_weighted = false;
+            weight.chroma_weighted = false;
+        }
     }
     if nal_ref_idc != 0 {
         if is_idr {
@@ -346,6 +392,8 @@ fn parse_pred_weight_table(hdr: &mut SliceHeader, br: &mut BitReader) -> Decoder
             validate!(offset >= -128 && offset <= 127);
             weight.luma_offset = offset as i8;
         }
+        weight.luma_shift = hdr.luma_log2_weight_denom;
+
         weight.chroma_weighted                      = br.read_bool()?;
         if weight.chroma_weighted {
             for i in 0..2 {
@@ -357,6 +405,7 @@ fn parse_pred_weight_table(hdr: &mut SliceHeader, br: &mut BitReader) -> Decoder
                 weight.chroma_offset[i] = offset as i8;
             }
         }
+        weight.chroma_shift = hdr.chroma_log2_weight_denom;
     }
     for weight in hdr.weights_l1[..hdr.num_ref_idx_l1_active].iter_mut() {
         weight.luma_weighted                        = br.read_bool()?;
@@ -368,6 +417,8 @@ fn parse_pred_weight_table(hdr: &mut SliceHeader, br: &mut BitReader) -> Decoder
             validate!(offset >= -128 && offset <= 127);
             weight.luma_offset = offset as i8;
         }
+        weight.luma_shift = hdr.luma_log2_weight_denom;
+
         weight.chroma_weighted                      = br.read_bool()?;
         if weight.chroma_weighted {
             for i in 0..2 {
@@ -379,6 +430,7 @@ fn parse_pred_weight_table(hdr: &mut SliceHeader, br: &mut BitReader) -> Decoder
                 weight.chroma_offset[i] = offset as i8;
             }
         }
+        weight.chroma_shift = hdr.chroma_log2_weight_denom;
     }
 
     Ok(())

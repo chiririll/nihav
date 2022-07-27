@@ -225,13 +225,15 @@ impl CompactMBType {
     pub fn is_inter(self) -> bool {
         !self.is_intra() && !self.is_skip() && self != CompactMBType::PCM
     }
-    pub fn is_16x16(self) -> bool {
+    pub fn is_16x16_ref(self) -> bool {
         match self {
-            CompactMBType::P16x8 | CompactMBType::P8x16 |
-            CompactMBType::P8x8 | CompactMBType::P8x8Ref0 |
-            CompactMBType::B16x8 | CompactMBType::B8x16 |
-            CompactMBType::B8x8 => false,
-            _ => true,
+            CompactMBType::Intra4x4 |
+            CompactMBType::Intra8x8 |
+            CompactMBType::Intra16x16 |
+            CompactMBType::PCM |
+            CompactMBType::P16x16 |
+            CompactMBType::B16x16 => true,
+            _ => false,
         }
     }
 }
@@ -765,7 +767,7 @@ impl SliceState {
     }
     pub fn predict_direct_mb(&mut self, frame_refs: &FrameRefs, temporal_mv: bool, cur_id: u16) {
         let (col_mb, _, _) = frame_refs.get_colocated_info(self.mb_x, self.mb_y);
-        if col_mb.mb_type.is_16x16() || !temporal_mv {
+        if col_mb.mb_type.is_16x16_ref() || !temporal_mv {
             let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, temporal_mv, cur_id, 0);
             self.apply_to_blk4(|blk4| blk4.mv = [mv0, mv1]);
             self.apply_to_blk8(|blk8| blk8.ref_idx = [ref0, ref1]);

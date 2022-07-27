@@ -943,6 +943,60 @@ pub fn do_mc(frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>, xpo
     }
 }
 
+pub fn mc_blocks(ydst: &mut [u8], udst: &mut [u8], vdst: &mut [u8], refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
+    let mode = ((mv.x & 3) + (mv.y & 3) * 4) as usize;
+
+    let pre  = if mode != 0 { 2 } else { 0 };
+    let post = if mode != 0 { 3 } else { 0 };
+    let (width, height) = refpic.get_dimensions(0);
+    let sx = (xpos as isize) + ((mv.x >> 2) as isize);
+    let sy = (ypos as isize) + ((mv.y >> 2) as isize);
+
+    const EBUF_STRIDE: usize = 32;
+    let mut ebuf = [0u8; EBUF_STRIDE * (16 + 2 + 3)];
+
+    if (sx - pre < 0) || (sx + (w as isize) + post > (width as isize)) ||
+       (sy - pre < 0) || (sy + (h as isize) + post > (height as isize)) {
+        let edge = (pre + post) as usize;
+        edge_emu(&refpic, sx - pre, sy - pre, w + edge, h + edge,
+                 &mut ebuf, EBUF_STRIDE, 0, 0);
+        (H264_LUMA_INTERP[mode])(ydst, 16, &ebuf, EBUF_STRIDE, w, h);
+    } else {
+        let sstride = refpic.get_stride(0);
+        let soff    = refpic.get_offset(0);
+        let sdta    = refpic.get_data();
+        let sbuf: &[u8] = sdta.as_slice();
+        let saddr = soff + ((sx - pre) as usize) + ((sy - pre) as usize) * sstride;
+        (H264_LUMA_INTERP[mode])(ydst, 16, &sbuf[saddr..], sstride, w, h);
+    }
+
+    let (cw, ch) = refpic.get_dimensions(1);
+    let mvx = mv.x >> 3;
+    let mvy = mv.y >> 3;
+    let dx = (mv.x & 7) as u16;
+    let dy = (mv.y & 7) as u16;
+    let src_x = ((xpos >> 1) as isize) + (mvx as isize);
+    let src_y = ((ypos >> 1) as isize) + (mvy as isize);
+    let suoff = refpic.get_offset(1);
+    let svoff = refpic.get_offset(2);
+    let sustride = refpic.get_stride(1);
+    let svstride = refpic.get_stride(2);
+    let src = refpic.get_data();
+    let cbw = w / 2;
+    let cbh = h / 2;
+    let (csrc, cstride) = if (src_x < 0) || (src_x + (cbw as isize) + 1 > (cw as isize)) || (src_y < 0) || (src_y + (cbh as isize) + 1 > (ch as isize)) {
+            edge_emu(&refpic, src_x, src_y, cbw+1, cbh+1, &mut ebuf,      18, 1, 4);
+            edge_emu(&refpic, src_x, src_y, cbw+1, cbh+1, &mut ebuf[9..], 18, 2, 4);
+            ([&ebuf, &ebuf[9..]], [18, 18])
+        } else {
+            ([&src[suoff + (src_x as usize) + (src_y as usize) * sustride..],
+             &src[svoff + (src_x as usize) + (src_y as usize) * svstride..]],
+             [sustride, svstride])
+        };
+    chroma_interp(udst, 16, csrc[0], cstride[0], dx, dy, cbw, cbh);
+    chroma_interp(vdst, 16, csrc[1], cstride[1], dx, dy, cbw, cbh);
+}
+
 pub fn gray_block(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, w: usize, h: usize) {
     let yoff = frm.offset[0] + x + y * frm.stride[0];
     let coff = [frm.offset[1] + x / 2 + y / 2 * frm.stride[1],
@@ -980,6 +1034,35 @@ pub fn do_mc_avg(frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>,
     for comp in 0..3 {
         let shift = if comp == 0 { 0 } else { 1 };
         avg(&mut frm.data[frm.offset[comp] + (xpos >> shift) + (ypos >> shift) * frm.stride[comp]..], frm.stride[comp], &afrm.data[afrm.offset[comp]..], afrm.stride[comp], w >> shift, h >> shift);
+    }
+}
+
+pub fn put_block_weighted(dst: &mut [u8], stride: usize, src: &[u8], w: usize, h: usize, wparams: [i8; 3]) {
+    let weight = i16::from(wparams[0]);
+    let offset = i16::from(wparams[1]);
+    let wshift = wparams[2] as u8;
+    let bias = (1 << wshift) >> 1;
+
+    for (drow, srow) in dst.chunks_mut(stride).zip(src.chunks(16)).take(h) {
+        for (dst, &src) in drow[..w].iter_mut().zip(srow.iter()) {
+            *dst = clip8(((i16::from(src) * weight + bias) >> wshift) + offset);
+        }
+    }
+}
+
+pub fn put_block_weighted2(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], w: usize, h: usize, wparams: [i8; 5]) {
+    let weight0 = i16::from(wparams[0]);
+    let offset0 = i16::from(wparams[1]);
+    let weight1 = i16::from(wparams[2]);
+    let offset1 = i16::from(wparams[3]);
+    let wshift = (wparams[4] as u8) + 1;
+    let offset = (offset0 + offset1 + 1) >> 1;
+    let bias = (1 << wshift) >> 1;
+
+    for (drow, (srow0, srow1)) in dst.chunks_mut(stride).zip(src0.chunks(16).zip(src1.chunks(16))).take(h) {
+        for (dst, (&src0, &src1)) in drow[..w].iter_mut().zip(srow0.iter().zip(srow1.iter())) {
+            *dst = clip8(((i16::from(src0) * weight0 + i16::from(src1) * weight1 + bias) >> wshift) + offset);
+        }
     }
 }
 

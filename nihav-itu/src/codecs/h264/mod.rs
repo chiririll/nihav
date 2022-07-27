@@ -1,6 +1,5 @@
 /*
  known bugs and limitations:
-  * weighted motion compensation is not implemented
   * wrong slice boundary filtering
   * not fully correct deblock strength selection for P/B-macroblocks
   * scaling lists for 4x4 blocks
@@ -29,6 +28,8 @@ mod cavlc;
 use cavlc::*;
 mod loopfilter;
 use loopfilter::*;
+mod mb_recon;
+use mb_recon::*;
 mod sets;
 use sets::*;
 mod slice;
@@ -447,200 +448,6 @@ println!("PAFF?");
 
         Ok(())
     }
-    fn pred_intra(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, mb_info: &CurrentMBInfo) {
-        let yoff = frm.offset[0] + sstate.mb_x * 16 + sstate.mb_y * 16 * frm.stride[0];
-        match mb_info.mb_type {
-            MBType::Intra16x16(imode, _, _) => {
-                let id = if imode != 2 || (sstate.has_top && sstate.has_left) {
-                        imode as usize
-                    } else if !sstate.has_top && !sstate.has_left {
-                        IPRED8_DC128
-                    } else if !sstate.has_left {
-                        IPRED8_DC_TOP
-                    } else {
-                        IPRED8_DC_LEFT
-                    };
-                    IPRED_FUNCS16X16[id](&mut frm.data[yoff..], frm.stride[0], &sstate.top_line_y[sstate.mb_x * 16..], &sstate.left_y);
-            },
-            MBType::Intra8x8 => {
-                let mut ictx = IPred8Context::new();
-                for part in 0..4 {
-                    let x = (part & 1) * 2;
-                    let y = part & 2;
-                    let blk4 = x + y * 4;
-
-                    let cur_yoff = yoff + x * 4 + y * 4 * frm.stride[0];
-                    let has_top = y > 0 || sstate.has_top;
-                    let has_left = x > 0 || sstate.has_left;
-                    let imode = mb_info.ipred[blk4];
-                    let id = if imode != IntraPredMode::DC || (has_top && has_left) {
-                            let im_id: u8 = imode.into();
-                            im_id as usize
-                        } else if !has_top && !has_left {
-                            IPRED4_DC128
-                        } else if !has_left {
-                            IPRED4_DC_TOP
-                        } else {
-                            IPRED4_DC_LEFT
-                        };
-                    let mb_idx = sstate.mb_x + sstate.mb_y * sstate.mb_w;
-                    let noright = (y == 2 || sstate.mb_x == sstate.mb_w - 1 || mb_idx < sstate.mb_start + sstate.mb_w) && (x == 2);
-                    let has_tl = (has_top && x > 0) || (has_left && y > 0) || (x == 0 && y == 0 && sstate.mb_x > 0 && mb_idx > sstate.mb_start + sstate.mb_w);
-                    if id != IPRED4_DC128 {
-                        let top = if y == 0 {
-                                &sstate.top_line_y[sstate.mb_x * 16 + x * 4..]
-                            } else {
-                                &frm.data[cur_yoff - frm.stride[0]..]
-                            };
-                        let mut left_buf = [0; 9];
-                        let left = if x == 0 {
-                                &sstate.left_y[y * 4..]
-                            } else {
-                                if has_tl {
-                                    if y == 0 {
-                                        left_buf[0] = sstate.top_line_y[sstate.mb_x * 16 + x * 4 - 1];
-                                    } else {
-                                        left_buf[0] = frm.data[cur_yoff - 1 - frm.stride[0]];
-                                    }
-                                }
-                                if has_left {
-                                    for (dst, src) in left_buf[1..].iter_mut().zip(frm.data[cur_yoff - 1..].chunks(frm.stride[0])) {
-                                        *dst = src[0];
-                                    }
-                                }
-                                &left_buf
-                            };
-                        ictx.fill(top, left, has_top, has_top && !noright, has_left, has_tl);
-                    }
-                    IPRED_FUNCS8X8_LUMA[id](&mut frm.data[cur_yoff..], frm.stride[0], &ictx);
-                    if mb_info.coded[blk4] {
-                        add_coeffs8(frm.data, cur_yoff, frm.stride[0], &mb_info.coeffs8x8[part].coeffs);
-                    }
-                }
-            },
-            MBType::Intra4x4 => {
-                for &(x,y) in I4X4_SCAN.iter() {
-                    let x = x as usize;
-                    let y = y as usize;
-                    let cur_yoff = yoff + x * 4 + y * 4 * frm.stride[0];
-                    let has_top = y > 0 || sstate.has_top;
-                    let has_left = x > 0 || sstate.has_left;
-                    let imode = mb_info.ipred[x + y * 4];
-                    let id = if imode != IntraPredMode::DC || (has_top && has_left) {
-                            let im_id: u8 = imode.into();
-                            im_id as usize
-                        } else if !has_top && !has_left {
-                            IPRED4_DC128
-                        } else if !has_left {
-                            IPRED4_DC_TOP
-                        } else {
-                            IPRED4_DC_LEFT
-                        };
-                    let noright = (sstate.mb_x == sstate.mb_w - 1 || sstate.mb_x + sstate.mb_y * sstate.mb_w < sstate.mb_start + sstate.mb_w) && (x == 3);
-                    let tr: [u8; 4] = if y == 0 {
-                            let tsrc = &sstate.top_line_y[sstate.mb_x * 16 + x * 4..];
-                            if has_top && !noright {
-                                [tsrc[4], tsrc[5], tsrc[6], tsrc[7]]
-                            } else if has_top {
-                                [tsrc[3]; 4]
-                            } else {
-                                [0; 4]
-                            }
-                        } else if (x & 1) == 0 || (x == 1 && y == 2) {
-                            let i = cur_yoff - frm.stride[0];
-                            [frm.data[i + 4], frm.data[i + 5], frm.data[i + 6], frm.data[i + 7]]
-                        } else {
-                            let i = cur_yoff - frm.stride[0];
-                            [frm.data[i + 3], frm.data[i + 3], frm.data[i + 3], frm.data[i + 3]]
-                        };
-                    let mut top = [128; 4];
-                    let mut left = [128; 9];
-                    if y == 0 {
-                        if has_top {
-                            top.copy_from_slice(&sstate.top_line_y[sstate.mb_x * 16 + x * 4..][..4]);
-                        }
-                    } else {
-                        top.copy_from_slice(&frm.data[cur_yoff - frm.stride[0]..][..4]);
-                    }
-                    if x == 0 {
-                        if has_left {
-                            for (dst, &src) in left.iter_mut().zip(sstate.left_y[y * 4..].iter()) {
-                                *dst = src;
-                            }
-                        }
-                    } else {
-                        if y == 0 {
-                            if x == 0 {
-                                left[0] = sstate.left_y[y * 4];
-                            } else if has_top {
-                                left[0] = sstate.top_line_y[sstate.mb_x * 16 + x * 4 - 1];
-                            }
-                        } else {
-                            left[0] = frm.data[cur_yoff - frm.stride[0] - 1];
-                        }
-                        for (dst, row) in left[1..].iter_mut().zip(frm.data[cur_yoff - 1..].chunks(frm.stride[0])) {
-                            *dst = row[0];
-                        }
-                    }
-                    IPRED_FUNCS4X4[id](&mut frm.data[cur_yoff..], frm.stride[0], &top, &left, &tr);
-                    if mb_info.coded[x + y * 4] {
-                        add_coeffs(frm.data, cur_yoff, frm.stride[0], &mb_info.coeffs[x + y * 4]);
-                    }
-                }
-            },
-            _ => unreachable!(),
-        };
-        let id = if mb_info.chroma_ipred != 0 || (sstate.has_top && sstate.has_left) {
-                mb_info.chroma_ipred as usize
-            } else if !sstate.has_top && !sstate.has_left {
-                IPRED8_DC128
-            } else if !sstate.has_left {
-                IPRED8_DC_TOP
-            } else {
-                IPRED8_DC_LEFT
-            };
-        for chroma in 1..3 {
-            let off = frm.offset[chroma] + sstate.mb_x * 8 + sstate.mb_y * 8 * frm.stride[chroma];
-            let top = &sstate.top_line_c[chroma - 1][sstate.mb_x * 8..];
-            IPRED_FUNCS8X8_CHROMA[id](&mut frm.data[off..], frm.stride[chroma], top, &sstate.left_c[chroma - 1]);
-        }
-    }
-    fn add_luma(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, mb_info: &CurrentMBInfo) {
-        let mut yoff = frm.offset[0] + sstate.mb_x * 16 + sstate.mb_y * 16 * frm.stride[0];
-        if !mb_info.transform_size_8x8 {
-            for y in 0..4 {
-                for x in 0..4 {
-                    if mb_info.coded[x + y * 4] {
-                        add_coeffs(frm.data, yoff + x * 4, frm.stride[0], &mb_info.coeffs[x + y * 4]);
-                    }
-                }
-                yoff += frm.stride[0] * 4;
-            }
-        } else {
-            for y in 0..2 {
-                for x in 0..2 {
-                    if mb_info.coded[x * 2 + y * 2 * 4] {
-                        add_coeffs8(frm.data, yoff + x * 8, frm.stride[0], &mb_info.coeffs8x8[x + y * 2].coeffs);
-                    }
-                }
-                yoff += frm.stride[0] * 8;
-            }
-        }
-    }
-    fn add_chroma(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, mb_info: &CurrentMBInfo) {
-        for chroma in 1..3 {
-            let mut off = frm.offset[chroma] + sstate.mb_x * 8 + sstate.mb_y * 8 * frm.stride[chroma];
-            for y in 0..2 {
-                for x in 0..2 {
-                    let blk_no = 16 + (chroma - 1) * 4 + x + y * 2;
-                    if mb_info.coded[blk_no] || mb_info.coeffs[blk_no][0] != 0 {
-                        add_coeffs(frm.data, off + x * 4, frm.stride[chroma], &mb_info.coeffs[blk_no]);
-                    }
-                }
-                off += frm.stride[chroma] * 4;
-            }
-        }
-    }
     fn pred_mv(sstate: &mut SliceState, frame_refs: &FrameRefs, mb_info: &mut CurrentMBInfo, cur_id: u16, temporal_mv: bool) {
         let mb_type = mb_info.mb_type;
         if !mb_type.is_4x4() {
@@ -701,7 +508,7 @@ println!("PAFF?");
         }
     }
     #[allow(clippy::cognitive_complexity)]
-    fn handle_macroblock(&mut self, mb_info: &mut CurrentMBInfo) {
+    fn handle_macroblock(&mut self, slice_hdr: &SliceHeader, mb_info: &mut CurrentMBInfo) {
         let pps = &self.pps[self.cur_pps];
 
         let qp_y = mb_info.qp_y;
@@ -778,172 +585,16 @@ println!("PAFF?");
         let ypos = self.sstate.mb_y * 16;
         if let Some(ref mut pic) = self.cur_pic {
             let mut frm = NASimpleVideoFrame::from_video_buf(&mut pic.buf).unwrap();
-            match mb_info.mb_type {
-                MBType::Intra16x16(_, _, _) => {
-                    Self::pred_intra(&mut frm, &self.sstate, &mb_info);
-                },
-                MBType::Intra4x4 | MBType::Intra8x8 => {
-                    Self::pred_intra(&mut frm, &self.sstate, &mb_info);
-                },
-                MBType::PCM => {},
-                MBType::PSkip => {
-                    let mv = self.sstate.get_cur_blk4(0).mv[0];
-                    let rpic = self.frame_refs.select_ref_pic(0, 0);
-                    Self::do_p_mc(&mut frm, xpos, ypos, 16, 16, mv, rpic);
-                },
-                MBType::P16x16 => {
-                    let mv = self.sstate.get_cur_blk4(0).mv[0];
-                    let rpic = self.frame_refs.select_ref_pic(0, mb_info.ref_l0[0].index());
-                    Self::do_p_mc(&mut frm, xpos, ypos, 16, 16, mv, rpic);
-                },
-                MBType::P16x8 | MBType::P8x16 => {
-                    let (bw, bh, bx, by) = if mb_info.mb_type == MBType::P16x8 {
-                            (16, 8, 0, 8)
-                        } else {
-                            (8, 16, 8, 0)
-                        };
-                    let mv = self.sstate.get_cur_blk4(0).mv[0];
-                    let rpic = self.frame_refs.select_ref_pic(0, mb_info.ref_l0[0].index());
-                    Self::do_p_mc(&mut frm, xpos, ypos, bw, bh, mv, rpic);
-                    let mv = self.sstate.get_cur_blk4(bx / 4 + by).mv[0];
-                    let rpic = self.frame_refs.select_ref_pic(0, mb_info.ref_l0[1].index());
-                    Self::do_p_mc(&mut frm, xpos + bx, ypos + by, bw, bh, mv, rpic);
-                },
-                MBType::P8x8 | MBType::P8x8Ref0 => {
-                    for part in 0..4 {
-                        let bx = (part & 1) * 8;
-                        let by = (part & 2) * 4;
-                        if let Some(buf) = self.frame_refs.select_ref_pic(0, mb_info.ref_l0[part].index()) {
-                            let mv = self.sstate.get_cur_blk4(bx / 4 + by).mv[0];
-
-                            match mb_info.sub_mb_type[part] {
-                                SubMBType::P8x8 => {
-                                    do_mc(&mut frm, buf, xpos + bx, ypos + by, 8, 8, mv);
-                                },
-                                SubMBType::P8x4 => {
-                                    do_mc(&mut frm, buf.clone(), xpos + bx, ypos + by, 8, 4, mv);
-                                    let mv = self.sstate.get_cur_blk4(bx / 4 + by + 4).mv[0];
-                                    do_mc(&mut frm, buf, xpos + bx, ypos + by + 4, 8, 4, mv);
-                                },
-                                SubMBType::P4x8 => {
-                                    do_mc(&mut frm, buf.clone(), xpos + bx, ypos + by, 4, 8, mv);
-                                    let mv = self.sstate.get_cur_blk4(bx / 4 + by + 1).mv[0];
-                                    do_mc(&mut frm, buf, xpos + bx + 4, ypos + by, 4, 8, mv);
-                                },
-                                SubMBType::P4x4 => {
-                                    for sb_no in 0..4 {
-                                        let sxpos = xpos + bx + (sb_no & 1) * 4;
-                                        let sypos = ypos + by + (sb_no & 2) * 2;
-                                        let sblk_no = (bx / 4 + (sb_no & 1)) + ((by / 4) + (sb_no >> 1)) * 4;
-                                        let mv = self.sstate.get_cur_blk4(sblk_no).mv[0];
-                                        do_mc(&mut frm, buf.clone(), sxpos, sypos, 4, 4, mv);
-                                    }
-                                },
-                                _ => unreachable!(),
-                            };
-                        } else {
-                            gray_block(&mut frm, xpos + bx, ypos + by, 8, 8);
-                        }
-                    }
-                },
-                MBType::B16x16(mode) => {
-                    let mv0 = self.sstate.get_cur_blk4(0).mv[0];
-                    let rpic0 = self.frame_refs.select_ref_pic(0, mb_info.ref_l0[0].index());
-                    let mv1 = self.sstate.get_cur_blk4(0).mv[1];
-                    let rpic1 = self.frame_refs.select_ref_pic(1, mb_info.ref_l1[0].index());
-                    Self::do_b_mc(&mut frm, mode, xpos, ypos, 16, 16, mv0, rpic0, mv1, rpic1, &mut self.avg_buf);
-                },
-                MBType::B16x8(mode0, mode1) | MBType::B8x16(mode0, mode1) => {
-                    let (pw, ph) = mb_info.mb_type.size();
-                    let (px, py) = (pw & 8, ph & 8);
-                    let modes = [mode0, mode1];
-                    let (mut bx, mut by) = (0, 0);
-                    for part in 0..2 {
-                        let blk = if part == 0 { 0 } else { (px / 4) + py };
-                        let mv0 = self.sstate.get_cur_blk4(blk).mv[0];
-                        let rpic0 = self.frame_refs.select_ref_pic(0, mb_info.ref_l0[part].index());
-                        let mv1 = self.sstate.get_cur_blk4(blk).mv[1];
-                        let rpic1 = self.frame_refs.select_ref_pic(1, mb_info.ref_l1[part].index());
-                        Self::do_b_mc(&mut frm, modes[part], xpos + bx, ypos + by, pw, ph, mv0, rpic0, mv1, rpic1, &mut self.avg_buf);
-                        bx += px;
-                        by += py;
-                    }
-                },
-                MBType::Direct | MBType::BSkip => {
-                    let is_16x16 = self.frame_refs.get_colocated_info(self.sstate.mb_x, self.sstate.mb_y).0.mb_type.is_16x16();
-                    if is_16x16 || !self.temporal_mv {
-                        let mv = self.sstate.get_cur_blk4(0).mv;
-                        let ref_idx = self.sstate.get_cur_blk8(0).ref_idx;
-                        let rpic0 = self.frame_refs.select_ref_pic(0, ref_idx[0].index());
-                        let rpic1 = self.frame_refs.select_ref_pic(1, ref_idx[1].index());
-                        Self::do_b_mc(&mut frm, BMode::Bi, xpos, ypos, 16, 16, mv[0], rpic0, mv[1], rpic1, &mut self.avg_buf);
+            if mb_info.mb_type != MBType::PCM {
+                let weight_mode = if self.pps[self.cur_pps].weighted_pred && slice_hdr.slice_type.is_p() {
+                        1
+                    } else if slice_hdr.slice_type.is_b() {
+                        self.pps[self.cur_pps].weighted_bipred_idc
                     } else {
-                        for blk4 in 0..16 {
-                            let mv = self.sstate.get_cur_blk4(blk4).mv;
-                            let ref_idx = self.sstate.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx;
-                            let rpic0 = self.frame_refs.select_ref_pic(0, ref_idx[0].index());
-                            let rpic1 = self.frame_refs.select_ref_pic(1, ref_idx[1].index());
-                            Self::do_b_mc(&mut frm, BMode::Bi, xpos + (blk4 & 3) * 4, ypos + (blk4 >> 2) * 4, 4, 4, mv[0], rpic0, mv[1], rpic1, &mut self.avg_buf);
-                        }
-                    }
-                    self.sstate.apply_to_blk8(|blk8| { blk8.ref_idx[0].set_direct(); blk8.ref_idx[1].set_direct(); });
-                },
-                MBType::B8x8 => {
-                    for part in 0..4 {
-                        let ridx = self.sstate.get_cur_blk8(part).ref_idx;
-                        let rpic0 = self.frame_refs.select_ref_pic(0, ridx[0].index());
-                        let rpic1 = self.frame_refs.select_ref_pic(1, ridx[1].index());
-                        let subtype = mb_info.sub_mb_type[part];
-                        let blk8 = (part & 1) * 2 + (part & 2) * 4;
-                        let mut bx = (part & 1) * 8;
-                        let mut by = (part & 2) * 4;
-                        match subtype {
-                            SubMBType::Direct8x8 => {
-                                for blk in 0..4 {
-                                    let mv = self.sstate.get_cur_blk4(bx / 4 + (by / 4) * 4).mv;
-                                    let ref_idx = self.sstate.get_cur_blk8(bx / 8 + (by / 8) * 2).ref_idx;
-                                    let rpic0 = self.frame_refs.select_ref_pic(0, ref_idx[0].index());
-                                    let rpic1 = self.frame_refs.select_ref_pic(1, ref_idx[1].index());
-                                    Self::do_b_mc(&mut frm, BMode::Bi, xpos + bx, ypos + by, 4, 4, mv[0], rpic0, mv[1], rpic1, &mut self.avg_buf);
-                                    bx += 4;
-                                    if blk == 1 {
-                                        bx -= 8;
-                                        by += 4;
-                                    }
-                                }
-                                self.sstate.get_cur_blk8(part).ref_idx[0].set_direct();
-                                self.sstate.get_cur_blk8(part).ref_idx[1].set_direct();
-                            },
-                            SubMBType::B8x8(mode) => {
-                                let mv = self.sstate.get_cur_blk4(blk8).mv;
-                                Self::do_b_mc(&mut frm, mode, xpos + bx, ypos + by, 8, 8, mv[0], rpic0, mv[1], rpic1, &mut self.avg_buf);
-                            },
-                            SubMBType::B8x4(mode) | SubMBType::B4x8(mode) => {
-                                let (pw, ph) = subtype.size();
-                                let mv = self.sstate.get_cur_blk4(blk8).mv;
-                                Self::do_b_mc(&mut frm, mode, xpos + bx, ypos + by, pw, ph, mv[0], rpic0.clone(), mv[1], rpic1.clone(), &mut self.avg_buf);
-                                let addr2 = blk8 + (pw & 4) / 4 + (ph & 4);
-                                let mv = self.sstate.get_cur_blk4(addr2).mv;
-                                Self::do_b_mc(&mut frm, mode, xpos + bx + (pw & 4), ypos + by + (ph & 4), pw, ph, mv[0], rpic0, mv[1], rpic1, &mut self.avg_buf);
-                            },
-                            SubMBType::B4x4(mode) => {
-                                for i in 0..4 {
-                                    let addr2 = blk8 + (i & 1) + (i & 2) * 2;
-                                    let mv = self.sstate.get_cur_blk4(addr2).mv;
-                                    Self::do_b_mc(&mut frm, mode, xpos + bx, ypos + by, 4, 4, mv[0], rpic0.clone(), mv[1], rpic1.clone(), &mut self.avg_buf);
-                                    bx += 4;
-                                    if i == 1 {
-                                        bx -= 8;
-                                        by += 4;
-                                    }
-                                }
-                            },
-                            _ => unreachable!(),
-                        };
-                    }
-                },
-            };
-            if mb_info.mb_type == MBType::PCM {
+                        0
+                    };
+                recon_mb(&mut frm, slice_hdr, &mb_info, &mut self.sstate, &self.frame_refs, &mut self.avg_buf, weight_mode);
+            } else {
                 for (dline, src) in frm.data[frm.offset[0] + xpos + ypos * frm.stride[0]..].chunks_mut(frm.stride[0]).take(16).zip(self.ipcm_buf.chunks(16)) {
                     dline[..16].copy_from_slice(src);
                 }
@@ -953,11 +604,6 @@ println!("PAFF?");
                 for (dline, src) in frm.data[frm.offset[2] + xpos/2 + ypos/2 * frm.stride[2]..].chunks_mut(frm.stride[2]).take(8).zip(self.ipcm_buf[256 + 64..].chunks(8)) {
                     dline[..8].copy_from_slice(src);
                 }
-            } else if !mb_info.mb_type.is_skip() {
-                if mb_info.mb_type != MBType::Intra4x4 && mb_info.mb_type != MBType::Intra8x8 {
-                    Self::add_luma(&mut frm, &self.sstate, &mb_info);
-                }
-                Self::add_chroma(&mut frm, &self.sstate, &mb_info);
             }
 /*match mb_info.mb_type {
 MBType::BSkip | MBType::Direct | MBType::B16x16(_) | MBType::B16x8(_, _) | MBType::B8x16(_, _) | MBType::B8x8 => {
@@ -995,48 +641,6 @@ _ => {},
         }
         self.sstate.next_mb();
     }
-    fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV, ref_pic: Option<NAVideoBufferRef<u8>>) {
-        if let Some(buf) = ref_pic {
-            do_mc(frm, buf, xpos, ypos, w, h, mv);
-        } else {
-            gray_block(frm, xpos, ypos, w, h);
-        }
-    }
-    fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usize, w: usize, h: usize, mv0: MV, ref_pic0: Option<NAVideoBufferRef<u8>>, mv1: MV, ref_pic1: Option<NAVideoBufferRef<u8>>, avg_buf: &mut NAVideoBufferRef<u8>) {
-        match mode {
-            BMode::L0 => {
-                if let Some(buf) = ref_pic0 {
-                    do_mc(frm, buf, xpos, ypos, w, h, mv0);
-                } else {
-                    gray_block(frm, xpos, ypos, w, h);
-                }
-            },
-            BMode::L1 => {
-                if let Some(buf) = ref_pic1 {
-                    do_mc(frm, buf, xpos, ypos, w, h, mv1);
-                } else {
-                    gray_block(frm, xpos, ypos, w, h);
-                }
-            },
-            BMode::Bi => {
-                match (ref_pic0, ref_pic1) {
-                    (Some(buf0), Some(buf1)) => {
-                        do_mc(frm, buf0, xpos, ypos, w, h, mv0);
-                        do_mc_avg(frm, buf1, xpos, ypos, w, h, mv1, avg_buf);
-                    },
-                    (Some(buf0), None) => {
-                        do_mc(frm, buf0, xpos, ypos, w, h, mv0);
-                    },
-                    (None, Some(buf1)) => {
-                        do_mc(frm, buf1, xpos, ypos, w, h, mv1);
-                    },
-                    (None, None) => {
-                        gray_block(frm, xpos, ypos, w, h);
-                    },
-                };
-            },
-        };
-    }
     fn decode_slice_cavlc(&mut self, br: &mut BitReader, slice_hdr: &SliceHeader, full_size: usize) -> DecoderResult<bool> {
         const INTRA_CBP: [u8; 48] = [
             47, 31, 15,  0, 23, 27, 29, 30,  7, 11, 13, 14, 39, 43, 45, 46,
@@ -1068,7 +672,7 @@ _ => {},
                 validate!(mb_idx + mb_skip_run <= self.num_mbs);
                 mb_info.mb_type = skip_type;
                 for _ in 0..mb_skip_run {
-                    self.handle_macroblock(&mut mb_info);
+                    self.handle_macroblock(slice_hdr, &mut mb_info);
                     mb_idx += 1;
                 }
                 if mb_idx == self.num_mbs || br.tell() >= full_size {
@@ -1134,7 +738,7 @@ _ => {},
                         decode_residual_cavlc(br, &mut self.sstate, &mut mb_info, &self.cavlc_cb)?;
                     }
                 }
-                self.handle_macroblock(&mut mb_info);
+                self.handle_macroblock(slice_hdr, &mut mb_info);
             }
             mb_idx += 1;
         }
@@ -1240,7 +844,7 @@ _ => {},
                 mb_info.transform_size_8x8 = false;
                 last_qp_diff = false;
             }
-            self.handle_macroblock(&mut mb_info);
+            self.handle_macroblock(slice_hdr, &mut mb_info);
             prev_mb_skipped = mb_skip;
             if !(self.is_mbaff && ((mb_idx & 1) == 0)) && cabac.decode_terminate() {
                 if let Some(ref mut pic) = self.cur_pic {
