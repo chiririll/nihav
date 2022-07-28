@@ -1281,13 +1281,10 @@ impl NADecoder for VP8Decoder {
         for start in part_offs[num_partitions..].iter_mut() {
             *start = data_start;
         }
-        let mut bc_src = unsafe {
-                let mut arr: [BoolCoder; 8] = std::mem::MaybeUninit::uninit().assume_init();
-                for (bc, &off) in arr.iter_mut().zip(part_offs.iter()) {
-                    std::ptr::write(bc, BoolCoder::new(&src[off..]).unwrap());
-                }
-                arr
-            };
+        let mut bc_src = Vec::new();
+        for &off in part_offs.iter() {
+            bc_src.push(BoolCoder::new(&src[off..]).unwrap());
+        }
 
         let vinfo = NAVideoInfo::new(self.width, self.height, false, YUV420_FORMAT);
         let ret = supp.pool_u8.get_free();
