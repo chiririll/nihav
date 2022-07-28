@@ -170,6 +170,7 @@ const FRAME_SIZES: [[usize; 64]; 4] = [
 ];
 
 #[derive(Debug,Clone,Copy)]
+#[allow(dead_code)]
 struct Syncinfo {
     crc1:       u16,
     fscod:      u8,
@@ -286,6 +287,7 @@ const AC_MODES: [ACMode; 8] = [
 ];
 
 #[derive(Debug,Clone,Copy)]
+#[allow(dead_code)]
 struct Mixinfo {
     dialnorm:   u8,
     compr:      Option<u8>,
@@ -312,6 +314,7 @@ impl Mixinfo {
 }
 
 #[derive(Debug,Clone,Copy)]
+#[allow(dead_code)]
 struct BSI {
     bsid:       u8,
     shift:      u8,

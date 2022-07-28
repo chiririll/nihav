@@ -41,6 +41,7 @@ const RV60_FRAME_TYPES: [FrameType; 4] = [ FrameType::I, FrameType::P, FrameType
 const MAX_IMODE: u8 = 34;
 
 #[derive(Clone,Copy,Debug)]
+#[allow(dead_code)]
 struct FrameHeader {
     profile:            u8,
     ftype:              FrameType,

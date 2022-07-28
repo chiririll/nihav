@@ -797,6 +797,7 @@ struct InterleaveInfo {
 }
 
 #[derive(Clone,Copy,Debug)]
+#[allow(dead_code)]
 struct RealAudioInfo {
     fcc:                u32,
     sample_rate:        u32,
