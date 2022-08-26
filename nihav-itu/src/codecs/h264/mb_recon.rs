@@ -203,15 +203,15 @@ fn add_chroma(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, mb_info: &C
     }
 }
 
-fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV, ref_pic: Option<NAVideoBufferRef<u8>>, weight: &WeightInfo) {
+fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV, ref_pic: Option<NAVideoBufferRef<u8>>, weight: &WeightInfo, mc_dsp: &mut H264MC) {
     if let Some(buf) = ref_pic {
         if !weight.is_weighted() {
-            do_mc(frm, buf, xpos, ypos, w, h, mv);
+            mc_dsp.do_mc(frm, buf, xpos, ypos, w, h, mv);
         } else {
             let mut ytmp = [0; 16 * 16];
             let mut utmp = [0; 16 * 16];
             let mut vtmp = [0; 16 * 16];
-            mc_blocks(&mut ytmp, &mut utmp, &mut vtmp, buf, xpos, ypos, w, h, mv);
+            mc_dsp.mc_blocks(&mut ytmp, &mut utmp, &mut vtmp, buf, xpos, ypos, w, h, mv);
 
             let yoff = frm.offset[0] + xpos + ypos * frm.stride[0];
             let yw = if weight.luma_weighted {
@@ -219,7 +219,7 @@ fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize,
                 } else {
                     [1, 0, 0]
                 };
-            put_block_weighted(&mut frm.data[yoff..], frm.stride[0], &ytmp, w, h, yw);
+            mc_dsp.put_block_weighted(&mut frm.data[yoff..], frm.stride[0], &ytmp, w, h, yw);
 
             for chroma in 0..2 {
                 let cstride = frm.stride[chroma + 1];
@@ -230,15 +230,15 @@ fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize,
                         [1, 0, 0]
                     };
                 let csrc = if chroma == 0 { &utmp } else { &vtmp };
-                put_block_weighted(&mut frm.data[coff..], cstride, csrc, w / 2, h / 2, cw);
+                mc_dsp.put_block_weighted(&mut frm.data[coff..], cstride, csrc, w / 2, h / 2, cw);
             }
         }
     } else {
-        gray_block(frm, xpos, ypos, w, h);
+        mc_dsp.gray_block(frm, xpos, ypos, w, h);
     }
 }
 
-fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usize, w: usize, h: usize, mv0: MV, ref_pic0: Option<NAVideoBufferRef<u8>>, weight0: &WeightInfo, mv1: MV, ref_pic1: Option<NAVideoBufferRef<u8>>, weight1: &WeightInfo, avg_buf: &mut NAVideoBufferRef<u8>) {
+fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usize, w: usize, h: usize, mv0: MV, ref_pic0: Option<NAVideoBufferRef<u8>>, weight0: &WeightInfo, mv1: MV, ref_pic1: Option<NAVideoBufferRef<u8>>, weight1: &WeightInfo, mc_dsp: &mut H264MC) {
     let do_weight = match (mode, weight0.is_weighted(), weight1.is_weighted()) {
             (BMode::L0, true, _) => true,
             (BMode::L1, _, true) => true,
@@ -249,32 +249,32 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
         match mode {
             BMode::L0 => {
                 if let Some(buf) = ref_pic0 {
-                    do_mc(frm, buf, xpos, ypos, w, h, mv0);
+                    mc_dsp.do_mc(frm, buf, xpos, ypos, w, h, mv0);
                 } else {
-                    gray_block(frm, xpos, ypos, w, h);
+                    mc_dsp.gray_block(frm, xpos, ypos, w, h);
                 }
             },
             BMode::L1 => {
                 if let Some(buf) = ref_pic1 {
-                    do_mc(frm, buf, xpos, ypos, w, h, mv1);
+                    mc_dsp.do_mc(frm, buf, xpos, ypos, w, h, mv1);
                 } else {
-                    gray_block(frm, xpos, ypos, w, h);
+                    mc_dsp.gray_block(frm, xpos, ypos, w, h);
                 }
             },
             BMode::Bi => {
                 match (ref_pic0, ref_pic1) {
                     (Some(buf0), Some(buf1)) => {
-                        do_mc(frm, buf0, xpos, ypos, w, h, mv0);
-                        do_mc_avg(frm, buf1, xpos, ypos, w, h, mv1, avg_buf);
+                        mc_dsp.do_mc(frm, buf0, xpos, ypos, w, h, mv0);
+                        mc_dsp.do_mc_avg(frm, buf1, xpos, ypos, w, h, mv1);
                     },
                     (Some(buf0), None) => {
-                        do_mc(frm, buf0, xpos, ypos, w, h, mv0);
+                        mc_dsp.do_mc(frm, buf0, xpos, ypos, w, h, mv0);
                     },
                     (None, Some(buf1)) => {
-                        do_mc(frm, buf1, xpos, ypos, w, h, mv1);
+                        mc_dsp.do_mc(frm, buf1, xpos, ypos, w, h, mv1);
                     },
                     (None, None) => {
-                        gray_block(frm, xpos, ypos, w, h);
+                        mc_dsp.gray_block(frm, xpos, ypos, w, h);
                     },
                 };
             },
@@ -289,7 +289,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
         match (mode, ref_pic0, ref_pic1) {
             (BMode::L0, Some(buf), _) | (BMode::L1, _, Some(buf)) => {
                 let (mv, weight) = if mode == BMode::L0 { (mv0, weight0) } else { (mv1, weight1) };
-                mc_blocks(&mut ytmp0, &mut utmp0, &mut vtmp0, buf, xpos, ypos, w, h, mv);
+                mc_dsp.mc_blocks(&mut ytmp0, &mut utmp0, &mut vtmp0, buf, xpos, ypos, w, h, mv);
 
                 let yoff = frm.offset[0] + xpos + ypos * frm.stride[0];
                 let yw = if weight.luma_weighted {
@@ -297,7 +297,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
                     } else {
                         [1, 0, 0]
                     };
-                put_block_weighted(&mut frm.data[yoff..], frm.stride[0], &ytmp0, w, h, yw);
+                mc_dsp.put_block_weighted(&mut frm.data[yoff..], frm.stride[0], &ytmp0, w, h, yw);
 
                 for chroma in 0..2 {
                     let cstride = frm.stride[chroma + 1];
@@ -308,12 +308,12 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
                             [1, 0, 0]
                         };
                     let csrc = if chroma == 0 { &utmp0 } else { &vtmp0 };
-                    put_block_weighted(&mut frm.data[coff..], cstride, csrc, w / 2, h / 2, cw);
+                    mc_dsp.put_block_weighted(&mut frm.data[coff..], cstride, csrc, w / 2, h / 2, cw);
                 }
             },
             (BMode::Bi, Some(buf0), Some(buf1)) => { // do both and avg
-                mc_blocks(&mut ytmp0, &mut utmp0, &mut vtmp0, buf0, xpos, ypos, w, h, mv0);
-                mc_blocks(&mut ytmp1, &mut utmp1, &mut vtmp1, buf1, xpos, ypos, w, h, mv1);
+                mc_dsp.mc_blocks(&mut ytmp0, &mut utmp0, &mut vtmp0, buf0, xpos, ypos, w, h, mv0);
+                mc_dsp.mc_blocks(&mut ytmp1, &mut utmp1, &mut vtmp1, buf1, xpos, ypos, w, h, mv1);
 
                 let yoff = frm.offset[0] + xpos + ypos * frm.stride[0];
                 let yw = match (weight0.luma_weighted, weight1.luma_weighted) {
@@ -322,7 +322,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
                         (false, true) => [1 << weight1.luma_shift, 0, weight1.luma_weight, weight1.luma_offset, weight1.luma_shift as i8],
                         (false, false) => [1, 0, 1, 0, 0],
                     };
-                put_block_weighted2(&mut frm.data[yoff..], frm.stride[0], &ytmp0, &ytmp1, w, h, yw);
+                mc_dsp.put_block_weighted2(&mut frm.data[yoff..], frm.stride[0], &ytmp0, &ytmp1, w, h, yw);
 
                 for chroma in 0..2 {
                     let cstride = frm.stride[chroma + 1];
@@ -339,11 +339,11 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
                         };
                     let csrc0 = if chroma == 0 { &utmp0 } else { &vtmp0 };
                     let csrc1 = if chroma == 0 { &utmp1 } else { &vtmp1 };
-                    put_block_weighted2(&mut frm.data[coff..], cstride, csrc0, csrc1, w / 2, h / 2, cw);
+                    mc_dsp.put_block_weighted2(&mut frm.data[coff..], cstride, csrc0, csrc1, w / 2, h / 2, cw);
                 }
             },
             _ => {
-                gray_block(frm, xpos, ypos, w, h);
+                mc_dsp.gray_block(frm, xpos, ypos, w, h);
             },
         };
     }
@@ -399,7 +399,7 @@ fn get_weights(slice_hdr: &SliceHeader, frame_refs: &FrameRefs, mode: BMode, wei
     }
 }
 
-pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_info: &CurrentMBInfo, sstate: &mut SliceState, frame_refs: &FrameRefs, avg_buf: &mut NAVideoBufferRef<u8>, weight_mode: u8) {
+pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_info: &CurrentMBInfo, sstate: &mut SliceState, frame_refs: &FrameRefs, mc_dsp: &mut H264MC, weight_mode: u8) {
     let xpos = sstate.mb_x * 16;
     let ypos = sstate.mb_y * 16;
 
@@ -415,13 +415,13 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
             let mv = sstate.get_cur_blk4(0).mv[0];
             let rpic = frame_refs.select_ref_pic(0, 0);
             let weight = &slice_hdr.get_weight(0, 0);
-            do_p_mc(frm, xpos, ypos, 16, 16, mv, rpic, weight);
+            do_p_mc(frm, xpos, ypos, 16, 16, mv, rpic, weight, mc_dsp);
         },
         MBType::P16x16 => {
             let mv = sstate.get_cur_blk4(0).mv[0];
             let rpic = frame_refs.select_ref_pic(0, mb_info.ref_l0[0].index());
             let weight = &slice_hdr.get_weight(0, mb_info.ref_l0[0].index());
-            do_p_mc(frm, xpos, ypos, 16, 16, mv, rpic, weight);
+            do_p_mc(frm, xpos, ypos, 16, 16, mv, rpic, weight, mc_dsp);
         },
         MBType::P16x8 | MBType::P8x16 => {
             let (bw, bh, bx, by) = if mb_info.mb_type == MBType::P16x8 {
@@ -432,11 +432,11 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
             let mv = sstate.get_cur_blk4(0).mv[0];
             let rpic = frame_refs.select_ref_pic(0, mb_info.ref_l0[0].index());
             let weight = &slice_hdr.get_weight(0, mb_info.ref_l0[0].index());
-            do_p_mc(frm, xpos, ypos, bw, bh, mv, rpic, weight);
+            do_p_mc(frm, xpos, ypos, bw, bh, mv, rpic, weight, mc_dsp);
             let mv = sstate.get_cur_blk4(bx / 4 + by).mv[0];
             let rpic = frame_refs.select_ref_pic(0, mb_info.ref_l0[1].index());
             let weight = &slice_hdr.get_weight(0, mb_info.ref_l0[1].index());
-            do_p_mc(frm, xpos + bx, ypos + by, bw, bh, mv, rpic, weight);
+            do_p_mc(frm, xpos + bx, ypos + by, bw, bh, mv, rpic, weight, mc_dsp);
         },
         MBType::P8x8 | MBType::P8x8Ref0 => {
             for part in 0..4 {
@@ -448,17 +448,17 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
 
                 match mb_info.sub_mb_type[part] {
                     SubMBType::P8x8 => {
-                        do_p_mc(frm, xpos + bx, ypos + by, 8, 8, mv, rpic, weight);
+                        do_p_mc(frm, xpos + bx, ypos + by, 8, 8, mv, rpic, weight, mc_dsp);
                     },
                     SubMBType::P8x4 => {
-                        do_p_mc(frm, xpos + bx, ypos + by, 8, 4, mv, rpic.clone(), weight);
+                        do_p_mc(frm, xpos + bx, ypos + by, 8, 4, mv, rpic.clone(), weight, mc_dsp);
                         let mv = sstate.get_cur_blk4(bx / 4 + by + 4).mv[0];
-                        do_p_mc(frm, xpos + bx, ypos + by + 4, 8, 4, mv, rpic, weight);
+                        do_p_mc(frm, xpos + bx, ypos + by + 4, 8, 4, mv, rpic, weight, mc_dsp);
                     },
                     SubMBType::P4x8 => {
-                        do_p_mc(frm, xpos + bx, ypos + by, 4, 8, mv, rpic.clone(), weight);
+                        do_p_mc(frm, xpos + bx, ypos + by, 4, 8, mv, rpic.clone(), weight, mc_dsp);
                         let mv = sstate.get_cur_blk4(bx / 4 + by + 1).mv[0];
-                        do_p_mc(frm, xpos + bx + 4, ypos + by, 4, 8, mv, rpic, weight);
+                        do_p_mc(frm, xpos + bx + 4, ypos + by, 4, 8, mv, rpic, weight, mc_dsp);
                     },
                     SubMBType::P4x4 => {
                         for sb_no in 0..4 {
@@ -466,7 +466,7 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
                             let sypos = ypos + by + (sb_no & 2) * 2;
                             let sblk_no = (bx / 4 + (sb_no & 1)) + ((by / 4) + (sb_no >> 1)) * 4;
                             let mv = sstate.get_cur_blk4(sblk_no).mv[0];
-                            do_p_mc(frm, sxpos, sypos, 4, 4, mv, rpic.clone(), weight);
+                            do_p_mc(frm, sxpos, sypos, 4, 4, mv, rpic.clone(), weight, mc_dsp);
                         }
                     },
                     _ => unreachable!(),
@@ -479,7 +479,7 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
             let mv1 = sstate.get_cur_blk4(0).mv[1];
             let rpic1 = frame_refs.select_ref_pic(1, mb_info.ref_l1[0].index());
             let (weight0, weight1) = get_weights(slice_hdr, frame_refs, mode, weight_mode, mb_info.ref_l0[0], mb_info.ref_l1[0]);
-            do_b_mc(frm, mode, xpos, ypos, 16, 16, mv0, rpic0, &weight0, mv1, rpic1, &weight1, avg_buf);
+            do_b_mc(frm, mode, xpos, ypos, 16, 16, mv0, rpic0, &weight0, mv1, rpic1, &weight1, mc_dsp);
         },
         MBType::B16x8(mode0, mode1) | MBType::B8x16(mode0, mode1) => {
             let (pw, ph) = mb_info.mb_type.size();
@@ -493,7 +493,7 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
                 let mv1 = sstate.get_cur_blk4(blk).mv[1];
                 let rpic1 = frame_refs.select_ref_pic(1, mb_info.ref_l1[part].index());
                 let (weight0, weight1) = get_weights(slice_hdr, frame_refs, modes[part], weight_mode, mb_info.ref_l0[part], mb_info.ref_l1[part]);
-                do_b_mc(frm, modes[part], xpos + bx, ypos + by, pw, ph, mv0, rpic0, &weight0, mv1, rpic1, &weight1, avg_buf);
+                do_b_mc(frm, modes[part], xpos + bx, ypos + by, pw, ph, mv0, rpic0, &weight0, mv1, rpic1, &weight1, mc_dsp);
                 bx += px;
                 by += py;
             }
@@ -508,7 +508,7 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
                 let rpic0 = frame_refs.select_ref_pic(0, ref_idx[0].index());
                 let rpic1 = frame_refs.select_ref_pic(1, ref_idx[1].index());
                 let (weight0, weight1) = get_weights(slice_hdr, frame_refs, BMode::Bi, weight_mode, ref_idx[0], ref_idx[1]);
-                do_b_mc(frm, BMode::Bi, xpos, ypos, 16, 16, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, avg_buf);
+                do_b_mc(frm, BMode::Bi, xpos, ypos, 16, 16, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
             } else {
                 for blk4 in 0..16 {
                     let mv = sstate.get_cur_blk4(blk4).mv;
@@ -516,7 +516,7 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
                     let rpic0 = frame_refs.select_ref_pic(0, ref_idx[0].index());
                     let rpic1 = frame_refs.select_ref_pic(1, ref_idx[1].index());
                     let (weight0, weight1) = get_weights(slice_hdr, frame_refs, BMode::Bi, weight_mode, ref_idx[0], ref_idx[1]);
-                    do_b_mc(frm, BMode::Bi, xpos + (blk4 & 3) * 4, ypos + (blk4 >> 2) * 4, 4, 4, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, avg_buf);
+                    do_b_mc(frm, BMode::Bi, xpos + (blk4 & 3) * 4, ypos + (blk4 >> 2) * 4, 4, 4, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
                 }
             }
             sstate.apply_to_blk8(|blk8| { blk8.ref_idx[0].set_direct(); blk8.ref_idx[1].set_direct(); });
@@ -538,7 +538,7 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
                             let rpic0 = frame_refs.select_ref_pic(0, ref_idx[0].index());
                             let rpic1 = frame_refs.select_ref_pic(1, ref_idx[1].index());
                             let (weight0, weight1) = get_weights(slice_hdr, frame_refs, BMode::Bi, weight_mode, ref_idx[0], ref_idx[1]);
-                            do_b_mc(frm, BMode::Bi, xpos + bx, ypos + by, 4, 4, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, avg_buf);
+                            do_b_mc(frm, BMode::Bi, xpos + bx, ypos + by, 4, 4, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
                             bx += 4;
                             if blk == 1 {
                                 bx -= 8;
@@ -551,23 +551,23 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
                     SubMBType::B8x8(mode) => {
                         let mv = sstate.get_cur_blk4(blk8).mv;
                         let (weight0, weight1) = get_weights(slice_hdr, frame_refs, mode, weight_mode, ridx[0], ridx[1]);
-                        do_b_mc(frm, mode, xpos + bx, ypos + by, 8, 8, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, avg_buf);
+                        do_b_mc(frm, mode, xpos + bx, ypos + by, 8, 8, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
                     },
                     SubMBType::B8x4(mode) | SubMBType::B4x8(mode) => {
                         let (weight0, weight1) = get_weights(slice_hdr, frame_refs, mode, weight_mode, ridx[0], ridx[1]);
                         let (pw, ph) = subtype.size();
                         let mv = sstate.get_cur_blk4(blk8).mv;
-                        do_b_mc(frm, mode, xpos + bx, ypos + by, pw, ph, mv[0], rpic0.clone(), &weight0, mv[1], rpic1.clone(), &weight1, avg_buf);
+                        do_b_mc(frm, mode, xpos + bx, ypos + by, pw, ph, mv[0], rpic0.clone(), &weight0, mv[1], rpic1.clone(), &weight1, mc_dsp);
                         let addr2 = blk8 + (pw & 4) / 4 + (ph & 4);
                         let mv = sstate.get_cur_blk4(addr2).mv;
-                        do_b_mc(frm, mode, xpos + bx + (pw & 4), ypos + by + (ph & 4), pw, ph, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, avg_buf);
+                        do_b_mc(frm, mode, xpos + bx + (pw & 4), ypos + by + (ph & 4), pw, ph, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
                     },
                     SubMBType::B4x4(mode) => {
                         let (weight0, weight1) = get_weights(slice_hdr, frame_refs, mode, weight_mode, ridx[0], ridx[1]);
                         for i in 0..4 {
                             let addr2 = blk8 + (i & 1) + (i & 2) * 2;
                             let mv = sstate.get_cur_blk4(addr2).mv;
-                            do_b_mc(frm, mode, xpos + bx, ypos + by, 4, 4, mv[0], rpic0.clone(), &weight0, mv[1], rpic1.clone(), &weight1, avg_buf);
+                            do_b_mc(frm, mode, xpos + bx, ypos + by, 4, 4, mv[0], rpic0.clone(), &weight0, mv[1], rpic1.clone(), &weight1, mc_dsp);
                             bx += 4;
                             if i == 1 {
                                 bx -= 8;

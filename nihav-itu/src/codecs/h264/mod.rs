@@ -187,7 +187,7 @@ struct H264Decoder {
 
     ipcm_buf:   [u8; 256 + 64 + 64],
 
-    avg_buf:    NAVideoBufferRef<u8>,
+    mc_dsp:     H264MC,
 
     transform_8x8_mode: bool,
 }
@@ -254,7 +254,7 @@ impl H264Decoder {
 
             ipcm_buf:   [0; 256 + 64 + 64],
 
-            avg_buf,
+            mc_dsp:     H264MC::new(avg_buf),
 
             transform_8x8_mode: false,
         }
@@ -593,7 +593,7 @@ println!("PAFF?");
                     } else {
                         0
                     };
-                recon_mb(&mut frm, slice_hdr, &mb_info, &mut self.sstate, &self.frame_refs, &mut self.avg_buf, weight_mode);
+                recon_mb(&mut frm, slice_hdr, &mb_info, &mut self.sstate, &self.frame_refs, &mut self.mc_dsp, weight_mode);
             } else {
                 for (dline, src) in frm.data[frm.offset[0] + xpos + ypos * frm.stride[0]..].chunks_mut(frm.stride[0]).take(16).zip(self.ipcm_buf.chunks(16)) {
                     dline[..16].copy_from_slice(src);
