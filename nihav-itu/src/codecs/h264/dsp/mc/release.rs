@@ -1,5 +1,3 @@
-use nihav_codec_support::codecs::blockdsp::*;
-
 use super::clip_u8;
 
 const TMP_BUF_STRIDE: usize = 32;
@@ -276,9 +274,52 @@ pub fn chroma_interp(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize,
     }
 }
 
-pub const H264_LUMA_INTERP: &[BlkInterpFunc] = &[
-    h264_mc00, h264_mc01, h264_mc02, h264_mc03,
-    h264_mc10, h264_mc11, h264_mc12, h264_mc13,
-    h264_mc20, h264_mc21, h264_mc22, h264_mc23,
-    h264_mc30, h264_mc31, h264_mc32, h264_mc33
+macro_rules! luma_mc {
+    ($orig:ident, $func4:ident, $func8:ident, $func16:ident) => {
+        fn $func4(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, h: usize) {
+            $orig(dst, dstride, src, sstride, 4, h);
+        }
+        fn $func8(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, h: usize) {
+            $orig(dst, dstride, src, sstride, 8, h);
+        }
+        fn $func16(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, h: usize) {
+            $orig(dst, dstride, src, sstride, 16, h);
+        }
+    }
+}
+
+luma_mc!(h264_mc00, h264_mc00_4, h264_mc00_8, h264_mc00_16);
+luma_mc!(h264_mc01, h264_mc01_4, h264_mc01_8, h264_mc01_16);
+luma_mc!(h264_mc02, h264_mc02_4, h264_mc02_8, h264_mc02_16);
+luma_mc!(h264_mc03, h264_mc03_4, h264_mc03_8, h264_mc03_16);
+luma_mc!(h264_mc10, h264_mc10_4, h264_mc10_8, h264_mc10_16);
+luma_mc!(h264_mc11, h264_mc11_4, h264_mc11_8, h264_mc11_16);
+luma_mc!(h264_mc12, h264_mc12_4, h264_mc12_8, h264_mc12_16);
+luma_mc!(h264_mc13, h264_mc13_4, h264_mc13_8, h264_mc13_16);
+luma_mc!(h264_mc20, h264_mc20_4, h264_mc20_8, h264_mc20_16);
+luma_mc!(h264_mc21, h264_mc21_4, h264_mc21_8, h264_mc21_16);
+luma_mc!(h264_mc22, h264_mc22_4, h264_mc22_8, h264_mc22_16);
+luma_mc!(h264_mc23, h264_mc23_4, h264_mc23_8, h264_mc23_16);
+luma_mc!(h264_mc30, h264_mc30_4, h264_mc30_8, h264_mc30_16);
+luma_mc!(h264_mc31, h264_mc31_4, h264_mc31_8, h264_mc31_16);
+luma_mc!(h264_mc32, h264_mc32_4, h264_mc32_8, h264_mc32_16);
+luma_mc!(h264_mc33, h264_mc33_4, h264_mc33_8, h264_mc33_16);
+
+pub const H264_LUMA_INTERP: &[[super::MCFunc; 16]; 3] = &[
+  [
+    h264_mc00_4, h264_mc01_4, h264_mc02_4, h264_mc03_4,
+    h264_mc10_4, h264_mc11_4, h264_mc12_4, h264_mc13_4,
+    h264_mc20_4, h264_mc21_4, h264_mc22_4, h264_mc23_4,
+    h264_mc30_4, h264_mc31_4, h264_mc32_4, h264_mc33_4
+  ], [
+    h264_mc00_8, h264_mc01_8, h264_mc02_8, h264_mc03_8,
+    h264_mc10_8, h264_mc11_8, h264_mc12_8, h264_mc13_8,
+    h264_mc20_8, h264_mc21_8, h264_mc22_8, h264_mc23_8,
+    h264_mc30_8, h264_mc31_8, h264_mc32_8, h264_mc33_8
+  ], [
+    h264_mc00_16, h264_mc01_16, h264_mc02_16, h264_mc03_16,
+    h264_mc10_16, h264_mc11_16, h264_mc12_16, h264_mc13_16,
+    h264_mc20_16, h264_mc21_16, h264_mc22_16, h264_mc23_16,
+    h264_mc30_16, h264_mc31_16, h264_mc32_16, h264_mc33_16
+  ]
 ];

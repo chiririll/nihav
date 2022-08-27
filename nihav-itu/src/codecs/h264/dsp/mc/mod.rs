@@ -11,16 +11,22 @@ mod debug;
 #[cfg(debug_assertions)]
 use debug::*;
 
+type MCFunc = fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, h: usize);
+
 fn clip_u8(val: i16) -> u8 { val.max(0).min(255) as u8 }
 
 pub struct H264MC {
     avg_buf:    NAVideoBufferRef<u8>,
+    pub put_block_weighted:     [fn (dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]); 4],
+    pub put_block_weighted2:    [fn (dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]); 4],
 }
 
 impl H264MC {
     pub fn new(avg_buf: NAVideoBufferRef<u8>) -> Self {
         Self {
-            avg_buf
+            avg_buf,
+            put_block_weighted:     [put_blk_w_2, put_blk_w_4, put_blk_w_8, put_blk_w_16],
+            put_block_weighted2:    [put_blk_w2_2, put_blk_w2_4, put_blk_w2_8, put_blk_w2_16],
         }
     }
     pub fn do_mc(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
@@ -42,7 +48,12 @@ impl H264MC {
             } else {
                 (&src[refpic.get_offset(0) + ((src_x - pre) as usize) + ((src_y - pre) as usize) * systride..], systride)
             };
-        (H264_LUMA_INTERP[mode])(&mut frm.data[frm.offset[0] + xpos + ypos * frm.stride[0]..], frm.stride[0], ysrc, ystride, w, h);
+        let wmode = match w {
+                4 => 0,
+                8 => 1,
+                _ => 2,
+            };
+        (H264_LUMA_INTERP[wmode][mode])(&mut frm.data[frm.offset[0] + xpos + ypos * frm.stride[0]..], frm.stride[0], ysrc, ystride, h);
 
         let (cw, ch) = refpic.get_dimensions(1);
         let mvx = mv.x >> 3;
@@ -84,19 +95,24 @@ impl H264MC {
         const EBUF_STRIDE: usize = 32;
         let mut ebuf = [0u8; EBUF_STRIDE * (16 + 2 + 3)];
 
+        let wmode = match w {
+                4 => 0,
+                8 => 1,
+                _ => 2,
+            };
         if (sx - pre < 0) || (sx + (w as isize) + post > (width as isize)) ||
            (sy - pre < 0) || (sy + (h as isize) + post > (height as isize)) {
             let edge = (pre + post) as usize;
             edge_emu(&refpic, sx - pre, sy - pre, w + edge, h + edge,
                      &mut ebuf, EBUF_STRIDE, 0, 0);
-            (H264_LUMA_INTERP[mode])(ydst, 16, &ebuf, EBUF_STRIDE, w, h);
+            (H264_LUMA_INTERP[wmode][mode])(ydst, 16, &ebuf, EBUF_STRIDE, h);
         } else {
             let sstride = refpic.get_stride(0);
             let soff    = refpic.get_offset(0);
             let sdta    = refpic.get_data();
             let sbuf: &[u8] = sdta.as_slice();
             let saddr = soff + ((sx - pre) as usize) + ((sy - pre) as usize) * sstride;
-            (H264_LUMA_INTERP[mode])(ydst, 16, &sbuf[saddr..], sstride, w, h);
+            (H264_LUMA_INTERP[wmode][mode])(ydst, 16, &sbuf[saddr..], sstride, h);
         }
 
         let (cw, ch) = refpic.get_dimensions(1);
@@ -148,35 +164,6 @@ impl H264MC {
         }
     }
 
-    pub fn put_block_weighted(&mut self, dst: &mut [u8], stride: usize, src: &[u8], w: usize, h: usize, wparams: [i8; 3]) {
-        let weight = i16::from(wparams[0]);
-        let offset = i16::from(wparams[1]);
-        let wshift = wparams[2] as u8;
-        let bias = (1 << wshift) >> 1;
-
-        for (drow, srow) in dst.chunks_mut(stride).zip(src.chunks(16)).take(h) {
-            for (dst, &src) in drow[..w].iter_mut().zip(srow.iter()) {
-                *dst = clip_u8(((i16::from(src) * weight + bias) >> wshift) + offset);
-            }
-        }
-    }
-
-    pub fn put_block_weighted2(&mut self, dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], w: usize, h: usize, wparams: [i8; 5]) {
-        let weight0 = i16::from(wparams[0]);
-        let offset0 = i16::from(wparams[1]);
-        let weight1 = i16::from(wparams[2]);
-        let offset1 = i16::from(wparams[3]);
-        let wshift = (wparams[4] as u8) + 1;
-        let offset = (offset0 + offset1 + 1) >> 1;
-        let bias = (1 << wshift) >> 1;
-
-        for (drow, (srow0, srow1)) in dst.chunks_mut(stride).zip(src0.chunks(16).zip(src1.chunks(16))).take(h) {
-            for (dst, (&src0, &src1)) in drow[..w].iter_mut().zip(srow0.iter().zip(srow1.iter())) {
-                *dst = clip_u8(((i16::from(src0) * weight0 + i16::from(src1) * weight1 + bias) >> wshift) + offset);
-            }
-        }
-    }
-
     pub fn gray_block(&mut self, frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, w: usize, h: usize) {
         let yoff = frm.offset[0] + x + y * frm.stride[0];
         let coff = [frm.offset[1] + x / 2 + y / 2 * frm.stride[1],
@@ -194,4 +181,59 @@ impl H264MC {
             }
         }
     }
+}
+
+fn put_block_weighted(dst: &mut [u8], stride: usize, src: &[u8], w: usize, h: usize, wparams: [i8; 3]) {
+    let weight = i16::from(wparams[0]);
+    let offset = i16::from(wparams[1]);
+    let wshift = wparams[2] as u8;
+    let bias = (1 << wshift) >> 1;
+
+    for (drow, srow) in dst.chunks_mut(stride).zip(src.chunks(16)).take(h) {
+        for (dst, &src) in drow[..w].iter_mut().zip(srow.iter()) {
+            *dst = clip_u8(((i16::from(src) * weight + bias) >> wshift) + offset);
+        }
+    }
+}
+
+fn put_blk_w_2(dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]) {
+    put_block_weighted(dst, stride, src, 2, h, wparams);
+}
+fn put_blk_w_4(dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]) {
+    put_block_weighted(dst, stride, src, 4, h, wparams);
+}
+fn put_blk_w_8(dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]) {
+    put_block_weighted(dst, stride, src, 8, h, wparams);
+}
+fn put_blk_w_16(dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]) {
+    put_block_weighted(dst, stride, src, 16, h, wparams);
+}
+
+fn put_block_weighted2(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], w: usize, h: usize, wparams: [i8; 5]) {
+    let weight0 = i16::from(wparams[0]);
+    let offset0 = i16::from(wparams[1]);
+    let weight1 = i16::from(wparams[2]);
+    let offset1 = i16::from(wparams[3]);
+    let wshift = (wparams[4] as u8) + 1;
+    let offset = (offset0 + offset1 + 1) >> 1;
+    let bias = (1 << wshift) >> 1;
+
+    for (drow, (srow0, srow1)) in dst.chunks_mut(stride).zip(src0.chunks(16).zip(src1.chunks(16))).take(h) {
+        for (dst, (&src0, &src1)) in drow[..w].iter_mut().zip(srow0.iter().zip(srow1.iter())) {
+            *dst = clip_u8(((i16::from(src0) * weight0 + i16::from(src1) * weight1 + bias) >> wshift) + offset);
+        }
+    }
+}
+
+fn put_blk_w2_2(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]) {
+    put_block_weighted2(dst, stride, src0, src1, 2, h, wparams);
+}
+fn put_blk_w2_4(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]) {
+    put_block_weighted2(dst, stride, src0, src1, 4, h, wparams);
+}
+fn put_blk_w2_8(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]) {
+    put_block_weighted2(dst, stride, src0, src1, 8, h, wparams);
+}
+fn put_blk_w2_16(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]) {
+    put_block_weighted2(dst, stride, src0, src1, 16, h, wparams);
 }
