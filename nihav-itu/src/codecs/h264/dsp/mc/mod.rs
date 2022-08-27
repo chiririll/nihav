@@ -15,6 +15,10 @@ type MCFunc = fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, h:
 
 fn clip_u8(val: i16) -> u8 { val.max(0).min(255) as u8 }
 
+trait RegisterSIMD {
+    fn register_simd(&mut self);
+}
+
 pub struct H264MC {
     avg_buf:    NAVideoBufferRef<u8>,
     pub put_block_weighted:     [fn (dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]); 4],
@@ -23,11 +27,13 @@ pub struct H264MC {
 
 impl H264MC {
     pub fn new(avg_buf: NAVideoBufferRef<u8>) -> Self {
-        Self {
+        let mut obj = Self {
             avg_buf,
             put_block_weighted:     [put_blk_w_2, put_blk_w_4, put_blk_w_8, put_blk_w_16],
             put_block_weighted2:    [put_blk_w2_2, put_blk_w2_4, put_blk_w2_8, put_blk_w2_16],
-        }
+        };
+        obj.register_simd();
+        obj
     }
     pub fn do_mc(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
         let mut ebuf = [0u8; 22 * 22];

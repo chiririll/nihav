@@ -323,3 +323,7 @@ pub const H264_LUMA_INTERP: &[[super::MCFunc; 16]; 3] = &[
     h264_mc30_16, h264_mc31_16, h264_mc32_16, h264_mc33_16
   ]
 ];
+
+impl super::RegisterSIMD for super::H264MC {
+    fn register_simd(&mut self) {}
+}
