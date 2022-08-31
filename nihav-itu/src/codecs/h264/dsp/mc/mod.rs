@@ -23,6 +23,7 @@ pub struct H264MC {
     avg_buf:    NAVideoBufferRef<u8>,
     pub put_block_weighted:     [fn (dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]); 4],
     pub put_block_weighted2:    [fn (dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]); 4],
+    pub chroma_interp:          [fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, h: usize); 3],
 }
 
 impl H264MC {
@@ -31,6 +32,7 @@ impl H264MC {
             avg_buf,
             put_block_weighted:     [put_blk_w_2, put_blk_w_4, put_blk_w_8, put_blk_w_16],
             put_block_weighted2:    [put_blk_w2_2, put_blk_w2_4, put_blk_w2_8, put_blk_w2_16],
+            chroma_interp:          [chroma_interp_2, chroma_interp_4, chroma_interp_8],
         };
         obj.register_simd();
         obj
@@ -85,7 +87,7 @@ impl H264MC {
             };
         for chroma in 1..3 {
             let off = frm.offset[chroma] + xpos / 2 + (ypos / 2) * frm.stride[chroma];
-            chroma_interp(&mut frm.data[off..], frm.stride[chroma], csrc[chroma - 1], cstride[chroma - 1], dx, dy, cbw, cbh);
+            (self.chroma_interp[wmode])(&mut frm.data[off..], frm.stride[chroma], csrc[chroma - 1], cstride[chroma - 1], dx, dy, cbh);
         }
     }
 
@@ -144,8 +146,8 @@ impl H264MC {
                  &src[svoff + (src_x as usize) + (src_y as usize) * svstride..]],
                  [sustride, svstride])
             };
-        chroma_interp(udst, 16, csrc[0], cstride[0], dx, dy, cbw, cbh);
-        chroma_interp(vdst, 16, csrc[1], cstride[1], dx, dy, cbw, cbh);
+        (self.chroma_interp[wmode])(udst, 16, csrc[0], cstride[0], dx, dy, cbh);
+        (self.chroma_interp[wmode])(vdst, 16, csrc[1], cstride[1], dx, dy, cbh);
     }
 
     pub fn avg(&mut self, dst: &mut [u8], dstride: usize, bw: usize, bh: usize, comp: usize) {

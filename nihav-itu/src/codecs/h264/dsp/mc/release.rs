@@ -204,7 +204,7 @@ fn h264_mc33(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usiz
 }
 
 
-pub fn chroma_interp(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, w: usize, h: usize) {
+fn chroma_interp(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, w: usize, h: usize) {
     let a0 = 8 - dx;
     let a1 = dx;
     let b0 = 8 - dy;
@@ -272,6 +272,18 @@ pub fn chroma_interp(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize,
             }
         }
     }
+}
+
+pub fn chroma_interp_8(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, h: usize) {
+    chroma_interp(dst, dstride, src, sstride, dx, dy, 8, h);
+}
+
+pub fn chroma_interp_4(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, h: usize) {
+    chroma_interp(dst, dstride, src, sstride, dx, dy, 4, h);
+}
+
+pub fn chroma_interp_2(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, h: usize) {
+    chroma_interp(dst, dstride, src, sstride, dx, dy, 2, h);
 }
 
 macro_rules! luma_mc {
