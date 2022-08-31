@@ -315,6 +315,7 @@ println!(" chroma fmt {} bits {}/{}", sps.chroma_format_idc, sps.bit_depth_luma,
                     self.width  = sps.pic_width_in_mbs  << 4;
                     self.height = sps.pic_height_in_mbs << 4;
                     self.num_mbs = sps.pic_width_in_mbs * sps.pic_height_in_mbs;
+                    self.mc_dsp.set_dimensions(self.width, self.height);
 
                     self.is_mbaff = sps.mb_adaptive_frame_field && !slice_hdr.field_pic;
                     if self.is_mbaff {

@@ -24,6 +24,9 @@ pub struct H264MC {
     pub put_block_weighted:     [fn (dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]); 4],
     pub put_block_weighted2:    [fn (dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]); 4],
     pub chroma_interp:          [fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, h: usize); 3],
+
+    width:      usize,
+    height:     usize,
 }
 
 impl H264MC {
@@ -33,9 +36,14 @@ impl H264MC {
             put_block_weighted:     [put_blk_w_2, put_blk_w_4, put_blk_w_8, put_blk_w_16],
             put_block_weighted2:    [put_blk_w2_2, put_blk_w2_4, put_blk_w2_8, put_blk_w2_16],
             chroma_interp:          [chroma_interp_2, chroma_interp_4, chroma_interp_8],
+            width: 0, height: 0,
         };
         obj.register_simd();
         obj
+    }
+    pub fn set_dimensions(&mut self, width: usize, height: usize) {
+        self.width  = width;
+        self.height = height;
     }
     pub fn do_mc(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
         let mut ebuf = [0u8; 22 * 22];
@@ -44,7 +52,7 @@ impl H264MC {
         let mode = ((mv.x & 3) + (mv.y & 3) * 4) as usize;
         let pre  = if mode != 0 { 2isize } else { 0 };
         let post = if mode != 0 { 3isize } else { 0 };
-        let (yw, yh) = refpic.get_dimensions(0);
+        let (yw, yh) = (self.width, self.height);
         let src = refpic.get_data();
         let systride = refpic.get_stride(0);
         let src_x = (xpos as isize) + (mvx as isize);
@@ -63,7 +71,7 @@ impl H264MC {
             };
         (H264_LUMA_INTERP[wmode][mode])(&mut frm.data[frm.offset[0] + xpos + ypos * frm.stride[0]..], frm.stride[0], ysrc, ystride, h);
 
-        let (cw, ch) = refpic.get_dimensions(1);
+        let (cw, ch) = (self.width >> 1, self.height >> 1);
         let mvx = mv.x >> 3;
         let mvy = mv.y >> 3;
         let dx = (mv.x & 7) as u16;
@@ -96,7 +104,7 @@ impl H264MC {
 
         let pre  = if mode != 0 { 2 } else { 0 };
         let post = if mode != 0 { 3 } else { 0 };
-        let (width, height) = refpic.get_dimensions(0);
+        let (width, height) = (self.width, self.height);
         let sx = (xpos as isize) + ((mv.x >> 2) as isize);
         let sy = (ypos as isize) + ((mv.y >> 2) as isize);
 
@@ -123,7 +131,7 @@ impl H264MC {
             (H264_LUMA_INTERP[wmode][mode])(ydst, 16, &sbuf[saddr..], sstride, h);
         }
 
-        let (cw, ch) = refpic.get_dimensions(1);
+        let (cw, ch) = (self.width >> 1, self.height >> 1);
         let mvx = mv.x >> 3;
         let mvy = mv.y >> 3;
         let dx = (mv.x & 7) as u16;
