@@ -24,6 +24,7 @@ pub struct H264MC {
     pub put_block_weighted:     [fn (dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]); 4],
     pub put_block_weighted2:    [fn (dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]); 4],
     pub chroma_interp:          [fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, h: usize); 3],
+    avg:        [fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bh: usize); 4],
 
     width:      usize,
     height:     usize,
@@ -36,6 +37,7 @@ impl H264MC {
             put_block_weighted:     [put_blk_w_2, put_blk_w_4, put_blk_w_8, put_blk_w_16],
             put_block_weighted2:    [put_blk_w2_2, put_blk_w2_4, put_blk_w2_8, put_blk_w2_16],
             chroma_interp:          [chroma_interp_2, chroma_interp_4, chroma_interp_8],
+            avg:                    [avg_2, avg_4, avg_8, avg_16],
             width: 0, height: 0,
         };
         obj.register_simd();
@@ -158,25 +160,23 @@ impl H264MC {
         (self.chroma_interp[wmode])(vdst, 16, csrc[1], cstride[1], dx, dy, cbh);
     }
 
-    pub fn avg(&mut self, dst: &mut [u8], dstride: usize, bw: usize, bh: usize, comp: usize) {
-        let afrm = NASimpleVideoFrame::from_video_buf(&mut self.avg_buf).unwrap();
-        let src = &afrm.data[afrm.offset[comp]..];
-        let sstride = afrm.stride[comp];
-        for (dline, sline) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(bh) {
-            for (dst, src) in dline.iter_mut().zip(sline.iter()).take(bw) {
-                *dst = ((u16::from(*dst) + u16::from(*src) + 1) >> 1) as u8;
-            }
-        }
-    }
-
     pub fn do_mc_avg(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
         let mut abuf = self.avg_buf.clone();
         let mut afrm = NASimpleVideoFrame::from_video_buf(&mut abuf).unwrap();
         let amv = MV { x: mv.x + (xpos as i16) * 4, y: mv.y + (ypos as i16) * 4 };
         self.do_mc(&mut afrm, refpic, 0, 0, w, h, amv);
+        let wsize = match w {
+                2 => 0,
+                4 => 1,
+                8 => 2,
+                _ => 3,
+            };
+        let src = self.avg_buf.get_data();
         for comp in 0..3 {
             let shift = if comp == 0 { 0 } else { 1 };
-            self.avg(&mut frm.data[frm.offset[comp] + (xpos >> shift) + (ypos >> shift) * frm.stride[comp]..], frm.stride[comp], w >> shift, h >> shift, comp);
+            let sstride = self.avg_buf.get_stride(comp);
+            let soff = self.avg_buf.get_offset(comp);
+            (self.avg[wsize - shift])(&mut frm.data[frm.offset[comp] + (xpos >> shift) + (ypos >> shift) * frm.stride[comp]..], frm.stride[comp], &src[soff..], sstride, h >> shift);
         }
     }
 
@@ -197,6 +197,27 @@ impl H264MC {
             }
         }
     }
+}
+
+fn avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize) {
+    for (dline, sline) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(bh) {
+        for (dst, src) in dline.iter_mut().zip(sline.iter()).take(bw) {
+            *dst = ((u16::from(*dst) + u16::from(*src) + 1) >> 1) as u8;
+        }
+    }
+}
+
+fn avg_2(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bh: usize) {
+    avg(dst, dstride, src, sstride, 2, bh);
+}
+fn avg_4(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bh: usize) {
+    avg(dst, dstride, src, sstride, 4, bh);
+}
+fn avg_8(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bh: usize) {
+    avg(dst, dstride, src, sstride, 8, bh);
+}
+fn avg_16(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bh: usize) {
+    avg(dst, dstride, src, sstride, 16, bh);
 }
 
 fn put_block_weighted(dst: &mut [u8], stride: usize, src: &[u8], w: usize, h: usize, wparams: [i8; 3]) {
