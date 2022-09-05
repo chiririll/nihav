@@ -208,7 +208,20 @@ fn avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh
 }
 
 fn avg_2(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bh: usize) {
-    avg(dst, dstride, src, sstride, 2, bh);
+    let _ = src[sstride + 1];
+    let _ = dst[dstride + 1];
+    dst[0]           = ((u16::from(dst[0])           + u16::from(src[0])           + 1) >> 1) as u8;
+    dst[1]           = ((u16::from(dst[1])           + u16::from(src[1])           + 1) >> 1) as u8;
+    dst[dstride]     = ((u16::from(dst[dstride])     + u16::from(src[sstride])     + 1) >> 1) as u8;
+    dst[dstride + 1] = ((u16::from(dst[dstride + 1]) + u16::from(src[sstride + 1]) + 1) >> 1) as u8;
+    if bh == 4 {
+        let _ = src[sstride * 3 + 1];
+        let _ = dst[dstride * 3 + 1];
+        dst[dstride * 2]     = ((u16::from(dst[dstride * 2])     + u16::from(src[sstride * 2])     + 1) >> 1) as u8;
+        dst[dstride * 2 + 1] = ((u16::from(dst[dstride * 2 + 1]) + u16::from(src[sstride * 2 + 1]) + 1) >> 1) as u8;
+        dst[dstride * 3]     = ((u16::from(dst[dstride * 3])     + u16::from(src[sstride * 3])     + 1) >> 1) as u8;
+        dst[dstride * 3 + 1] = ((u16::from(dst[dstride * 3 + 1]) + u16::from(src[sstride * 3 + 1]) + 1) >> 1) as u8;
+    }
 }
 fn avg_4(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bh: usize) {
     avg(dst, dstride, src, sstride, 4, bh);
@@ -263,7 +276,30 @@ fn put_block_weighted2(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], 
 }
 
 fn put_blk_w2_2(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]) {
-    put_block_weighted2(dst, stride, src0, src1, 2, h, wparams);
+    let weight0 = i16::from(wparams[0]);
+    let offset0 = i16::from(wparams[1]);
+    let weight1 = i16::from(wparams[2]);
+    let offset1 = i16::from(wparams[3]);
+    let wshift = (wparams[4] as u8) + 1;
+    let offset = (offset0 + offset1 + 1) >> 1;
+    let bias = (1 << wshift) >> 1;
+
+    let _ = src0[16 + 1];
+    let _ = src1[16 + 1];
+    let _ = dst[stride + 1];
+    dst[0]          = clip_u8(((i16::from(src0[ 0]) * weight0 + i16::from(src1[ 0]) * weight1 + bias) >> wshift) + offset);
+    dst[1]          = clip_u8(((i16::from(src0[ 1]) * weight0 + i16::from(src1[ 1]) * weight1 + bias) >> wshift) + offset);
+    dst[stride]     = clip_u8(((i16::from(src0[16]) * weight0 + i16::from(src1[16]) * weight1 + bias) >> wshift) + offset);
+    dst[stride + 1] = clip_u8(((i16::from(src0[17]) * weight0 + i16::from(src1[17]) * weight1 + bias) >> wshift) + offset);
+    if h == 4 {
+        let _ = src0[16 * 3 + 1];
+        let _ = src1[16 * 3 + 1];
+        let _ = dst[stride * 3 + 1];
+        dst[stride * 2]     = clip_u8(((i16::from(src0[32]) * weight0 + i16::from(src1[32]) * weight1 + bias) >> wshift) + offset);
+        dst[stride * 2 + 1] = clip_u8(((i16::from(src0[33]) * weight0 + i16::from(src1[33]) * weight1 + bias) >> wshift) + offset);
+        dst[stride * 3]     = clip_u8(((i16::from(src0[48]) * weight0 + i16::from(src1[48]) * weight1 + bias) >> wshift) + offset);
+        dst[stride * 3 + 1] = clip_u8(((i16::from(src0[49]) * weight0 + i16::from(src1[49]) * weight1 + bias) >> wshift) + offset);
+    }
 }
 fn put_blk_w2_4(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]) {
     put_block_weighted2(dst, stride, src0, src1, 4, h, wparams);

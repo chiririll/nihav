@@ -2,6 +2,7 @@ use nihav_core::frame::NASimpleVideoFrame;
 use nihav_codec_support::codecs::{MV, ZERO_MV};
 use nihav_codec_support::data::GenericCache;
 use super::FrameRefs;
+use super::pic_ref::FrameMBInfo;
 
 #[repr(u8)]
 #[derive(Clone,Copy,Debug,PartialEq)]
@@ -522,13 +523,13 @@ impl SliceState {
 
         let tx8x8 = self.get_cur_mb().transform_8x8;
 
-        let cur_mbt     = self.get_cur_mb().mb_type;
-        let left_mbt    = self.get_left_mb().mb_type;
-        let mut top_mbt = self.get_top_mb().mb_type;
+        let cur_intra     = self.get_cur_mb().mb_type.is_intra();
+        let left_intra    = self.get_left_mb().mb_type.is_intra();
+        let mut top_intra = self.get_top_mb().mb_type.is_intra();
         for y in 0..4 {
             let can_do_top = y != 0 || (self.mb_y != 0 && (self.has_top || deblock_mode != 2));
             if can_do_top && (!tx8x8 || (y & 1) == 0) {
-                if is_s || cur_mbt.is_intra() || top_mbt.is_intra() {
+                if is_s || cur_intra || top_intra {
                     let val = if y == 0 { 0x40 } else { 0x30 };
                     for el in self.deblock[y * 4..][..4].iter_mut() { *el |= val; }
                 } else {
@@ -549,7 +550,7 @@ impl SliceState {
                     }
                 }
             }
-            let mut lleft_mbt = left_mbt;
+            let mut lleft_intra = left_intra;
             for x in 0..4 {
                 let skip_8 = tx8x8 && (x & 1) != 0;
                 let can_do_left = x > 0 || self.has_left || (self.mb_x != 0 && deblock_mode != 2);
@@ -559,7 +560,7 @@ impl SliceState {
                 let blk4 = x + y * 4;
                 let blk8 = x / 2 + (y / 2) * 2;
                 if skip_8 {
-                } else if is_s || cur_mbt.is_intra() || lleft_mbt.is_intra() {
+                } else if is_s || cur_intra || lleft_intra {
                     self.deblock[y * 4 + x] |= if x == 0 { 4 } else { 3 };
                 } else if self.get_cur_blk4(blk4).ncoded != 0 || self.get_left_blk4(blk4).ncoded != 0 {
                     self.deblock[y * 4 + x] |= 2;
@@ -572,9 +573,9 @@ impl SliceState {
                         self.deblock[y * 4 + x] |= 1;
                     }
                 }
-                lleft_mbt = cur_mbt;
+                lleft_intra = cur_intra;
             }
-            top_mbt = cur_mbt;
+            top_intra = cur_intra;
         }
     }
     pub fn next_mb(&mut self) {
@@ -768,20 +769,20 @@ impl SliceState {
         self.fill_ref(0, 0, 16, 16, 0, ref_idx);
     }
     pub fn predict_direct_mb(&mut self, frame_refs: &FrameRefs, temporal_mv: bool, direct_8x8: bool, cur_id: u16) {
-        let (col_mb, _, _) = frame_refs.get_colocated_info(self.mb_x, self.mb_y);
+        let (col_mb, r1_poc, r1_long) = frame_refs.get_colocated_info(self.mb_x, self.mb_y);
         if direct_8x8 {
             for blk4 in 0..16 {
-                let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, temporal_mv, cur_id, BLK4_TO_D8[blk4]);
+                let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, &col_mb, r1_poc, r1_long, temporal_mv, cur_id, BLK4_TO_D8[blk4]);
                 self.get_cur_blk4(blk4).mv = [mv0, mv1];
                 self.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx = [ref0, ref1];
             }
         } else if col_mb.mb_type.is_16x16_ref() || !temporal_mv {
-            let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, temporal_mv, cur_id, 0);
+            let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, &col_mb, r1_poc, r1_long, temporal_mv, cur_id, 0);
             self.apply_to_blk4(|blk4| blk4.mv = [mv0, mv1]);
             self.apply_to_blk8(|blk8| blk8.ref_idx = [ref0, ref1]);
         } else {
             for blk4 in 0..16 {
-                let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, temporal_mv, cur_id, blk4);
+                let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, &col_mb, r1_poc, r1_long, temporal_mv, cur_id, blk4);
                 self.get_cur_blk4(blk4).mv = [mv0, mv1];
                 self.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx = [ref0, ref1];
             }
@@ -789,12 +790,12 @@ impl SliceState {
     }
     pub fn predict_direct_sub(&mut self, frame_refs: &FrameRefs, temporal_mv: bool, direct8x8: bool, cur_id: u16, blk4: usize) {
         let src_blk = if !direct8x8 { blk4 } else { BLK4_TO_D8[blk4] };
-        let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, temporal_mv, cur_id, src_blk);
+        let (mbi, r1_poc, r1_long) = frame_refs.get_colocated_info(self.mb_x, self.mb_y);
+        let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, &mbi, r1_poc, r1_long, temporal_mv, cur_id, src_blk);
         self.get_cur_blk4(blk4).mv = [mv0, mv1];
         self.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx = [ref0, ref1];
     }
-    pub fn get_direct_mv(&self, frame_refs: &FrameRefs, temporal_mv: bool, cur_id: u16, blk4: usize) -> (MV, PicRef, MV, PicRef) {
-        let (mbi, r1_poc, r1_long) = frame_refs.get_colocated_info(self.mb_x, self.mb_y);
+    pub fn get_direct_mv(&self, frame_refs: &FrameRefs, mbi: &FrameMBInfo, r1_poc: u16, r1_long: bool, temporal_mv: bool, cur_id: u16, blk4: usize) -> (MV, PicRef, MV, PicRef) {
         let blk8 = blk4_to_blk8(blk4);
         let (col_mv, r0_poc, col_idx) = if mbi.ref_poc[blk8] == [MISSING_POC; 2] {
                 (ZERO_MV, MISSING_POC, MISSING_REF)
