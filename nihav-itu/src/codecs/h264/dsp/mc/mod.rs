@@ -2,14 +2,31 @@ use nihav_core::frame::*;
 use nihav_codec_support::codecs::MV;
 use nihav_codec_support::codecs::blockdsp::*;
 
-#[cfg(not(debug_assertions))]
-mod release;
-#[cfg(not(debug_assertions))]
-use release::*;
-#[cfg(debug_assertions)]
-mod debug;
-#[cfg(debug_assertions)]
-use debug::*;
+macro_rules! module_selector {
+    ($( ($cond:meta, $module:ident) ),*) => {
+        module_selector!(list; r#false; $(($cond, $module)),*);
+    };
+    (list; $nocond:meta; ($ccar:meta, $carmod:ident), $(($condcdr:meta, $cdrmod:ident)),*) => {
+        module_selector!(single; $nocond; $ccar; $carmod);
+        module_selector!(list; any($nocond, $ccar); $(($condcdr, $cdrmod)),*);
+    };
+    (list; $nocond:meta; ($yescond:meta, $module:ident)) => {
+        module_selector!(single; $nocond; $yescond; $module);
+    };
+    (list; $_:meta; ) => {};
+    (single; $nocond:meta; $yescond:meta; $module:ident) => {
+        #[cfg(all(not($nocond), $yescond))]
+        mod $module;
+        #[cfg(all(not($nocond), $yescond))]
+        use $module::*;
+    };
+}
+
+module_selector! (
+    (all(feature = "simd", target_arch = "x86_64"), x86),
+    (debug_assertions, debug),
+    (not(debug_assertions), release)
+);
 
 type MCFunc = fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, h: usize);
 
@@ -19,6 +36,7 @@ trait RegisterSIMD {
     fn register_simd(&mut self);
 }
 
+#[allow(clippy::type_complexity)]
 pub struct H264MC {
     avg_buf:    NAVideoBufferRef<u8>,
     pub put_block_weighted:     [fn (dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]); 4],
@@ -62,7 +80,7 @@ impl H264MC {
         let (ysrc, ystride) = if (src_x - pre < 0) || (src_x + (w as isize) + post > (yw as isize)) || (src_y - pre < 0) || (src_y + (h as isize) + post > (yh as isize)) {
                 let add = (pre + post) as usize;
                 edge_emu(&refpic, src_x - pre, src_y - pre, w + add, h + add, &mut ebuf, 22, 0, 0);
-                (ebuf.as_slice(), 22)
+                (&ebuf[..], 22)
             } else {
                 (&src[refpic.get_offset(0) + ((src_x - pre) as usize) + ((src_y - pre) as usize) * systride..], systride)
             };

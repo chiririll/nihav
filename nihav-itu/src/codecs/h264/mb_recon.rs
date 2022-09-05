@@ -244,6 +244,7 @@ fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize,
     }
 }
 
+#[allow(clippy::match_like_matches_macro)]
 fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usize, w: usize, h: usize, mv0: MV, ref_pic0: Option<NAVideoBufferRef<u8>>, weight0: &WeightInfo, mv1: MV, ref_pic1: Option<NAVideoBufferRef<u8>>, weight1: &WeightInfo, mc_dsp: &mut H264MC) {
     let do_weight = match (mode, weight0.is_weighted(), weight1.is_weighted()) {
             (BMode::L0, true, _) => true,
@@ -423,10 +424,10 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
 
     match mb_info.mb_type {
         MBType::Intra16x16(_, _, _) => {
-            pred_intra(frm, &sstate, &mb_info);
+            pred_intra(frm, sstate, mb_info);
         },
         MBType::Intra4x4 | MBType::Intra8x8 => {
-            pred_intra(frm, &sstate, &mb_info);
+            pred_intra(frm, sstate, mb_info);
         },
         MBType::PCM => {},
         MBType::PSkip => {
@@ -600,8 +601,8 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
     };
     if !mb_info.mb_type.is_skip() {
         if mb_info.mb_type != MBType::Intra4x4 && mb_info.mb_type != MBType::Intra8x8 {
-            add_luma(frm, &sstate, &mb_info);
+            add_luma(frm, sstate, mb_info);
         }
-        add_chroma(frm, &sstate, &mb_info);
+        add_chroma(frm, sstate, mb_info);
     }
 }

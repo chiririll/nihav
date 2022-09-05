@@ -371,11 +371,7 @@ impl FrameRefs {
     pub fn select_ref_pic(&self, list_id: u8, ref_id: usize) -> Option<NAVideoBufferRef<u8>> {
         let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
         if ref_list.len() > ref_id {
-            if let Some(ref pic) = ref_list[ref_id] {
-                Some(pic.buf.clone())
-            } else {
-                None
-            }
+            ref_list[ref_id].as_ref().map(|pic| pic.buf.clone())
         } else {
             None
         }

@@ -594,7 +594,7 @@ println!("PAFF?");
                     } else {
                         0
                     };
-                recon_mb(&mut frm, slice_hdr, &mb_info, &mut self.sstate, &self.frame_refs, &mut self.mc_dsp, weight_mode);
+                recon_mb(&mut frm, slice_hdr, mb_info, &mut self.sstate, &self.frame_refs, &mut self.mc_dsp, weight_mode);
             } else {
                 for (dline, src) in frm.data[frm.offset[0] + xpos + ypos * frm.stride[0]..].chunks_mut(frm.stride[0]).take(16).zip(self.ipcm_buf.chunks(16)) {
                     dline[..16].copy_from_slice(src);
@@ -655,8 +655,7 @@ _ => {},
         ];
 
         let mut mb_idx = slice_hdr.first_mb_in_slice as usize;
-        let mut mb_info = CurrentMBInfo::default();
-        mb_info.qp_y = slice_hdr.slice_qp;
+        let mut mb_info = CurrentMBInfo { qp_y: slice_hdr.slice_qp, ..Default::default() };
         let skip_type = if slice_hdr.slice_type.is_p() { MBType::PSkip } else { MBType::BSkip };
         while br.tell() < full_size && mb_idx < self.num_mbs {
             mb_info.coded = [false; 25];
@@ -754,8 +753,7 @@ _ => {},
         let skip_type = if slice_hdr.slice_type.is_p() { MBType::PSkip } else { MBType::BSkip };
         let mut last_qp_diff = false;
 
-        let mut mb_info = CurrentMBInfo::default();
-        mb_info.qp_y = slice_hdr.slice_qp;
+        let mut mb_info = CurrentMBInfo { qp_y: slice_hdr.slice_qp, ..Default::default() };
 
         while mb_idx < self.num_mbs {
             mb_info.coded = [false; 25];
@@ -771,7 +769,7 @@ _ => {},
                 if self.is_mbaff && (((mb_idx & 1) == 0) || (prev_mb_skipped && ((mb_idx & 1) == 1))) {
                     let _mb_field_decoding          = cabac.decode_bit(70);
                 }
-                let mut mb_type                     = cabac_decode_mb_type(cabac, &slice_hdr, &self.sstate);
+                let mut mb_type                     = cabac_decode_mb_type(cabac, slice_hdr, &self.sstate);
                 mb_info.mb_type = mb_type;
                 mb_info.transform_size_8x8 = false;
                 if mb_type == MBType::PCM {

@@ -15,6 +15,7 @@ nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, feature
 
 [features]
 default = ["all_decoders"]
+simd = [] #enable when the default rustc is >=1.62
 
 all_decoders = ["all_video_decoders"]
 decoders = []

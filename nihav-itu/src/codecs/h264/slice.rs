@@ -18,23 +18,14 @@ pub enum SliceType {
 
 impl SliceType {
     pub fn is_intra(self) -> bool {
-        match self {
-            SliceType::I | SliceType::SI => true,
-            _ => false,
-        }
+        matches!(self, SliceType::I | SliceType::SI)
     }
     pub fn is_p(self) -> bool {
-        match self {
-            SliceType::P | SliceType::SP => true,
-            _ => false,
-        }
+        matches!(self, SliceType::P | SliceType::SP)
     }
     pub fn is_b(self) -> bool { self == SliceType::B }
     pub fn is_s(self) -> bool {
-        match self {
-            SliceType::SI | SliceType::SP => true,
-            _ => false,
-        }
+        matches!(self, SliceType::SI | SliceType::SP)
     }
     pub fn to_frame_type(self) -> FrameType {
         match self {
@@ -162,6 +153,7 @@ pub fn parse_slice_header_minimal(br: &mut BitReader) -> DecoderResult<(usize, S
 }
 
 #[allow(clippy::cognitive_complexity)]
+#[allow(clippy::manual_range_contains)]
 pub fn parse_slice_header(br: &mut BitReader, sps_arr: &[SeqParameterSet], pps_arr: &[PicParameterSet], is_idr: bool, nal_ref_idc: u8) -> DecoderResult<SliceHeader> {
     let mut hdr: SliceHeader = unsafe { std::mem::zeroed() };
 

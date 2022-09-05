@@ -36,23 +36,13 @@ pub enum MBType {
 
 impl MBType {
     pub fn is_intra(self) -> bool {
-        match self {
-            MBType::Intra4x4 | MBType::Intra8x8 | MBType::Intra16x16(_, _, _) | MBType::PCM => true,
-            _ => false,
-        }
+        matches!(self, MBType::Intra4x4 | MBType::Intra8x8 | MBType::Intra16x16(_, _, _) | MBType::PCM)
     }
     pub fn is_intra16x16(self) -> bool {
-        if let MBType::Intra16x16(_, _, _) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, MBType::Intra16x16(_, _, _))
     }
     pub fn is_skip(self) -> bool {
-        match self {
-            MBType::PSkip | MBType::BSkip => true,
-            _ => false,
-        }
+        matches!(self, MBType::PSkip | MBType::BSkip)
     }
     pub fn is_4x4(self) -> bool { self.num_parts() == 4 }
     pub fn is_l0(self, part: usize) -> bool {
@@ -200,42 +190,28 @@ pub enum CompactMBType {
 
 impl CompactMBType {
     pub fn is_intra(self) -> bool {
-        match self {
-            CompactMBType::Intra4x4 | CompactMBType::Intra8x8 | CompactMBType::Intra16x16 => true,
-            _ => false,
-        }
+        matches!(self, CompactMBType::Intra4x4 | CompactMBType::Intra8x8 | CompactMBType::Intra16x16)
     }
     pub fn is_intra16orpcm(self) -> bool {
-        match self {
-            CompactMBType::Intra16x16 | CompactMBType::PCM => true,
-            _ => false,
-        }
+        matches!(self, CompactMBType::Intra16x16 | CompactMBType::PCM)
     }
     pub fn is_skip(self) -> bool {
-        match self {
-            CompactMBType::PSkip | CompactMBType::BSkip => true,
-            _ => false,
-        }
+        matches!(self, CompactMBType::PSkip | CompactMBType::BSkip)
     }
     pub fn is_direct(self) -> bool {
-        match self {
-            CompactMBType::BSkip | CompactMBType::Direct | CompactMBType::None => true,
-            _ => false,
-        }
+        matches!(self, CompactMBType::BSkip | CompactMBType::Direct | CompactMBType::None)
     }
     pub fn is_inter(self) -> bool {
         !self.is_intra() && !self.is_skip() && self != CompactMBType::PCM
     }
     pub fn is_16x16_ref(self) -> bool {
-        match self {
+        matches!(self,
             CompactMBType::Intra4x4 |
             CompactMBType::Intra8x8 |
             CompactMBType::Intra16x16 |
             CompactMBType::PCM |
             CompactMBType::P16x16 |
-            CompactMBType::B16x16 => true,
-            _ => false,
-        }
+            CompactMBType::B16x16)
     }
 }
 
@@ -313,9 +289,9 @@ impl From<u8> for IntraPredMode {
     }
 }
 
-impl Into<u8> for IntraPredMode {
-    fn into(self) -> u8 {
-        match self {
+impl From<IntraPredMode> for u8 {
+    fn from(val: IntraPredMode) -> Self {
+        match val {
             IntraPredMode::Vertical      => 0,
             IntraPredMode::Horizontal    => 1,
             IntraPredMode::DC            => 2,
@@ -795,6 +771,7 @@ impl SliceState {
         self.get_cur_blk4(blk4).mv = [mv0, mv1];
         self.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx = [ref0, ref1];
     }
+    #[allow(clippy::nonminimal_bool)]
     pub fn get_direct_mv(&self, frame_refs: &FrameRefs, mbi: &FrameMBInfo, r1_poc: u16, r1_long: bool, temporal_mv: bool, cur_id: u16, blk4: usize) -> (MV, PicRef, MV, PicRef) {
         let blk8 = blk4_to_blk8(blk4);
         let (col_mv, r0_poc, col_idx) = if mbi.ref_poc[blk8] == [MISSING_POC; 2] {

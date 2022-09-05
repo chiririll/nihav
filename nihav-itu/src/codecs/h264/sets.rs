@@ -44,10 +44,7 @@ pub struct SeqParameterSet {
 }
 
 pub fn is_high_profile(profile: u8) -> bool {
-    match profile {
-        100 | 110 | 122 | 244 | 44 | 83 | 86 | 118 | 128 | 138 | 139 | 134 | 125 => true,
-        _ => false,
-    }
+    matches!(profile, 100 | 110 | 122 | 244 | 44 | 83 | 86 | 118 | 128 | 138 | 139 | 134 | 125)
 }
 
 #[allow(clippy::cognitive_complexity)]

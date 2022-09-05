@@ -349,7 +349,7 @@ fn ipred_4x4_diag_down_left(buf: &mut [u8], stride: usize, top: &[u8], _left: &[
 fn ipred_4x4_diag_down_right(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], _tr: &[u8]) {
     let mut t: [u16; 5] = [0; 5];
     t[0] = u16::from(left[0]);
-    load(&mut t[1..], &top);
+    load(&mut t[1..], top);
     let mut l: [u16; 5] = [0; 5];
     load(&mut l, left);
     let dst = buf;
@@ -367,7 +367,7 @@ fn ipred_4x4_diag_down_right(buf: &mut [u8], stride: usize, top: &[u8], left: &[
 fn ipred_4x4_ver_right(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], _tr: &[u8]) {
     let mut t: [u16; 5] = [0; 5];
     t[0] = u16::from(left[0]);
-    load(&mut t[1..], &top);
+    load(&mut t[1..], top);
     let mut l: [u16; 5] = [0; 5];
     load(&mut l, left);
     let dst = buf;
@@ -395,7 +395,7 @@ fn ipred_4x4_ver_right(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], _
 }
 fn ipred_4x4_ver_left(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8], tr: &[u8]) {
     let mut t: [u16; 8] = [0; 8];
-    load(&mut t[..4], &top);
+    load(&mut t[..4], top);
     load(&mut t[4..], tr);
     let dst = buf;
 
@@ -425,7 +425,7 @@ fn ipred_4x4_ver_left(buf: &mut [u8], stride: usize, top: &[u8], _left: &[u8], t
 fn ipred_4x4_hor_down(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8], _tr: &[u8]) {
     let mut t: [u16; 5] = [0; 5];
     t[0] = u16::from(left[0]);
-    load(&mut t[1..], &top);
+    load(&mut t[1..], top);
     let mut l: [u16; 5] = [0; 5];
     load(&mut l, left);
     let dst = buf;
@@ -739,7 +739,7 @@ fn ipred_8x8_dc(buf: &mut [u8], stride: usize, top: &[u8], left: &[u8]) {
     let mut l = [0; 8];
     load(&mut l, &left[1..]);
     let mut t = [0; 8];
-    load(&mut t, &top);
+    load(&mut t, top);
 
     let dc0 = ((t[0] + t[1] + t[2] + t[3] + l[0] + l[1] + l[2] + l[3] + 4) >> 3) as u8;
     let sum1 = t[4] + t[5] + t[6] + t[7];
