@@ -205,7 +205,7 @@ impl<'a> IntCodeReader for BitReader<'a> {
 /// use nihav_core::io::intcode::{IntCodeWriter,IntCodeType};
 ///
 /// let mut bw = BitWriter::new(Vec::new(), BitWriterMode::BE);
-/// bw.write_code_signed(IntCodeType::Gamma, 42)?;
+/// bw.write_code_signed(IntCodeType::Gamma, 42);
 /// ````
 pub trait IntCodeWriter {
     /// Writes an unsigned integer code of requested type.
