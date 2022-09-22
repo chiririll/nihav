@@ -205,7 +205,7 @@ mod test {
         qt_register_all_decoders(&mut dec_reg);
 
         // sample: https://samples.mplayerhq.hu/V-codecs/RPZA/aletrek-rpza.mov
-        test_decoding("mov", "apple-video", "assets/QT/aletrek-rpza.mov", Some(6), &dmx_reg &dec_reg,
+        test_decoding("mov", "apple-video", "assets/QT/aletrek-rpza.mov", Some(6), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0xe7cfc941, 0xa448841b, 0x75afc888, 0x94aa064b],
                             [0xadaaec50, 0xff7319ff, 0xa1f3f64a, 0xc40c2985],
