@@ -352,7 +352,7 @@ impl NADecoder for QdmcDecoder {
                 let mut chunks = self.fft_buf[ch].chunks_mut(1 << self.frame_bits);
                 let first = chunks.next().unwrap();
                 let second = chunks.next().unwrap();
-                first.copy_from_slice(&second);
+                first.copy_from_slice(second);
                 for el in second.iter_mut() {
                     *el = FFTC_ZERO;
                 }

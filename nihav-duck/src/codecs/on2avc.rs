@@ -237,7 +237,7 @@ impl AVCDecoder {
                         first = false;
                     } else {
                         scale                   += i16::from(br.read_cb(&self.codebooks.scale_cb)?);
-                        validate!((scale >= 0) && (scale < 128));
+                        validate!((0..128).contains(&scale));
                     }
                     self.scales[cur_band] = scale as u8;
                     cur_band += 1;

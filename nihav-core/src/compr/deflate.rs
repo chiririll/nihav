@@ -366,10 +366,7 @@ impl Inflate {
     }
     ///! Reports whether decoder has finished decoding the input.
     pub fn is_finished(&self) -> bool {
-        match self.state {
-            InflateState::End => true,
-            _ => false,
-        }
+        matches!(self.state, InflateState::End)
     }
     ///! Reports the current amount of bytes output into the destination buffer after the last run.
     pub fn get_current_output_size(&self) -> usize { self.output_idx }
@@ -624,7 +621,7 @@ impl Inflate {
                         let (lit_lengths, dist_lengths) = self.all_lengths.split_at(self.hlit);
 
                         let mut lit_codes = [ShortCodebookDesc { code: 0, bits: 0 }; NUM_LITERALS];
-                        lengths_to_codes(&lit_lengths, &mut lit_codes)?;
+                        lengths_to_codes(lit_lengths, &mut lit_codes)?;
                         let mut cr = ShortCodebookDescReader::new(lit_codes.to_vec());
                         let ret = Codebook::new(&mut cr, CodebookMode::LSB);
                         if ret.is_err() { return Err(DecompressError::InvalidHeader); }

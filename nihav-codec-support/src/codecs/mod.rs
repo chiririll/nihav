@@ -25,6 +25,7 @@ use std::mem;
 /// shuffler.add_frame(frame.clone()); // tells frame manager to use the frame as the next reference
 /// ```
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct HAMShuffler<T: Copy> {
     lastframe: Option<NAVideoBufferRef<T>>,
 }
@@ -62,10 +63,6 @@ impl<T: Copy> HAMShuffler<T> {
     }
 }
 
-impl<T: Copy> Default for HAMShuffler<T> {
-    fn default() -> Self { Self { lastframe: None } }
-}
-
 /// Frame manager for codecs with intra and inter frames.
 ///
 /// This frame manager simplifies frame management for the case when codec decodes new frame using previous frame as source of some data.
@@ -85,6 +82,7 @@ impl<T: Copy> Default for HAMShuffler<T> {
 /// shuffler.add_frame(frame.clone()); // tells frame manager to use the frame as the next reference
 /// ```
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct IPShuffler {
     lastframe: Option<NAVideoBufferRef<u8>>,
 }
@@ -110,10 +108,6 @@ impl IPShuffler {
             None
         }
     }
-}
-
-impl Default for IPShuffler {
-    fn default() -> Self { Self { lastframe: None } }
 }
 
 /// Frame manager for codecs with I-, P- and B-frames.
@@ -146,6 +140,7 @@ impl Default for IPShuffler {
 /// }
 /// ```
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct IPBShuffler {
     lastframe: Option<NAVideoBufferRef<u8>>,
     nextframe: Option<NAVideoBufferRef<u8>>,
@@ -200,10 +195,6 @@ impl IPBShuffler {
             None
         }
     }
-}
-
-impl Default for IPBShuffler {
-    fn default() -> Self { Self { lastframe: None, nextframe: None } }
 }
 
 /// Motion vector data type.

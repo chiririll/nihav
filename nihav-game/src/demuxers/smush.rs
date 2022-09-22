@@ -577,7 +577,7 @@ impl<'a> DemuxCore<'a> for MCMPDemuxer<'a> {
             arate                       = self.src.read_u32le()?;
             validate!(arate > 0);
         } else {
-            parse_iact(&mut self.src, data_start, &mut arate, &mut abits, &mut chans, true)?;
+            parse_iact(self.src, data_start, &mut arate, &mut abits, &mut chans, true)?;
         }
         if chans == 2 {
             for (samp, pts) in self.samples.iter_mut().zip(self.pts.iter_mut()) {

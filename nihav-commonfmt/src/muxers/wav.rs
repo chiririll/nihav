@@ -90,8 +90,8 @@ impl<'a> MuxCore<'a> for WAVMuxer<'a> {
         Ok(())
     }
     fn end(&mut self) -> MuxerResult<()> {
-        patch_size(&mut self.bw, self.data_pos)?;
-        patch_size(&mut self.bw, 8)?;
+        patch_size(self.bw, self.data_pos)?;
+        patch_size(self.bw, 8)?;
         // todo patch avg_bytes_per_second if calculated
         // todo write fact value if calculated
         Ok(())

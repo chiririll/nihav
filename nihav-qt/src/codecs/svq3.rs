@@ -602,7 +602,7 @@ println!("slice offset {}", _offset);
         if !is_4x4 || (hdr.dquant && hdr.ftype != FrameType::I && cbp != 0) {
             let dq                      = br.read_code_signed(IntCodeType::Gamma)?;
             let new_q = i32::from(sstate.q) + dq;
-            validate!(new_q >= 0 && new_q < 32);
+            validate!((0..32).contains(&new_q));
             sstate.q = new_q as u8;
         }
         if !is_4x4 {
@@ -857,7 +857,7 @@ println!("slice offset {}", _offset);
         if hdr.dquant && cbp != 0 {
             let dq                      = br.read_code_signed(IntCodeType::Gamma)?;
             let new_q = i32::from(sstate.q) + dq;
-            validate!(new_q >= 0 && new_q < 32);
+            validate!((0..32).contains(&new_q));
             sstate.q = new_q as u8;
         }
         for sb in 0..4 {

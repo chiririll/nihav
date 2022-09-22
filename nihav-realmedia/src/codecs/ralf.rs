@@ -370,7 +370,7 @@ impl NADecoder for RALFDecoder {
             let _bits                                   = br.read_u16be().unwrap();
             let sample_rate                             = br.read_u32be().unwrap();
             let max_frame_size                          = br.read_u32be().unwrap();
-            validate!((channels == 1 || channels == 2) && (sample_rate >= 8000 && sample_rate <= 96000));
+            validate!((channels == 1 || channels == 2) && (8000..=96000).contains(&sample_rate));
             self.max_frame_size = max_frame_size.max(sample_rate) as usize;
 
             let ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), channels as u8,

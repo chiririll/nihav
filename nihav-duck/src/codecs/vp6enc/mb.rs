@@ -507,7 +507,7 @@ impl FrameEncoder {
     }
     fn motion_est_mb(src_mb: &ResidueMB, cur_blk: &mut [[u8; 64]; 6], mb: &mut InterMB, mv_search: &mut Box<dyn MVSearch+Send>, mv_est: &mut MVEstimator, mb_x: usize, mb_y: usize) {
         src_mb.fill(cur_blk);
-        let (best_mv, _best_dist) = mv_search.search_mb(mv_est, &cur_blk, mb_x, mb_y);
+        let (best_mv, _best_dist) = mv_search.search_mb(mv_est, cur_blk, mb_x, mb_y);
         mb.mv[3] = best_mv;
 
         for i in 0..4 {

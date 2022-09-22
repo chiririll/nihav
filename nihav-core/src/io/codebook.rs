@@ -144,7 +144,7 @@ pub trait CodebookReader<S> {
 pub const TABLE_FILL_VALUE: u32 = 0x7F;
 const MAX_LUT_BITS: u8 = 10;
 
-fn fill_lut_msb(table: &mut Vec<u32>, off: usize,
+fn fill_lut_msb(table: &mut [u32], off: usize,
                 code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) -> CodebookResult<()> {
     if !esc {
         let fill_len  = lut_bits - bits;
@@ -164,7 +164,7 @@ fn fill_lut_msb(table: &mut Vec<u32>, off: usize,
     Ok(())
 }
 
-fn fill_lut_lsb(table: &mut Vec<u32>, off: usize,
+fn fill_lut_lsb(table: &mut [u32], off: usize,
                 code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) -> CodebookResult<()> {
     if !esc {
         let fill_len  = lut_bits - bits;
@@ -184,7 +184,7 @@ fn fill_lut_lsb(table: &mut Vec<u32>, off: usize,
     Ok(())
 }
 
-fn fill_lut(table: &mut Vec<u32>, mode: CodebookMode,
+fn fill_lut(table: &mut [u32], mode: CodebookMode,
             off: usize, code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) -> CodebookResult<bool> {
     match mode {
         CodebookMode::MSB => fill_lut_msb(table, off, code, bits, lut_bits, symidx, esc)?,
@@ -346,7 +346,7 @@ impl<S: Copy> Codebook<S> {
         }
 
         for bucket in escape_list.values() {
-            build_esc_lut(&mut table, mode, &bucket)?;
+            build_esc_lut(&mut table, mode, bucket)?;
         }
 
         for i in 0..cb.len() {

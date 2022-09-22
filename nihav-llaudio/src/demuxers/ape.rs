@@ -39,7 +39,7 @@ impl<'a> DemuxCore<'a> for APEDemuxer<'a> {
         let tag                         = src.read_tag()?;
         validate!(&tag == b"MAC ");
         let version                     = src.read_u16le()?;
-        validate!(version >= 3800 && version <= 3990);
+        validate!((3800..=3990).contains(&version));
 
         let seektab_len;
         let _wavtail_len;

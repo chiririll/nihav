@@ -14,7 +14,7 @@ impl Pixel {
     fn new(src: &[u8]) -> Self {
         Self { r: src[0], g: src[1], b: src[2] }
     }
-    fn to_rgb(&self) -> [u8; 3] {
+    fn to_rgb(self) -> [u8; 3] {
         [self.r, self.g, self.b]
     }
     fn dist(&self, pix: Pixel) -> u32 {

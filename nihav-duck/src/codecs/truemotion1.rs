@@ -128,6 +128,7 @@ impl Default for DeltaTables {
     }
 }
 
+#[derive(Default)]
 struct FrameBuf {
     last16: Option<NAVideoBufferRef<u16>>,
     last24: Option<NAVideoBufferRef<u8>>,
@@ -157,12 +158,6 @@ impl FrameBuf {
     fn reset(&mut self) {
         self.last16 = None;
         self.last24 = None;
-    }
-}
-
-impl Default for FrameBuf {
-    fn default() -> Self {
-        Self { last16: None, last24: None }
     }
 }
 
@@ -616,8 +611,8 @@ impl NADecoder for TM1Decoder {
 
         self.blk_w = compr_info.block_w;
         self.blk_h = compr_info.block_h;
-        let mut mask = MaskState::new(is_intra && !is_sprite, &mask_bits, mask_row_size);
-        let mut index = IndexState::new(&index_bytes);
+        let mut mask = MaskState::new(is_intra && !is_sprite, mask_bits, mask_row_size);
+        let mut index = IndexState::new(index_bytes);
         let bufinfo;
         if !is_24bit {
             if let Some(mut buf) = self.lastframe.get16() {

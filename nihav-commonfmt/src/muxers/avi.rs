@@ -224,10 +224,10 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                 },
                 _ => unreachable!(),
             };
-            patch_size(&mut self.bw, strf_pos)?;
-            patch_size(&mut self.bw, strl_pos)?;
+            patch_size(self.bw, strf_pos)?;
+            patch_size(self.bw, strl_pos)?;
         }
-        patch_size(&mut self.bw, hdrl_pos)?;
+        patch_size(self.bw, hdrl_pos)?;
 
         self.data_pos = self.bw.tell() + 8;
         self.bw.write_buf(b"LIST\0\0\0\0movi")?;
@@ -286,7 +286,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                 key:    pkt.keyframe,
                 pos:    self.bw.tell() as u32,
                 len:    chunk_len });
-        write_chunk_hdr(&mut self.bw, str.get_media_type(), str_num as u32)?;
+        write_chunk_hdr(self.bw, str.get_media_type(), str_num as u32)?;
         self.bw.write_u32le(chunk_len)?;
         self.bw.write_buf(pkt.get_buffer().as_slice())?;
         if (self.bw.tell() & 1) != 0 {
@@ -298,18 +298,18 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         Ok(())
     }
     fn end(&mut self) -> MuxerResult<()> {
-        patch_size(&mut self.bw, self.data_pos)?;
+        patch_size(self.bw, self.data_pos)?;
         if !self.index.is_empty() {
             self.bw.write_buf(b"idx1")?;
             self.bw.write_u32le((self.index.len() * 16) as u32)?;
             for item in self.index.iter() {
-                write_chunk_hdr(&mut self.bw, item.stype, item.stream)?;
+                write_chunk_hdr(self.bw, item.stype, item.stream)?;
                 self.bw.write_u32le(if item.key { 0x10 } else { 0 })?;
                 self.bw.write_u32le(item.pos)?;
                 self.bw.write_u32le(item.len)?;
             }
         }
-        patch_size(&mut self.bw, 8)?;
+        patch_size(self.bw, 8)?;
         let mut max_frames = 0;
         let mut max_size = 0;
         for stri in self.stream_info.iter() {

@@ -137,11 +137,7 @@ impl RawDemuxerCreator for FLACDemuxerCreator {
         if br.seek(SeekFrom::Start(0)).is_err() {
             return false;
         }
-        if let Ok([b'f', b'L', b'a', b'C']) = br.read_tag() {
-            true
-        } else {
-            false
-        }
+        matches!(br.read_tag(), Ok([b'f', b'L', b'a', b'C']))
     }
 }
 

@@ -154,8 +154,8 @@ impl RMAudioStream {
                     let bsize    = iinfo.block_size as usize;
                     let ppos     = self.sub_packet;
                     for sb in 0..halffact {
-                        let mut dst = &mut self.buf[sb * 2 * fsize + ppos * bsize..][..bsize];
-                        src.read_buf(&mut dst)?;
+                        let dst = &mut self.buf[sb * 2 * fsize + ppos * bsize..][..bsize];
+                        src.read_buf(dst)?;
                     }
                     self.sub_packet += 1;
                     if self.sub_packet == factor {
@@ -175,8 +175,8 @@ impl RMAudioStream {
 
                     for sb in 0..factor2 {
                         let sb_pos = factor * sb + ((factor + 1) >> 1) * (ppos & 1) + (ppos >> 1);
-                        let mut dst = &mut self.buf[bsize * sb_pos..][..bsize];
-                        src.read_buf(&mut dst)?;
+                        let dst = &mut self.buf[bsize * sb_pos..][..bsize];
+                        src.read_buf(dst)?;
                     }
                 },
             Deinterleaver::Sipro    => {
@@ -184,8 +184,8 @@ impl RMAudioStream {
                     let fsize    = iinfo.frame_size as usize;
                     let ppos     = self.sub_packet;
 
-                    let mut dst = &mut self.buf[fsize * ppos..][..fsize];
-                    src.read_buf(&mut dst)?;
+                    let dst = &mut self.buf[fsize * ppos..][..fsize];
+                    src.read_buf(dst)?;
                 },
             Deinterleaver::VBR      => {
                     validate!(payload_size >= 5);
@@ -731,7 +731,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             //todo skip unwanted packet
             let keyframe = (flags & KEYFRAME_FLAG) != 0;
 
-            let ret = RMDemuxCommon::parse_packet_payload(&mut self.src, &mut self.str_data.streams[str_id], stream, &mut self.slice_buf, &mut self.queued_pkts, keyframe, ts, payload_size);
+            let ret = RMDemuxCommon::parse_packet_payload(self.src, &mut self.str_data.streams[str_id], stream, &mut self.slice_buf, &mut self.queued_pkts, keyframe, ts, payload_size);
             if let Err(DemuxerError::TryAgain) = ret {
                 continue;
             } else {
@@ -1210,13 +1210,13 @@ impl<'a> DemuxCore<'a> for RealAudioDemuxer<'a> {
         let ver         = self.src.read_u16be()?;
         let ainfo = match ver {
             3 => {
-                    parse_aformat3(&mut self.src)?
+                    parse_aformat3(self.src)?
                 },
             4 => {
-                    parse_aformat4(&mut self.src)?
+                    parse_aformat4(self.src)?
                 },
             5 => {
-                    parse_aformat5(&mut self.src)?
+                    parse_aformat5(self.src)?
                 },
             _ => {
                     println!("unknown version {}", ver);
@@ -1266,7 +1266,7 @@ println!(" got ainfo {:?}", ainfo);
         let stream = streamres.unwrap();
         if let Some(ref mut astr) = self.stream {
             loop {
-                let ret = astr.read_apackets(&mut self.queued_pkts, &mut self.src, stream.clone(), 0, false, self.blk_size);
+                let ret = astr.read_apackets(&mut self.queued_pkts, self.src, stream.clone(), 0, false, self.blk_size);
                 if let Err(DemuxerError::TryAgain) = ret {
                     continue;
                 }
@@ -1371,10 +1371,7 @@ impl IVRRecord {
         }
     }
     fn is_data_start(&self) -> bool {
-        match *self {
-            IVRRecord::DataStart => true,
-            _ => false,
-        }
+        matches!(*self, IVRRecord::DataStart)
     }
 }
 
@@ -1560,13 +1557,13 @@ impl<'a> DemuxCore<'a> for RealIVRDemuxer<'a> {
         let magic                                       = self.src.peek_u32be()?;
         if magic == mktag!(b".REC") {
             let mut rec = RecordDemuxer::new(0, 0);
-            rec.parse_header(&mut self.src, strmgr, &mut self.str_data)?;
+            rec.parse_header(self.src, strmgr, &mut self.str_data)?;
             self.recs.push(rec);
         } else if magic == mktag!(b".R1M") {
 println!("R1M kind");
             self.src.read_skip(4)?; // magic
             self.src.read_skip(3)?; // always 0, 1, 1 ?
-            let _name = IVRRecord::read_string(&mut self.src)?;
+            let _name = IVRRecord::read_string(self.src)?;
             self.src.read_skip(1)?; // always 0?
             let len1 = self.src.read_u32be()? as u64;
             let off1 = self.src.read_u64be()?;
@@ -1587,7 +1584,7 @@ println!("R1M kind");
                             if len > 0x20 {
                                 let num_streams = self.str_data.streams.len() as u32;
                                 let mut rec = RecordDemuxer::new(pos + 12, num_streams);
-                                rec.parse_header(&mut self.src, strmgr, &mut self.str_data)?;
+                                rec.parse_header(self.src, strmgr, &mut self.str_data)?;
                                 self.recs.push(rec);
                             }
                             self.src.seek(SeekFrom::Start(pos + len))?;
@@ -1618,7 +1615,7 @@ println!("R1M kind");
         }
         loop {
             if self.cur_rec >= self.recs.len() { return Err(DemuxerError::EOF); }
-            let res = self.recs[self.cur_rec].get_packet(&mut self.src, &mut self.str_data, strmgr, &mut self.queued_pkts, &mut self.slice_buf);
+            let res = self.recs[self.cur_rec].get_packet(self.src, &mut self.str_data, strmgr, &mut self.queued_pkts, &mut self.slice_buf);
             if let Err(DemuxerError::EOF) = res {
                 self.cur_rec += 1;
             } else {

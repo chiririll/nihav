@@ -519,8 +519,8 @@ impl NADecoder for VMDAudioDecoder {
                 VMDAudioMode::DPCM => {
                     let mut adata = abuf.get_abuf_i16().unwrap();
                     let off1 = adata.get_offset(1);
-                    let mut dst = adata.get_data_mut().unwrap();
-                    self.decode_16bit(&mut dst, off1, &mut br, nblocks, mask)?;
+                    let dst = adata.get_data_mut().unwrap();
+                    self.decode_16bit(dst, off1, &mut br, nblocks, mask)?;
                 },
                 VMDAudioMode::U8 => {
                     let mut adata = abuf.get_abuf_u8().unwrap();

@@ -169,7 +169,7 @@ enum CC<'a> {
 impl<'a> CC<'a> {
     fn eval(&self, src: &mut ByteReader) -> bool {
         match *self {
-            CC::Or (ref a, ref b) => { a.eval(src) || b.eval(src) },
+            CC::Or(a, b)         => { a.eval(src) || b.eval(src) },
             CC::Eq(ref arg)      => { arg.eq(src) },
             CC::In(ref a, ref b) => { a.ge(src) && b.le(src) },
             CC::Lt(ref arg)      => { arg.lt(src) },

@@ -272,7 +272,7 @@ struct VivoBR<'a> {
     aic:    bool,
 }
 
-fn check_marker<'a>(br: &mut BitReader<'a>) -> DecoderResult<()> {
+fn check_marker(br: &mut BitReader) -> DecoderResult<()> {
     let mark = br.read(1)?;
     validate!(mark == 1);
     Ok(())

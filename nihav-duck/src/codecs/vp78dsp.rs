@@ -230,7 +230,6 @@ macro_rules! load_pred4 {
 pub struct IPred4x4 {}
 impl IPred4x4 {
     pub fn ipred_dc(dst: &mut [u8], mut off: usize, stride: usize, ipred: &IPredContext) {
-        let dc;
         let mut dcsum = 0;
         for el in ipred.left.iter().take(4) {
             dcsum += u16::from(*el);
@@ -238,7 +237,7 @@ impl IPred4x4 {
         for el in ipred.top.iter().take(4) {
             dcsum += u16::from(*el);
         }
-        dc = ((dcsum + (1 << 2)) >> 3) as u8;
+        let dc = ((dcsum + (1 << 2)) >> 3) as u8;
         for _ in 0..4 {
             let out = &mut dst[off..][..4];
             for el in out.iter_mut() {

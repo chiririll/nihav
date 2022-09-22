@@ -275,7 +275,7 @@ fn decode_values(br: &mut BitReader, dst: &mut [i16], cb: &Codebook<u32>) -> Dec
             *el = 0;
             zero_run -= 1;
         } else {
-            let val = br.read_cb(&cb)? as u8;
+            let val = br.read_cb(cb)? as u8;
             if val == 0 {
                 zero_run = if br.read_bool()? {
                         br.read(6)? as usize + 8

@@ -652,7 +652,7 @@ impl IMCDecoder {
 
         self.read_skip_flags(br)?;
 
-        let mut ch_data = &mut self.ch_data[ch];
+        let ch_data = &mut self.ch_data[ch];
         for band in 0..BANDS {
             ch_data.adj_floor[band] = ch_data.new_floor[band];
             let band_w = IMC_BANDS[band + 1] - IMC_BANDS[band];
@@ -675,7 +675,7 @@ impl IMCDecoder {
         }
 
         if bits_freed < 0 { return Err(DecoderError::Bug); }
-        self.ba.adjust_bit_allocation(&mut ch_data, bits_freed);
+        self.ba.adjust_bit_allocation(ch_data, bits_freed);
 
         Ok(())
     }

@@ -183,7 +183,7 @@ impl NAOptionDefinition {
                 Ok(())
             },
             NAValue::String(ref cur_str) => {
-                if let NAOptionDefinitionType::String(Some(ref strings)) = self.opt_type {
+                if let NAOptionDefinitionType::String(Some(strings)) = self.opt_type {
                     for str in strings.iter() {
                         if cur_str == str {
                             return Ok(());
@@ -205,7 +205,7 @@ impl fmt::Display for NAOptionDefinition {
             NAOptionDefinitionType::None => write!(f, "{}: {}", self.name, self.description),
             NAOptionDefinitionType::Bool => write!(f, "[no]{}: {}", self.name, self.description),
             NAOptionDefinitionType::String(ref str_list) => {
-                if let Some(ref opts) = str_list {
+                if let Some(opts) = str_list {
                     write!(f, "{} {}: {}", self.name, opts.join("|"), self.description)
                 } else {
                     write!(f, "{} <string>: {}", self.name, self.description)

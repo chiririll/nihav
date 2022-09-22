@@ -29,15 +29,11 @@ enum ChannelOp {
 
 impl ChannelOp {
     fn is_remix(&self) -> bool {
-        match *self {
-            ChannelOp::Remix(_) => true,
-            ChannelOp::DupMono(_) => true,
-            _ => false,
-        }
+        matches! (*self, ChannelOp::Remix(_) | ChannelOp::DupMono(_))
     }
 }
 
-fn apply_channel_op<T:Copy>(ch_op: &ChannelOp, src: &[T], dst: &mut Vec<T>) {
+fn apply_channel_op<T:Copy>(ch_op: &ChannelOp, src: &[T], dst: &mut [T]) {
     match *ch_op {
         ChannelOp::Passthrough => {
             dst.copy_from_slice(src);
@@ -51,7 +47,7 @@ fn apply_channel_op<T:Copy>(ch_op: &ChannelOp, src: &[T], dst: &mut Vec<T>) {
     };
 }
 
-fn remix_i32(ch_op: &ChannelOp, src: &[i32], dst: &mut Vec<i32>) {
+fn remix_i32(ch_op: &ChannelOp, src: &[i32], dst: &mut [i32]) {
     if let ChannelOp::Remix(ref remix_mat) = ch_op {
         let sch = src.len();
         for (out, coeffs) in dst.iter_mut().zip(remix_mat.chunks(sch)) {
@@ -70,7 +66,7 @@ fn remix_i32(ch_op: &ChannelOp, src: &[i32], dst: &mut Vec<i32>) {
     }
 }
 
-fn remix_f32(ch_op: &ChannelOp, src: &[f32], dst: &mut Vec<f32>) {
+fn remix_f32(ch_op: &ChannelOp, src: &[f32], dst: &mut [f32]) {
     if let ChannelOp::Remix(ref remix_mat) = ch_op {
         let sch = src.len();
         for (out, coeffs) in dst.iter_mut().zip(remix_mat.chunks(sch)) {
@@ -164,8 +160,8 @@ impl<T:Copy, U:Copy> IntoFmt<U> for T where U: FromFmt<T> {
 
 
 trait SampleReader {
-    fn get_samples_i32(&self, pos: usize, dst: &mut Vec<i32>);
-    fn get_samples_f32(&self, pos: usize, dst: &mut Vec<f32>);
+    fn get_samples_i32(&self, pos: usize, dst: &mut [i32]);
+    fn get_samples_f32(&self, pos: usize, dst: &mut [f32]);
 }
 
 struct GenericSampleReader<'a, T:Copy> {
@@ -174,14 +170,14 @@ struct GenericSampleReader<'a, T:Copy> {
 }
 
 impl<'a, T:Copy+IntoFmt<i32>+IntoFmt<f32>> SampleReader for GenericSampleReader<'a, T> {
-    fn get_samples_i32(&self, pos: usize, dst: &mut Vec<i32>) {
+    fn get_samples_i32(&self, pos: usize, dst: &mut [i32]) {
         let mut off = pos;
         for el in dst.iter_mut() {
             *el = self.data[off].cvt_into();
             off += self.stride;
         }
     }
-    fn get_samples_f32(&self, pos: usize, dst: &mut Vec<f32>) {
+    fn get_samples_f32(&self, pos: usize, dst: &mut [f32]) {
         let mut off = pos;
         for el in dst.iter_mut() {
             *el = self.data[off].cvt_into();
@@ -196,14 +192,14 @@ struct S8SampleReader<'a> {
 }
 
 impl<'a> SampleReader for S8SampleReader<'a> {
-    fn get_samples_i32(&self, pos: usize, dst: &mut Vec<i32>) {
+    fn get_samples_i32(&self, pos: usize, dst: &mut [i32]) {
         let mut off = pos;
         for el in dst.iter_mut() {
             *el = (self.data[off] ^ 0x80).cvt_into();
             off += self.stride;
         }
     }
-    fn get_samples_f32(&self, pos: usize, dst: &mut Vec<f32>) {
+    fn get_samples_f32(&self, pos: usize, dst: &mut [f32]) {
         let mut off = pos;
         for el in dst.iter_mut() {
             *el = (self.data[off] ^ 0x80).cvt_into();
@@ -224,7 +220,7 @@ impl<'a> PackedSampleReader<'a> {
         let bpp = (fmt.bits >> 3) as usize;
         Self { data, fmt, bpp }
     }
-    fn get_samples<T:Copy>(&self, pos: usize, dst: &mut Vec<T>) where u8: IntoFmt<T>, i16: IntoFmt<T>, i32: IntoFmt<T>, f32: IntoFmt<T> {
+    fn get_samples<T:Copy>(&self, pos: usize, dst: &mut [T]) where u8: IntoFmt<T>, i16: IntoFmt<T>, i32: IntoFmt<T>, f32: IntoFmt<T> {
         let mut offset = pos * self.bpp * dst.len();
 
         for el in dst.iter_mut() {
@@ -255,10 +251,10 @@ impl<'a> PackedSampleReader<'a> {
 }
 
 impl SampleReader for PackedSampleReader<'_> {
-    fn get_samples_i32(&self, pos: usize, dst: &mut Vec<i32>) {
+    fn get_samples_i32(&self, pos: usize, dst: &mut [i32]) {
         self.get_samples(pos, dst);
     }
-    fn get_samples_f32(&self, pos: usize, dst: &mut Vec<f32>) {
+    fn get_samples_f32(&self, pos: usize, dst: &mut [f32]) {
         self.get_samples(pos, dst);
     }
 }

@@ -38,7 +38,7 @@ impl<'a> DemuxCore<'a> for VivoDemuxer<'a> {
             let hdr                     = self.src.peek_byte()?;
             if (hdr & 0xF0) != 0 { break; }
                                           self.src.read_skip(1)?;
-            let hdr_len                 = read_size(&mut self.src)?;
+            let hdr_len                 = read_size(self.src)?;
             hdr_data.resize(hdr_len, 0);
                                           self.src.read_buf(&mut hdr_data)?;
             self.parse_header_packet(&hdr_data)?;

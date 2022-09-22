@@ -925,9 +925,10 @@ impl NAEncoder for CinepakEncoder {
     fn negotiate_format(&self, encinfo: &EncodeParameters) -> EncoderResult<EncodeParameters> {
         match encinfo.format {
             NACodecTypeInfo::None => {
-                let mut ofmt = EncodeParameters::default();
-                ofmt.format = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, true, YUV420_FORMAT));
-                Ok(ofmt)
+                Ok(EncodeParameters {
+                        format: NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, true, YUV420_FORMAT)),
+                        ..Default::default()
+                    })
             },
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {

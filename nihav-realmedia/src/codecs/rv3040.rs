@@ -91,18 +91,13 @@ impl MBType {
         }
     }
     pub fn is_fwd(self) -> bool {
-        match self {
+        matches!(self,
             MBType::MBP16x16 | MBType::MBP16x16Mix |
             MBType::MBP16x8 | MBType::MBP8x16 | MBType::MBP8x8 |
-            MBType::MBForward => true,
-            _ => false,
-        }
+            MBType::MBForward)
     }
     pub fn is_bwd(self) -> bool {
-        match self {
-            MBType::MBBidir | MBType::MBBackward => true,
-            _                  => false,
-        }
+        matches!(self, MBType::MBBidir | MBType::MBBackward)
     }
     pub fn has_mv_dir(self, fwd: bool) -> bool {
         match self {
@@ -113,10 +108,7 @@ impl MBType {
         }
     }
     pub fn is_nomv(self) -> bool {
-        match self {
-            MBType::MBIntra | MBType::MBIntra16 | MBType::MBSkip | MBType::MBDirect => true,
-            _                  => false,
-        }
+        matches!(self, MBType::MBIntra | MBType::MBIntra16 | MBType::MBSkip | MBType::MBDirect)
     }
     /*pub fn is_16x16(self) -> bool {
         match self {
@@ -1057,7 +1049,7 @@ impl RV34Decoder {
         }
         Ok(())
     }
-    fn fill_deblock_flags(&self, sstate: &SState, mb_pos: usize, mbinfo: &mut Vec<RV34MBInfo>) {
+    fn fill_deblock_flags(&self, sstate: &SState, mb_pos: usize, mbinfo: &mut [RV34MBInfo]) {
         let mbt = mbinfo[mb_pos].mbtype;
         let mut hmvmask = 0;
         let mut vmvmask = 0;

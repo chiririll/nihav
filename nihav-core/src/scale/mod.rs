@@ -263,7 +263,7 @@ fn fmt_needs_scale(ifmt: &NAPixelFormaton, ofmt: &NAPixelFormaton) -> bool {
 fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, options: &[(String, String)]) -> ScaleResult<Option<Stage>> {
     let mut debug = false;
     for (name, value) in options.iter() {
-        if name == "debug" && (value == "" || value == "true") {
+        if name == "debug" && (value.is_empty() || value == "true") {
             debug = true;
             break;
         }
@@ -283,7 +283,7 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
     let needs_unpack = !ifmt.fmt.is_unpacked();
     let needs_pack = !ofmt.fmt.is_unpacked();
     let needs_convert = inname != outname;
-    let scale_before_cvt = is_better_fmt(&ifmt, &ofmt) && needs_convert
+    let scale_before_cvt = is_better_fmt(ifmt, ofmt) && needs_convert
                            && (ofmt.fmt.get_max_subsampling() == 0);
     let needs_palettise = ofmt.fmt.palette;
 //todo stages for model and gamma conversion
@@ -296,9 +296,9 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
             println!("[adding unpack]");
         }
         let new_stage = if !cur_fmt.fmt.is_paletted() {
-                Stage::new("unpack", &cur_fmt, &ofmt, options)?
+                Stage::new("unpack", &cur_fmt, ofmt, options)?
             } else {
-                Stage::new("depal", &cur_fmt, &ofmt, options)?
+                Stage::new("depal", &cur_fmt, ofmt, options)?
             };
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
@@ -307,7 +307,7 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
         if debug {
             println!("[adding scale]");
         }
-        let new_stage = Stage::new("scale", &cur_fmt, &ofmt, options)?;
+        let new_stage = Stage::new("scale", &cur_fmt, ofmt, options)?;
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
@@ -319,7 +319,7 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
         if debug {
             println!("[{}]", cvtname);
         }
-        let new_stage = Stage::new(&cvtname, &cur_fmt, &ofmt, options)?;
+        let new_stage = Stage::new(&cvtname, &cur_fmt, ofmt, options)?;
 //todo if fails try converting via RGB or YUV
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
@@ -329,7 +329,7 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
         if debug {
             println!("[adding scale]");
         }
-        let new_stage = Stage::new("scale", &cur_fmt, &ofmt, options)?;
+        let new_stage = Stage::new("scale", &cur_fmt, ofmt, options)?;
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
@@ -337,7 +337,7 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
         if debug {
             println!("[adding pack]");
         }
-        let new_stage = Stage::new("pack", &cur_fmt, &ofmt, options)?;
+        let new_stage = Stage::new("pack", &cur_fmt, ofmt, options)?;
         //cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
@@ -345,7 +345,7 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
         if debug {
             println!("[adding palettise]");
         }
-        let new_stage = Stage::new("palette", &cur_fmt, &ofmt, options)?;
+        let new_stage = Stage::new("palette", &cur_fmt, ofmt, options)?;
         //cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
@@ -438,24 +438,22 @@ pub fn flip_picture(pic: &mut NABufferType) -> ScaleResult<()> {
 impl NAScale {
     /// Constructs a new `NAScale` instance.
     pub fn new(fmt_in: ScaleInfo, fmt_out: ScaleInfo) -> ScaleResult<Self> {
-        let pipeline;
         let just_convert = (fmt_in.width == fmt_out.width) && (fmt_in.height == fmt_out.height);
-        if fmt_in != fmt_out {
-            pipeline = build_pipeline(&fmt_in, &fmt_out, just_convert, &[])?;
-        } else {
-            pipeline = None;
-        }
+        let pipeline = if fmt_in != fmt_out {
+                build_pipeline(&fmt_in, &fmt_out, just_convert, &[])?
+            } else {
+                None
+            };
         Ok(Self { fmt_in, fmt_out, just_convert, pipeline })
     }
     /// Constructs a new `NAScale` instance taking into account provided options.
     pub fn new_with_options(fmt_in: ScaleInfo, fmt_out: ScaleInfo, options: &[(String, String)]) -> ScaleResult<Self> {
-        let pipeline;
         let just_convert = (fmt_in.width == fmt_out.width) && (fmt_in.height == fmt_out.height);
-        if fmt_in != fmt_out {
-            pipeline = build_pipeline(&fmt_in, &fmt_out, just_convert, options)?;
-        } else {
-            pipeline = None;
-        }
+        let pipeline = if fmt_in != fmt_out {
+                build_pipeline(&fmt_in, &fmt_out, just_convert, options)?
+            } else {
+                None
+            };
         Ok(Self { fmt_in, fmt_out, just_convert, pipeline })
     }
     /// Checks whether requested conversion operation is needed at all.

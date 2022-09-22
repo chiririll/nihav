@@ -443,7 +443,7 @@ fn build_default_cb(dc: bool, idx: usize) -> DecoderResult<Codebook<u8>> {
     if dc {
         generate_cb(&DC_LENS[idx], &DC_SYMS)
     } else {
-        generate_cb(&AC_LENS[idx], &AC_SYMS[idx])
+        generate_cb(&AC_LENS[idx], AC_SYMS[idx])
     }
 }
 

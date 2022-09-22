@@ -261,21 +261,17 @@ impl ACMode {
         chmap
     }
     fn is_3_x(self) -> bool {
-        match self {
+        matches!(self,
             ACMode::Mode3_0 |
             ACMode::Mode3_1 |
-            ACMode::Mode3_2     => true,
-            _                   => false,
-        }
+            ACMode::Mode3_2)
     }
     fn is_surround(self) -> bool {
-        match self {
+        matches!(self,
             ACMode::Mode2_1 |
             ACMode::Mode3_1 |
             ACMode::Mode2_2 |
-            ACMode::Mode3_2     => true,
-            _                   => false,
-        }
+            ACMode::Mode3_2)
     }
 }
 

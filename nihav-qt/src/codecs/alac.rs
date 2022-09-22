@@ -289,7 +289,7 @@ impl NADecoder for ALACDecoder {
             let version                     = br.read_byte()?;
             validate!(version == 0);
             let bits                        = br.read_byte()?;
-            validate!(bits >= 8 && bits <= 32);
+            validate!((8..=32).contains(&bits));
             self.pb                         = br.read_byte()?;
             validate!(self.pb == 40);
             self.mb                         = br.read_byte()?;

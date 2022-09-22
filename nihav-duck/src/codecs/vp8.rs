@@ -975,7 +975,7 @@ impl VP8Decoder {
             }.unwrap();
         let single_mv = self.mb_info[mb_x + mb_y * self.mb_w].mb_type != VPMBType::InterFourMV;
         let mut iidx = mb_x * 4 + mb_y * 4 * self.mv_stride;
-        let mut mc_buf = self.mc_buf.get_data_mut().unwrap();
+        let mc_buf = self.mc_buf.get_data_mut().unwrap();
 
         let dst = &mut dframe.data[0..];
         let ystride = dframe.stride[0];
@@ -983,20 +983,20 @@ impl VP8Decoder {
         if single_mv {
             if self.dstate.version == 0 {
                 mc_block16x16(dst, yoff, ystride, mb_x * 16, mb_y * 16,
-                              self.mvs[iidx].x * 2, self.mvs[iidx].y * 2, refframe.clone(), 0, &mut mc_buf);
+                              self.mvs[iidx].x * 2, self.mvs[iidx].y * 2, refframe.clone(), 0, mc_buf);
             } else {
                 mc_block16x16_bilin(dst, yoff, ystride, mb_x * 16, mb_y * 16,
-                              self.mvs[iidx].x * 2, self.mvs[iidx].y * 2, refframe.clone(), 0, &mut mc_buf);
+                              self.mvs[iidx].x * 2, self.mvs[iidx].y * 2, refframe.clone(), 0, mc_buf);
             }
         } else {
             for y in 0..4 {
                 for x in 0..4 {
                     if self.dstate.version == 0 {
                         mc_block4x4(dst, yoff + x * 4, ystride, mb_x * 16 + x * 4, mb_y * 16 + y * 4,
-                                    self.mvs[iidx + x].x * 2, self.mvs[iidx + x].y * 2, refframe.clone(), 0, &mut mc_buf);
+                                    self.mvs[iidx + x].x * 2, self.mvs[iidx + x].y * 2, refframe.clone(), 0, mc_buf);
                     } else {
                         mc_block4x4_bilin(dst, yoff + x * 4, ystride, mb_x * 16 + x * 4, mb_y * 16 + y * 4,
-                                          self.mvs[iidx + x].x * 2, self.mvs[iidx + x].y * 2, refframe.clone(), 0, &mut mc_buf);
+                                          self.mvs[iidx + x].x * 2, self.mvs[iidx + x].y * 2, refframe.clone(), 0, mc_buf);
                     }
                 }
                 yoff += 4 * ystride;
@@ -1013,15 +1013,15 @@ impl VP8Decoder {
             let mut chroma_mv = self.mvs[iidx];
 
             if self.dstate.version == 0 {
-                mc_block8x8(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf);
-                mc_block8x8(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe,         2, &mut mc_buf);
+                mc_block8x8(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe.clone(), 1, mc_buf);
+                mc_block8x8(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe,         2, mc_buf);
             } else {
                 if self.dstate.version == 3 {
                     chroma_mv.x &= !7;
                     chroma_mv.y &= !7;
                 }
-                mc_block8x8_bilin(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf);
-                mc_block8x8_bilin(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe,         2, &mut mc_buf);
+                mc_block8x8_bilin(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe.clone(), 1, mc_buf);
+                mc_block8x8_bilin(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe,         2, mc_buf);
             }
         } else {
             for y in 0..2 {
@@ -1049,14 +1049,14 @@ impl VP8Decoder {
 
                     if self.dstate.version == 0 {
                         mc_block4x4(dst, uoff + x * 4, ustride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
-                                    chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf);
+                                    chroma_mv.x, chroma_mv.y, refframe.clone(), 1, mc_buf);
                         mc_block4x4(dst, voff + x * 4, vstride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
-                                    chroma_mv.x, chroma_mv.y, refframe.clone(), 2, &mut mc_buf);
+                                    chroma_mv.x, chroma_mv.y, refframe.clone(), 2, mc_buf);
                     } else {
                         mc_block4x4_bilin(dst, uoff + x * 4, ustride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
-                                          chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf);
+                                          chroma_mv.x, chroma_mv.y, refframe.clone(), 1,  mc_buf);
                         mc_block4x4_bilin(dst, voff + x * 4, vstride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
-                                          chroma_mv.x, chroma_mv.y, refframe.clone(), 2, &mut mc_buf);
+                                          chroma_mv.x, chroma_mv.y, refframe.clone(), 2, mc_buf);
                     }
                 }
                 uoff += ustride * 4;

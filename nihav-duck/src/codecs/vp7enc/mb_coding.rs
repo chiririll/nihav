@@ -187,7 +187,7 @@ pub fn select_intra_mode(sblk: &SrcBlock, newblk: &mut SrcBlock, res: &mut Resid
 
         if y_best_dist > SMALL_DIST {
             res.reset();
-            let dist4 = try_i4x4_pred(sblk.luma_blocks(), &mut i4_modes, res, &mut newblk.luma, &imctx, y_best_dist);
+            let dist4 = try_i4x4_pred(sblk.luma_blocks(), &mut i4_modes, res, &mut newblk.luma, imctx, y_best_dist);
             use_i4 = dist4 < y_best_dist;
             y_best_dist = y_best_dist.min(dist4);
         }

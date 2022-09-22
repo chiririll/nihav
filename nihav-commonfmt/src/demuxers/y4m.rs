@@ -91,7 +91,7 @@ impl<'a> Y4MDemuxer<'a> {
         let mut magic = [0u8; 10];
                                     self.src.read_buf(&mut magic)?;
         validate!(&magic == b"YUV4MPEG2 ");
-        while let Ok((last, tok)) = read_token(&mut self.src) {
+        while let Ok((last, tok)) = read_token(self.src) {
             let (id, val) = tok.split_at(1);
             validate!(id.len() == 1);
             match id.bytes().next().unwrap() {

@@ -269,7 +269,7 @@ impl NADecoder for ASAODecoder {
             let dst = adata.get_data_mut().unwrap();
 
             for (src, dst) in src.chunks_exact(PACKED_BLK_LEN).zip(dst.chunks_mut(BLOCK_LEN)) {
-                let mut br = BitReader::new(&src, BitReaderMode::LE);
+                let mut br = BitReader::new(src, BitReaderMode::LE);
                 self.decode_block(&mut br, dst)?;
             }
 

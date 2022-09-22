@@ -20,11 +20,7 @@ pub enum MBType {
 
 impl MBType {
     pub fn is_intra(&self) -> bool {
-        match *self {
-            MBType::Intra(_, _) |
-            MBType::Intra4x4(_, _, _) => true,
-            _ => false,
-        }
+        matches!(*self, MBType::Intra(_, _) | MBType::Intra4x4(_, _, _))
     }
     pub fn get_last(&self) -> bool {
         match *self {

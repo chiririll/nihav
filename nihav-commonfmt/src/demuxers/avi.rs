@@ -361,7 +361,7 @@ impl<'a> AVIDemuxer<'a> {
                     if ret.is_err() { break; }
                     let (csz, end) = ret.unwrap();
                     if end {
-                        let _res = parse_idx1(&mut self.src, strmgr, seek_idx, csz, self.movi_pos, &mut self.key_offs);
+                        let _res = parse_idx1(self.src, strmgr, seek_idx, csz, self.movi_pos, &mut self.key_offs);
                         break;
                     }
                     rest_size -= csz;
@@ -388,7 +388,7 @@ impl<'a> AVIDemuxer<'a> {
                         start = 0;
                         last_strm_no = stream_no;
                     }
-                    let ret = parse_odml_ix(&mut self.src, strmgr, seek_idx, stream_no, size, start);
+                    let ret = parse_odml_ix(self.src, strmgr, seek_idx, stream_no, size, start);
                     if let Ok(new_start) = ret {
                         start = new_start;
                     } else {

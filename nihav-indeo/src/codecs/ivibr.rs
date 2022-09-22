@@ -258,7 +258,7 @@ fn decode_block8x8(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
             }
         }
         idx += run;
-        validate!((idx >= 0) && (idx < 64));
+        validate!((0..64).contains(&idx));
 
         let spos = tables.scan[idx as usize];
         let q = (u32::from(quant_mat[spos]) * u32::from(quant)) >> 9;
@@ -308,7 +308,7 @@ fn decode_block4x4(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
             }
         }
         idx += run;
-        validate!((idx >= 0) && (idx < 16));
+        validate!((0..16).contains(&idx));
 
         let spos = tables.scan[idx as usize];
         let q = (u32::from(quant_mat[spos]) * u32::from(quant)) >> 9;
@@ -653,7 +653,7 @@ br.skip(skip_part as u32)?;
                             mb.mtype = MBType::Inter;
                             mb.cbp   = 0;
                             if band.inherit_mv {
-                                if let Some(ref tileref) = ref_tile {
+                                if let Some(tileref) = ref_tile {
                                     let mx = tileref.mb[mb_idx].mv_x;
                                     let my = tileref.mb[mb_idx].mv_y;
                                     mb.mv_x = scale_mv(mx, mv_scale);
@@ -680,7 +680,7 @@ br.skip(skip_part as u32)?;
 
         let stride = frame.plane_stride[band.plane_no];
         let mut dstidx = tile.pos_x + tile.pos_y * stride;
-        let mut dst = &mut frame.plane_buf[band.plane_no];
+        let dst = &mut frame.plane_buf[band.plane_no];
         let pos_x = tile.pos_x;
         let pos_y = tile.pos_y;
         let tile_w = (tile.w + 15) & !15;
@@ -728,23 +728,23 @@ br.skip(skip_part as u32)?;
                             if let TxType::Transform8(ref params) = band.ttype {
                                 decode_block8x8(br, &band.blk_cb, &band.rvmap, params, is_intra, band.tr.is_2d(), &mut prev_dc, mb.q, &mut blk, tr)?;
                                 if is_intra {
-                                    put_block(&mut dst, dstidx + boff, stride, &blk, 8);
+                                    put_block(dst, dstidx + boff, stride, &blk, 8);
                                 } else {
-                                    add_block(&mut dst, dstidx + boff, stride, &blk, 8);
+                                    add_block(dst, dstidx + boff, stride, &blk, 8);
                                 }
                             }
                             if let TxType::Transform4(ref params) = band.ttype {
                                 decode_block4x4(br, &band.blk_cb, &band.rvmap, params, is_intra, band.tr.is_2d(), &mut prev_dc, mb.q, &mut blk, tr)?;
                                 if is_intra {
-                                    put_block(&mut dst, dstidx + boff, stride, &blk, 4);
+                                    put_block(dst, dstidx + boff, stride, &blk, 4);
                                 } else {
-                                    add_block(&mut dst, dstidx + boff, stride, &blk, 4);
+                                    add_block(dst, dstidx + boff, stride, &blk, 4);
                                 }
                             }
                         } else {
                             if is_intra {
                                 (transform_dc)(&mut blk, prev_dc);
-                                put_block(&mut dst, dstidx + boff, stride, &blk, band.blk_size);
+                                put_block(dst, dstidx + boff, stride, &blk, band.blk_size);
                             }
                         }
                         cbp >>= 1;
@@ -788,24 +788,24 @@ br.skip(skip_part as u32)?;
                         }
                         if is_intra {
                             if band.blk_size == 8 {
-                                put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
+                                put_block(dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
                             } else {
-                                put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
+                                put_block(dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
                             }
                         } else {
                             if band.blk_size == 8 {
-                                add_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
+                                add_block(dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
                             } else {
-                                add_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
+                                add_block(dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
                             }
                         }
                     } else {
                         if is_intra {
                             (transform_dc)(&mut blk, prev_dc);
                             if band.blk_size == 8 {
-                                put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
+                                put_block(dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
                             } else {
-                                put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
+                                put_block(dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
                             }
                         }
                     }

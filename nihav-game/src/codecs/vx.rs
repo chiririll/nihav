@@ -1197,10 +1197,10 @@ impl VXAudioDecoder {
             f0[i] = (pfilt[i] + f1   [i]) >> 1;
             f2[i] = (f1   [i] + cfilt[i]) >> 1;
         }
-        apply_lpc(&mut cur_buf[ 0..][..32], &prev_buf[128..],      &mut self.lpc_hist,   &f0);
+        apply_lpc(&mut cur_buf[ 0..][..32], &prev_buf[128..],      &mut self.lpc_hist, &f0);
         apply_lpc(&mut cur_buf[32..][..32], &prev_buf[128 + 32..], &mut self.lpc_hist, &f1);
         apply_lpc(&mut cur_buf[64..][..32], &prev_buf[128 + 64..], &mut self.lpc_hist, &f2);
-        apply_lpc(&mut cur_buf[96..][..32], &prev_buf[128 + 96..], &mut self.lpc_hist, &cfilt);
+        apply_lpc(&mut cur_buf[96..][..32], &prev_buf[128 + 96..], &mut self.lpc_hist, cfilt);
         Ok(())
     }
     fn decode_intra(&mut self, br: &mut ByteReader, val: u16) -> DecoderResult<()> {

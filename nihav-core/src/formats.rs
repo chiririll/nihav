@@ -148,35 +148,29 @@ pub enum NAChannelType {
 impl NAChannelType {
     /// Reports whether this is some center channel.
     pub fn is_center(self) -> bool {
-        match self {
-            NAChannelType::C => true,   NAChannelType::Ch => true,
-            NAChannelType::Cl => true,  NAChannelType::Ov => true,
-            NAChannelType::LFE => true, NAChannelType::LFE2 => true,
-            NAChannelType::Cs => true,  NAChannelType::Chs => true,
-            _ => false,
-        }
+        matches!(self,
+            NAChannelType::C   | NAChannelType::Ch |
+            NAChannelType::Cl  | NAChannelType::Ov |
+            NAChannelType::LFE | NAChannelType::LFE2 |
+            NAChannelType::Cs  | NAChannelType::Chs)
     }
     /// Reports whether this is some left channel.
     pub fn is_left(self) -> bool {
-        match self {
-            NAChannelType::L   => true, NAChannelType::Ls => true,
-            NAChannelType::Lss => true, NAChannelType::Lc => true,
-            NAChannelType::Lh  => true, NAChannelType::Lw => true,
-            NAChannelType::Lhs => true, NAChannelType::Ll => true,
-            NAChannelType::Lt  => true, NAChannelType::Lo => true,
-            _ => false,
-        }
+        matches!(self,
+            NAChannelType::L   | NAChannelType::Ls |
+            NAChannelType::Lss | NAChannelType::Lc |
+            NAChannelType::Lh  | NAChannelType::Lw |
+            NAChannelType::Lhs | NAChannelType::Ll |
+            NAChannelType::Lt  | NAChannelType::Lo)
     }
     /// Reports whether this is some right channel.
     pub fn is_right(self) -> bool {
-        match self {
-            NAChannelType::R   => true, NAChannelType::Rs => true,
-            NAChannelType::Rss => true, NAChannelType::Rc => true,
-            NAChannelType::Rh  => true, NAChannelType::Rw => true,
-            NAChannelType::Rhs => true, NAChannelType::Rl => true,
-            NAChannelType::Rt  => true, NAChannelType::Ro => true,
-            _ => false,
-        }
+        matches!(self,
+            NAChannelType::R   | NAChannelType::Rs |
+            NAChannelType::Rss | NAChannelType::Rc |
+            NAChannelType::Rh  | NAChannelType::Rw |
+            NAChannelType::Rhs | NAChannelType::Rl |
+            NAChannelType::Rt  | NAChannelType::Ro)
     }
 }
 
@@ -400,17 +394,11 @@ impl ColorModel {
     }
     /// Reports whether the current colour model is RGB.
     pub fn is_rgb(self) -> bool {
-        match self {
-            ColorModel::RGB(_) => true,
-            _ => false,
-        }
+        matches!(self, ColorModel::RGB(_))
     }
     /// Reports whether the current colour model is YUV.
     pub fn is_yuv(self) -> bool {
-        match self {
-            ColorModel::YUV(_) => true,
-            _ => false,
-        }
+        matches!(self, ColorModel::YUV(_))
     }
     /// Returns short name for the current colour mode.
     pub fn get_short_name(self) -> &'static str {
@@ -1029,7 +1017,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
     let mut parse_end = components as usize;
     for ch in s.chars().skip(components as usize) {
         parse_end += 1;
-        if ch >= '0' && ch <= '9' {
+        if ('0'..='9').contains(&ch) {
             format = format * 10 + u32::from((ch as u8) - b'0');
             if format > 444 { return Err(FormatParseError {}); }
         } else {
@@ -1041,7 +1029,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
     let depth = if s.len() == parse_end { 8 } else {
             let mut val = 0;
             for ch in s.chars().skip(parse_end) {
-                if ch >= '0' && ch <= '9' {
+                if ('0'..='9').contains(&ch) {
                     val = val * 10 + ((ch as u8) - b'0');
                     if val > 16 { return Err(FormatParseError {}); }
                 } else {

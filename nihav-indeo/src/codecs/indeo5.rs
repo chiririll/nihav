@@ -278,7 +278,7 @@ impl IndeoXParser for Indeo5Parser {
                     if pic_hdr.ftype.is_intra() {
                         mb.mtype = MBType::Intra;
                     } else if band.inherit_mv {
-                        if let Some(ref tileref) = ref_tile {
+                        if let Some(tileref) = ref_tile {
                             mb.mtype = tileref.mb[mb_idx].mtype;
                         } else {
                             return Err(DecoderError::MissingReference);
@@ -294,7 +294,7 @@ impl IndeoXParser for Indeo5Parser {
                     let q;
                     if band.has_qdelta {
                         if band.inherit_qd {
-                            if let Some(ref tileref) = ref_tile {
+                            if let Some(tileref) = ref_tile {
                                 mb.qd = tileref.mb[mb_idx].qd;
                                 q = calc_quant(band.quant, mb.qd);
                             } else {
@@ -326,7 +326,7 @@ impl IndeoXParser for Indeo5Parser {
 
                     if mb.mtype != MBType::Intra {
                         if band.inherit_mv {
-                            if let Some(ref tileref) = ref_tile {
+                            if let Some(tileref) = ref_tile {
                                 let mx = tileref.mb[mb_idx].mv_x;
                                 let my = tileref.mb[mb_idx].mv_y;
                                 if mv_scale == 0 {
@@ -367,7 +367,7 @@ impl IndeoXParser for Indeo5Parser {
                         }
                     }
                     if band.inherit_mv {
-                        if let Some(ref tileref) = ref_tile {
+                        if let Some(tileref) = ref_tile {
                             let mx = tileref.mb[mb_idx].mv_x;
                             let my = tileref.mb[mb_idx].mv_y;
                             if mv_scale == 0 {

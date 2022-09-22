@@ -186,7 +186,7 @@ impl IndeoXParser for Indeo4Parser {
                 txtype = TxType::Transform8(TxParams8x8::new(qintra, qinter, scan));
             } else if scan_idx < 10 {
                 validate!(!tr.is_8x8());
-                validate!((qmat_idx >= 15) && (qmat_idx < 22));
+                validate!((15..22).contains(&qmat_idx));
                 let scan = INDEO4_SCANS_4X4[scan_idx - 5];
                 let qidx = INDEO4_Q4X4_IDX[qmat_idx - 15];
                 let qintra = INDEO4_Q4_INTRA[qidx];
@@ -240,7 +240,7 @@ impl IndeoXParser for Indeo4Parser {
                     if pic_hdr.ftype.is_intra() {
                         mb.mtype = MBType::Intra;
                     } else if band.inherit_mv {
-                        if let Some(ref tileref) = ref_tile {
+                        if let Some(tileref) = ref_tile {
                             mb.mtype = tileref.mb[mb_idx].mtype;
                         } else {
                             return Err(DecoderError::MissingReference);
@@ -263,7 +263,7 @@ impl IndeoXParser for Indeo4Parser {
                         mb.cbp = br.read(4)? as u8;
                     }
                     if band.inherit_qd {
-                        if let Some(ref tileref) = ref_tile {
+                        if let Some(tileref) = ref_tile {
                             mb.qd = tileref.mb[mb_idx].qd;
                             mb.q  = calc_quant(band.quant, mb.qd);
                         } else {
@@ -278,7 +278,7 @@ impl IndeoXParser for Indeo4Parser {
 
                     if mb.mtype != MBType::Intra {
                         if band.inherit_mv {
-                            if let Some(ref tileref) = ref_tile {
+                            if let Some(tileref) = ref_tile {
                                 let mx = tileref.mb[mb_idx].mv_x;
                                 let my = tileref.mb[mb_idx].mv_y;
                                 if mv_scale == 0 {
@@ -315,7 +315,7 @@ impl IndeoXParser for Indeo4Parser {
                         mb.q  = calc_quant(band.quant, mb.qd);
                     }
                     if band.inherit_mv {
-                        if let Some(ref tileref) = ref_tile {
+                        if let Some(tileref) = ref_tile {
                             let mx = tileref.mb[mb_idx].mv_x;
                             let my = tileref.mb[mb_idx].mv_y;
                             if mv_scale == 0 {

@@ -768,7 +768,7 @@ impl VP7Decoder {
         let refframe = (if use_last { self.shuf.get_last() } else { self.shuf.get_golden() }).unwrap();
         let single_mv = self.mb_info[mb_x + mb_y * self.mb_w].mb_type != VPMBType::InterFourMV;
         let mut iidx = mb_x * 4 + mb_y * 4 * self.mv_stride;
-        let mut mc_buf = self.mc_buf.get_data_mut().unwrap();
+        let mc_buf = self.mc_buf.get_data_mut().unwrap();
 
         let dst = &mut dframe.data[0..];
         let ystride = dframe.stride[0];
@@ -776,12 +776,12 @@ impl VP7Decoder {
         if pitch_smode == 0 {
             if single_mv {
                 mc_block16x16(dst, yoff, ystride, mb_x * 16, mb_y * 16,
-                              self.mvs[iidx].x * 2, self.mvs[iidx].y * 2, refframe.clone(), 0, &mut mc_buf);
+                              self.mvs[iidx].x * 2, self.mvs[iidx].y * 2, refframe.clone(), 0, mc_buf);
             } else {
                 for y in 0..4 {
                     for x in 0..4 {
                         mc_block4x4(dst, yoff + x * 4, ystride, mb_x * 16 + x * 4, mb_y * 16 + y * 4,
-                                    self.mvs[iidx + x].x * 2, self.mvs[iidx + x].y * 2, refframe.clone(), 0, &mut mc_buf);
+                                    self.mvs[iidx + x].x * 2, self.mvs[iidx + x].y * 2, refframe.clone(), 0, mc_buf);
                     }
                     yoff += 4 * ystride;
                     iidx += self.mv_stride;
@@ -791,14 +791,14 @@ impl VP7Decoder {
             if single_mv {
                 mc_block_special(dst, yoff, ystride, mb_x * 16, mb_y * 16,
                                  self.mvs[iidx].x * 2, self.mvs[iidx].y * 2,
-                                 refframe.clone(), 0, &mut mc_buf, 16, pitch_smode);
+                                 refframe.clone(), 0, mc_buf, 16, pitch_smode);
             } else {
                 for y in 0..4 {
                     for x in 0..4 {
                         mc_block_special(dst, yoff + x * 4, ystride,
                                          mb_x * 16 + x * 4, mb_y * 16 + y * 4,
                                          self.mvs[iidx + x].x * 2, self.mvs[iidx + x].y * 2,
-                                         refframe.clone(), 0, &mut mc_buf, 4, pitch_smode);
+                                         refframe.clone(), 0, mc_buf, 4, pitch_smode);
                     }
                     yoff += 4 * ystride;
                     iidx += self.mv_stride;
@@ -815,13 +815,13 @@ impl VP7Decoder {
             let chroma_mv = self.mvs[iidx];
 
             if pitch_smode == 0 {
-                mc_block8x8(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf);
-                mc_block8x8(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe,         2, &mut mc_buf);
+                mc_block8x8(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe.clone(), 1, mc_buf);
+                mc_block8x8(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe,         2, mc_buf);
             } else {
                 mc_block_special(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y,
-                                 refframe.clone(), 1, &mut mc_buf, 8, pitch_smode);
+                                 refframe.clone(), 1, mc_buf, 8, pitch_smode);
                 mc_block_special(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y,
-                                 refframe,         2, &mut mc_buf, 8, pitch_smode);
+                                 refframe,         2, mc_buf, 8, pitch_smode);
             }
         } else {
             for y in 0..2 {
@@ -844,15 +844,15 @@ impl VP7Decoder {
 
                     if pitch_smode == 0 {
                         mc_block4x4(dst, uoff + x * 4, ustride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
-                                    chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf);
+                                    chroma_mv.x, chroma_mv.y, refframe.clone(), 1, mc_buf);
                         mc_block4x4(dst, voff + x * 4, vstride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
-                                    chroma_mv.x, chroma_mv.y, refframe.clone(), 2, &mut mc_buf);
+                                    chroma_mv.x, chroma_mv.y, refframe.clone(), 2, mc_buf);
                     } else {
                         mc_block_special(dst, uoff + x * 4, ustride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
-                                         chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf,
+                                         chroma_mv.x, chroma_mv.y, refframe.clone(), 1, mc_buf,
                                          4, pitch_smode);
                         mc_block_special(dst, voff + x * 4, vstride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
-                                         chroma_mv.x, chroma_mv.y, refframe.clone(), 2, &mut mc_buf,
+                                         chroma_mv.x, chroma_mv.y, refframe.clone(), 2, mc_buf,
                                          4, pitch_smode);
                     }
                 }
@@ -1185,13 +1185,13 @@ impl NADecoder for VP7Decoder {
             let mut new_gf = supp.pool_u8.get_copy(&gf).unwrap();
             let dframe = NASimpleVideoFrame::from_video_buf(&mut new_gf).unwrap();
             let mut mb_idx = 0;
-            let mut mc_buf = self.mc_buf.get_data_mut().unwrap();
+            let mc_buf = self.mc_buf.get_data_mut().unwrap();
             for mb_y in 0..self.mb_h {
                 for mb_x in 0..self.mb_w {
                     if self.mb_info[mb_idx].upd_gf {
-                        mc_block16x16(dframe.data, dframe.offset[0] + mb_x * 16 + mb_y * 16 * dframe.stride[0], dframe.stride[0], mb_x * 16, mb_y * 16, 0, 0, buf.clone(), 0, &mut mc_buf);
-                        mc_block8x8(dframe.data, dframe.offset[1] + mb_x * 8 + mb_y * 8 * dframe.stride[1], dframe.stride[1], mb_x * 8, mb_y * 8, 0, 0, buf.clone(), 1, &mut mc_buf);
-                        mc_block8x8(dframe.data, dframe.offset[2] + mb_x * 8 + mb_y * 8 * dframe.stride[2], dframe.stride[2], mb_x * 8, mb_y * 8, 0, 0, buf.clone(), 2, &mut mc_buf);
+                        mc_block16x16(dframe.data, dframe.offset[0] + mb_x * 16 + mb_y * 16 * dframe.stride[0], dframe.stride[0], mb_x * 16, mb_y * 16, 0, 0, buf.clone(), 0, mc_buf);
+                        mc_block8x8(dframe.data, dframe.offset[1] + mb_x * 8 + mb_y * 8 * dframe.stride[1], dframe.stride[1], mb_x * 8, mb_y * 8, 0, 0, buf.clone(), 1, mc_buf);
+                        mc_block8x8(dframe.data, dframe.offset[2] + mb_x * 8 + mb_y * 8 * dframe.stride[2], dframe.stride[2], mb_x * 8, mb_y * 8, 0, 0, buf.clone(), 2, mc_buf);
                     }
                     mb_idx += 1;
                 }

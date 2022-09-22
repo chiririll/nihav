@@ -263,7 +263,7 @@ impl QDM2FFT {
                                         br.read(2) as u8
                     } else { 0 };
 
-            let mut amp                 = br.read_code(&level_cb)? as i8;
+            let mut amp                 = br.read_code(level_cb)? as i8;
             amp += self.fft_levels[LEVEL_INDEX[pos] as usize] as i8;
             if amp < 0 {
                 amp = 0;
@@ -300,7 +300,7 @@ impl QDM2FFT {
         match id {
             17..=23 => {
                 let grp = i16::from(self.subsampling) + 4 - i16::from(id - 17);
-                if grp >= 0 && grp < 5 {
+                if (0..5).contains(&grp) {
                     self.read_tones(br, grp as usize, false)?;
                 }
             },
@@ -311,7 +311,7 @@ impl QDM2FFT {
             },
             33..=39 => {
                 let grp = i16::from(self.subsampling) + 4 - i16::from(id - 33);
-                if grp >= 0 && grp < 5 {
+                if (0..5).contains(&grp) {
                     self.read_tones(br, grp as usize, true)?;
                 }
             },

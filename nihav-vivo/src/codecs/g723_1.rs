@@ -938,9 +938,9 @@ impl NADecoder for G7231Decoder {
 
         let abuf = alloc_audio_buffer(self.ainfo, SAMPLES, self.chmap.clone())?;
         let mut adata = abuf.get_abuf_i16().unwrap();
-        let mut asamples = adata.get_data_mut().unwrap();
+        let asamples = adata.get_data_mut().unwrap();
         if self.cur_ftype == G7231FrameType::Active {
-            self.synth_frame_active(&mut asamples, bad_frame);
+            self.synth_frame_active(asamples, bad_frame);
         } else {
             self.synth_frame_other();
         }

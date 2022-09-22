@@ -10,7 +10,7 @@ impl Pixel16 {
         ((self.0 >> 10) & 0x1F, (self.0 >> 5) & 0x1F, self.0 & 0x1F)
     }
     fn pack(r: u16, g: u16, b: u16) -> Self {
-        Pixel16{ 0: (r << 10) | (g << 5) | b }
+        Pixel16((r << 10) | (g << 5) | b)
     }
     fn invalid() -> Self { Self(0x8000) }
     fn is_invalid(self) -> bool { self == Self::invalid() }
@@ -146,7 +146,7 @@ impl BlockState {
             self.clr2[0] = clr0;
             self.clr2[1] = if !clr1.is_invalid() { clr1 } else { clr0 };
             if clr0 == clr1 {
-                self.fill_val = Pixel16 { 0: buf[0].0 & !0x400 };
+                self.fill_val = Pixel16(buf[0].0 & !0x400);
                 filled = true;
             }
             two_clr = true;
@@ -157,7 +157,7 @@ impl BlockState {
             for pix in buf.iter() {
                 avg.add(*pix, 1);
             }
-            self.fill_val = Pixel16 { 0: avg.get_centroid().0 & !0x400 };
+            self.fill_val = Pixel16(avg.get_centroid().0 & !0x400);
             for pix in buf.iter() {
                 self.fill_dist += pix.dist(self.fill_val);
             }
@@ -210,7 +210,7 @@ impl BlockState {
             return;
         }
 
-        self.clr8 = [[Pixel16 { 0: 0}; 2]; 4];
+        self.clr8 = [[Pixel16(0); 2]; 4];
         self.clr8_flags = 0;
         self.clr8_dist = 0;
         let mut mask = 1;
@@ -315,7 +315,7 @@ impl MSVideo1Encoder {
     fn get_block(src: &[u16], sstride: usize, buf: &mut [Pixel16; 16]) {
         for (line, dst) in src.chunks(sstride).zip(buf.chunks_mut(4)) {
             for i in 0..4 {
-                dst[i] = Pixel16 { 0: line[i] };
+                dst[i] = Pixel16(line[i]);
             }
         }
     }
@@ -446,9 +446,9 @@ impl NAEncoder for MSVideo1Encoder {
     fn negotiate_format(&self, encinfo: &EncodeParameters) -> EncoderResult<EncodeParameters> {
         match encinfo.format {
             NACodecTypeInfo::None => {
-                let mut ofmt = EncodeParameters::default();
-                ofmt.format = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, true, RGB555_FORMAT));
-                Ok(ofmt)
+                Ok(EncodeParameters {
+                    format: NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, true, RGB555_FORMAT)),
+                    ..Default::default() })
             },
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {

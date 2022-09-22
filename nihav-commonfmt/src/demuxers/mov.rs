@@ -92,8 +92,8 @@ fn print_cname(ctype: u32, size: u64, off: u64, depth: u8) {
     for _ in 0..depth { print!("    "); }
     let tag = [(ctype >> 24) as u8, (ctype >> 16) as u8, (ctype >> 8) as u8, ctype as u8];
     let mut printable = true;
-    for &ch in tag.iter() {
-        if ch < 0x20 || ch > 0x7F {
+    for ch in tag.iter() {
+        if !(0x20..=0x7F).contains(ch) {
             printable = false;
             break;
         }
@@ -113,7 +113,7 @@ macro_rules! read_chunk_list {
             validate!(self.depth < 32);
             let list_end = self.src.tell() + size;
             while self.src.tell() < list_end {
-                let ret = read_chunk_header(&mut self.src);
+                let ret = read_chunk_header(self.src);
                 if ret.is_err() { break; }
                 let (ctype, size) = ret.unwrap();
                 if self.print_chunks {
@@ -284,7 +284,7 @@ fn read_cmov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
 
 fn read_ctab(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     let mut pal = [0; 1024];
-    let size = read_palette(&mut dmx.src, size, &mut pal)?;
+    let size = read_palette(dmx.src, size, &mut pal)?;
     dmx.pal = Some(Arc::new(pal));
     Ok(size)
 }
@@ -305,7 +305,7 @@ fn skip_chunk_mov(_dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, _size: u64
 fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     let mut track = Track::new(dmx.cur_track as u32, dmx.tb_den);
     track.print_chunks = dmx.print_chunks;
-    track.read_trak(&mut dmx.src, size)?;
+    track.read_trak(dmx.src, size)?;
     validate!(track.tkhd_found && track.stsd_found);
     validate!(strmgr.get_stream_by_id(track.track_id).is_none());
     dmx.cur_track += 1;
@@ -351,7 +351,7 @@ fn read_traf(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
     }
     if let Some(track) = track {
         track.moof_off = dmx.moof_off;
-        track.read_traf(&mut dmx.src, size)?;
+        track.read_traf(dmx.src, size)?;
         Ok(size)
     } else {
         Ok(0)
@@ -752,14 +752,12 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                 },
             };
             track.tb_den = sample_rate;
-            track.raw_audio = match &fcc {
+            track.raw_audio = matches!(&fcc,
                     b"NONE" | b"raw " | b"twos" | b"sowt" |
                     b"in24" | b"in32" | b"fl32" | b"fl64" |
                     b"ima4" | b"ms\x00\x02" | b"ms\x00\x21" |
                     b"alaw" | b"ulaw" |
-                    b"MAC3" | b"MAC6" => true,
-                    _ => false,
-                };
+                    b"MAC3" | b"MAC6");
             let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, block_align);
             let edata = parse_audio_edata(br, start_pos, size)?;
             codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
@@ -1606,7 +1604,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                         let first = track.cur_sample == 0;
                         if let Some((pts, offset, size)) = track.get_next_chunk() {
                             self.cur_track = trk_no + 1;
-                            return process_packet(&mut self.src, strmgr, track, pts, offset, size, first);
+                            return process_packet(self.src, strmgr, track, pts, offset, size, first);
                         }
                     }
                 }
@@ -1621,7 +1619,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             self.cur_track += 1;
             let first = track.cur_sample == 0;
             if let Some((pts, offset, size)) = track.get_next_chunk() {
-                return process_packet(&mut self.src, strmgr, track, pts, offset, size, first);
+                return process_packet(self.src, strmgr, track, pts, offset, size, first);
             }
         }
         Err(DemuxerError::EOF)
@@ -1724,7 +1722,7 @@ impl<'a> MOVDemuxer<'a> {
     fn read_root(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
         self.depth = 0;
         while self.src.left() != 0 {
-            let ret = read_chunk_header(&mut self.src);
+            let ret = read_chunk_header(self.src);
             if ret.is_err() { break; }
             let (ctype, size) = ret.unwrap();
             if self.print_chunks {
@@ -1736,7 +1734,7 @@ impl<'a> MOVDemuxer<'a> {
             }
             let handler = ROOT_CHUNK_HANDLERS.iter().find(|x| x.ctype == ctype);
             let read_size;
-            if let Some(ref handler) = handler {
+            if let Some(handler) = handler {
                 read_size = (handler.parse)(self, strmgr, size)?;
             } else {
                 println!("skipping unknown chunk {:08X} size {}", ctype, size);
