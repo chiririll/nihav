@@ -484,6 +484,7 @@ pub struct IVIDecoder {
     bref:       Option<NABufferType>,
 
     bands:      Vec<BandHeader>,
+    band_tiles: usize,
     tiles:      Vec<IVITile>,
     num_tiles:  [[usize; 4]; 4],
     tile_start: [[usize; 4]; 4],
@@ -503,6 +504,7 @@ impl IVIDecoder {
             bref: None,
 
             bands,
+            band_tiles: 0,
             tiles: Vec::new(), tile_start: [[0; 4]; 4], num_tiles: [[0; 4]; 4],
         }
     }
@@ -529,6 +531,9 @@ impl IVIDecoder {
                     tile_w = (tile_w + 1) >> 1;
                     tile_h = (tile_h + 1) >> 1;
                 }
+            }
+            if plane == 0 {
+                self.band_tiles = ((band_w + tile_w - 1) / tile_w) * ((band_h + tile_h - 1) / tile_h);
             }
             for band in 0..bands {
                 self.tile_start[plane][band] = tstart;
@@ -610,7 +615,7 @@ impl IVIDecoder {
                     let (ref_tiles, cur_tiles) = self.tiles.split_at_mut(tile_no);
                     let tile = &mut cur_tiles[0];
                     if plane_no != 0 || band_no != 0 {
-                        let rtile = &ref_tiles[0];
+                        let rtile = &ref_tiles[tile_no % self.band_tiles];
                         if (tile.mb_w != rtile.mb_w) || (tile.mb_h != rtile.mb_h) {
                             ref_tile = None;
                         } else {
