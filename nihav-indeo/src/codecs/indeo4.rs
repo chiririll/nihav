@@ -76,13 +76,9 @@ impl IndeoXParser for Indeo4Parser {
         let slice_h;
         if br.read_bool()? {
             let idx = br.read(4)? as usize;
-            if idx < 15 {
-                slice_w = INDEO4_SLICE_SIZE_TAB[idx];
-                slice_h = INDEO4_SLICE_SIZE_TAB[idx];
-            } else {
-                slice_w = width;
-                slice_h = height;
-            }
+            slice_h = if idx < 15 { INDEO4_SLICE_SIZE_TAB[idx] } else { height };
+            let idx = br.read(4)? as usize;
+            slice_w = if idx < 15 { INDEO4_SLICE_SIZE_TAB[idx] } else { width };
         } else {
             slice_w = width;
             slice_h = height;
