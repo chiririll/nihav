@@ -628,6 +628,7 @@ impl IVIDecoder {
                 }
 
                 self.decode_tile(br, &band, tile_no, tr, tr_dc)?;
+                br.align();
 let skip_part = tile_end - br.tell();
 br.skip(skip_part as u32)?;
             } else {
@@ -819,7 +820,6 @@ br.skip(skip_part as u32)?;
             }
             dstidx += stride * band.mb_size;
         }
-        br.align();
         Ok(())
     }
 
