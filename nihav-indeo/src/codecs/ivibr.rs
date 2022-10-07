@@ -601,7 +601,7 @@ impl IVIDecoder {
                 }
                 br.align();
                 validate!(len > 0);
-                let tile_end = tile_start + len * 8;
+                let tile_end = (tile_start & !7) + len * 8;
                 validate!(tile_end > br.tell());
                 validate!(tile_end <= br.tell() + (br.left() as usize));
                 {
