@@ -782,7 +782,7 @@ fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut S
         offset += add_offset;
 
         if tag[0] < b'0' || tag[0] > b'9' || tag[1] < b'0' || tag[1] > b'9' {
-            return Err(InvalidData);
+            continue;
         }
         let stream_no = ((tag[0] - b'0') * 10 + (tag[1] - b'0')) as usize;
 
