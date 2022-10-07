@@ -943,6 +943,11 @@ br.skip(skip_part as u32)?;
                 self.ftype = IVIFrameType::Intra;
             }
         }
+        if self.bref.is_some() && self.ftype == IVIFrameType::Inter {
+            let mut bref: Option<NABufferType> = Some(res.unwrap());
+            mem::swap(&mut bref, &mut self.bref);
+            return Ok(bref.unwrap());
+        }
         if let Ok(NABufferType::None) = res {
             if self.bref.is_some() {
                 let mut bref: Option<NABufferType> = None;
