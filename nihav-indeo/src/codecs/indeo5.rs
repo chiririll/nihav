@@ -180,10 +180,11 @@ impl IndeoXParser for Indeo5Parser {
         let data_size: usize;
         if (band_flags & 0x80) != 0 {
             data_size       = br.read(24)? as usize;
+            validate!(data_size >= 4);
         } else {
             data_size = 0;
         }
-        validate!(data_size <= ((br.left() / 8) as usize));
+        validate!(data_size <= ((br.left() / 8) as usize) + 4);
 
         let num_corr: usize;
         let mut corr_map: [u8; CORR_MAP_SIZE] = [0; CORR_MAP_SIZE];
