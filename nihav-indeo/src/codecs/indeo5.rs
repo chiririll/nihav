@@ -850,4 +850,46 @@ mod test {
                             [0xc7f49f94, 0xca32d87c, 0x2e063788, 0x0229c6c0],
                             [0xa9ec4820, 0x576c7877, 0xc21211c3, 0x502af3d3]]));
     }
+    #[test]
+    fn test_indeo5_scalable() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        crate::indeo_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        indeo_register_all_decoders(&mut dec_reg);
+
+        test_decoding("ivf", "indeo5s", "assets/Indeo/TRAILERIIE.IVF", Some(31),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0xd6c5b653, 0x082e25e6, 0x90c0c112, 0xfa7f46c8],
+                            [0x75e96cdb, 0x198cdb95, 0xde228898, 0x3cf68cfc],
+                            [0xb1bed823, 0xad632d3e, 0x2e509143, 0x5e59e911],
+                            [0xe3e7e2f0, 0xb8c7d968, 0xcb0b9273, 0xb7e48207],
+                            [0xc6ef6975, 0xe0cc0b05, 0x983f7888, 0x64c9b89f],
+                            [0xda936fad, 0xa170c0f2, 0x889a3e0c, 0xfef1a626],
+                            [0xa85ccb32, 0x2c6847c4, 0x3259f48d, 0xe7e1b47b],
+                            [0xedbb8256, 0x1e889428, 0xbc268e66, 0xf41d15f1],
+                            [0xd6869899, 0x5121410d, 0xb12dfc96, 0x7dc67a24],
+                            [0x9a594172, 0x3d9269c7, 0x1a7277fd, 0xe597dd01],
+                            [0x3af07da6, 0x1968872d, 0xf7fc190e, 0x5c61c184],
+                            [0xd8eec91e, 0x1aa55dfe, 0x9703a2ce, 0x1ce30990],
+                            [0xea4821ae, 0x44ab9f2f, 0xa882bccb, 0xcae50f58],
+                            [0x6ddfb989, 0x1affb8ad, 0x7bb2d74a, 0xc28e1a1d],
+                            [0x4c9aa98d, 0xb6b2ddd2, 0xfb533baf, 0xc2d90242],
+                            [0x332c8e68, 0x47a942ea, 0x6ced7891, 0x7667ad97],
+                            [0x940ad339, 0x448ea27c, 0x3b7d0328, 0x4a4cf19f],
+                            [0x08a60746, 0x399949ef, 0xce81ef06, 0xbc1d7d6b],
+                            [0x4b5e51d0, 0xe26d32f1, 0xb1872663, 0xa70c6e65],
+                            [0x428fb122, 0xf3a55f40, 0xdc4316d7, 0xe2765f76],
+                            [0xcce4fa35, 0xb47d9848, 0xcbe7fef4, 0x5285022b],
+                            [0xde30af92, 0x28a04fe2, 0x317f6be8, 0xde5c161c],
+                            [0xe1f00bf7, 0xab2d4e91, 0x9eb674e6, 0x3b863314],
+                            [0xac944130, 0xa5d1171a, 0xe8a0b591, 0x09d7652d],
+                            [0x17c17612, 0x7cd40f67, 0x7aec3009, 0x2405b862],
+                            [0x1d88eb87, 0x44496fb8, 0x58665011, 0xc545f745],
+                            [0x04c32cce, 0x38eca98f, 0xd6227880, 0xc7d0f2bf],
+                            [0x76d9dcb8, 0x92a35e1a, 0x2b968e96, 0x2c362e4a],
+                            [0xda4904e7, 0x2d9d0a74, 0x63932049, 0x7bf9f0de],
+                            [0x4f18931c, 0x61b9046f, 0xf5eac763, 0x0c1826d5],
+                            [0x823d8746, 0x17debe43, 0xe256fda4, 0xdd1a6832],
+                            [0x0bb4b91d, 0xf66f1c19, 0x166ee91a, 0x69379e27]]));
+    }
 }

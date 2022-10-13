@@ -880,22 +880,77 @@ br.skip(skip_part as u32)?;
         self.realloc(&pic_hdr)?;
         self.frames[self.cur_frame].realloc(&pic_hdr)?;
 
-        for plane in 0..3 {
-            let num_bands = if plane == 0 { pic_hdr.luma_bands } else { pic_hdr.chroma_bands };
-            for band in 0..num_bands {
-                self.decode_band(&pic_hdr, dec, br, plane, band)?;
+        if !self.scalable {
+            for plane in 0..3 {
+                let num_bands = if plane == 0 { pic_hdr.luma_bands } else { pic_hdr.chroma_bands };
+                for band in 0..num_bands {
+                    self.decode_band(&pic_hdr, dec, br, plane, band)?;
+                }
+                if let NABufferType::Video(ref mut vb) = buftype {
+                    let mut frame = self.frames[self.cur_frame].clone();
+                    if num_bands == 1 {
+                        frame.fill_plane(vb, plane);
+                    } else {
+                        let dplane = if (plane == 1) || (plane == 2) { plane ^ 3 } else { plane };
+                        let (w, h)  = vb.get_dimensions(dplane);
+                        let dstride = vb.get_stride(dplane);
+                        let off     = vb.get_offset(dplane);
+                        let dst = vb.get_data_mut().unwrap();
+                        dec.recombine_plane(&frame.plane_buf[plane], frame.plane_stride[plane], &mut dst[off..], dstride, w, h);
+                    }
+                }
             }
+        } else {
+            let mut bands_decoded = [[false; 10]; 3];
+            let mut num_decoded = 0;
+
+            let num_bands = [ pic_hdr.luma_bands, pic_hdr.chroma_bands, pic_hdr.chroma_bands ];
+
+            for plane in 0..3 {
+                for band in 0..num_bands[plane] {
+                    if br.peek(8) == 0x01 { // skipped scalable bands
+                        br.skip(8)?;
+                        continue;
+                    }
+                    self.decode_band(&pic_hdr, dec, br, plane, band)?;
+                    bands_decoded[plane][band] = true;
+                    num_decoded += 1;
+                }
+            }
+            if (num_decoded < num_bands[0] + num_bands[1] + num_bands[2]) && (br.left() > 0) {
+                validate!(br.read(8)? == 0x00);
+                while br.peek(8) == 0x00 {
+                    if br.skip(8).is_err() { // happens at the end of data
+                        break;
+                    }
+                }
+                validate!((br.tell() & 31) == 0);
+
+                for plane in 0..3 {
+                    for band in 0..num_bands[plane] {
+                        if bands_decoded[plane][band] || br.left() == 0 {
+                            continue;
+                        }
+                        self.decode_band(&pic_hdr, dec, br, plane, band)?;
+                        bands_decoded[plane][band] = true;
+                        num_decoded += 1;
+                    }
+                }
+            }
+
             if let NABufferType::Video(ref mut vb) = buftype {
-                let mut frame = self.frames[self.cur_frame].clone();
-                if num_bands == 1 {
-                    frame.fill_plane(vb, plane);
-                } else {
-                    let dplane = if (plane == 1) || (plane == 2) { plane ^ 3 } else { plane };
-                    let (w, h)  = vb.get_dimensions(dplane);
-                    let dstride = vb.get_stride(dplane);
-                    let off     = vb.get_offset(dplane);
-                    let dst = vb.get_data_mut().unwrap();
-                    dec.recombine_plane(&frame.plane_buf[plane], frame.plane_stride[plane], &mut dst[off..], dstride, w, h);
+                for plane in 0..3 {
+                    let mut frame = self.frames[self.cur_frame].clone();
+                    if num_bands[plane] == 1 {
+                        frame.fill_plane(vb, plane);
+                    } else {
+                        let dplane = if (plane == 1) || (plane == 2) { plane ^ 3 } else { plane };
+                        let (w, h)  = vb.get_dimensions(dplane);
+                        let dstride = vb.get_stride(dplane);
+                        let off     = vb.get_offset(dplane);
+                        let dst = vb.get_data_mut().unwrap();
+                        dec.recombine_plane(&frame.plane_buf[plane], frame.plane_stride[plane], &mut dst[off..], dstride, w, h);
+                    }
                 }
             }
         }
