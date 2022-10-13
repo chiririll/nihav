@@ -15,7 +15,7 @@ features = ["h263", "fft", "dsp_window"]
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
 
 [features]
-default = ["all_decoders"]
+default = ["all_decoders", "all_demuxers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 all_video_decoders = ["decoder_indeo2", "decoder_indeo3", "decoder_indeo4", "decoder_indeo5", "decoder_intel263"]
@@ -28,3 +28,8 @@ decoder_indeo3 = ["decoders"]
 decoder_indeo4 = ["decoders"]
 decoder_indeo5 = ["decoders"]
 decoder_intel263 = ["decoders"]
+
+all_demuxers = ["demuxer_ivf"]
+demuxers = []
+
+demuxer_ivf = ["demuxers"]

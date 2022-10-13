@@ -10,7 +10,7 @@ use nihav_commonfmt::*;
 use nihav_duck::*;
 use nihav_flash::*;
 use nihav_game::*;
-use nihav_indeo::indeo_register_all_decoders;
+use nihav_indeo::*;
 use nihav_itu::itu_register_all_decoders;
 use nihav_llaudio::*;
 use nihav_misc::*;
@@ -51,6 +51,7 @@ pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     generic_register_all_demuxers(rd);
     flash_register_all_demuxers(rd);
     game_register_all_demuxers(rd);
+    indeo_register_all_demuxers(rd);
     llaudio_register_all_demuxers(rd);
     rad_register_all_demuxers(rd);
     realmedia_register_all_demuxers(rd);

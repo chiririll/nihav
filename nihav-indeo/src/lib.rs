@@ -12,5 +12,9 @@ mod codecs;
 
 pub use crate::codecs::indeo_register_all_decoders;
 
+mod demuxers;
+
+pub use crate::demuxers::indeo_register_all_demuxers;
+
 #[cfg(test)]
 extern crate nihav_commonfmt;
