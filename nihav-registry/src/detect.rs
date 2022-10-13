@@ -242,7 +242,7 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 3, cond: &CC::Le(Arg::Byte(1)) }],
     },
     DetectConditions {
-        demux_name: "ivf",
+        demux_name: "dkivf",
         extensions: ".ivf",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"DKIF\x00\x00")},
                       CheckItem{offs: 6, cond: &CC::Ge(Arg::U16LE(32))}],

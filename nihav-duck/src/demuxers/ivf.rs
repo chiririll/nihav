@@ -87,7 +87,7 @@ impl DemuxerCreator for IVFDemuxerCreator {
     fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(IVFDemuxer::new(br))
     }
-    fn get_name(&self) -> &'static str { "ivf" }
+    fn get_name(&self) -> &'static str { "dkivf" }
 }
 
 #[cfg(test)]

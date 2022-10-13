@@ -1551,7 +1551,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_decoders(&mut dec_reg);
 
-        test_decoding("ivf", "vp8", name, None, &dmx_reg,
+        test_decoding("dkivf", "vp8", name, None, &dmx_reg,
                       &dec_reg, ExpectedTestResult::MD5(hash));
     }
 
