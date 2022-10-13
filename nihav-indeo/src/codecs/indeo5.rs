@@ -857,6 +857,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_decoders(&mut dec_reg);
 
+        // sample is a trailer for Heart of Darkness game
         test_decoding("ivf", "indeo5s", "assets/Indeo/TRAILERIIE.IVF", Some(31),
                       &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0xd6c5b653, 0x082e25e6, 0x90c0c112, 0xfa7f46c8],
