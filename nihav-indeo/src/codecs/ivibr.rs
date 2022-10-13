@@ -488,10 +488,12 @@ pub struct IVIDecoder {
     tiles:      Vec<IVITile>,
     num_tiles:  [[usize; 4]; 4],
     tile_start: [[usize; 4]; 4],
+
+    scalable:   bool,
 }
 
 impl IVIDecoder {
-    pub fn new() -> Self {
+    pub fn new(scalable: bool) -> Self {
         let mut bands: Vec<BandHeader> = Vec::with_capacity(12);
         bands.resize(12, BandHeader::new_empty(42, 42));
         IVIDecoder {
@@ -506,6 +508,8 @@ impl IVIDecoder {
             bands,
             band_tiles: 0,
             tiles: Vec::new(), tile_start: [[0; 4]; 4], num_tiles: [[0; 4]; 4],
+
+            scalable,
         }
     }
 

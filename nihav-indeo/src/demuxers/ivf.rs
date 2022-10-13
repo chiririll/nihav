@@ -90,7 +90,7 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
         let cname = match &fcc {
                 b"IV31" | b"IV32" => "indeo3",
                 b"IV41" => "indeo4",
-                b"IV50" => "indeo5",
+                b"IV50" => "indeo5s",
                 _ => "unknown",
             };
         let edata = if vhdr_size > 40 {

@@ -499,10 +499,10 @@ struct Indeo5Decoder {
 }
 
 impl Indeo5Decoder {
-    fn new() -> Self {
+    fn new(scalable: bool) -> Self {
         Indeo5Decoder {
             info:   NACodecInfo::new_dummy(),
-            dec:    IVIDecoder::new(),
+            dec:    IVIDecoder::new(scalable),
             ip:     Indeo5Parser::new(),
         }
     }
@@ -723,7 +723,11 @@ const INDEO5_QSCALE4_INTER: [u8; 24] = [
 ];
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
-    Box::new(Indeo5Decoder::new())
+    Box::new(Indeo5Decoder::new(false))
+}
+
+pub fn get_decoder_scalable() -> Box<dyn NADecoder + Send> {
+    Box::new(Indeo5Decoder::new(true))
 }
 
 #[cfg(test)]

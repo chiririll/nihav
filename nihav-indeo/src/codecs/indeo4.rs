@@ -422,7 +422,7 @@ impl Indeo4Decoder {
     fn new() -> Self {
         Indeo4Decoder {
             info:   NACodecInfo::new_dummy(),
-            dec:    IVIDecoder::new(),
+            dec:    IVIDecoder::new(false),
         }
     }
 }

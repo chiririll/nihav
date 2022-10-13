@@ -37,6 +37,8 @@ const INDEO_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "indeo4", get_decoder: indeo4::get_decoder },
 #[cfg(feature="decoder_indeo5")]
     DecoderInfo { name: "indeo5", get_decoder: indeo5::get_decoder },
+#[cfg(feature="decoder_indeo5")]
+    DecoderInfo { name: "indeo5s", get_decoder: indeo5::get_decoder_scalable },
 #[cfg(feature="decoder_intel263")]
     DecoderInfo { name: "intel263", get_decoder: intel263::get_decoder },
 
