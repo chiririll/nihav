@@ -819,7 +819,7 @@ fn parse_odml_ix(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mu
     let idx_type = src.read_byte()?;
     validate!(sub_type == 0 && idx_type == 1);
     let entries = src.read_u32le()? as usize;
-    validate!(size == 24 + entries * 4 * entry_size);
+    validate!(size >= 24 + entries * 4 * entry_size);
     src.read_tag()?; //chunk id
     let base_offset = src.read_u64le()?;
     src.read_u32le()?; //reserved
