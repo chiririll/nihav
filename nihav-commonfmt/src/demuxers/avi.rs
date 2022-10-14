@@ -140,11 +140,16 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                 continue;
             }
             if (tag[0] == b'i' && tag[1] == b'x') || (&tag == b"idx1") {
+                let idx_pos = self.src.tell() - 8;
                 if !self.odml {
                     return Err(EOF);
                 }
                 self.src.read_skip(size)?;
-                self.try_next_odml_chunk()?;
+                if idx_pos > self.movi_pos {
+                    self.try_next_odml_chunk()?;
+                } else {
+                    self.movi_pos = self.src.tell();
+                }
                 continue;
             }
             if tag[0] < b'0' || tag[0] > b'9' || tag[1] < b'0' || tag[1] > b'9' {
