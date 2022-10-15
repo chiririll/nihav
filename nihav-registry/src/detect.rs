@@ -275,6 +275,12 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 10, cond: &CC::Eq(Arg::U16LE(0x102)) }],
     },
     DetectConditions {
+        demux_name: "hl-fmv",
+        extensions: ".fmv",
+        conditions: &[CheckItem{offs:  0, cond: &CC::Str(b"FMV*") },
+                      CheckItem{offs:  4, cond: &CC::Eq(Arg::U32LE(0)) }],
+    },
+    DetectConditions {
         demux_name: "legend-q",
         extensions: ".q",
         conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U16LE(0x6839))},

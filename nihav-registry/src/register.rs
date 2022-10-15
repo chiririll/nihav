@@ -250,6 +250,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "fable-imax",    "Fable IMAX video"),
     desc!(video;    "fst-video",     "FutureVision video"),
     desc!(audio;    "fst-audio",     "FutureVision audio"),
+    desc!(video;    "hl-fmv-video",  "Highlander FMV video"),
     desc!(video-llp; "ipma",         "Imagination Pilots Matte Animation"),
     desc!(video-llp; "ipma2",        "Imagination Pilots Matte Animation v2"),
     desc!(video;    "legend-q-video", "Legend Entertainment Q video"),
