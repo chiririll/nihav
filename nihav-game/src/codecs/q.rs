@@ -677,6 +677,7 @@ impl NADecoder for QVideoDecoder {
             self.mode = match self.version {
                     4 => 6,
                     5 => 7,
+                    6 => 7,
                     7 => 7,
                     _ => 0,
                 };
@@ -721,7 +722,7 @@ impl NADecoder for QVideoDecoder {
                     }
                     if self.version == 3 {
                         self.decode_frame_v3(&mut br, ctype)?;
-                    } else if self.version < 7 {
+                    } else if self.version < 6 {
                         self.decode_frame_5(&mut br, ctype)?;
                     } else {
                         self.mode = if ctype == 11 { 7 } else { 6 };
