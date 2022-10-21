@@ -168,7 +168,11 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                 continue;
             }
             let str = strmgr.get_stream(stream_no as usize);
-            if str.is_none() { return Err(InvalidData); }
+            if str.is_none() {
+                self.src.read_skip(size)?;
+                self.movi_size -= size + 8;
+                continue;
+            }
             let stream = str.unwrap();
             if size == 0 {
                 self.movi_size -= 8;
