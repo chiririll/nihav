@@ -13,6 +13,20 @@ macro_rules! mktag {
     });
 }
 
+trait ReadSize {
+    fn read_size(&mut self, ver: u16) -> ByteIOResult<u64>;
+}
+
+impl<'a> ReadSize for ByteReader<'a> {
+    fn read_size(&mut self, ver: u16) -> ByteIOResult<u64> {
+        match ver {
+            0 => Ok(u64::from(self.read_u32be()?)),
+            2 => self.read_u64be(),
+            _ => unreachable!(),
+        }
+    }
+}
+
 const RM_SIPRO_BLOCK_SIZES: [usize; 4] = [ 29, 19, 37, 20 ];
 const RM_SIPRO_SWAPS:   [[u8; 2]; 38] = [
     [  0, 63 ], [  1, 22 ], [  2, 44 ], [  3, 90 ],
@@ -1023,10 +1037,7 @@ impl<'a> RealMediaDemuxer<'a> {
         let num_pkt     = self.src.read_u32be()? as usize;
         let duration    = self.src.read_u32be()?;
         let preroll     = self.src.read_u32be()?;
-        if ver == 2 {
-                          self.src.read_skip(4)?;
-        }
-        let idx_off     = self.src.read_u32be()?;
+        let idx_off     = self.src.read_size(ver)?;
         let data_off    = self.src.read_u32be()?;
         let num_streams = self.src.read_u16be()? as usize;
         let flags       = self.src.read_u16be()?;
@@ -1149,10 +1160,7 @@ impl<'a> RealMediaDemuxer<'a> {
         if ver != 0 && ver != 2 { return Ok(()); }
         let num_entries     = self.src.read_u32be()? as usize;
         let str_id          = self.src.read_u16be()? as u32;
-        let _next_idx       = self.src.read_u32be()?;
-        if ver == 2 {
-                              self.src.read_u32be()?;
-        }
+        let _next_idx       = self.src.read_size(ver)?;
         if ver == 0 {
             validate!(chunk_size == num_entries * 14 + 10);
         } else {
@@ -1166,10 +1174,7 @@ impl<'a> RealMediaDemuxer<'a> {
             let iver        = self.src.read_u16be()?;
             validate!(iver == ver);
             let ts          = self.src.read_u32be()? as u64;
-            if ver == 2 {
-                              self.src.read_u32be()?;
-            }
-            let pos         = self.src.read_u32be()? as u64;
+            let pos         = self.src.read_size(ver)?;
             let _pkt_no     = self.src.read_u32be()?;
             idx.add_entry(SeekEntry { time: ts, pts: 0, pos });
         }
