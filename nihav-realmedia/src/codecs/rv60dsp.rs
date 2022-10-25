@@ -543,7 +543,7 @@ impl RV60DSP {
             filter_luma_edge(frame.data, offset, 1, stride, mode_l, mode_r, lim1, lim2);
         }
         if ((str_l | str_r) >= 2) && deblock_chroma {
-            for comp in 1..2 {
+            for comp in 1..3 {
                 let stride = frame.stride[comp];
                 let offset = frame.offset[comp] + (xpos >> 1) + (ypos >> 1) * stride;
                 filter_chroma_edge(frame.data, offset, 1, stride, mode_l, mode_r, lim1, lim2);
@@ -568,7 +568,7 @@ impl RV60DSP {
             filter_luma_edge(frame.data, offset, stride, 1, mode_t, mode_d, lim1, lim2);
         }
         if ((str_t | str_d) >= 2) && deblock_chroma {
-            for comp in 1..2 {
+            for comp in 1..3 {
                 let stride = frame.stride[comp];
                 let offset = frame.offset[comp] + (xpos >> 1) + (ypos >> 1) * stride;
                 filter_chroma_edge(frame.data, offset, stride, 1, mode_t, mode_d, lim1, lim2);
