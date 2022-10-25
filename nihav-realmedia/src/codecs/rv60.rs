@@ -49,7 +49,9 @@ struct FrameHeader {
     osvquant:           u8,
     ts:                 u32,
     width:              usize,
+    awidth:             usize,
     height:             usize,
+    aheight:            usize,
     two_f_refs:         bool,
     qp_off_type:        u8,
     deblock:            bool,
@@ -78,6 +80,8 @@ impl FrameHeader {
         let width                                       = ((br.read(11)? as usize) + 1) * 4;
         let height                                      = ((br.read(11)? as usize) + 0) * 4;
         validate!(height > 0);
+        let awidth  = (width  + 15) & !15;
+        let aheight = (height + 15) & !15;
         let _some_flag                                  = br.read_bool()?;
         let two_f_refs;
         if ftype == FrameType::I {
@@ -110,8 +114,8 @@ impl FrameHeader {
         }
 
         Ok(FrameHeader {
-                profile, ftype, qp, osvquant, ts, width, height, two_f_refs, qp_off_type,
-                deblock, deblock_chroma,
+                profile, ftype, qp, osvquant, ts, width, height, awidth, aheight,
+                two_f_refs, qp_off_type, deblock, deblock_chroma,
             })
     }
     fn parse_slice_sizes(&self, br: &mut BitReader, sizes: &mut Vec<usize>) -> DecoderResult<()> {
@@ -716,10 +720,10 @@ println!(" left {} bits", br.left());
     }
     #[allow(clippy::cognitive_complexity)]
     fn decode_cb_tree(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, br: &mut BitReader, xpos: usize, ypos: usize, log_size: u8) -> DecoderResult<()> {
-        if (xpos >= hdr.width) || (ypos >= hdr.height) { return Ok(()); }
+        if (xpos >= hdr.awidth) || (ypos >= hdr.aheight) { return Ok(()); }
 
         let size = 1 << log_size;
-        let split = (xpos + size > hdr.width) || (ypos + size > hdr.height) || (size > 8 && br.read_bool()?);
+        let split = (xpos + size > hdr.awidth) || (ypos + size > hdr.aheight) || (size > 8 && br.read_bool()?);
         self.cu_splits.push(split);
         if split {
             let hsize = size >> 1;
@@ -1486,7 +1490,7 @@ println!("???");
         self.blk_info.clear();
         self.blk_info.resize(self.blk_stride * (cu_h << 4), BlockInfo::default());
         if hdr.deblock {
-            self.dblk.reinit(hdr.width, hdr.height);
+            self.dblk.reinit(hdr.awidth, hdr.aheight);
         }
         let mut off = hsize + ((br.tell() >> 3) as usize);
         let mut dframe = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
