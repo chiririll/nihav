@@ -203,7 +203,7 @@ fn read_grid(br: &mut BitReader, chan: &mut SBRChannel) -> DecoderResult<()> {
         chan.num_noise = 1;
         chan.noise_env_border[0] = chan.env_border[0];
     }
-    
+
 
     Ok(())
 }

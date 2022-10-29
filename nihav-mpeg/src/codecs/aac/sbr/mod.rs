@@ -400,7 +400,7 @@ fn calculate_master_frequencies(f: &mut [usize; SBR_BANDS], k0: usize, k2: usize
             if v_dk1[0] < max_vdk0 {
                 let change = (max_vdk0 - v_dk1[0]).min((v_dk1[num_bands1 - 1] - v_dk1[0]) / 2);
                 v_dk1[0] += change;
-                v_dk1[num_bands1 - 1] -= change; 
+                v_dk1[num_bands1 - 1] -= change;
             }
             let mut v_k1 = [0; SBR_BANDS];
             v_k1[0] = k1;
