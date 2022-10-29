@@ -17,6 +17,8 @@ mod hl_fmv;
 mod imax;
 #[cfg(feature="demuxer_q")]
 mod q;
+#[cfg(feature="demuxer_siff")]
+mod siff;
 #[cfg(feature="demuxer_smush")]
 mod smush;
 #[cfg(feature="demuxer_vmd")]
@@ -41,6 +43,8 @@ const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
     &imax::IMAXDemuxerCreator {},
 #[cfg(feature="demuxer_q")]
     &q::QDemuxerCreator {},
+#[cfg(feature="demuxer_siff")]
+    &siff::SIFFDemuxerCreator {},
 #[cfg(feature="demuxer_smush")]
     &smush::SmushDemuxerCreator {},
 #[cfg(feature="demuxer_smush")]

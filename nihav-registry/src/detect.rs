@@ -287,6 +287,16 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 2, cond: &CC::In(Arg::Byte(3), Arg::Byte(7))}],
     },
     DetectConditions {
+        demux_name: "siff",
+        extensions: ".vb,.vbc,.fcp,.son",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"SIFF")},
+                      CheckItem{offs: 4, cond: &CC::Or(
+                                    &CC::Or(
+                                        &CC::Str(b"VBV1VBHD"),
+                                        &CC::Str(b"SOUNSHDR")),
+                                    &CC::Str(b"FCPKFCHD"))}],
+    },
+    DetectConditions {
         demux_name: "smush",
         extensions: ".san",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"ANIM")},
