@@ -110,10 +110,12 @@ fn chroma_mc(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut si
         return;
     }
     if (x > 0) && (y > 0) {
-        let a = ((4 - x) * (4 - y)) as u16;
-        let b = ((    x) * (4 - y)) as u16;
-        let c = ((4 - x) * (    y)) as u16;
-        let d = ((    x) * (    y)) as u16;
+        // 3,3 case is the same as 3,2 for some reason
+        let ymod = if (x == 3) && (y == 3) { 2 } else { y };
+        let a = ((4 - x) * (4 - ymod)) as u16;
+        let b = ((    x) * (4 - ymod)) as u16;
+        let c = ((4 - x) * (    ymod)) as u16;
+        let d = ((    x) * (    ymod)) as u16;
         for _ in 0..h {
             for x in 0..w {
                 dst[didx + x] = ((a * (src[sidx + x] as u16)
