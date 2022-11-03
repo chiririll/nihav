@@ -581,46 +581,46 @@ impl RV60DSP {
                   xpos: usize, ypos: usize, top_str: &[u8], left_str: &[u8], dblkpos: usize) {
         if xpos > 0 {
             if ypos > 0 {
-                let str_l = left_str[dblkpos - dparams.dblkstride];
-                let str_r = left_str[dblkpos];
-                if (str_l | str_r) != 0 {
+                let str_l = left_str[dblkpos - dparams.dblkstride - 1];
+                let str_r = left_str[dblkpos - dparams.dblkstride];
+                if ((str_l | str_r) & 3) != 0 {
                     self.deblock_edge4_ver(frame, xpos, ypos - 4, str_l, str_r, dparams.deblock_chroma);
                 }
             }
             {
-                let str_l = left_str[dblkpos];
-                let str_r = left_str[dblkpos + dparams.dblkstride];
-                if (str_l | str_r) != 0 {
+                let str_l = left_str[dblkpos - 1];
+                let str_r = left_str[dblkpos];
+                if ((str_l | str_r) & 3) != 0 {
                     self.deblock_edge4_ver(frame, xpos, ypos + 0, str_l, str_r, dparams.deblock_chroma);
                 }
             }
-            if ypos + 4 >= dparams.height {
-                let str_l = left_str[dblkpos + dparams.dblkstride];
-                let str_r = left_str[dblkpos + dparams.dblkstride * 2];
-                if (str_l | str_r) != 0 {
+            if ypos + 8 >= dparams.height {
+                let str_l = left_str[dblkpos + dparams.dblkstride - 1];
+                let str_r = left_str[dblkpos + dparams.dblkstride];
+                if ((str_l | str_r) & 3) != 0 {
                     self.deblock_edge4_ver(frame, xpos, ypos + 4, str_l, str_r, dparams.deblock_chroma);
                 }
             }
         }
         if ypos > 0 {
             if xpos > 0 {
-                let str_t = top_str[dblkpos - 1];
-                let str_d = top_str[dblkpos];
-                if (str_t | str_d) != 0 {
+                let str_t = top_str[dblkpos - dparams.dblkstride - 1];
+                let str_d = top_str[dblkpos - 1];
+                if ((str_t | str_d) & 3) != 0 {
                     self.deblock_edge4_hor(frame, xpos - 4, ypos, str_t, str_d, dparams.deblock_chroma);
                 }
             }
             {
-                let str_t = top_str[dblkpos];
-                let str_d = top_str[dblkpos + 1];
-                if (str_t | str_d) != 0 {
+                let str_t = top_str[dblkpos - dparams.dblkstride];
+                let str_d = top_str[dblkpos];
+                if ((str_t | str_d) & 3) != 0 {
                     self.deblock_edge4_hor(frame, xpos + 0, ypos, str_t, str_d, dparams.deblock_chroma);
                 }
             }
-            if xpos + 4 >= dparams.width {
-                let str_t = top_str[dblkpos + 1];
-                let str_d = top_str[dblkpos + 2];
-                if (str_t | str_d) != 0 {
+            if xpos + 8 >= dparams.width {
+                let str_t = top_str[dblkpos - dparams.dblkstride + 1];
+                let str_d = top_str[dblkpos + 1];
+                if ((str_t | str_d) & 3) != 0 {
                     self.deblock_edge4_hor(frame, xpos + 4, ypos, str_t, str_d, dparams.deblock_chroma);
                 }
             }

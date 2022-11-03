@@ -192,13 +192,13 @@ println!(" left {} / {}", br.left() >> 3, sum);
     fn has_top_block(&self, xpos: usize, ypos: usize, dx: usize, dy: usize, size: usize) -> bool {
         if (ypos + dy) == 0 { return false; }
         let xpos2 = xpos + dx;
-        if (xpos2 + size) > self.width { return false; }
+        if (xpos2 + size) > self.awidth { return false; }
         true
     }
     fn has_top_right_block(&self, xpos: usize, ypos: usize, dx: usize, dy: usize, size: usize) -> bool {
         if (ypos + dy) == 0 { return false; }
         let xpos2 = xpos + dx;
-        if (xpos2 + size * 2) > self.width { return false; }
+        if (xpos2 + size * 2) > self.awidth { return false; }
         let cxpos = ((xpos + dx) & 63) >> RV60_BLOCK_LOG2[size];
         let cypos = ((ypos + dy) & 63) >> RV60_BLOCK_LOG2[size];
         ((cypos as u8) & RV60_AVAIL_MASK[cxpos]) == 0
@@ -206,13 +206,13 @@ println!(" left {} / {}", br.left() >> 3, sum);
     fn has_left_block(&self, xpos: usize, ypos: usize, dx: usize, dy: usize, size: usize) -> bool {
         if (xpos + dx) == 0 { return false; }
         let ypos2 = ypos + dy;
-        if (ypos2 + size) > self.height { return false; }
+        if (ypos2 + size) > self.aheight { return false; }
         true
     }
     fn has_left_down_block(&self, xpos: usize, ypos: usize, dx: usize, dy: usize, size: usize) -> bool {
         if (xpos + dx) == 0 { return false; }
         let ypos2 = ypos + dy;
-        if (ypos2 + size * 2) > self.height { return false; }
+        if (ypos2 + size * 2) > self.aheight { return false; }
         let cxpos = (!(xpos + dx) & 63) >> RV60_BLOCK_LOG2[size];
         let cypos = (!(ypos + dy) & 63) >> RV60_BLOCK_LOG2[size];
         ((cypos as u8) & RV60_AVAIL_MASK[cxpos]) >= 1
@@ -540,6 +540,7 @@ impl CBHeader {
 struct PUInfo {
     cu_type:    CUType,
     ttype:      TransformType,
+    pu_type:    PUType,
 }
 
 impl PUInfo {
@@ -578,9 +579,11 @@ impl DeblockInfo {
         let dval = (q << 2) | strength;
         for x in 0..dsize {
             self.top_str[pos + x] = dval;
+            self.top_str[pos + (dsize - 1) * self.stride + x] = dval;
         }
         for y in 0..dsize {
             self.left_str[pos + y * self.stride] = dval;
+            self.left_str[pos + y * self.stride + dsize - 1] = dval;
         }
     }
     fn get_pos(&self, xpos: usize, ypos: usize) -> usize {
@@ -843,10 +846,6 @@ println!(" left {} bits", br.left());
                                 cbp16 = 0;
                             }
                             if cbp16 != 0 {
-                                self.coded_blk[cb_pos + 0] = true;
-                                self.coded_blk[cb_pos + 1] = true;
-                                self.coded_blk[cb_pos + 8] = true;
-                                self.coded_blk[cb_pos + 9] = true;
                                 rv6_decode_cu_4x4in16x16(br, &self.cbs, is_intra, self.qp, self.sel_qp, &mut self.y_coeffs, &mut self.u_coeffs, &mut self.v_coeffs, cbp16)?;
                                 for y in 0..4 {
                                     for x in 0..4 {
@@ -857,6 +856,7 @@ println!(" left {} bits", br.left());
                                             let off = xpos + x * 4 + (ypos + y * 4) * dstride;
                                             let dst = &mut buf.data;
                                             self.dsp.add_block(dst, off, dstride, &self.y_coeffs[i*16..][..16], 4);
+                                            self.coded_blk[cb_pos + (y / 2) * 8 + (x / 2)] = true;
                                         }
                                     }
                                 }
@@ -871,6 +871,7 @@ println!(" left {} bits", br.left());
                                             let off = buf.offset[1] + xoff + yoff * dstride;
                                             let dst = &mut buf.data;
                                             self.dsp.add_block(dst, off, dstride, &self.u_coeffs[i * 16..][..16], 4);
+                                            self.coded_blk[cb_pos + y * 8 + x] = true;
                                         }
                                         if ((cbp16 >> (20 + i)) & 1) != 0 {
                                             self.dsp.transform4x4(&mut self.v_coeffs[i * 16..][..16]);
@@ -878,6 +879,7 @@ println!(" left {} bits", br.left());
                                             let off = buf.offset[2] + xoff + yoff * dstride;
                                             let dst = &mut buf.data;
                                             self.dsp.add_block(dst, off, dstride, &self.v_coeffs[i * 16..][..16], 4);
+                                            self.coded_blk[cb_pos + y * 8 + x] = true;
                                         }
                                     }
                                 }
@@ -1003,6 +1005,7 @@ println!(" left {} bits", br.left());
         let pu_size = size >> 3;
         pui.cu_type = cbh.cu_type;
         pui.ttype   = cbh.ttype;
+        pui.pu_type = cbh.pu_type;
         if (cbh.cu_type == CUType::Intra) && (cbh.pu_type == PUType::Quarters) { // very special case
             self.pu_info[self.pu_pos] = pui;
             for y in 0..2 {
@@ -1322,9 +1325,17 @@ println!(" left {} bits", br.left());
             skip_cand.list[i] = MVInfo { f_mv: ZERO_MV, b_mv: ZERO_MV, mvref: MVRef::Ref0 };
         }
     }
+    fn calc_tile_size(&self, pu_pos: usize, cu_type: CUType, log_size: u8) -> u8 {
+        match log_size {
+            3 => 3,
+            4 if (cu_type != CUType::Intra) && (self.pu_info[pu_pos].pu_type != PUType::Full) => 3,
+            4 | 5 | 6 => 4,
+            _ => unreachable!(),
+        }
+    }
     fn deblock_cb_tree(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, xpos: usize, ypos: usize, log_size: u8) {
-        if (xpos >= hdr.width) || (ypos >= hdr.height) { return; }
-        let split = (log_size > 3) && self.cu_splits.pop().unwrap();
+        if (xpos >= hdr.awidth) || (ypos >= hdr.aheight) { return; }
+        let split = self.cu_splits.pop().unwrap();
         if split {
             let hsize = 1 << (log_size - 1);
             self.deblock_cb_tree(buf, hdr, xpos,         ypos,         log_size - 1);
@@ -1334,12 +1345,12 @@ println!(" left {} bits", br.left());
         } else {
             let pu_pos = (xpos >> 3) + (ypos >> 3) * self.pu_stride;
             let cu_type = self.pu_info[pu_pos].cu_type;
-            let tsize = if self.pu_info[pu_pos].ttype == TransformType::T16X16 { 4 } else { 3 };
+            let tsize = self.calc_tile_size(pu_pos, cu_type, log_size);
             let ntiles = 1 << (log_size - tsize);
             let dparams = RV60DeblockParams {
                             deblock_chroma: hdr.deblock_chroma,
-                            width:          hdr.width,
-                            height:         hdr.height,
+                            width:          hdr.awidth,
+                            height:         hdr.aheight,
                             dblkstride:     self.dblk.stride,
                         };
             for ty in 0..ntiles {
@@ -1369,7 +1380,7 @@ println!(" left {} bits", br.left());
         if ypos > 0 {
             let top_blk_pos = blk_pos - self.blk_stride;
             for i in 0..size4 {
-                if self.dblk.get_top_strength(dblk_pos + i) == 0 {
+                if self.dblk.get_top_strength(dblk_pos - self.dblk.stride + i) == 0 {
                     if self.blk_info[blk_pos + i].mv.is_deblock_cand(&self.blk_info[top_blk_pos + i].mv) {
                         self.dblk.set_top_strength(dblk_pos + i, 1);
                     }
@@ -1378,8 +1389,8 @@ println!(" left {} bits", br.left());
         }
         if xpos > 0 {
             for i in 0..size4 {
-                if self.dblk.get_left_strength(dblk_pos) == 0 {
-                    if self.blk_info[blk_pos + i].mv.is_deblock_cand(&self.blk_info[blk_pos + i - 1].mv) {
+                if self.dblk.get_left_strength(dblk_pos - 1) == 0 {
+                    if self.blk_info[blk_pos + i * self.blk_stride].mv.is_deblock_cand(&self.blk_info[blk_pos + i * self.blk_stride - 1].mv) {
                         self.dblk.set_left_strength(dblk_pos, 1);
                     }
                 }
@@ -1585,15 +1596,15 @@ mod test {
                             [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],
                             [0xc7d45c3b, 0x6a82ff3a, 0xaf49a7ea, 0x7cf9a533],
                             [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],
-                            [0x3db0f7ea, 0xbbf24a80, 0x54c0dd7c, 0xbdea881a],
+                            [0xec3cf068, 0xe989c7f5, 0x0bd41758, 0x81199c9e],
                             [0x24134118, 0xeece4c59, 0x3f319c04, 0xd04951fd],
-                            [0xe5f1a7a5, 0x204ab47b, 0x678277b3, 0x179f3007],
-                            [0x61fb5e14, 0x47cce437, 0xaeeed91f, 0x03f727aa],
-                            [0x46c71f20, 0x8e6ee603, 0xb68965ee, 0xf5bf3c45],
-                            [0xf87589a4, 0xd9cc9120, 0xff27a8e6, 0xc1cc1dd5],
-                            [0x12ea3288, 0x810b766b, 0x9a83ac11, 0x88f9996a],
-                            [0xe1a8020f, 0x972fadbb, 0x771f0f7e, 0x7a3a3e41],
-                            [0xed041308, 0x3112b04e, 0xcb39b23b, 0x5f73798c],
-                            [0xb0a2db76, 0x56dd7f97, 0x87e4f6d4, 0xe69ecfd8]]));
+                            [0x5a2e4e52, 0xa11ad66f, 0x304f2a84, 0xe43aaa90],
+                            [0x06d8bb44, 0x00b83933, 0xacce3d6f, 0x7159cd5e],
+                            [0xe5dfb853, 0x93f2fe74, 0x932d8c1a, 0x2579208e],
+                            [0xcfc5cae6, 0xa878bbd5, 0x5f0302c5, 0x9c0623ae],
+                            [0x5103a4ad, 0xec5ebe4e, 0x445037ca, 0x3797abe1],
+                            [0x66c9b636, 0xaec1afb7, 0x978fa6eb, 0x964649f5],
+                            [0xf1d17b76, 0xe8351888, 0x59d4acf1, 0x22387b9e],
+                            [0x8fff649f, 0xf1fe573b, 0xfce60560, 0x47c8c8b1]]));
     }
 }
