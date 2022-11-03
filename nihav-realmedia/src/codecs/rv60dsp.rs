@@ -411,7 +411,7 @@ impl RV60DSP {
         blk[off +  0 * step] = ((tm0 + tt0 + 64) >> 7) as i16;
         blk[off +  1 * step] = ((tm4 + tt1 + 64) >> 7) as i16;
         blk[off +  2 * step] = ((tm6 + tt2 + 64) >> 7) as i16;
-        blk[off +  3 * step] = ((tm4 + tt3 + 64) >> 7) as i16;
+        blk[off +  3 * step] = ((tm2 + tt3 + 64) >> 7) as i16;
         blk[off +  4 * step] = ((tm3 + tt4 + 64) >> 7) as i16;
         blk[off +  5 * step] = ((tm7 + tt5 + 64) >> 7) as i16;
         blk[off +  6 * step] = ((tm5 + tt6 + 64) >> 7) as i16;

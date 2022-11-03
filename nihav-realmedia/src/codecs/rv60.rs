@@ -1583,17 +1583,17 @@ mod test {
         test_decoding("realmedia", "realvideo6", "assets/RV/RV60.rmhd", Some(1000), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],
-                            [0x9b8feb58, 0x161b1b44, 0xbca532e5, 0xcb4ac211],
+                            [0xc7d45c3b, 0x6a82ff3a, 0xaf49a7ea, 0x7cf9a533],
                             [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],
-                            [0x5dc8b7d1, 0xef6e6840, 0x7b634afb, 0x645711a3],
-                            [0x64e802be, 0xd80dc046, 0x98309de0, 0xe9f2ee48],
-                            [0x64d1fa65, 0xfe30eccf, 0x08e07dd5, 0xb7f079ec],
-                            [0xfae26181, 0x63e190ec, 0xfa0ae49c, 0x095abb3c],
-                            [0xc6491458, 0xf3a1e979, 0x6f4e64ab, 0xe77046cb],
-                            [0x4ec5e66d, 0x5a99a40d, 0x871b16ab, 0xf63b2890],
-                            [0x2d22683b, 0x4022a36b, 0xdfcd3259, 0xa7f43f77],
-                            [0xff6a1c72, 0x2dd8b7ca, 0xe3f2f575, 0x2d7aa001],
-                            [0xf95f1898, 0x1660a50d, 0x2b36aacc, 0x921b5402],
-                            [0x8115fafe, 0x39ac33b2, 0x9d65b3cc, 0x5ec452fe]]));
+                            [0x3db0f7ea, 0xbbf24a80, 0x54c0dd7c, 0xbdea881a],
+                            [0x24134118, 0xeece4c59, 0x3f319c04, 0xd04951fd],
+                            [0xe5f1a7a5, 0x204ab47b, 0x678277b3, 0x179f3007],
+                            [0x61fb5e14, 0x47cce437, 0xaeeed91f, 0x03f727aa],
+                            [0x46c71f20, 0x8e6ee603, 0xb68965ee, 0xf5bf3c45],
+                            [0xf87589a4, 0xd9cc9120, 0xff27a8e6, 0xc1cc1dd5],
+                            [0x12ea3288, 0x810b766b, 0x9a83ac11, 0x88f9996a],
+                            [0xe1a8020f, 0x972fadbb, 0x771f0f7e, 0x7a3a3e41],
+                            [0xed041308, 0x3112b04e, 0xcb39b23b, 0x5f73798c],
+                            [0xb0a2db76, 0x56dd7f97, 0x87e4f6d4, 0xe69ecfd8]]));
     }
 }
