@@ -154,7 +154,7 @@ macro_rules! diff{
         )
 }
 macro_rules! strength{
-    ($el: expr, $lim: expr) => (if $el < $lim { 3 } else { 1 })
+    ($el: expr, $lim: expr) => (if $el.abs() < $lim { 3 } else { 1 })
 }
 fn clip_symm(val: i16, lim: i16) -> i16 { val.max(-lim).min(lim) }
 
@@ -184,7 +184,7 @@ fn filter_luma_edge(dst: &mut [u8], mut offset: usize, step: usize, stride: usiz
                     };
                 dst[offset - step] = clip8((dst[offset - step] as i16) + delta);
                 dst[offset]        = clip8((dst[offset]        as i16) - delta);
-                if (str_q != 1) && (diff_q1q2.abs() <= (lim1 >> 2)) {
+                if (str_q != 1) && (diff_q1q2.abs() <= (lim2 >> 2)) {
                     let diff = (diff_q1q0[y] + diff_q1q2 - delta) >> 1;
                     let delta_q1 = if weak {
                             clip_symm(diff, (mode1 >> 1) as i16)
@@ -193,7 +193,7 @@ fn filter_luma_edge(dst: &mut [u8], mut offset: usize, step: usize, stride: usiz
                         };
                     dst[offset - 2 * step] = clip8((dst[offset - 2 * step] as i16) - delta_q1);
                 }
-                if (str_p != 1) && (diff_p1p2.abs() <= (lim1 >> 2)) {
+                if (str_p != 1) && (diff_p1p2.abs() <= (lim2 >> 2)) {
                     let diff = (diff_p1p0[y] + diff_p1p2 + delta) >> 1;
                     let delta_p1 = if weak {
                             clip_symm(diff, (mode2 >> 1) as i16)
