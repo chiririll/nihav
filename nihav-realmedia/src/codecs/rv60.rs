@@ -899,7 +899,7 @@ println!(" left {} bits", br.left());
                                     let dst = &mut buf.data;
                                     self.populate_ipred(hdr, dst, 0, dstride, xoff, yoff, 4, true);
                                     let itype = self.blk_info[self.blk_pos + (i & 1) + (i >> 1) * self.blk_stride].imode;
-                                    self.ipred.pred_angle(dst, off, dstride, 4, itype as usize, false);
+                                    self.ipred.pred_angle(dst, off, dstride, 4, itype as usize, true);
                                 }
                                 if ((cbp8 >> i) & 1) != 0 {
                                     let blk = &mut self.y_coeffs[i * 16..][..16];
@@ -1594,17 +1594,17 @@ mod test {
         test_decoding("realmedia", "realvideo6", "assets/RV/RV60.rmhd", Some(1000), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],
-                            [0xc7d45c3b, 0x6a82ff3a, 0xaf49a7ea, 0x7cf9a533],
+                            [0x76743a3b, 0x7dd4f196, 0x0193fe5a, 0x4f78c7cb],
                             [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],
-                            [0xec3cf068, 0xe989c7f5, 0x0bd41758, 0x81199c9e],
-                            [0x24134118, 0xeece4c59, 0x3f319c04, 0xd04951fd],
-                            [0x5a2e4e52, 0xa11ad66f, 0x304f2a84, 0xe43aaa90],
-                            [0x06d8bb44, 0x00b83933, 0xacce3d6f, 0x7159cd5e],
-                            [0xe5dfb853, 0x93f2fe74, 0x932d8c1a, 0x2579208e],
-                            [0xcfc5cae6, 0xa878bbd5, 0x5f0302c5, 0x9c0623ae],
-                            [0x5103a4ad, 0xec5ebe4e, 0x445037ca, 0x3797abe1],
-                            [0x66c9b636, 0xaec1afb7, 0x978fa6eb, 0x964649f5],
-                            [0xf1d17b76, 0xe8351888, 0x59d4acf1, 0x22387b9e],
-                            [0x8fff649f, 0xf1fe573b, 0xfce60560, 0x47c8c8b1]]));
+                            [0xfee70206, 0x626f3bea, 0x7677ad4b, 0x1228f3b6],
+                            [0x7156cbc2, 0xf381bcb6, 0xe86531f2, 0xb311c3ea],
+                            [0x1742b5a1, 0x66252580, 0x242753de, 0x5215d732],
+                            [0xd357ebda, 0x6460dba6, 0xa93eb616, 0x63ee6d60],
+                            [0x4cd72275, 0x28e1e439, 0xad17dfca, 0x3fd7253f],
+                            [0xe389ce4f, 0x8f0891b3, 0x88639b23, 0x21ed114f],
+                            [0x5b2b2f1b, 0x17a7518b, 0x53806e6a, 0x4538bb00],
+                            [0xdca03c9a, 0x1a45d80c, 0x86141211, 0x79912ed4],
+                            [0x0bf66bf4, 0x46385620, 0xc6fa4796, 0xd8e16d56],
+                            [0x4671a7f0, 0x46f50649, 0x268df27b, 0x70b71ab3]]));
     }
 }
