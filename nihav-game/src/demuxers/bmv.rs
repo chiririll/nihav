@@ -48,8 +48,7 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
                 asize = (nblocks as usize) * 65 + 1;
                 validate!(asize < size);
                 let str = strmgr.get_stream(self.aud_id).unwrap();
-                let (tb_num, tb_den) = str.get_timebase();
-                let ts = NATimeInfo::new(Some(self.apos), None, None, tb_num, tb_den);
+                let ts = str.make_ts(Some(self.apos), None, None);
                 let apkt = self.src.read_packet(str, ts, false, asize)?;
                 self.apos += u64::from(nblocks) * 32;
                 self.pkt_buf.push(apkt);
@@ -61,8 +60,7 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
             self.src.read_buf(&mut buf[1..])?;
 
             let str = strmgr.get_stream(self.vid_id).unwrap();
-            let (tb_num, tb_den) = str.get_timebase();
-            let ts = NATimeInfo::new(Some(self.vpos), None, None, tb_num, tb_den);
+            let ts = str.make_ts(Some(self.vpos), None, None);
             let pkt = NAPacket::new(str, ts, (ctype & 3) == 3, buf);
 
             self.vpos += 1;
@@ -189,8 +187,7 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
                 self.src.read_buf(&mut buf[1..])?;
 
                 let str = strmgr.get_stream(self.aud_id).unwrap();
-                let (tb_num, tb_den) = str.get_timebase();
-                let ts = NATimeInfo::new(Some(self.apos), None, None, tb_num, tb_den);
+                let ts = str.make_ts(Some(self.apos), None, None);
                 let apkt = NAPacket::new(str, ts, false, buf);
 
                 self.apos += (asize as u64) / 41 * 32;
@@ -210,8 +207,7 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
             self.src.read_buf(&mut buf[1..])?;
 
             let str = strmgr.get_stream(self.vid_id).unwrap();
-            let (tb_num, tb_den) = str.get_timebase();
-            let ts = NATimeInfo::new(Some(self.vpos), None, None, tb_num, tb_den);
+            let ts = str.make_ts(Some(self.vpos), None, None);
             let pkt = NAPacket::new(str, ts, (ctype & 3) == 3, buf);
 
             self.vpos += 1;

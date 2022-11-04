@@ -207,8 +207,7 @@ impl<'a> DemuxCore<'a> for FLACDemuxer<'a> {
         let (buf, pts, duration) = self.read_frame()?;
 
         let stream = strmgr.get_stream(0).unwrap();
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(pts), None, Some(duration), tb_num, tb_den);
+        let ts = stream.make_ts(Some(pts), None, Some(duration));
         let pkt = NAPacket::new(stream, ts, true, buf);
 
         Ok(pkt)

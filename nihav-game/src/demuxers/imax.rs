@@ -49,8 +49,7 @@ impl<'a> DemuxCore<'a> for IMAXDemuxer<'a> {
             match ftype {
                 0xAA97 => {
                     let str = strmgr.get_stream(self.v_id).unwrap();
-                    let (tb_num, tb_den) = str.get_timebase();
-                    let ts = NATimeInfo::new(Some(self.cur_frame), None, None, tb_num, tb_den);
+                    let ts = str.make_ts(Some(self.cur_frame), None, None);
                     self.cur_frame += 1;
                     let mut pkt = self.src.read_packet(str, ts, true, fsize)?;
                     pkt.add_side_data(NASideData::Palette(self.pal_change, self.pal.clone()));
@@ -73,8 +72,7 @@ impl<'a> DemuxCore<'a> for IMAXDemuxer<'a> {
                 },
                 0xAA99 => {
                     let str = strmgr.get_stream(self.a_id).unwrap();
-                    let (tb_num, tb_den) = str.get_timebase();
-                    let ts = NATimeInfo::new(Some(self.apos), None, None, tb_num, tb_den);
+                    let ts = str.make_ts(Some(self.apos), None, None);
                     self.apos += fsize as u64;
                     return self.src.read_packet(str, ts, true, fsize);
                 },

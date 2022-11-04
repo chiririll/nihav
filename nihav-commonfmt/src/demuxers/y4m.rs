@@ -37,8 +37,7 @@ impl<'a> DemuxCore<'a> for Y4MDemuxer<'a> {
         };
         validate!(&marker == b"FRAME\n");
         let stream = strmgr.get_stream(0).unwrap();
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(self.frameno), None, None, tb_num, tb_den);
+        let ts = stream.make_ts(Some(self.frameno), None, None);
         let pkt = self.src.read_packet(stream, ts, true, self.frame_size)?;
         self.frameno += 1;
         Ok(pkt)

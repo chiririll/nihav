@@ -81,8 +81,7 @@ impl<'a> DemuxCore<'a> for TTADemuxer<'a> {
         self.src.seek(SeekFrom::Start(off))?;
 
         let stream = strmgr.get_stream(0).unwrap();
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(self.cur_frame.into()), None, None, tb_num, tb_den);
+        let ts = stream.make_ts(Some(self.cur_frame.into()), None, None);
         let pkt = self.src.read_packet(stream, ts, true, size)?;
 
         self.cur_frame += 1;

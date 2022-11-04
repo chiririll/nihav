@@ -59,8 +59,7 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
             }
 
             if let Some(stream) = strmgr.get_stream(0) {
-                let (tb_num, tb_den) = stream.get_timebase();
-                let ts = NATimeInfo::new(Some(tstamp), None, None, tb_num, tb_den);
+                let ts = stream.make_ts(Some(tstamp), None, None);
                 return self.src.read_packet(stream, ts, false, fsize);
             } else {
                 return Err(DemuxerError::InvalidData);

@@ -189,8 +189,7 @@ impl<'a> DemuxCore<'a> for WavPackDemuxer<'a> {
             std::mem::swap(&mut fb, &mut self.first_blocks);
             let (refhdr, buf) = fb.unwrap();
             let stream = strmgr.get_stream(0).unwrap();
-            let (tb_num, tb_den) = stream.get_timebase();
-            let ts = NATimeInfo::new(Some(self.samplepos), None, None, tb_num, tb_den);
+            let ts = stream.make_ts(Some(self.samplepos), None, None);
             let pkt = NAPacket::new(stream, ts, true, buf);
 
             self.samplepos += u64::from(refhdr.block_samples);
@@ -205,8 +204,7 @@ impl<'a> DemuxCore<'a> for WavPackDemuxer<'a> {
         let (refhdr, buf) = self.read_blocks()?;
 
         let stream = strmgr.get_stream(0).unwrap();
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(self.samplepos), None, None, tb_num, tb_den);
+        let ts = stream.make_ts(Some(self.samplepos), None, None);
         let pkt = NAPacket::new(stream, ts, true, buf);
 
         self.samplepos += u64::from(refhdr.block_samples);

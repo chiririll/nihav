@@ -218,8 +218,7 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
             }
 
             if let Some(stream) = strmgr.get_stream(stream_id) {
-                let (tb_num, tb_den) = stream.get_timebase();
-                let ts = NATimeInfo::new(Some(tstamp as u64), None, None, tb_num, tb_den);
+                let ts = stream.make_ts(Some(tstamp as u64), None, None);
                 return Ok(NAPacket::new_from_refbuf(stream, ts, false, NABufferRef::new(buf)));
             } else {
                 return Err(DemuxerError::InvalidData);

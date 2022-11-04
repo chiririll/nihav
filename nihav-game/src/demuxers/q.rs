@@ -82,8 +82,7 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                 0 => {
                     if let Some(a_id) = self.a_id {
                         let str = strmgr.get_stream(a_id).unwrap();
-                        let (tb_num, tb_den) = str.get_timebase();
-                        let ts = NATimeInfo::new(Some(self.apts), None, None, tb_num, tb_den);
+                        let ts = str.make_ts(Some(self.apts), None, None);
                         self.apts += (size / self.bps) as u64;
                         return self.src.read_packet(str, ts, true, size);
                     } else {
@@ -101,8 +100,7 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                 2 | 3 | 4 | 11 => {
                     validate!(self.v_id.is_some());
                     let str = strmgr.get_stream(self.v_id.unwrap_or(0)).unwrap();
-                    let (tb_num, tb_den) = str.get_timebase();
-                    let ts = NATimeInfo::new(Some(self.vpts), None, None, tb_num, tb_den);
+                    let ts = str.make_ts(Some(self.vpts), None, None);
                     self.vpts += 1;
 
                     let cur_len = self.side_data.len();

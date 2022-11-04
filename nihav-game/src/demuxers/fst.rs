@@ -73,8 +73,7 @@ impl<'a> DemuxCore<'a> for FutureVisionVideoDemuxer<'a> {
         }
 
         let str = strmgr.get_stream(id).unwrap();
-        let (tb_num, tb_den) = str.get_timebase();
-        let ts = NATimeInfo::new(Some(pts), None, None, tb_num, tb_den);
+        let ts = str.make_ts(Some(pts), None, None);
         self.src.read_packet(str, ts, true, size)
     }
 
@@ -148,8 +147,7 @@ impl<'a> DemuxCore<'a> for FutureVisionAudioDemuxer<'a> {
         let pts = (self.src.tell() - 14) * 2;
 
         let str = strmgr.get_stream(self.a_id).unwrap();
-        let (tb_num, tb_den) = str.get_timebase();
-        let ts = NATimeInfo::new(Some(pts), None, None, tb_num, tb_den);
+        let ts = str.make_ts(Some(pts), None, None);
         self.src.read_packet(str, ts, true, size)
     }
 

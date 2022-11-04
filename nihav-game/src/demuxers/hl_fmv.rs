@@ -41,15 +41,13 @@ impl<'a> DemuxCore<'a> for HighlanderFMVDemuxer<'a> {
         match &tag {
             b"AUD1" => {
                 let stream = strmgr.get_stream_by_id(1).unwrap();
-                let (tb_num, tb_den) = stream.get_timebase();
-                let ts = NATimeInfo::new(Some(self.apts), None, None, tb_num, tb_den);
+                let ts = stream.make_ts(Some(self.apts), None, None);
                 self.apts += size as u64;
                 self.src.read_packet(stream, ts, true, size)
             },
             b"VID3" => {
                 let stream = strmgr.get_stream_by_id(0).unwrap();
-                let (tb_num, tb_den) = stream.get_timebase();
-                let ts = NATimeInfo::new(Some(self.vpts), None, None, tb_num, tb_den);
+                let ts = stream.make_ts(Some(self.vpts), None, None);
                 self.vpts += 1;
                 self.src.read_packet(stream, ts, true, size)
             },

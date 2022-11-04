@@ -84,8 +84,7 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         let stream = strmgr.get_stream(self.vid_id);
         if stream.is_none() { return Err(DemuxerError::InvalidData); }
         let stream = stream.unwrap();
-        let (tn, td) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(self.vno), None, None, tn, td);
+        let ts = stream.make_ts(Some(self.vno), None, None);
         let size                    = self.src.read_u16le()? as usize;
         validate!(size > 2);
         let _num_achunks            = self.src.read_u16le()?;

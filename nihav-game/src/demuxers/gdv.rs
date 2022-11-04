@@ -143,8 +143,7 @@ pktdta: Vec::new(),
     fn read_achunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         self.state = GDVState::AudioRead;
         let str = strmgr.get_stream(self.a_id.unwrap()).unwrap();
-        let (tb_num, tb_den) = str.get_timebase();
-        let ts = NATimeInfo::new(Some(u64::from(self.cur_frame)), None, None, tb_num, tb_den);
+        let ts = str.make_ts(Some(u64::from(self.cur_frame)), None, None);
         self.src.read_packet(str, ts, true, self.asize)
     }
 
@@ -158,8 +157,7 @@ pktdta: Vec::new(),
         let flags = (tmp & 0xFF) as usize;
         self.state = GDVState::NewFrame;
         self.cur_frame += 1;
-        let (tb_num, tb_den) = str.get_timebase();
-        let ts = NATimeInfo::new(Some(u64::from(self.cur_frame - 1)), None, None, tb_num, tb_den);
+        let ts = str.make_ts(Some(u64::from(self.cur_frame - 1)), None, None);
         src.read_packet(str, ts, (flags & 64) != 0, size)
     }
 }

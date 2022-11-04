@@ -152,8 +152,7 @@ impl RMAudioStream {
         RMAudioStream { deint, iinfo, buf, sub_packet: 0 }
     }
     fn read_apackets(&mut self, queued_packets: &mut Vec<NAPacket>, src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
+        let ts = stream.make_ts(Some(ts as u64), None, None);
 
         if keyframe {
             self.sub_packet = 0;
@@ -214,7 +213,7 @@ impl RMAudioStream {
                         sizes.push(sz);
                     }
                     validate!(tot_size + num_entries * 2 + 2 == payload_size);
-                    let pkt_ts = NATimeInfo::new(None, None, None, tb_num, tb_den);
+                    let pkt_ts = stream.make_ts(None, None, None);
                     let mut first = true;
                     for size in sizes.iter() {
                         let cur_ts = if first { ts } else { pkt_ts };
@@ -246,7 +245,7 @@ impl RMAudioStream {
         let mut frames_iter = self.buf.chunks(fsize);
         let pkt0 = frames_iter.next().unwrap();
 
-        let pkt_ts = NATimeInfo::new(None, None, None, tb_num, tb_den);
+        let pkt_ts = stream.make_ts(None, None, None);
         for pkts in frames_iter {
             let pkt = NAPacket::new(stream.clone(), pkt_ts, true, pkts.to_vec());
             queued_packets.push(pkt);
@@ -405,8 +404,7 @@ fn read_video_buf(src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: 
     vec[4] = 1;
     src.read_buf(&mut vec[9..])?;
 
-    let (tb_num, tb_den) = stream.get_timebase();
-    let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
+    let ts = stream.make_ts(Some(ts as u64), None, None);
     Ok(NAPacket::new(stream, ts, keyframe, vec))
 }
 
@@ -603,8 +601,7 @@ println!(" got ainfo {:?}", ainfo);
                                     return Err(DemuxerError::TryAgain);
                                 }
                                 //todo: check if full frame is received
-                                let (tb_num, tb_den) = stream.get_timebase();
-                                let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
+                                let ts = stream.make_ts(Some(ts as u64), None, None);
                                 let pkt = NAPacket::new(stream, ts, keyframe, vstr.get_frame_data());
                                 Ok(pkt)
                             },
@@ -636,8 +633,7 @@ println!(" got ainfo {:?}", ainfo);
                                     queued_pkts.push(res.unwrap());
                                 }
                                 queued_pkts.reverse();
-                                let (tb_num, tb_den) = stream.get_timebase();
-                                let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
+                                let ts = stream.make_ts(Some(ts as u64), None, None);
                                 let pkt = NAPacket::new(stream, ts, keyframe, vstr.get_frame_data());
                                 Ok(pkt)
                         },

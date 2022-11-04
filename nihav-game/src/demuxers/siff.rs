@@ -83,8 +83,7 @@ impl<'a> SIFFDemuxer<'a> {
         let size                        = self.src.read_u16le()? as usize;
         validate!(size > 8);
         let stream = strmgr.get_stream(0).unwrap();
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(self.vpts), None, None, tb_num, tb_den);
+        let ts = stream.make_ts(Some(self.vpts), None, None);
         let kframe = self.vpts == 0;
         self.cframe += 1;
         let pkt                         = self.src.read_packet(stream, ts, kframe, size - 2)?;
@@ -164,8 +163,7 @@ impl<'a> SIFFDemuxer<'a> {
         let size                        = self.src.read_u32le()? as usize;
         validate!(size > 6);
         let stream = strmgr.get_stream(0).unwrap();
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(self.vpts), None, None, tb_num, tb_den);
+        let ts = stream.make_ts(Some(self.vpts), None, None);
         let kframe = self.vpts == 0;
         self.cframe += 1;
         let pkt                         = self.src.read_packet(stream, ts, kframe, size - 4)?;
@@ -238,8 +236,7 @@ impl<'a> SIFFDemuxer<'a> {
         let cur_size = self.size.min(1024 * (self.ablock as u32));
 
         let stream = strmgr.get_stream(0).unwrap();
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(None, None, None, tb_num, tb_den);
+        let ts = stream.make_ts(None, None, None);
         let pkt                         = self.src.read_packet(stream, ts, true, cur_size as usize)?;
         self.size -= cur_size;
 
@@ -282,8 +279,7 @@ impl<'a> DemuxCore<'a> for SIFFDemuxer<'a> {
             std::mem::swap(&mut buf, &mut self.abuf);
 
             if let Some(stream) = strmgr.get_stream(1) {
-                let (tb_num, tb_den) = stream.get_timebase();
-                let ts = NATimeInfo::new(Some(self.apts), None, None, tb_num, tb_den);
+                let ts = stream.make_ts(Some(self.apts), None, None);
                 self.apts += (buf.len() / self.ablock) as u64;
                 return Ok(NAPacket::new(stream, ts, true, buf));
             }

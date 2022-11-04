@@ -215,9 +215,8 @@ impl<'a> FLVDemuxer<'a> {
                 data_size -= pkt_hdr_size;
                 if data_size > 0 {
                     let stream = strmgr.get_stream(self.astream).unwrap();
-                    let (tb_num, tb_den) = stream.get_timebase();
                     let pts = (u64::from(ext_time) << 24) | u64::from(time);
-                    let ts = NATimeInfo::new(Some(pts), None, None, tb_num, tb_den);
+                    let ts = stream.make_ts(Some(pts), None, None);
                     self.apkts.push(self.src.read_packet(stream, ts, true, data_size)?);
                 }
             },
@@ -352,10 +351,9 @@ impl<'a> FLVDemuxer<'a> {
 
                 if data_size > 0 {
                     let stream = strmgr.get_stream(self.vstream).unwrap();
-                    let (tb_num, tb_den) = stream.get_timebase();
                     let pts = (u64::from(ext_time) << 24) | u64::from(time);
                     let dts = ((pts as i64) + i64::from(cts)).max(0) as u64;
-                    let ts = NATimeInfo::new(Some(pts), Some(dts), None, tb_num, tb_den);
+                    let ts = stream.make_ts(Some(pts), Some(dts), None);
                     self.vpkts.push(self.src.read_packet(stream, ts, ftype == FrameType::I, data_size)?);
                 }
             },

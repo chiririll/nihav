@@ -288,8 +288,7 @@ impl<'a> SmushDemuxer<'a> {
                     let mut buf = Vec::new();
                     std::mem::swap(&mut self.chunks, &mut buf);
                     let stream = strmgr.get_stream(0).unwrap();
-                    let (tb_num, tb_den) = stream.get_timebase();
-                    let ts = NATimeInfo::new(Some(self.cur_frame as u64 - 1), None, None, tb_num, tb_den);
+                    let ts = stream.make_ts(Some(self.cur_frame as u64 - 1), None, None);
                     return Ok(NAPacket::new(stream, ts, false, buf));
                 }
                 if self.cur_frame == self.nframes {
@@ -320,8 +319,7 @@ impl<'a> SmushDemuxer<'a> {
                     let flags           = self.src.read_u16le()?;
                     if (opcode == 8) && (flags == 0x2E) {
                         if let Some(stream) = strmgr.get_stream(1) {
-                            let (tb_num, tb_den) = stream.get_timebase();
-                            let ts = NATimeInfo::new(None, None, None, tb_num, tb_den);
+                            let ts = stream.make_ts(None, None, None);
 
                             let mut buf = vec![0; size as usize];
                             write_u16le(&mut buf[0..2], opcode).unwrap();
@@ -342,10 +340,8 @@ impl<'a> SmushDemuxer<'a> {
                     if size > 0x30 {
                                           self.src.read_skip(0x30)?;
                         if let Some(stream) = strmgr.get_stream(1) {
-                            let (tb_num, tb_den) = stream.get_timebase();
-
                             let audio_size = size - 0x30;
-                            let ts = NATimeInfo::new(Some(self.asize), None, None, tb_num, tb_den);
+                            let ts = stream.make_ts(Some(self.asize), None, None);
                             let pkt = self.src.read_packet(stream, ts, true, audio_size as usize)?;
                             self.asize += audio_size;
                             if (self.src.tell() & 1) == 1 {
@@ -379,8 +375,7 @@ impl<'a> SmushDemuxer<'a> {
                     let mut buf = Vec::new();
                     std::mem::swap(&mut self.chunks, &mut buf);
                     let stream = strmgr.get_stream(0).unwrap();
-                    let (tb_num, tb_den) = stream.get_timebase();
-                    let ts = NATimeInfo::new(Some(self.cur_frame as u64 - 1), None, None, tb_num, tb_den);
+                    let ts = stream.make_ts(Some(self.cur_frame as u64 - 1), None, None);
                     return Ok(NAPacket::new(stream, ts, self.keyframe, buf));
                 }
                 if self.cur_frame == self.nframes {
@@ -427,8 +422,7 @@ impl<'a> SmushDemuxer<'a> {
                             }
                         }
 
-                        let (tb_num, tb_den) = stream.get_timebase();
-                        let mut ts = NATimeInfo::new(None, None, None, tb_num, tb_den);
+                        let mut ts = stream.make_ts(None, None, None);
                         if nsamples != 0 {
                             ts.pts = Some(self.asize);
                             self.asize += u64::from(nsamples);
@@ -616,8 +610,7 @@ impl<'a> DemuxCore<'a> for MCMPDemuxer<'a> {
                                           self.src.read_buf(&mut buf[4..])?;
 
         let stream = strmgr.get_stream(0).unwrap();
-        let (tb_num, tb_den) = stream.get_timebase();
-        let ts = NATimeInfo::new(Some(self.pts[idx]), None, None, tb_num, tb_den);
+        let ts = stream.make_ts(Some(self.pts[idx]), None, None);
 
         self.cur_frame += 1;
 
