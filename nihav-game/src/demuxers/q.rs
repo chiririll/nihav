@@ -81,10 +81,10 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                 0xFFFF => return Err(DemuxerError::EOF),
                 0 => {
                     if let Some(a_id) = self.a_id {
-                        let str = strmgr.get_stream(a_id).unwrap();
-                        let ts = str.make_ts(Some(self.apts), None, None);
+                        let stream = strmgr.get_stream(a_id).unwrap();
+                        let ts = stream.make_ts(Some(self.apts), None, None);
                         self.apts += (size / self.bps) as u64;
-                        return self.src.read_packet(str, ts, true, size);
+                        return self.src.read_packet(stream, ts, true, size);
                     } else {
                                           self.src.read_skip(size)?;
                     }
@@ -99,8 +99,8 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                 },
                 2 | 3 | 4 | 11 => {
                     validate!(self.v_id.is_some());
-                    let str = strmgr.get_stream(self.v_id.unwrap_or(0)).unwrap();
-                    let ts = str.make_ts(Some(self.vpts), None, None);
+                    let stream = strmgr.get_stream(self.v_id.unwrap_or(0)).unwrap();
+                    let ts = stream.make_ts(Some(self.vpts), None, None);
                     self.vpts += 1;
 
                     let cur_len = self.side_data.len();
@@ -114,7 +114,7 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                     }
                     let mut buf = Vec::new();
                     std::mem::swap(&mut buf, &mut self.side_data);
-                    return Ok(NAPacket::new(str, ts, self.vpts == 1, buf));
+                    return Ok(NAPacket::new(stream, ts, self.vpts == 1, buf));
                 },
                 5 => {
                     validate!(size <= 256);

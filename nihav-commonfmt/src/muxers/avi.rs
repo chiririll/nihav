@@ -238,8 +238,8 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         if self.data_pos == 0 {
             return Err(MuxerError::NotCreated);
         }
-        let str = pkt.get_stream();
-        let str_num = str.get_num();
+        let stream = pkt.get_stream();
+        let str_num = stream.get_num();
         if str_num > 99 || str_num >= self.stream_info.len() {
             return Err(MuxerError::UnsupportedFormat);
         }
@@ -282,11 +282,11 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         self.stream_info[str_num].max_size = self.stream_info[str_num].max_size.max(chunk_len);
         self.index.push(IdxEntry {
                 stream: str_num as u32,
-                stype:  str.get_media_type(),
+                stype:  stream.get_media_type(),
                 key:    pkt.keyframe,
                 pos:    self.bw.tell() as u32,
                 len:    chunk_len });
-        write_chunk_hdr(self.bw, str.get_media_type(), str_num as u32)?;
+        write_chunk_hdr(self.bw, stream.get_media_type(), str_num as u32)?;
         self.bw.write_u32le(chunk_len)?;
         self.bw.write_buf(pkt.get_buffer().as_slice())?;
         if (self.bw.tell() & 1) != 0 {

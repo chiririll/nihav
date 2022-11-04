@@ -561,8 +561,8 @@ impl NADecoder for TM2Decoder {
         let magic                               = br.read_u32be()?;
         validate!(magic == 0x100 || magic == 0x101);
                                                   br.read_skip(36)?;
-        for str in self.streams.iter_mut() {
-            str.read_header(&src, &mut br)?;
+        for stream in self.streams.iter_mut() {
+            stream.read_header(&src, &mut br)?;
         }
 
         let myinfo = NAVideoInfo::new(self.width, self.height, false, RGB24_FORMAT);

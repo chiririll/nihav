@@ -90,9 +90,9 @@ impl StreamManager {
     /// Adds a new stream.
     pub fn add_stream(&mut self, stream: NAStream) -> Option<usize> {
         let stream_num = self.streams.len();
-        let mut str = stream;
-        str.set_num(stream_num);
-        self.streams.push(str.into_ref());
+        let mut stream = stream;
+        stream.set_num(stream_num);
+        self.streams.push(stream.into_ref());
         self.ignored.push(false);
         Some(stream_num)
     }
@@ -309,9 +309,9 @@ impl SeekIndex {
     }
     /// Returns stream reference for provided stream ID.
     pub fn get_stream_index(&mut self, id: u32) -> Option<&mut StreamSeekInfo> {
-        for str in self.seek_info.iter_mut() {
-            if str.id == id {
-                return Some(str);
+        for stream in self.seek_info.iter_mut() {
+            if stream.id == id {
+                return Some(stream);
             }
         }
         None
@@ -328,16 +328,16 @@ impl SeekIndex {
     /// Searches for a seek position before requested time.
     pub fn find_pos(&self, time: NATimePoint) -> Option<SeekIndexResult> {
         let mut cand = None;
-        for str in self.seek_info.iter() {
-            if !str.filled { continue; }
-            let res = str.find_pos(time);
+        for stream in self.seek_info.iter() {
+            if !stream.filled { continue; }
+            let res = stream.find_pos(time);
             if res.is_none() { continue; }
             let res = res.unwrap();
             if cand.is_none() {
-                cand = Some(SeekIndexResult { pts: res.pts, pos: res.pos, str_id: str.id });
+                cand = Some(SeekIndexResult { pts: res.pts, pos: res.pos, str_id: stream.id });
             } else if let Some(entry) = cand {
                 if res.pos < entry.pos {
-                    cand = Some(SeekIndexResult { pts: res.pts, pos: res.pos, str_id: str.id });
+                    cand = Some(SeekIndexResult { pts: res.pts, pos: res.pos, str_id: stream.id });
                 }
             }
         }
@@ -465,10 +465,10 @@ pub trait DemuxerCreator {
 /// Creates demuxer for a provided bytestream.
 pub fn create_demuxer<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<Demuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
-    let mut str = StreamManager::new();
+    let mut strmgr = StreamManager::new();
     let mut seek_idx = SeekIndex::new();
-    dmx.open(&mut str, &mut seek_idx)?;
-    Ok(Demuxer::new(dmx, str, seek_idx))
+    dmx.open(&mut strmgr, &mut seek_idx)?;
+    Ok(Demuxer::new(dmx, strmgr, seek_idx))
 }
 
 /// List of registered demuxers.
@@ -631,10 +631,10 @@ pub trait RawDemuxerCreator {
 /// Creates raw data demuxer for a provided bytestream.
 pub fn create_raw_demuxer<'a>(dmxcr: &dyn RawDemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<RawDemuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
-    let mut str = StreamManager::new();
+    let mut strmgr = StreamManager::new();
     let mut seek_idx = SeekIndex::new();
-    dmx.open(&mut str, &mut seek_idx)?;
-    Ok(RawDemuxer::new(dmx, str, seek_idx))
+    dmx.open(&mut strmgr, &mut seek_idx)?;
+    Ok(RawDemuxer::new(dmx, strmgr, seek_idx))
 }
 
 /// List of registered demuxers.

@@ -47,9 +47,9 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
                 let nblocks             = self.src.peek_byte()?;
                 asize = (nblocks as usize) * 65 + 1;
                 validate!(asize < size);
-                let str = strmgr.get_stream(self.aud_id).unwrap();
-                let ts = str.make_ts(Some(self.apos), None, None);
-                let apkt = self.src.read_packet(str, ts, false, asize)?;
+                let stream = strmgr.get_stream(self.aud_id).unwrap();
+                let ts = stream.make_ts(Some(self.apos), None, None);
+                let apkt = self.src.read_packet(stream, ts, false, asize)?;
                 self.apos += u64::from(nblocks) * 32;
                 self.pkt_buf.push(apkt);
             } else {
@@ -59,9 +59,9 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
             buf[0] = ctype;
             self.src.read_buf(&mut buf[1..])?;
 
-            let str = strmgr.get_stream(self.vid_id).unwrap();
-            let ts = str.make_ts(Some(self.vpos), None, None);
-            let pkt = NAPacket::new(str, ts, (ctype & 3) == 3, buf);
+            let stream = strmgr.get_stream(self.vid_id).unwrap();
+            let ts = stream.make_ts(Some(self.vpos), None, None);
+            let pkt = NAPacket::new(stream, ts, (ctype & 3) == 3, buf);
 
             self.vpos += 1;
             return Ok(pkt);
@@ -186,9 +186,9 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
                 buf[0] = (self.src.tell() & 1) as u8;
                 self.src.read_buf(&mut buf[1..])?;
 
-                let str = strmgr.get_stream(self.aud_id).unwrap();
-                let ts = str.make_ts(Some(self.apos), None, None);
-                let apkt = NAPacket::new(str, ts, false, buf);
+                let stream = strmgr.get_stream(self.aud_id).unwrap();
+                let ts = stream.make_ts(Some(self.apos), None, None);
+                let apkt = NAPacket::new(stream, ts, false, buf);
 
                 self.apos += (asize as u64) / 41 * 32;
                 self.pkt_buf.push(apkt);
@@ -206,9 +206,9 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
             buf[0] = ctype;
             self.src.read_buf(&mut buf[1..])?;
 
-            let str = strmgr.get_stream(self.vid_id).unwrap();
-            let ts = str.make_ts(Some(self.vpos), None, None);
-            let pkt = NAPacket::new(str, ts, (ctype & 3) == 3, buf);
+            let stream = strmgr.get_stream(self.vid_id).unwrap();
+            let ts = stream.make_ts(Some(self.vpos), None, None);
+            let pkt = NAPacket::new(stream, ts, (ctype & 3) == 3, buf);
 
             self.vpos += 1;
             return Ok(pkt);

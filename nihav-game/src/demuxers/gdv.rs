@@ -142,13 +142,13 @@ pktdta: Vec::new(),
 
     fn read_achunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         self.state = GDVState::AudioRead;
-        let str = strmgr.get_stream(self.a_id.unwrap()).unwrap();
-        let ts = str.make_ts(Some(u64::from(self.cur_frame)), None, None);
-        self.src.read_packet(str, ts, true, self.asize)
+        let stream = strmgr.get_stream(self.a_id.unwrap()).unwrap();
+        let ts = stream.make_ts(Some(u64::from(self.cur_frame)), None, None);
+        self.src.read_packet(stream, ts, true, self.asize)
     }
 
     fn read_vchunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        let str = strmgr.get_stream(self.v_id.unwrap()).unwrap();
+        let stream = strmgr.get_stream(self.v_id.unwrap()).unwrap();
         let src = &mut self.src;
         let magic = src.read_u16be()?;
         if magic != 0x0513 { return Err(DemuxerError::InvalidData); }
@@ -157,8 +157,8 @@ pktdta: Vec::new(),
         let flags = (tmp & 0xFF) as usize;
         self.state = GDVState::NewFrame;
         self.cur_frame += 1;
-        let ts = str.make_ts(Some(u64::from(self.cur_frame - 1)), None, None);
-        src.read_packet(str, ts, (flags & 64) != 0, size)
+        let ts = stream.make_ts(Some(u64::from(self.cur_frame - 1)), None, None);
+        src.read_packet(stream, ts, (flags & 64) != 0, size)
     }
 }
 

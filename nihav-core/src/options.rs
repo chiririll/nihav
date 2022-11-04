@@ -184,8 +184,8 @@ impl NAOptionDefinition {
             },
             NAValue::String(ref cur_str) => {
                 if let NAOptionDefinitionType::String(Some(strings)) = self.opt_type {
-                    for str in strings.iter() {
-                        if cur_str == str {
+                    for string in strings.iter() {
+                        if cur_str == string {
                             return Ok(());
                         }
                     }

@@ -75,9 +75,9 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
         if self.src.tell() >= self.data_end {
             return Err(DemuxerError::EOF);
         }
-        let str = strmgr.get_stream(0);
-        if str.is_none() { return Err(InvalidData); }
-        let stream = str.unwrap();
+        let strm = strmgr.get_stream(0);
+        if strm.is_none() { return Err(InvalidData); }
+        let stream = strm.unwrap();
         let pts = if self.avg_bytes != 0 {
                 let pos = self.src.tell() - self.data_pos;
                 Some(pos * u64::from(self.srate) / u64::from(self.avg_bytes))

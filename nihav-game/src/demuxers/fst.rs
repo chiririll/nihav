@@ -72,9 +72,9 @@ impl<'a> DemuxCore<'a> for FutureVisionVideoDemuxer<'a> {
             self.cur_frame += 1;
         }
 
-        let str = strmgr.get_stream(id).unwrap();
-        let ts = str.make_ts(Some(pts), None, None);
-        self.src.read_packet(str, ts, true, size)
+        let stream = strmgr.get_stream(id).unwrap();
+        let ts = stream.make_ts(Some(pts), None, None);
+        self.src.read_packet(stream, ts, true, size)
     }
 
     fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
@@ -146,9 +146,9 @@ impl<'a> DemuxCore<'a> for FutureVisionAudioDemuxer<'a> {
         let size = (self.end - self.src.tell()).min(0x2000) as usize;
         let pts = (self.src.tell() - 14) * 2;
 
-        let str = strmgr.get_stream(self.a_id).unwrap();
-        let ts = str.make_ts(Some(pts), None, None);
-        self.src.read_packet(str, ts, true, size)
+        let stream = strmgr.get_stream(self.a_id).unwrap();
+        let ts = stream.make_ts(Some(pts), None, None);
+        self.src.read_packet(stream, ts, true, size)
     }
 
     fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {

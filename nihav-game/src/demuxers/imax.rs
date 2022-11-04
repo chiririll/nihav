@@ -48,10 +48,10 @@ impl<'a> DemuxCore<'a> for IMAXDemuxer<'a> {
 
             match ftype {
                 0xAA97 => {
-                    let str = strmgr.get_stream(self.v_id).unwrap();
-                    let ts = str.make_ts(Some(self.cur_frame), None, None);
+                    let stream = strmgr.get_stream(self.v_id).unwrap();
+                    let ts = stream.make_ts(Some(self.cur_frame), None, None);
                     self.cur_frame += 1;
-                    let mut pkt = self.src.read_packet(str, ts, true, fsize)?;
+                    let mut pkt = self.src.read_packet(stream, ts, true, fsize)?;
                     pkt.add_side_data(NASideData::Palette(self.pal_change, self.pal.clone()));
                     self.pal_change = false;
                     return Ok(pkt);
@@ -71,10 +71,10 @@ impl<'a> DemuxCore<'a> for IMAXDemuxer<'a> {
                     self.pal_change = true;
                 },
                 0xAA99 => {
-                    let str = strmgr.get_stream(self.a_id).unwrap();
-                    let ts = str.make_ts(Some(self.apos), None, None);
+                    let stream = strmgr.get_stream(self.a_id).unwrap();
+                    let ts = stream.make_ts(Some(self.apos), None, None);
                     self.apos += fsize as u64;
-                    return self.src.read_packet(str, ts, true, fsize);
+                    return self.src.read_packet(stream, ts, true, fsize);
                 },
                 0xAAFF => return Err(DemuxerError::EOF),
                 _ => return Err(DemuxerError::InvalidData),

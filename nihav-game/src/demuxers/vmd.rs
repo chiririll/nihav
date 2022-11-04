@@ -172,9 +172,9 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         self.fno += 1;
 
         let str_id = if is_video { self.vid_id } else { self.aud_id };
-        let str = strmgr.get_stream(str_id).unwrap();
-        let ts = str.make_ts(Some(u64::from(cur_frame.ts)), None, None);
-        let pkt = NAPacket::new(str, ts, false, buf);
+        let stream = strmgr.get_stream(str_id).unwrap();
+        let ts = stream.make_ts(Some(u64::from(cur_frame.ts)), None, None);
+        let pkt = NAPacket::new(stream, ts, false, buf);
 
         Ok(pkt)
     }

@@ -1550,9 +1550,9 @@ fn process_packet(src: &mut ByteReader, strmgr: &StreamManager, track: &mut Trac
     } else {
         track.cur_ts = None;
     }
-    let str = strmgr.get_stream(track.track_str_id);
-    if str.is_none() { return Err(DemuxerError::InvalidData); }
-    let stream = str.unwrap();
+    let stream = strmgr.get_stream(track.track_str_id);
+    if stream.is_none() { return Err(DemuxerError::InvalidData); }
+    let stream = stream.unwrap();
     src.seek(SeekFrom::Start(offset))?;
     let mut pkt = src.read_packet(stream, pts, false, size)?;
     if let Some(ref pal) = track.pal {
@@ -1568,9 +1568,9 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
         validate!(self.mdat_pos > 0);
         validate!(!self.tracks.is_empty());
         for track in self.tracks.iter_mut() {
-            let mut str = None;
-            std::mem::swap(&mut track.stream, &mut str);
-            if let Some(stream) = str {
+            let mut strm = None;
+            std::mem::swap(&mut track.stream, &mut strm);
+            if let Some(stream) = strm {
                 let str_id = strmgr.add_stream(stream).unwrap();
                 track.track_str_id = str_id;
             }

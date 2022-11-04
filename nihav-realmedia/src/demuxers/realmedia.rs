@@ -1186,8 +1186,7 @@ fn read_string_size(src: &mut ByteReader, size: usize) -> DemuxerResult<String> 
         let c = src.read_byte()?;
         vec.push(c);
     }
-    let str = String::from_utf8(vec);
-    if let Ok(res) = str {
+    if let Ok(res) = String::from_utf8(vec) {
         Ok(res)
     } else {
         Ok(String::new())
@@ -1307,7 +1306,7 @@ impl<'a> RealAudioDemuxer<'a> {
 enum IVRRecord {
     Invalid(u8),
     StreamProperties(usize),
-    Packet { ts: u32, str: u32, flags: u32, len: usize, checksum: u32 },
+    Packet { ts: u32, strm: u32, flags: u32, len: usize, checksum: u32 },
     IntValue(Vec<u8>, u32),
     BinaryData(Vec<u8>, Vec<u8>),
     StringData(Vec<u8>, Vec<u8>),
@@ -1333,12 +1332,12 @@ impl IVRRecord {
                 },
             2 => {
                     let ts      = src.read_u32be()?;
-                    let str     = src.read_u16be()? as u32;
+                    let strm    = src.read_u16be()? as u32;
                     let flags   = src.read_u32be()?;
                     let len     = src.read_u32be()? as usize;
                     let chk     = src.read_u32be()?;
                     validate!((len > 0) && (len < (1 << 24)));
-                    Ok(IVRRecord::Packet { ts, str, flags, len, checksum: chk })
+                    Ok(IVRRecord::Packet { ts, strm, flags, len, checksum: chk })
                 },
             3 => {
                     let name = Self::read_string(src)?;
@@ -1382,8 +1381,8 @@ impl fmt::Display for IVRRecord {
             IVRRecord::Invalid(typ) => write!(f, "Invalid({:02X})", typ),
             IVRRecord::StreamProperties(num) =>
                 write!(f, "({} stream properties)", num),
-            IVRRecord::Packet { ts, str, flags, len, checksum } =>
-                write!(f, "paket({}, {}, {:X}, {}, {})", ts, str, flags, len, checksum),
+            IVRRecord::Packet { ts, strm, flags, len, checksum } =>
+                write!(f, "paket({}, {}, {:X}, {}, {})", ts, strm, flags, len, checksum),
             IVRRecord::IntValue(ref name, val) =>
                 write!(f, "({} = {})", String::from_utf8_lossy(name), val),
             IVRRecord::BinaryData(ref name, ref val) =>
@@ -1503,9 +1502,9 @@ impl RecordDemuxer {
         loop {
             let rec = IVRRecord::read(src)?;
             match rec {
-                IVRRecord::Packet { ts, str, flags, len, .. } => {
+                IVRRecord::Packet { ts, strm, flags, len, .. } => {
                         let payload_size = len;
-                        let sr = self.remap_ids.iter().position(|x| *x == str);
+                        let sr = self.remap_ids.iter().position(|x| *x == strm);
                         validate!(sr.is_some());
                         let str_no = self.start_str + (sr.unwrap() as u32);
                         let pkt_grp = ((flags >> 8) & 0xFF) as u16;

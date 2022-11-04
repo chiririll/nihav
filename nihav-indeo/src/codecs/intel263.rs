@@ -263,10 +263,10 @@ impl BlockDSP for I263BlockDSP {
             let coded0 = cbpi.is_coded(mb_x, 0);
             let coded1 = cbpi.is_coded(mb_x, 1);
             let q = cbpi.get_q(mb_w + mb_x);
-            let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
+            let strength = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
             if mb_y != 0 {
-                if coded0 && cbpi.is_coded_top(mb_x, 0) { deblock_hor(buf, 0, str, coff); }
-                if coded1 && cbpi.is_coded_top(mb_x, 1) { deblock_hor(buf, 0, str, coff + 8); }
+                if coded0 && cbpi.is_coded_top(mb_x, 0) { deblock_hor(buf, 0, strength, coff); }
+                if coded1 && cbpi.is_coded_top(mb_x, 1) { deblock_hor(buf, 0, strength, coff + 8); }
             }
             let coff = off + 8 * stride;
             if cbpi.is_coded(mb_x, 2) && coded0 { deblock_hor(buf, 0, q, coff); }
@@ -282,7 +282,7 @@ impl BlockDSP for I263BlockDSP {
             let ccur0 = cbpi.is_coded(mb_x, 0);
             let ccur1 = cbpi.is_coded(mb_x, 1);
             let q = cbpi.get_q(mb_w + mb_x);
-            let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
+            let strength = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
             if mb_y != 0 {
                 let coff = off - 8 * stride;
                 let qtop = cbpi.get_q(mb_x);
@@ -290,8 +290,8 @@ impl BlockDSP for I263BlockDSP {
                 if leftt && ctop0 { deblock_ver(buf, 0, strtop, coff); }
                 if ctop0 && ctop1 { deblock_ver(buf, 0, strtop, coff + 8); }
             }
-            if leftc && ccur0 { deblock_ver(buf, 0, str, off); }
-            if ccur0 && ccur1 { deblock_ver(buf, 0, str, off + 8); }
+            if leftc && ccur0 { deblock_ver(buf, 0, strength, off); }
+            if ccur0 && ccur1 { deblock_ver(buf, 0, strength, off + 8); }
             leftt = ctop1;
             leftc = ccur1;
             off += 16;
@@ -307,9 +307,9 @@ impl BlockDSP for I263BlockDSP {
                 let ctv = cbpi.is_coded_top(mb_x, 5);
                 let ccv = cbpi.is_coded(mb_x, 5);
                 let q = cbpi.get_q(mb_w + mb_x);
-                let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
-                if ctu && ccu { deblock_hor(buf, 1, str, offu + mb_x * 8); }
-                if ctv && ccv { deblock_hor(buf, 2, str, offv + mb_x * 8); }
+                let strength = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
+                if ctu && ccu { deblock_hor(buf, 1, strength, offu + mb_x * 8); }
+                if ctv && ccv { deblock_hor(buf, 2, strength, offv + mb_x * 8); }
             }
             let mut leftu = false;
             let mut leftv = false;

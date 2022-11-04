@@ -285,14 +285,14 @@ fn rv40_weak_loop_filter4(pix: &mut [u8], mut off: usize, step: usize, stride: u
         let q1 = el!(pix, off +   step);
         let q2 = el!(pix, off + 2*step);
 
-        let str;
+        let strength;
         if filter_p1 && filter_q1 {
-            str = (t << 2) + (p1 - q1);
+            strength = (t << 2) + (p1 - q1);
         } else {
-            str = t << 2;
+            strength = t << 2;
         }
 
-        let diff = clip_symm((str + 4) >> 3, lim_p0q0);
+        let diff = clip_symm((strength + 4) >> 3, lim_p0q0);
         pix[off - step] = clip8(p0 + diff);
         pix[off       ] = clip8(q0 - diff);
 
@@ -340,14 +340,14 @@ fn rv40_weak_loop_filter4_v(pix: &mut [u8], off: usize, stride: usize,
         let q1 = el!(ch, 3 + 1);
         let q2 = el!(ch, 3 + 2);
 
-        let str;
+        let strength;
         if filter_p1 && filter_q1 {
-            str = (t << 2) + (p1 - q1);
+            strength = (t << 2) + (p1 - q1);
         } else {
-            str = t << 2;
+            strength = t << 2;
         }
 
-        let diff = clip_symm((str + 4) >> 3, lim_p0q0);
+        let diff = clip_symm((strength + 4) >> 3, lim_p0q0);
         ch[3 - 1] = clip8(p0 + diff);
         ch[3    ] = clip8(q0 - diff);
 
