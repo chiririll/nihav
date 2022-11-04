@@ -1345,6 +1345,10 @@ impl NAStream {
     }
     /// Returns stream duration.
     pub fn get_duration(&self) -> u64 { self.duration }
+    /// Constructs a new timestamp.
+    pub fn make_ts(&self, pts: Option<u64>, dts: Option<u64>, duration: Option<u64>) -> NATimeInfo {
+        NATimeInfo::new(pts, dts, duration, self.tb_num, self.tb_den)
+    }
     /// Converts current instance into a reference-counted one.
     pub fn into_ref(self) -> NAStreamRef { Arc::new(self) }
 }
