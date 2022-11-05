@@ -7,6 +7,7 @@ pub use crate::frame::{NAAudioBuffer,NAAudioInfo,NABufferType};
 use crate::formats::NAChannelType;
 use crate::frame::alloc_audio_buffer;
 use crate::io::byteio::*;
+use crate::io::bitreader::*;
 use std::f32::consts::SQRT_2;
 
 /// A list specifying general sound conversion errors.
@@ -216,11 +217,32 @@ struct PackedSampleReader<'a> {
 
 impl<'a> PackedSampleReader<'a> {
     fn new(data: &'a [u8], fmt: NASoniton) -> Self {
-        if (fmt.bits & 7) != 0 { unimplemented!(); }
         let bpp = (fmt.bits >> 3) as usize;
         Self { data, fmt, bpp }
     }
     fn get_samples<T:Copy>(&self, pos: usize, dst: &mut [T]) where u8: IntoFmt<T>, i16: IntoFmt<T>, i32: IntoFmt<T>, f32: IntoFmt<T> {
+        if (self.fmt.bits & 7) != 0 {
+            let mode = if self.fmt.be { BitReaderMode::BE } else { BitReaderMode::LE };
+            let mut br = BitReader::new(self.data, mode);
+            let offset = pos * (self.fmt.bits as usize) * dst.len();
+
+            if br.skip(offset as u32).is_ok() {
+                for el in dst.iter_mut() {
+                    if self.fmt.bits < 16 {
+                        *el = ((br.read(self.fmt.bits).unwrap_or(0) as i16) << (16 - self.fmt.bits)).cvt_into();
+                    } else {
+                        *el = ((br.read(self.fmt.bits).unwrap_or(0) as i32) << (32 - self.fmt.bits)).cvt_into();
+                    }
+                }
+            } else {
+                for el in dst.iter_mut() {
+                    *el = 0i16.cvt_into();
+                }
+            }
+
+            return;
+        }
+
         let mut offset = pos * self.bpp * dst.len();
 
         for el in dst.iter_mut() {
@@ -345,7 +367,7 @@ impl SampleWriter for PackedSampleWriter<'_> {
 /// Converts input audio buffer into desired format and returns a newly allocated buffer.
 pub fn convert_audio_frame(src: &NABufferType, dst_info: &NAAudioInfo, dst_chmap: &NAChannelMap) ->
 Result<NABufferType, SoundConvertError> {
-    let mut nsamples = src.get_audio_length();
+    let nsamples = src.get_audio_length();
     if nsamples == 0 {
         return Err(SoundConvertError::InvalidInput);
     }
@@ -353,10 +375,6 @@ Result<NABufferType, SoundConvertError> {
     let src_info  = src.get_audio_info().unwrap();
     if (src_chmap.num_channels() == 0) || (dst_chmap.num_channels() == 0) {
         return Err(SoundConvertError::InvalidInput);
-    }
-
-    if let NABufferType::AudioPacked(_) = src {
-        nsamples = nsamples * 8 / (src_info.get_format().get_bits() as usize) / src_chmap.num_channels();
     }
 
     let needs_remix = src_chmap.num_channels() != dst_chmap.num_channels();
@@ -646,6 +664,41 @@ mod test {
             let r = data[off1];
             assert_eq!(l,  0.22633252);
             assert_eq!(r, -0.6062342);
+        } else {
+            panic!("wrong buffer type");
+        }
+
+        const PCM12: &[u8] = &[ 0x02, 0x50, 0x00, 0x07, 0x70, 0x00, 0x0D, 0x00 ];
+        const PCM12_SAMPLES: usize = 5;
+        let src_ainfo = NAAudioInfo {
+                            sample_rate:    44100,
+                            channels:       1,
+                            format:         NASoniton::new(12, SONITON_FLAG_PACKED | SONITON_FLAG_SIGNED),
+                            block_len:      3,
+                        };
+        let dst_ainfo = NAAudioInfo {
+                            sample_rate:    44100,
+                            channels:       1,
+                            format:         SND_S16P_FORMAT,
+                            block_len:      512,
+                        };
+        let mono = NAChannelMap::from_str("C").unwrap();
+        let mut src_frm = alloc_audio_buffer(src_ainfo, PCM12_SAMPLES, mono.clone()).unwrap();
+        if let NABufferType::AudioPacked(ref mut abuf) = src_frm {
+            let data = abuf.get_data_mut().unwrap();
+            data.copy_from_slice(PCM12);
+        } else {
+            panic!("wrong buffer type");
+        }
+        let out_frm = convert_audio_frame(&src_frm, &dst_ainfo, &mono).unwrap();
+        if let NABufferType::AudioI16(ref abuf) = out_frm {
+            let data = abuf.get_data();
+            assert_eq!(data.len(), PCM12_SAMPLES);
+            assert_eq!(data[0], 0x0020);
+            assert_eq!(data[1], 0x0050);
+            assert_eq!(data[2], 0x0070);
+            assert_eq!(data[3], 0x0070);
+            assert_eq!(data[4], 0x00D0);
         } else {
             panic!("wrong buffer type");
         }
