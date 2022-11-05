@@ -271,7 +271,8 @@ impl<T: Clone> NAAudioBuffer<T> {
 impl NAAudioBuffer<u8> {
     /// Constructs a new `NAAudioBuffer` instance.
     pub fn new_from_buf(info: NAAudioInfo, data: NABufferRef<Vec<u8>>, chmap: NAChannelMap) -> Self {
-        let len = data.len();
+        let len = data.len() * 8 / chmap.num_channels() / (info.format.bits as usize);
+
         NAAudioBuffer { info, data, chmap, offs: Vec::new(), len, stride: 0, step: 0 }
     }
 }
