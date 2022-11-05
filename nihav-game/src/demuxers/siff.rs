@@ -204,7 +204,7 @@ impl<'a> SIFFDemuxer<'a> {
         validate!(&tag == b"SHDR");
         let hdr_size                    = self.src.read_u32be()? as usize;
         validate!(hdr_size >= 8);
-        let snd_size                    = self.src.read_u32le()?;
+        let duration                    = self.src.read_u32le()? as u64;
         let srate                       = self.src.read_u16le()? as u32;
         let flags                       = self.src.read_u16le()?;
         let bits = flags as u8;
@@ -212,8 +212,6 @@ impl<'a> SIFFDemuxer<'a> {
         let channels = if (flags & 0x100) != 0 { 2 } else { 1 };
         self.ablock = (bits as usize) * (channels as usize);
                                           self.src.read_skip(hdr_size - 8)?;
-
-        let duration = u64::from(snd_size) / u64::from(channels) * 8 / u64::from(bits);
 
         let fmt = match bits {
                 8 => SND_U8_FORMAT,
