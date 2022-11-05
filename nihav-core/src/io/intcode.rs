@@ -348,7 +348,6 @@ mod test {
         bw.write_code(UintCodeType::Gamma, 42);
         bw.write_code(UintCodeType::GammaP, 42);
         let data = bw.end();
-        let mut br = BitReader::new(&data, BitReaderMode::BE);
 
         let mut br = BitReader::new(&data, BitReaderMode::BE);
         assert_eq!(br.read_code(UintCodeType::Golomb(5)).unwrap(), 42);
