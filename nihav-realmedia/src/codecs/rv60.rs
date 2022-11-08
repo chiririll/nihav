@@ -682,12 +682,13 @@ impl RealVideo60Decoder {
     fn decode_cu_line(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, src: &[u8], cu_y: usize) -> DecoderResult<()> {
         let mut br = BitReader::new(src, BitReaderMode::BE);
         let cu_w = hdr.get_width_cu();
-        let dqp = hdr.read_line_qp_offset(&mut br)?;
-        let qps = (hdr.qp as i8) + dqp;
-        validate!((0..32).contains(&qps));
-        let qp = qps as u8;
-        self.qp = qp;
-        self.sel_qp = match hdr.osvquant {
+        for cu_x in 0..cu_w {
+            let dqp = hdr.read_line_qp_offset(&mut br)?;
+            let qps = (hdr.qp as i8) + dqp;
+            validate!((0..32).contains(&qps));
+            let qp = qps as u8;
+            self.qp = qp;
+            self.sel_qp = match hdr.osvquant {
                 0 => qp,
                 1 => {
                         if qp <= 25 {
@@ -707,7 +708,6 @@ impl RealVideo60Decoder {
                     },
             };
 
-        for cu_x in 0..cu_w {
             self.cu_splits.clear();
             self.coded_blk = [false; 64];
             self.decode_cb_tree(buf, hdr, &mut br, cu_x << 6, cu_y << 6, 6)?;
@@ -1606,5 +1606,30 @@ mod test {
                             [0xdca03c9a, 0x1a45d80c, 0x86141211, 0x79912ed4],
                             [0x0bf66bf4, 0x46385620, 0xc6fa4796, 0xd8e16d56],
                             [0x4671a7f0, 0x46f50649, 0x268df27b, 0x70b71ab3]]));
+    }
+    #[test]
+    fn test_rv60_dqp() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        realmedia_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        realmedia_register_all_decoders(&mut dec_reg);
+
+        // sample provided by Peter Ross
+        test_decoding("realmedia", "realvideo6", "assets/RV/qp-offset-type-2.rmhd", Some(500), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                            [0x3dc2f19e, 0x0f8c66bd, 0x8e81ceda, 0xa1bf8f58],
+                            [0xbd9c0f89, 0x67b780b0, 0xa4afe443, 0x9f17221a],
+                            [0xf3e0a7ba, 0xe620ace9, 0x03857219, 0x8c3bd1fb],
+                            [0xc4eedc8c, 0x81d2dd0f, 0xa6443847, 0x09c8cec9],
+                            [0x565fc952, 0x4d5dc166, 0xf64b7b0d, 0x1570de50],
+                            [0x0e50786a, 0xaf058ff3, 0xa3f71eba, 0x370c197a],
+                            [0x1b92667b, 0x9cab9e24, 0x1bf48cb2, 0x368db124],
+                            [0xefcc0ab4, 0x6efceb20, 0xb2501ee8, 0xb449b7b6],
+                            [0xbbc2ca23, 0x6a7a8da2, 0xeadc1ff7, 0x2ff0a7f3],
+                            [0x6d14a2b4, 0x0d2642fb, 0x78fcad10, 0xba571ec1],
+                            [0xbdf889fd, 0x5f15838a, 0x8fedd13f, 0xc26a2e50],
+                            [0x886f03b6, 0xc46ba7c3, 0xae6aa971, 0x90cf94b6],
+                            [0x951693e7, 0xa77f68f3, 0x765990c9, 0x4a4d57fa],
+                            [0x3c25f4eb, 0x5c113c41, 0x4d73f498, 0xd7e210b0]]));
     }
 }
