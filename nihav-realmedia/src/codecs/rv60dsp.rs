@@ -170,10 +170,10 @@ fn filter_luma_edge(dst: &mut [u8], mut offset: usize, step: usize, stride: usiz
     let str_q = strength!(diff_p1p0[0] + diff_p1p0[1] + diff_p1p0[2] + diff_p1p0[3], lim2);
     if str_p + str_q > 2 {
         let msum = ((mode1 + mode2 + str_q + str_p) >> 1) as i16;
-        let (maxprod, weak) = if (str_q == 1) || (str_p == 1) { (512, true) } else { (384, false) };
+        let (maxprod, weak) = if (str_q == 1) || (str_p == 1) { (384, true) } else { (256, false) };
         for y in 0..4 {
             let diff_p0q0 = diff!(dst, offset, offset - step);
-            if (diff_p0q0 != 0) && (lim1 * diff_p0q0.abs() < maxprod) {
+            if (diff_p0q0 != 0) && (((lim1 * diff_p0q0.abs()) & !0x7F) <= maxprod) {
                 let diff_q1q2 = diff!(dst, offset - 2 * step, offset - 3 * step);
                 let diff_p1p2 = diff!(dst, offset +     step, offset + 2 * step);
                 let delta = if weak {
@@ -214,10 +214,10 @@ fn filter_chroma_edge(dst: &mut [u8], mut offset: usize, step: usize, stride: us
     let str_p = strength!(diff_p, lim2);
     if str_p + str_q > 2 {
         let msum = ((mode1 + mode2 + str_q + str_p) >> 1) as i16;
-        let (maxprod, weak) = if (str_q == 1) || (str_p == 1) { (512, true) } else { (384, false) };
+        let (maxprod, weak) = if (str_q == 1) || (str_p == 1) { (384, true) } else { (256, false) };
         for _ in 0..2 {
             let diff_pq = diff!(dst, offset, offset - step);
-            if (diff_pq != 0) && (lim1 * diff_pq.abs() < maxprod) {
+            if (diff_pq != 0) && (((lim1 * diff_pq.abs()) & !0x7F) <= maxprod) {
                 let delta = if weak {
                         clip_symm((diff_pq + 1) >> 1, msum >> 1)
                     } else {
