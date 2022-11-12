@@ -71,21 +71,21 @@ impl NADecoder for ArxelVideoDecoder {
         validate!(height == vinfo.get_height());
 
                                               br.seek(SeekFrom::Start(part2_off + (HEADER_SIZE as u64)))?;
+        let tile_w = if tile_size == 2 { 2 } else { 4 };
+        let tsize = tile_w * BPP;
+
         match tile_size {
-            2 => {
-                return Err(DecoderError::NotImplemented);
-            },
-            4 => {
-                                              br.read_buf(&mut self.tiles[..16])?;
+            2 | 4 => {
+                                              br.read_buf(&mut self.tiles[..tsize])?;
                 let off = br.tell() as usize;
                 let mut bir = BitReader::new(&src[off..], BitReaderMode::BE);
                 for tile in 1..num_tiles {
-                    for i in 0..16 {
-                        self.tiles[tile * 16 + i] = self.tiles[tile * 16 + i - 16];
+                    for i in 0..tsize {
+                        self.tiles[tile * tsize + i] = self.tiles[tile * tsize + i - tsize];
                     }
                     let bits                = bir.read(3)? as u8 + 1;
                     validate!(bits < 8);
-                    for el in self.tiles[tile * 16..][..16].iter_mut() {
+                    for el in self.tiles[tile * tsize..][..tsize].iter_mut() {
                         let mut delta       = bir.read(bits)? as i16;
                         if delta != 0 && bir.read_bool()? {
                             delta = -delta;
@@ -95,7 +95,7 @@ impl NADecoder for ArxelVideoDecoder {
                 }
             },
             _ => {
-                validate!(tile_size > 0);
+                validate!(tile_size == num_tiles * tsize);
                                               br.read_buf(&mut self.tiles[..tile_size])?;
             },
         };
@@ -108,8 +108,6 @@ impl NADecoder for ArxelVideoDecoder {
         let dst = data.as_mut_slice();
 
         let mut br = BitReader::new(&src[HEADER_SIZE..], BitReaderMode::BE);
-        let tile_w = 4;
-        let tsize = tile_w * BPP;
         let idx_bits = if num_tiles < 0x400 { 10 } else if num_tiles < 0x800 { 11 } else { 12 };
         for y in (0..height).step_by(2) {
             for x in (0..width).step_by(tile_w) {
