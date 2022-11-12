@@ -8,7 +8,7 @@ const MV_2BIT: [(i8, i8); 4] = [(-1, 0), (-1, -1), (1, -1), (0, -2)];
 const MV_4BIT: [(i8, i8); 16] = [
     (-2, -3), ( 2, -3), (-1, -4), ( 1, -4),
     (-1, -2), ( 1, -2), ( 0, -3), ( 0, -4),
-    (-2,  0), (-2, -1), ( 1, -1), (-2, -2),
+    (-2,  0), (-2, -1), ( 2, -1), (-2, -2),
     ( 2, -2), (-1, -3), ( 1, -3), ( 0, -5)
 ];
 
@@ -177,6 +177,6 @@ mod test {
         game_register_all_decoders(&mut dec_reg);
 
         test_decoding("arxel-cnm", "arxel-video", "assets/Game/logo.cnm", Some(10), &dmx_reg, &dec_reg,
-                      ExpectedTestResult::MD5([0xcf12f83a, 0xfdce1ed2, 0x2d183394, 0xa265f164]));
+                      ExpectedTestResult::MD5([0x9b1fc970, 0x1fe86e2c, 0x44dd9255, 0x3920c49b]));
     }
 }
