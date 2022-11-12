@@ -243,6 +243,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video;    "gdv-video",     "Gremlin Digital Video - video"),
     desc!(audio;    "gdv-audio",     "Gremlin Digital Video - audio"),
+    desc!(video-im; "arxel-video",   "Arxel Tribe Video"),
     desc!(video;    "beam-fcp",      "Beam Software Animation"),
     desc!(video;    "beam-video",    "Beam Software Video"),
     desc!(video;    "bmv-video",     "BMV video"),

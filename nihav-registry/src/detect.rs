@@ -254,6 +254,11 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 6, cond: &CC::Ge(Arg::U16LE(32))}],
     },
     DetectConditions {
+        demux_name: "arxel-cnm",
+        extensions: ".cnm",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"CNM UNR\x00")}],
+    },
+    DetectConditions {
         demux_name: "fcmp",
         extensions: ".cmp",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"FCMP")}],

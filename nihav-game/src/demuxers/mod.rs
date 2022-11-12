@@ -7,6 +7,8 @@ macro_rules! validate {
 
 #[cfg(any(feature="demuxer_bmv",feature="demuxer_bmv3"))]
 mod bmv;
+#[cfg(feature="demuxer_cnm")]
+mod cnm;
 #[cfg(any(feature="demuxer_fst",feature="demuxer_fcmp"))]
 mod fst;
 #[cfg(feature="demuxer_gdv")]
@@ -31,6 +33,8 @@ const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
     &bmv::BMVDemuxerCreator {},
 #[cfg(feature="demuxer_bmv3")]
     &bmv::BMV3DemuxerCreator {},
+#[cfg(feature="demuxer_cnm")]
+    &cnm::CNMDemuxerCreator {},
 #[cfg(feature="demuxer_fcmp")]
     &fst::FCMPDemuxerCreator {},
 #[cfg(feature="demuxer_fst")]
