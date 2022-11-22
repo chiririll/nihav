@@ -243,7 +243,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
         }
         if seek_info.pos < self.movi_pos { return Err(DemuxerError::SeekError); }
         let skip_size = (seek_info.pos - self.movi_pos) as usize;
-        if skip_size > self.movi_size { return Err(DemuxerError::SeekError); }
+        if skip_size > self.movi_orig { return Err(DemuxerError::SeekError); }
         self.movi_size = self.movi_orig - skip_size;
 
         self.cur_frame[seek_info.str_id as usize] = seek_info.pts;
