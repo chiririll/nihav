@@ -881,7 +881,10 @@ impl NADecoder for ClearVideoDecoder {
     #[allow(clippy::or_fun_call)]
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let w = vinfo.get_width();
+            let mut w = vinfo.get_width();
+            if self.is_rm {
+                w = (w + 0x1F) & !0x1F;
+            }
             let h = vinfo.get_height();
             let f = vinfo.is_flipped();
             let fmt = formats::YUV420_FORMAT;
