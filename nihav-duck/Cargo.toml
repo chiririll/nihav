@@ -37,9 +37,10 @@ decoder_dk4_adpcm = ["decoders"]
 decoder_on2avc = ["decoders"]
 
 all_encoders = ["all_video_encoders"]
-all_video_encoders = ["encoder_vp6", "encoder_vp7"]
+all_video_encoders = ["encoder_truemotionrt", "encoder_vp6", "encoder_vp7"]
 encoders = []
 
+encoder_truemotionrt = ["encoders"]
 encoder_vp6 = ["encoders"]
 encoder_vp7 = ["encoders"]
 

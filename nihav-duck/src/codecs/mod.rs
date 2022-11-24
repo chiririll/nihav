@@ -126,6 +126,8 @@ pub fn duck_register_all_decoders(rd: &mut RegisteredDecoders) {
     }
 }
 
+#[cfg(feature="encoder_truemotionrt")]
+mod truemotionrtenc;
 #[cfg(feature="encoder_vp6")]
 #[macro_use]
 mod vpenc;
@@ -137,6 +139,8 @@ mod vp6enc;
 mod vp7enc;
 
 const DUCK_ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_truemotionrt")]
+    EncoderInfo { name: "truemotionrt", get_encoder: truemotionrtenc::get_encoder },
 #[cfg(feature="encoder_vp6")]
     EncoderInfo { name: "vp6", get_encoder: vp6enc::get_encoder },
 #[cfg(feature="encoder_vp6")]
