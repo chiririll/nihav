@@ -796,9 +796,9 @@ fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut S
         let stream_no = ((tag[0] - b'0') * 10 + (tag[1] - b'0')) as usize;
 
         if (flags & 0x10) != 0 {
-            if let Some(str) = strmgr.get_stream(stream_no) {
-                if str.get_media_type() == StreamType::Video {
-                    let (tb_num, tb_den) = str.get_timebase();
+            if let Some(stream) = strmgr.get_stream(stream_no) {
+                if stream.get_media_type() == StreamType::Video {
+                    let (tb_num, tb_den) = stream.get_timebase();
                     let pts = counter[stream_no];
                     let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
                     validate!(offset >= movi_pos);
