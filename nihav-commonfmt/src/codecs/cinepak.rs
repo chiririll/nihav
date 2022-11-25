@@ -111,6 +111,7 @@ impl CinepakDecoder {
         let mut idx_pos = 0;
         let mut idx_size = 0;
         let mut v1_only = false;
+        let mut intra_mode = true;
         while br.left() > 0 {
             let id                      = br.read_byte()?;
             if (id & 0xF0) == 0x20 && is_intra_strip {
@@ -136,6 +137,7 @@ impl CinepakDecoder {
                 0x31 => { // inter indices
                     validate!(!is_intra);
                     validate!(idx_pos == 0);
+                    intra_mode = false;
                     idx_pos = br.tell() as usize;
                     idx_size = size - 4;
                                           br.read_skip(idx_size)?;
@@ -161,7 +163,7 @@ impl CinepakDecoder {
             let mut flags = if !v1_only { br.read_u32be()? } else { 0x00000000 };
             let mut mask = 1 << 31;
             while mask > 0 {
-                if !is_intra {
+                if !intra_mode {
                     let skip = (flags & mask) == 0;
                     mask >>= 1;
                     if skip {
