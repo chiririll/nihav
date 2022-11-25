@@ -612,12 +612,15 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             let ctable_id       = br.read_u16be()?;
             let grayscale = depth > 0x20 || depth == 1;
             let depth = if grayscale { depth & 0x1F } else { depth };
-            validate!(depth <= 8 || (ctable_id == 0xFFFF));
             if ctable_id == 0 {
                 let max_pal_size = start_pos + size - br.tell();
-                let mut pal = [0; 1024];
-                read_palette(br, max_pal_size, &mut pal)?;
-                track.pal = Some(Arc::new(pal));
+                if depth <= 8 {
+                    let mut pal = [0; 1024];
+                    read_palette(br, max_pal_size, &mut pal)?;
+                    track.pal = Some(Arc::new(pal));
+                } else {
+                                  br.read_skip(max_pal_size as usize)?;
+                }
             } else if (depth <= 8) && !grayscale {
                 match depth & 0x1F {
                     2 => {
@@ -1055,6 +1058,8 @@ struct MOVDemuxer<'a> {
     moof_off:       u64,
 
     print_chunks:   bool,
+
+    macbinary:      bool,
 }
 
 struct Track {
@@ -1564,7 +1569,56 @@ fn process_packet(src: &mut ByteReader, strmgr: &StreamManager, track: &mut Trac
 
 impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
-        self.read_root(strmgr)?;
+        if !self.macbinary {
+            self.read_root(strmgr)?;
+        } else {
+            let ver                     = self.src.read_byte()?;
+            validate!(ver == 0);
+                                          self.src.read_skip(64)?;
+            let tag                     = self.src.read_tag()?;
+            validate!(&tag == b"MooV");
+                                          self.src.read_skip(14)?;
+            let data_length             = self.src.read_u32be()?;
+            validate!(data_length > 8);
+            let rsrc_length             = self.src.read_u32be()?;
+            validate!(rsrc_length > 0);
+                                          self.src.read_skip(31)?;
+            let ver                     = self.src.read_byte()?;
+            validate!(ver == 0x81);
+            let ver                     = self.src.read_byte()?;
+            validate!(ver == 0x81);
+            //xxx: maybe check header CRC
+
+            let rsrc_start = 0x80 + ((data_length + 0x7F) & !0x7F);
+                                          self.src.seek(SeekFrom::Start(rsrc_start.into()))?;
+            let rsrc_off                = self.src.read_u32be()?;
+            let rsrc_map_off            = self.src.read_u32be()?;
+            let rsrc_size               = self.src.read_u32be()?;
+            let _rsrc_map_size          = self.src.read_u32be()?;
+            validate!(rsrc_off >= 0x10);
+            validate!(rsrc_map_off >= rsrc_off + rsrc_size);
+                                          self.src.seek(SeekFrom::Current(i64::from(rsrc_off - 16)))?;
+            // I'm too lazy to parse resource map, so let's just iterate over resources for movie header
+            let end_pos = u64::from(rsrc_start + rsrc_off + rsrc_size);
+            let mut peek_buf = [0u8; 8];
+            while self.src.tell() < end_pos {
+                let cur_size            = self.src.read_u32be()?;
+                validate!(self.src.tell() + u64::from(cur_size) <= end_pos);
+                if cur_size > 8 {
+                    let rsize           = self.src.peek_u32be()?;
+                    if rsize == cur_size {
+                                          self.src.peek_buf(&mut peek_buf)?;
+                        if &peek_buf[4..] == b"moov" {
+                                          self.src.read_skip(8)?;
+                            self.read_moov(strmgr, rsize.into())?;
+                            self.mdat_pos = 8;
+                            break;
+                        }
+                    }
+                }
+                                          self.src.read_skip(cur_size as usize)?;
+            }
+        }
         validate!(self.mdat_pos > 0);
         validate!(!self.tracks.is_empty());
         for track in self.tracks.iter_mut() {
@@ -1573,6 +1627,14 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             if let Some(stream) = strm {
                 let str_id = strmgr.add_stream(stream).unwrap();
                 track.track_str_id = str_id;
+            }
+        }
+        if self.macbinary {
+            // patch data offsets
+            for track in self.tracks.iter_mut() {
+                for offset in track.chunk_offsets.iter_mut() {
+                    *offset += 0x80;
+                }
             }
         }
         for track in self.tracks.iter() {
@@ -1703,6 +1765,12 @@ impl<'a> NAOptionHandler for MOVDemuxer<'a> {
 
 impl<'a> MOVDemuxer<'a> {
     fn new(io: &'a mut ByteReader<'a>) -> Self {
+        Self::new_common(io, false)
+    }
+    fn new_macbinary(io: &'a mut ByteReader<'a>) -> Self {
+        Self::new_common(io, true)
+    }
+    fn new_common(io: &'a mut ByteReader<'a>, macbinary: bool) -> Self {
         MOVDemuxer {
             src:            io,
             depth:          0,
@@ -1717,6 +1785,8 @@ impl<'a> MOVDemuxer<'a> {
             moof_off:       0,
 
             print_chunks:   false,
+
+            macbinary,
         }
     }
     fn read_root(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
@@ -1757,6 +1827,15 @@ impl DemuxerCreator for MOVDemuxerCreator {
         Box::new(MOVDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "mov" }
+}
+
+pub struct MacBinaryMOVDemuxerCreator { }
+
+impl DemuxerCreator for MacBinaryMOVDemuxerCreator {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+        Box::new(MOVDemuxer::new_macbinary(br))
+    }
+    fn get_name(&self) -> &'static str { "mov-macbin" }
 }
 
 const MOV_DEFAULT_PAL_2BIT: [u8; 4 * 4] = [
@@ -2076,6 +2155,28 @@ mod test {
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = MOVDemuxer::new(&mut br);
+        let mut sm = StreamManager::new();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
+
+        loop {
+            let pktres = dmx.get_frame(&mut sm);
+            if let Err(e) = pktres {
+                if e == DemuxerError::EOF { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            println!("Got {}", pkt);
+        }
+    }
+
+    #[test]
+    fn test_macbinary_demux() {
+        // sample from King's Quest VI Macintosh edition
+        let mut file = File::open("assets/QT/Halfdome.bin").unwrap();
+        let mut fr = FileReader::new_read(&mut file);
+        let mut br = ByteReader::new(&mut fr);
+        let mut dmx = MOVDemuxer::new_macbinary(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
         dmx.open(&mut sm, &mut si).unwrap();

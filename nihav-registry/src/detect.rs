@@ -231,6 +231,15 @@ const DETECTORS: &[DetectConditions] = &[
                                                                 &CC::Str(b"ftyp")) }],
     },
     DetectConditions {
+        demux_name: "mov-macbin",
+        extensions: ".mov,.bin",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::Byte(0))},
+                      CheckItem{offs: 0x41, cond: &CC::Str(b"MooV")},
+                      CheckItem{offs: 0x7A, cond: &CC::Eq(Arg::Byte(0x81))},
+                      CheckItem{offs: 0x7B, cond: &CC::Eq(Arg::Byte(0x81))},
+                      CheckItem{offs: 0x84, cond: &CC::Str(b"mdat")}],
+    },
+    DetectConditions {
         demux_name: "yuv4mpeg",
         extensions: ".y4m",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"YUV4MPEG2 ") }],

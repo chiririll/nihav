@@ -22,6 +22,8 @@ const DEMUXERS: &[&dyn DemuxerCreator] = &[
     &avi::AVIDemuxerCreator {},
 #[cfg(feature="demuxer_mov")]
     &mov::MOVDemuxerCreator {},
+#[cfg(feature="demuxer_mov")]
+    &mov::MacBinaryMOVDemuxerCreator {},
 #[cfg(feature="demuxer_wav")]
     &wav::WAVDemuxerCreator {},
 #[cfg(feature="demuxer_y4m")]
