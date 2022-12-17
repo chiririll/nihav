@@ -1480,6 +1480,25 @@ impl Track {
                 } else if self.chunk_offsets.len() == self.chunk_sizes.len() {
                     self.cur_chunk = self.cur_sample;
                 } else {
+                    if !self.time_to_sample.is_empty() {
+                        let mut remaining = exp_pts;
+                        let mut abs_csamp = 0;
+                        for &(count, scount) in self.time_to_sample.iter() {
+                            let count = u64::from(count);
+                            let scount = u64::from(scount);
+                            let nblk = remaining / scount;
+                            if nblk < count {
+                                abs_csamp += nblk;
+                                break;
+                            }
+                            remaining -= count * scount;
+                            abs_csamp += count;
+                        }
+                        self.cur_sample = abs_csamp as usize;
+                    } else {
+                        self.cur_sample = exp_pts as usize;
+                    }
+                    let tgt_sample = self.cur_sample;
                     let mut csamp = 0;
                     self.cur_chunk = 0;
                     let mut cmap = self.sample_map.iter();
@@ -1508,6 +1527,15 @@ impl Track {
                     self.samples_left = cur_samps;
                     self.last_offset = self.chunk_offsets[self.cur_chunk];
                     self.cur_chunk += 1;
+
+                    // try to refine sample position
+                    if self.chunk_sizes.len() > self.chunk_offsets.len() {
+                        for i in self.cur_sample..tgt_sample {
+                            self.cur_sample   += 1;
+                            self.samples_left -= 1;
+                            self.last_offset  += u64::from(self.chunk_sizes[i]);
+                        }
+                    }
                 }
             } else {
                 self.cur_chunk = self.cur_sample;
@@ -1693,7 +1721,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             if let NATimePoint::Milliseconds(_) = time {
                 let mut aonly = true;
                 for track in self.tracks.iter() {
-                    if track.stream_type != StreamType::Audio || !track.raw_audio {
+                    if track.stream_type != StreamType::Audio {
                         aonly = false;
                         break;
                     }
