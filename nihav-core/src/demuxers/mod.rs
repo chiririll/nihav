@@ -471,6 +471,16 @@ pub fn create_demuxer<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut ByteReader<'a>
     Ok(Demuxer::new(dmx, strmgr, seek_idx))
 }
 
+/// Creates demuxer for a provided bytestream with options applied right after its creation.
+pub fn create_demuxer_with_options<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut ByteReader<'a>, opts: &[NAOption]) -> DemuxerResult<Demuxer<'a>> {
+    let mut dmx = dmxcr.new_demuxer(br);
+    dmx.set_options(opts);
+    let mut strmgr = StreamManager::new();
+    let mut seek_idx = SeekIndex::new();
+    dmx.open(&mut strmgr, &mut seek_idx)?;
+    Ok(Demuxer::new(dmx, strmgr, seek_idx))
+}
+
 /// List of registered demuxers.
 #[derive(Default)]
 pub struct RegisteredDemuxers {
@@ -631,6 +641,16 @@ pub trait RawDemuxerCreator {
 /// Creates raw data demuxer for a provided bytestream.
 pub fn create_raw_demuxer<'a>(dmxcr: &dyn RawDemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<RawDemuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
+    let mut strmgr = StreamManager::new();
+    let mut seek_idx = SeekIndex::new();
+    dmx.open(&mut strmgr, &mut seek_idx)?;
+    Ok(RawDemuxer::new(dmx, strmgr, seek_idx))
+}
+
+/// Creates raw data demuxer for a provided bytestream with options applied right after its creation.
+pub fn create_raw_demuxer_with_options<'a>(dmxcr: &dyn RawDemuxerCreator, br: &'a mut ByteReader<'a>, opts: &[NAOption]) -> DemuxerResult<RawDemuxer<'a>> {
+    let mut dmx = dmxcr.new_demuxer(br);
+    dmx.set_options(opts);
     let mut strmgr = StreamManager::new();
     let mut seek_idx = SeekIndex::new();
     dmx.open(&mut strmgr, &mut seek_idx)?;
