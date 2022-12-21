@@ -15,6 +15,8 @@ mod intel263;
 mod indeo2;
 #[cfg(feature="decoder_indeo3")]
 mod indeo3;
+#[cfg(feature="decoder_indeo3")]
+mod indeo3data;
 #[cfg(feature="decoder_indeo4")]
 mod indeo4;
 #[cfg(feature="decoder_indeo5")]
