@@ -15,7 +15,7 @@ mod intel263;
 mod indeo2;
 #[cfg(feature="decoder_indeo3")]
 mod indeo3;
-#[cfg(feature="decoder_indeo3")]
+#[cfg(any(feature="decoder_indeo3", feature="encoder_indeo3"))]
 mod indeo3data;
 #[cfg(feature="decoder_indeo4")]
 mod indeo4;
@@ -61,3 +61,19 @@ pub fn indeo_register_all_decoders(rd: &mut RegisteredDecoders) {
         rd.add_decoder(*decoder);
     }
 }
+
+#[cfg(feature="encoder_indeo3")]
+mod indeo3enc;
+
+const INDEO_ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_indeo3")]
+    EncoderInfo { name: "indeo3", get_encoder: indeo3enc::get_encoder },
+];
+
+/// Registers all available encoders provided by this crate.
+pub fn indeo_register_all_encoders(re: &mut RegisteredEncoders) {
+    for encoder in INDEO_ENCODERS.iter() {
+        re.add_encoder(*encoder);
+    }
+}
+
