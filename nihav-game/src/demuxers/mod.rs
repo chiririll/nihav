@@ -1,8 +1,13 @@
 use nihav_core::demuxers::*;
 
 #[allow(unused_macros)]
+#[cfg(debug_assertions)]
 macro_rules! validate {
     ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DemuxerError::InvalidData); } };
+}
+#[cfg(not(debug_assertions))]
+macro_rules! validate {
+    ($a:expr) => { if !$a { return Err(DemuxerError::InvalidData); } };
 }
 
 #[cfg(any(feature="demuxer_bmv",feature="demuxer_bmv3"))]

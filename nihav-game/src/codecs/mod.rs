@@ -1,8 +1,13 @@
 use nihav_core::codecs::*;
 
 #[allow(unused_macros)]
+#[cfg(debug_assertions)]
 macro_rules! validate {
     ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DecoderError::InvalidData); } };
+}
+#[cfg(not(debug_assertions))]
+macro_rules! validate {
+    ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
 #[cfg(feature="decoder_arxel_vid")]
