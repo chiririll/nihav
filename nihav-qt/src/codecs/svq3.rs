@@ -540,7 +540,7 @@ unimplemented!();
             let mbs = self.mb_w * self.mb_h;
             let mb_bits = if mbs < 64 { 6 } else { 32 - (mbs - 1).leading_zeros() } as u8;
             let _offset                 = br.read(mb_bits)?;
-println!("slice offset {}", _offset);
+//println!("slice offset {}", _offset);
         }
         let ts                          = br.read(8)? as u8;
         let quant                       = br.read(5)? as u8;

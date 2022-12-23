@@ -64,7 +64,7 @@ impl ICSInfo {
         let ics_reserved_bit                            = br.read(1)?;
         validate!(ics_reserved_bit == 0);
         self.window_sequence                            = br.read(2)? as u8;
-        match self.prev_window_sequence {
+        /*match self.prev_window_sequence {
             ONLY_LONG_SEQUENCE | LONG_STOP_SEQUENCE => {
                     if (self.window_sequence != ONLY_LONG_SEQUENCE) &&
                        (self.window_sequence != LONG_START_SEQUENCE) {
@@ -78,7 +78,7 @@ impl ICSInfo {
                     }
                 },
             _ => {},
-        };
+        };*/
         self.window_shape                               = br.read_bool()?;
         self.window_groups = 1;
         if self.window_sequence == EIGHT_SHORT_SEQUENCE {
@@ -683,7 +683,6 @@ impl NADecoder for AACDecoder {
             let edata = info.get_extradata().unwrap();
             validate!(edata.len() >= 2);
 
-//print!("edata:"); for s in edata.iter() { print!(" {:02X}", *s);}println!("");
             if (edata.len() > 12) && (&edata[4..8] == b"esds") {
                 let mut mr = MemoryReader::new_read(edata.as_slice());
                 let mut br = ByteReader::new(&mut mr);

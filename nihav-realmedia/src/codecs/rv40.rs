@@ -324,10 +324,6 @@ impl NADecoder for RealVideo40Decoder {
             let edata = info.get_extradata().unwrap();
             let src: &[u8] = &edata;
 
-{
-println!("edata:");
-for i in 0..src.len() { print!(" {:02X}", src[i]); } println!();
-}
             if src.len() < 2 { return Err(DecoderError::InvalidData); }
 
             self.bd.width  = vinfo.get_width();
@@ -338,7 +334,6 @@ for i in 0..src.len() { print!(" {:02X}", src[i]); } println!();
 
             Ok(())
         } else {
-println!("???");
             Err(DecoderError::InvalidData)
         }
     }
