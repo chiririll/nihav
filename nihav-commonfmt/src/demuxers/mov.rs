@@ -1516,6 +1516,9 @@ impl Track {
                         csamp += cur_samps;
                         if csamp > self.cur_sample {
                             if self.cur_chunk >= self.chunk_offsets.len() {
+                                self.cur_sample = csamp - cur_samps;
+                                self.samples_left = 0;
+                                self.cur_sample = csamp;
                                 return Err(DemuxerError::SeekError);
                             }
                             self.last_offset = self.chunk_offsets[self.cur_chunk];
