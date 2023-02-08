@@ -1,6 +1,16 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 
+fn map_quality(quality: u8) -> (u32, u32) {
+    if quality == 0 {
+        (0, 0)
+    } else {
+        let skip_threshold = (10 - (u32::from(quality) / 10).min(10)) * 8;
+        let fill_threshold = (10 - (u32::from(quality) / 10).min(10)) * 16;
+        (skip_threshold, fill_threshold)
+    }
+}
+
 const INVALID_CLR: u16 = 0x8000;
 
 trait InvalidPixel {
@@ -317,11 +327,17 @@ impl MSVideo1Encoder {
             dst.copy_from_slice(&line[..4]);
         }
     }
+    fn put_block(dst: &mut [u16], dstride: usize, buf: &[u16; 16]) {
+        for (line, dst) in buf.chunks(4).zip(dst.chunks_mut(dstride)) {
+            dst[..4].copy_from_slice(&line);
+        }
+    }
     fn write_skips(bw: &mut ByteWriter, skips: usize) -> EncoderResult<()> {
         bw.write_u16le((skips as u16) | 0x8400)?;
         Ok(())
     }
-    fn encode_inter(bw: &mut ByteWriter, cur_frm: &mut NAVideoBuffer<u16>, in_frm: &NAVideoBuffer<u16>, prev_frm: &NAVideoBuffer<u16>, _quality: u8) -> EncoderResult<bool> {
+    fn encode_inter(bw: &mut ByteWriter, cur_frm: &mut NAVideoBuffer<u16>, in_frm: &NAVideoBuffer<u16>, prev_frm: &NAVideoBuffer<u16>, quality: u8) -> EncoderResult<bool> {
+        let (skip_threshold, fill_threshold) = map_quality(quality);
         let mut is_intra = true;
         let src = in_frm.get_data();
         let sstride = in_frm.get_stride(0);
@@ -345,9 +361,12 @@ impl MSVideo1Encoder {
                 for (pix, rpix) in buf.iter().zip(refbuf.iter()) {
                     skip_dist += pix.dist(*rpix);
                 }
-                if skip_dist == 0 {
+                if skip_dist <= skip_threshold {
                     skip_run += 1;
                     is_intra = false;
+                    if skip_threshold > 0 {
+                        Self::put_block(&mut dstrip[x..], dstride, &refbuf);
+                    }
                     if skip_run == 1023 {
                         Self::write_skips(bw, skip_run)?;
                         skip_run = 0;
@@ -362,11 +381,13 @@ impl MSVideo1Encoder {
                 if skip_dist <= bstate.fill_dist {
                     skip_run += 1;
                     is_intra = false;
+                    Self::put_block(dst, dstride, &refbuf);
                     if skip_run == 1023 {
                         Self::write_skips(bw, skip_run)?;
                         skip_run = 0;
                     }
-                } else if bstate.fill_dist <= bstate.clr2_dist {
+                } else if bstate.fill_dist <= fill_threshold ||
+                          bstate.fill_dist <= bstate.clr2_dist {
                     bstate.put_fill(dst, dstride);
                     if skip_run != 0 {
                         Self::write_skips(bw, skip_run)?;
@@ -398,7 +419,8 @@ impl MSVideo1Encoder {
         } //xxx: something for inter?
         Ok(is_intra)
     }
-    fn encode_intra(bw: &mut ByteWriter, cur_frm: &mut NAVideoBuffer<u16>, in_frm: &NAVideoBuffer<u16>, _quality: u8) -> EncoderResult<bool> {
+    fn encode_intra(bw: &mut ByteWriter, cur_frm: &mut NAVideoBuffer<u16>, in_frm: &NAVideoBuffer<u16>, quality: u8) -> EncoderResult<bool> {
+        let (_, fill_threshold) = map_quality(quality);
         let src = in_frm.get_data();
         let sstride = in_frm.get_stride(0);
         let soff = in_frm.get_offset(0);
@@ -414,7 +436,8 @@ impl MSVideo1Encoder {
                 bstate.calc_stats(&buf);
 
                 let dst = &mut dstrip[x..];
-                if bstate.fill_dist <= bstate.clr2_dist {
+                if bstate.fill_dist <= fill_threshold ||
+                   bstate.fill_dist <= bstate.clr2_dist {
                     bstate.put_fill(dst, dstride);
                     bstate.write_fill(bw)?;
                 } else if bstate.clr8_dist < bstate.clr2_dist {
@@ -603,7 +626,7 @@ mod test {
             };
         let enc_params = EncodeParameters {
                 format:  NACodecTypeInfo::Video(dst_vinfo),
-                quality: 0,
+                quality: 80,
                 bitrate: 0,
                 tb_num:  0,
                 tb_den:  0,
@@ -611,6 +634,6 @@ mod test {
             };
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, &[]);
         test_encoding_md5(&dec_config, &enc_config, enc_params, &[],
-                          &[0x6921e67e, 0x4f2ada95, 0x009ffc62, 0xd4bfab6a]);
+                          &[0x35d95583, 0xb7431be7, 0xad490677, 0x968a1d84]);
     }
 }
