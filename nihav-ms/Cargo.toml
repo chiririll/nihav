@@ -10,7 +10,6 @@ features = []
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = ["vq"]
 
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt" }

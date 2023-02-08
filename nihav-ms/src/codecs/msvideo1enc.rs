@@ -1,133 +1,157 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
-use nihav_codec_support::vq::*;
 
-#[derive(Default,Clone,Copy,PartialEq)]
-struct Pixel16(u16);
+const INVALID_CLR: u16 = 0x8000;
 
-impl Pixel16 {
-    fn unpack(self) -> (u16, u16, u16) {
-        ((self.0 >> 10) & 0x1F, (self.0 >> 5) & 0x1F, self.0 & 0x1F)
-    }
-    fn pack(r: u16, g: u16, b: u16) -> Self {
-        Pixel16((r << 10) | (g << 5) | b)
-    }
-    fn invalid() -> Self { Self(0x8000) }
-    fn is_invalid(self) -> bool { self == Self::invalid() }
+trait InvalidPixel {
+    fn is_invalid(self) -> bool;
 }
-impl VQElement for Pixel16 {
-    fn dist(&self, rval: Self) -> u32 {
-        let (r0, g0, b0) = self.unpack();
-        let (r1, g1, b1) = rval.unpack();
-        let rd = i32::from(r0) - i32::from(r1);
-        let gd = i32::from(g0) - i32::from(g1);
-        let bd = i32::from(b0) - i32::from(b1);
-        (rd * rd + gd * gd + bd * bd) as u32
+impl InvalidPixel for u16 {
+    fn is_invalid(self) -> bool { self == INVALID_CLR }
+}
+
+trait PixelOps {
+    fn unpack(&self) -> [u16; 4];
+    fn dist<T: PixelOps>(&self, val: T) -> u32 {
+        dist_core(self.unpack(), &val.unpack())
     }
-    fn min_cw() -> Self { Pixel16(0x0000) }
-    fn max_cw() -> Self { Pixel16(0x7FFF) }
-    fn min(&self, rval: Self) -> Self {
-        let (r0, g0, b0) = self.unpack();
-        let (r1, g1, b1) = rval.unpack();
-        Self::pack(r0.min(r1), g0.min(g1), b0.min(b1))
+}
+
+impl PixelOps for u16 {
+    fn unpack(&self) -> [u16; 4] {
+        let val = *self;
+        let r = (val >> 10) & 0x1F;
+        let g = (val >>  5) & 0x1F;
+        let b =  val        & 0x1F;
+        [r, g, b, rgb2y(r, g, b)]
     }
-    fn max(&self, rval: Self) -> Self {
-        let (r0, g0, b0) = self.unpack();
-        let (r1, g1, b1) = rval.unpack();
-        Self::pack(r0.max(r1), g0.max(g1), b0.max(b1))
-    }
-    fn num_components() -> usize { 3 }
-    fn sort_by_component(arr: &mut [Self], component: usize) {
-        let mut counts = [0; 32];
-        for pix in arr.iter() {
-            let (r, g, b) = pix.unpack();
-            let idx = match component {
-                    0 => r,
-                    1 => g,
-                    _ => b,
-                } as usize;
-            counts[idx] += 1;
+}
+
+fn dist_core(val: [u16; 4], other: &[u16; 4]) -> u32 {
+    let sum = val.iter().zip(other.iter()).take(3).fold(0i32,
+            |acc, (&a, &b)| {
+                let diff = i32::from(a) - i32::from(b);
+                acc + diff * diff
+            });
+    sum as u32
+}
+
+
+fn rgb2y(r: u16, g: u16, b: u16) -> u16 {
+    (r * 77 + g * 150 + b * 29) >> 8
+}
+
+fn pack_rgb555(val: [u16; 4]) -> u16 {
+    (val[0] << 10) | (val[1] << 5) | val[2]
+}
+
+#[derive(Default)]
+struct PixelAverage {
+    sum:    [u16; 4],
+    count:  u16,
+}
+
+impl PixelAverage {
+    fn new() -> Self { Self::default() }
+    fn add(&mut self, val: &[u16; 4]) {
+        for (dst, &src) in self.sum.iter_mut().zip(val.iter()) {
+            *dst += src;
         }
-        let mut offs = [0; 32];
-        for i in 0..31 {
-            offs[i + 1] = offs[i] + counts[i];
-        }
-        let mut dst = [Pixel16(0); 16];
-        assert!(dst.len() >= arr.len());
-        for pix in arr.iter() {
-            let (r, g, b) = pix.unpack();
-            let idx = match component {
-                    0 => r,
-                    1 => g,
-                    _ => b,
-                } as usize;
-            dst[offs[idx]] = *pix;
-            offs[idx] += 1;
-        }
-        let len = arr.len();
-        arr.copy_from_slice(&dst[..len]);
+        self.count += 1;
     }
-    fn max_dist_component(min: &Self, max: &Self) -> usize {
-        let (r0, g0, b0) = max.unpack();
-        let (r1, g1, b1) = min.unpack();
-        let rd = u32::from(r0) - u32::from(r1);
-        let gd = u32::from(g0) - u32::from(g1);
-        let bd = u32::from(b0) - u32::from(b1);
-        if rd > gd && rd >= bd {
-            0
-        } else if bd > rd && bd > gd {
-            2
+    fn get_avg(&self) -> [u16; 4] {
+        if self.count > 0 {
+            let mut ret = self.sum;
+            for el in ret.iter_mut() {
+                *el /= self.count;
+            }
+            ret
         } else {
-            1
+            [0; 4]
         }
     }
 }
 
-struct Pixel16Sum {
-    rsum: u16,
-    gsum: u16,
-    bsum: u16,
-    count: u16,
-}
+macro_rules! quant_template {
+    ($name:ident, $N:expr) => {
+        fn $name(pix: &[u16; $N]) -> ([u16; 2], u16, u32) {
+            let mut tmp = [[0; 4]; $N];
+            let mut avg = PixelAverage::new();
+            let mut maxv = [0; 4];
+            let mut minv = [255; 4];
+            for (dst, &src) in tmp.iter_mut().zip(pix.iter()) {
+                *dst = src.unpack();
+                avg.add(dst);
+                for ((maxv, minv), &comp) in maxv.iter_mut().zip(minv.iter_mut()).zip(dst.iter()) {
+                    *maxv = (*maxv).max(comp);
+                    *minv = (*minv).min(comp);
+                }
+            }
+            let avg = avg.get_avg();
 
-impl VQElementSum<Pixel16> for Pixel16Sum {
-    fn zero() -> Self { Pixel16Sum { rsum: 0, gsum: 0, bsum: 0, count: 0 } }
-    fn add(&mut self, rval: Pixel16, count: u64) {
-        let (r, g, b) = rval.unpack();
-        let count = count as u16;
-        self.rsum += r * count;
-        self.gsum += g * count;
-        self.bsum += b * count;
-        self.count += count;
-    }
-    fn get_centroid(&self) -> Pixel16 {
-        if self.count != 0 {
-            let r = (self.rsum + self.count / 2) / self.count;
-            let g = (self.gsum + self.count / 2) / self.count;
-            let b = (self.bsum + self.count / 2) / self.count;
-            Pixel16::pack(r, g, b)
-        } else {
-            Pixel16(0x0000)
+            let mut best_axis = 3;
+            let mut best_dist = maxv[3] - minv[3];
+            for (comp_no, (&minval, &maxval)) in minv.iter().zip(maxv.iter()).enumerate().take(3) {
+                if maxval - minval > best_dist {
+                    best_axis = comp_no;
+                    best_dist = maxval - minval;
+                }
+            }
+            if best_dist == 0 {
+                let avg_pix = pack_rgb555(avg);
+                let mut dist = 0;
+                for el in tmp.iter() {
+                    dist += dist_core(avg, el);
+                }
+                return ([avg_pix; 2], 0, dist);
+            }
+
+            let mut avg1 = PixelAverage::new();
+            let mut avg2 = PixelAverage::new();
+            let mut mask = 0;
+            let mut mask_bit = 1;
+            for clr in tmp.iter() {
+                if clr[best_axis] > avg[best_axis] {
+                    avg2.add(clr);
+                    mask |= mask_bit;
+                } else {
+                    avg1.add(clr);
+                }
+                mask_bit <<= 1;
+            }
+
+            let clr0 = avg1.get_avg();
+            let clr1 = avg2.get_avg();
+            let mut dist = 0;
+            for clr in tmp.iter() {
+                let dist0 = dist_core(clr0, clr);
+                let dist1 = dist_core(clr1, clr);
+                dist += dist0.min(dist1);
+            }
+            ([pack_rgb555(clr0), pack_rgb555(clr1)], mask, dist)
         }
     }
 }
+
+quant_template!(quant2_16pix, 16);
+quant_template!(quant2_4pix, 4);
 
 #[derive(Default)]
 struct BlockState {
     fill_dist:  u32,
-    fill_val:   Pixel16,
+    fill_val:   u16,
     clr2_dist:  u32,
     clr2_flags: u16,
-    clr2:       [Pixel16; 2],
+    clr2:       [u16; 2],
     clr8_dist:  u32,
     clr8_flags: u16,
-    clr8:       [[Pixel16; 2]; 4],
+    clr8:       [[u16; 2]; 4],
 }
 
 impl BlockState {
-    fn calc_clrs(buf: &[Pixel16; 16]) -> Option<(Pixel16, Pixel16)> {
+    fn calc_clrs(buf: &[u16; 16]) -> Option<(u16, u16)> {
         let     clr0 = buf[0];
-        let mut clr1 = Pixel16::invalid();
+        let mut clr1 = INVALID_CLR;
         for &pix in buf[1..].iter() {
             if pix != clr0 && pix != clr1 {
                 if clr1.is_invalid() {
@@ -139,25 +163,25 @@ impl BlockState {
         }
         Some((clr0, clr1))
     }
-    fn calc_stats(&mut self, buf: &[Pixel16; 16]) {
+    fn calc_stats(&mut self, buf: &[u16; 16]) {
         let mut filled = false;
         let mut two_clr = false;
         if let Some((clr0, clr1)) = Self::calc_clrs(buf) {
             self.clr2[0] = clr0;
             self.clr2[1] = if !clr1.is_invalid() { clr1 } else { clr0 };
             if clr0 == clr1 {
-                self.fill_val = Pixel16(buf[0].0 & !0x400);
+                self.fill_val = buf[0] & !0x400;
                 filled = true;
             }
             two_clr = true;
         }
         self.fill_dist = 0;
         if !filled {
-            let mut avg = Pixel16Sum::zero();
-            for pix in buf.iter() {
-                avg.add(*pix, 1);
+            let mut avg = PixelAverage::new();
+            for &pix in buf.iter() {
+                avg.add(&pix.unpack());
             }
-            self.fill_val = Pixel16(avg.get_centroid().0 & !0x400);
+            self.fill_val = pack_rgb555(avg.get_avg()) & !0x400;
             for pix in buf.iter() {
                 self.fill_dist += pix.dist(self.fill_val);
             }
@@ -183,55 +207,31 @@ impl BlockState {
                 self.clr2_flags = !self.clr2_flags;
                 self.clr2.swap(0, 1);
             }
-        } else if quantise_median_cut::<Pixel16, Pixel16Sum>(buf, &mut self.clr2) == 2 {
-            let mut mask = 1;
-            self.clr2_dist = 0;
-            for pix in buf.iter() {
-                let dist0 = pix.dist(self.clr2[0]);
-                let dist1 = pix.dist(self.clr2[1]);
-                if dist0 < dist1 {
-                    self.clr2_flags |= mask;
-                    self.clr2_dist += dist0;
-                } else {
-                    self.clr2_dist += dist1;
-                }
-                mask <<= 1;
-            }
+        } else {
+            let (clrs, mask, dist) = quant2_16pix(&buf);
+            self.clr2 = clrs;
+            self.clr2_flags = mask;
+            self.clr2_dist = dist;
             if (self.clr2_flags & 0x8000) != 0 {
                 self.clr2_flags = !self.clr2_flags;
                 self.clr2.swap(0, 1);
             }
-        } else {
-            self.clr2_dist = self.fill_dist;
-            self.clr2 = [self.fill_val; 2];
         }
         if self.clr2_dist == 0 {
             self.clr8_dist = std::u32::MAX;
             return;
         }
 
-        self.clr8 = [[Pixel16(0); 2]; 4];
+        self.clr8 = [[0; 2]; 4];
         self.clr8_flags = 0;
         self.clr8_dist = 0;
-        let mut mask = 1;
         for i in 0..4 {
             let off = (i & 1) * 2 + (i & 2) * 4;
             let src2 = [buf[off], buf[off + 1], buf[off + 4], buf[off + 5]];
-            let nc = quantise_median_cut::<Pixel16, Pixel16Sum>(&src2, &mut self.clr8[i]);
-            if nc < 2 {
-                self.clr8[i][1] = self.clr8[i][0];
-            }
-            for j in 0..4 {
-                let dist0 = src2[j].dist(self.clr8[i][0]);
-                let dist1 = src2[j].dist(self.clr8[i][1]);
-                if dist0 < dist1 {
-                    self.clr8_flags |= mask;
-                    self.clr8_dist += dist0;
-                } else {
-                    self.clr8_dist += dist1;
-                }
-                mask <<= 1;
-            }
+            let (clrs, mask, dist) = quant2_4pix(&src2);
+            self.clr8[i] = clrs;
+            self.clr8_flags |= mask << (i * 4);
+            self.clr8_dist += dist;
         }
         if (self.clr8_flags & 0x8000) != 0 {
             self.clr8_flags ^= 0xF000;
@@ -241,7 +241,7 @@ impl BlockState {
     fn put_fill(&self, dst: &mut [u16], dstride: usize) {
         for line in dst.chunks_mut(dstride) {
             for i in 0..4 {
-                line[i] = self.fill_val.0;
+                line[i] = self.fill_val;
             }
         }
     }
@@ -249,9 +249,9 @@ impl BlockState {
         for j in 0..4 {
             for i in 0..4 {
                 if (self.clr2_flags & (1 << (i + j * 4))) == 0 {
-                    dst[i + j * dstride] = self.clr2[0].0;
+                    dst[i + j * dstride] = self.clr2[0];
                 } else {
-                    dst[i + j * dstride] = self.clr2[1].0;
+                    dst[i + j * dstride] = self.clr2[1];
                 }
             }
         }
@@ -260,32 +260,32 @@ impl BlockState {
         for i in 0..4 {
             let off = (i & 1) * 2 + (i & 2) * dstride;
             let cur_flg = (self.clr8_flags >> (i * 4)) & 0xF;
-            dst[off]               = self.clr8[i][( !cur_flg       & 1) as usize].0;
-            dst[off + 1]           = self.clr8[i][((!cur_flg >> 1) & 1) as usize].0;
-            dst[off +     dstride] = self.clr8[i][((!cur_flg >> 2) & 1) as usize].0;
-            dst[off + 1 + dstride] = self.clr8[i][((!cur_flg >> 3) & 1) as usize].0;
+            dst[off]               = self.clr8[i][( !cur_flg       & 1) as usize];
+            dst[off + 1]           = self.clr8[i][((!cur_flg >> 1) & 1) as usize];
+            dst[off +     dstride] = self.clr8[i][((!cur_flg >> 2) & 1) as usize];
+            dst[off + 1 + dstride] = self.clr8[i][((!cur_flg >> 3) & 1) as usize];
         }
     }
     fn write_fill(&self, bw: &mut ByteWriter) -> EncoderResult<()> {
-        bw.write_u16le(self.fill_val.0 | 0x8000)?;
+        bw.write_u16le(self.fill_val | 0x8000)?;
         Ok(())
     }
     fn write_clr2(&self, bw: &mut ByteWriter) -> EncoderResult<()> {
         bw.write_u16le(self.clr2_flags)?;
-        bw.write_u16le(self.clr2[0].0)?;
-        bw.write_u16le(self.clr2[1].0)?;
+        bw.write_u16le(self.clr2[0])?;
+        bw.write_u16le(self.clr2[1])?;
         Ok(())
     }
     fn write_clr8(&self, bw: &mut ByteWriter) -> EncoderResult<()> {
         bw.write_u16le(self.clr8_flags)?;
-        bw.write_u16le(self.clr8[0][0].0 | 0x8000)?;
-        bw.write_u16le(self.clr8[0][1].0)?;
-        bw.write_u16le(self.clr8[1][0].0)?;
-        bw.write_u16le(self.clr8[1][1].0)?;
-        bw.write_u16le(self.clr8[2][0].0)?;
-        bw.write_u16le(self.clr8[2][1].0)?;
-        bw.write_u16le(self.clr8[3][0].0)?;
-        bw.write_u16le(self.clr8[3][1].0)?;
+        bw.write_u16le(self.clr8[0][0] | 0x8000)?;
+        bw.write_u16le(self.clr8[0][1])?;
+        bw.write_u16le(self.clr8[1][0])?;
+        bw.write_u16le(self.clr8[1][1])?;
+        bw.write_u16le(self.clr8[2][0])?;
+        bw.write_u16le(self.clr8[2][1])?;
+        bw.write_u16le(self.clr8[3][0])?;
+        bw.write_u16le(self.clr8[3][1])?;
         Ok(())
     }
 }
@@ -312,11 +312,9 @@ impl MSVideo1Encoder {
             key_int:    25,
         }
     }
-    fn get_block(src: &[u16], sstride: usize, buf: &mut [Pixel16; 16]) {
+    fn get_block(src: &[u16], sstride: usize, buf: &mut [u16; 16]) {
         for (line, dst) in src.chunks(sstride).zip(buf.chunks_mut(4)) {
-            for i in 0..4 {
-                dst[i] = Pixel16(line[i]);
-            }
+            dst.copy_from_slice(&line[..4]);
         }
     }
     fn write_skips(bw: &mut ByteWriter, skips: usize) -> EncoderResult<()> {
@@ -338,8 +336,8 @@ impl MSVideo1Encoder {
         let mut skip_run = 0;
         for ((sstrip, rstrip), dstrip) in (&src[soff..]).chunks(sstride * 4).take(h / 4).zip((&rsrc[roff..]).chunks(rstride * 4)).zip((&mut dst[doff..]).chunks_mut(dstride * 4)) {
             for x in (0..w).step_by(4) {
-                let mut buf = [Pixel16::min_cw(); 16];
-                let mut refbuf = [Pixel16::min_cw(); 16];
+                let mut buf = [0; 16];
+                let mut refbuf = [0; 16];
                 Self::get_block(&sstrip[x..], sstride, &mut buf);
                 Self::get_block(&rstrip[x..], rstride, &mut refbuf);
 
@@ -410,7 +408,7 @@ impl MSVideo1Encoder {
         let dst = cur_frm.get_data_mut().unwrap();
         for (sstrip, dstrip) in (&src[soff..]).chunks(sstride * 4).take(h / 4).zip((&mut dst[doff..]).chunks_mut(dstride * 4)) {
             for x in (0..w).step_by(4) {
-                let mut buf = [Pixel16::min_cw(); 16];
+                let mut buf = [0; 16];
                 Self::get_block(&sstrip[x..], sstride, &mut buf);
                 let mut bstate = BlockState::default();
                 bstate.calc_stats(&buf);
