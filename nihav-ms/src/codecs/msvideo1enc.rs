@@ -394,10 +394,8 @@ impl MSVideo1Encoder {
                 if skip_dist <= skip_threshold {
                     skip_run += 1;
                     is_intra = false;
-                    if skip_threshold > 0 {
-                        for (dst, src) in dstrip[x..].chunks_mut(dstride).zip(rstrip[x..].chunks(rstride)).take(4) {
-                            dst[..4].copy_from_slice(&src[..4]);
-                        }
+                    for (dst, src) in dstrip[x..].chunks_mut(dstride).zip(rstrip[x..].chunks(rstride)).take(4) {
+                        dst[..4].copy_from_slice(&src[..4]);
                     }
                     if skip_run == 1023 {
                         Self::write_skips(bw, skip_run)?;
@@ -410,7 +408,7 @@ impl MSVideo1Encoder {
                 bstate.calc_stats(&buf);
 
                 let dst = &mut dstrip[x..];
-                if skip_dist <= bstate.fill_dist {
+                if skip_dist <= bstate.fill_dist && skip_dist * 2 <= bstate.clr2_dist {
                     skip_run += 1;
                     is_intra = false;
                     for (dst, src) in dst.chunks_mut(dstride).zip(rstrip[x..].chunks(rstride)).take(4) {
@@ -669,6 +667,6 @@ mod test {
             };
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, &[]);
         test_encoding_md5(&dec_config, &enc_config, enc_params, &[],
-                          &[0xdff8b20c, 0xd16b80fc, 0x5bb61187, 0xb4fe6065]);
+                          &[0xe570a206, 0xc223063f, 0x44a0b70e, 0xa71fed1f]);
     }
 }
