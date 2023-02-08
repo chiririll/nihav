@@ -249,12 +249,10 @@ impl BlockState {
             let src2 = [buf[off], buf[off + 1], buf[off + 4], buf[off + 5]];
             let (clrs, mask, dist) = quant2_4pix(&src2);
             self.clr8[i] = clrs;
-            self.clr8_flags |= mask << (i * 4);
+            let lo_bits = (mask & 0x3) ^ 0x3;
+            let hi_bits = ((mask & 0xC) ^ 0xC) << 2;
+            self.clr8_flags |= (hi_bits | lo_bits) << ((i & 1) * 2 + (i & 2) * 4);
             self.clr8_dist += dist;
-        }
-        if (self.clr8_flags & 0x8000) != 0 {
-            self.clr8_flags ^= 0xF000;
-            self.clr8[3].swap(0, 1);
         }
     }
 }
@@ -291,13 +289,13 @@ impl BlockPainter15 {
                 *dst = pack_rgb555(src);
             }
         }
-        for i in 0..4 {
-            let off = (i & 1) * 2 + (i & 2) * dstride;
-            let cur_flg = (bstate.clr8_flags >> (i * 4)) & 0xF;
-            dst[off]               = clr8[i][( !cur_flg       & 1) as usize];
-            dst[off + 1]           = clr8[i][((!cur_flg >> 1) & 1) as usize];
-            dst[off +     dstride] = clr8[i][((!cur_flg >> 2) & 1) as usize];
-            dst[off + 1 + dstride] = clr8[i][((!cur_flg >> 3) & 1) as usize];
+        let mut clr8_flags = bstate.clr8_flags;
+        for (j, line) in dst.chunks_mut(dstride).take(4).enumerate() {
+            for (i, el) in line.iter_mut().take(4).enumerate() {
+                let blk_no = (i >> 1) + (j & 2);
+                *el = clr8[blk_no][(!clr8_flags & 1) as usize];
+                clr8_flags >>= 1;
+            }
         }
         clr8
     }
@@ -315,7 +313,12 @@ impl BlockWriter15 {
         bw.write_u16le(clr2[1])?;
         Ok(())
     }
-    fn write_clr8(bw: &mut ByteWriter, clr8_flags: u16, clr8: &[[u16; 4]; 4]) -> EncoderResult<()> {
+    fn write_clr8(bw: &mut ByteWriter, mut clr8_flags: u16, mut clr8: [[u16; 4]; 4]) -> EncoderResult<()> {
+        if (clr8_flags & 0x8000) != 0 {
+            clr8_flags ^= 0xFF00;
+            clr8[2].swap(0, 1);
+            clr8[3].swap(0, 1);
+        }
         bw.write_u16le(clr8_flags)?;
         bw.write_u16le(clr8[0][0] | 0x8000)?;
         bw.write_u16le(clr8[0][1])?;
@@ -431,7 +434,7 @@ impl MSVideo1Encoder {
                         Self::write_skips(bw, skip_run)?;
                         skip_run = 0;
                     }
-                    BlockWriter15::write_clr8(bw, bstate.clr8_flags, &clr8)?;
+                    BlockWriter15::write_clr8(bw, bstate.clr8_flags, clr8)?;
                 } else {
                     let clr2 = bpainter.put_clr2(&bstate, dst, dstride);
                     if skip_run != 0 {
@@ -474,7 +477,7 @@ impl MSVideo1Encoder {
                     BlockWriter15::write_fill(bw, fill_val)?;
                 } else if bstate.clr8_dist < bstate.clr2_dist {
                     let clr8 = bpainter.put_clr8(&bstate, dst, dstride);
-                    BlockWriter15::write_clr8(bw, bstate.clr8_flags, &clr8)?;
+                    BlockWriter15::write_clr8(bw, bstate.clr8_flags, clr8)?;
                 } else {
                     let clr2 = bpainter.put_clr2(&bstate, dst, dstride);
                     BlockWriter15::write_clr2(bw, bstate.clr2_flags, clr2)?;
@@ -666,6 +669,6 @@ mod test {
             };
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, &[]);
         test_encoding_md5(&dec_config, &enc_config, enc_params, &[],
-                          &[0x35d95583, 0xb7431be7, 0xad490677, 0x968a1d84]);
+                          &[0xdff8b20c, 0xd16b80fc, 0x5bb61187, 0xb4fe6065]);
     }
 }
