@@ -1,6 +1,8 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 
+type UnpackedPixel = [u16; 4];
+
 fn map_quality(quality: u8) -> (u32, u32) {
     if quality == 0 {
         (0, 0)
@@ -11,24 +13,15 @@ fn map_quality(quality: u8) -> (u32, u32) {
     }
 }
 
-const INVALID_CLR: u16 = 0x8000;
-
-trait InvalidPixel {
-    fn is_invalid(self) -> bool;
-}
-impl InvalidPixel for u16 {
-    fn is_invalid(self) -> bool { self == INVALID_CLR }
-}
-
 trait PixelOps {
-    fn unpack(&self) -> [u16; 4];
+    fn unpack(&self) -> UnpackedPixel;
     fn dist<T: PixelOps>(&self, val: T) -> u32 {
         dist_core(self.unpack(), &val.unpack())
     }
 }
 
 impl PixelOps for u16 {
-    fn unpack(&self) -> [u16; 4] {
+    fn unpack(&self) -> UnpackedPixel {
         let val = *self;
         let r = (val >> 10) & 0x1F;
         let g = (val >>  5) & 0x1F;
@@ -37,7 +30,7 @@ impl PixelOps for u16 {
     }
 }
 
-fn dist_core(val: [u16; 4], other: &[u16; 4]) -> u32 {
+fn dist_core(val: UnpackedPixel, other: &UnpackedPixel) -> u32 {
     let sum = val.iter().zip(other.iter()).take(3).fold(0i32,
             |acc, (&a, &b)| {
                 let diff = i32::from(a) - i32::from(b);
@@ -51,25 +44,25 @@ fn rgb2y(r: u16, g: u16, b: u16) -> u16 {
     (r * 77 + g * 150 + b * 29) >> 8
 }
 
-fn pack_rgb555(val: [u16; 4]) -> u16 {
+fn pack_rgb555(val: UnpackedPixel) -> u16 {
     (val[0] << 10) | (val[1] << 5) | val[2]
 }
 
 #[derive(Default)]
 struct PixelAverage {
-    sum:    [u16; 4],
+    sum:    UnpackedPixel,
     count:  u16,
 }
 
 impl PixelAverage {
     fn new() -> Self { Self::default() }
-    fn add(&mut self, val: &[u16; 4]) {
+    fn add(&mut self, val: &UnpackedPixel) {
         for (dst, &src) in self.sum.iter_mut().zip(val.iter()) {
             *dst += src;
         }
         self.count += 1;
     }
-    fn get_avg(&self) -> [u16; 4] {
+    fn get_avg(&self) -> UnpackedPixel {
         if self.count > 0 {
             let mut ret = self.sum;
             for el in ret.iter_mut() {
@@ -84,15 +77,13 @@ impl PixelAverage {
 
 macro_rules! quant_template {
     ($name:ident, $N:expr) => {
-        fn $name(pix: &[u16; $N]) -> ([u16; 2], u16, u32) {
-            let mut tmp = [[0; 4]; $N];
+        fn $name(pix: &[UnpackedPixel; $N]) -> ([UnpackedPixel; 2], u16, u32) {
             let mut avg = PixelAverage::new();
             let mut maxv = [0; 4];
             let mut minv = [255; 4];
-            for (dst, &src) in tmp.iter_mut().zip(pix.iter()) {
-                *dst = src.unpack();
-                avg.add(dst);
-                for ((maxv, minv), &comp) in maxv.iter_mut().zip(minv.iter_mut()).zip(dst.iter()) {
+            for src in pix.iter() {
+                avg.add(src);
+                for ((maxv, minv), &comp) in maxv.iter_mut().zip(minv.iter_mut()).zip(src.iter()) {
                     *maxv = (*maxv).max(comp);
                     *minv = (*minv).min(comp);
                 }
@@ -108,19 +99,18 @@ macro_rules! quant_template {
                 }
             }
             if best_dist == 0 {
-                let avg_pix = pack_rgb555(avg);
                 let mut dist = 0;
-                for el in tmp.iter() {
+                for el in pix.iter() {
                     dist += dist_core(avg, el);
                 }
-                return ([avg_pix; 2], 0, dist);
+                return ([avg; 2], 0, dist);
             }
 
             let mut avg1 = PixelAverage::new();
             let mut avg2 = PixelAverage::new();
             let mut mask = 0;
             let mut mask_bit = 1;
-            for clr in tmp.iter() {
+            for clr in pix.iter() {
                 if clr[best_axis] > avg[best_axis] {
                     avg2.add(clr);
                     mask |= mask_bit;
@@ -133,12 +123,12 @@ macro_rules! quant_template {
             let clr0 = avg1.get_avg();
             let clr1 = avg2.get_avg();
             let mut dist = 0;
-            for clr in tmp.iter() {
+            for clr in pix.iter() {
                 let dist0 = dist_core(clr0, clr);
                 let dist1 = dist_core(clr1, clr);
                 dist += dist0.min(dist1);
             }
-            ([pack_rgb555(clr0), pack_rgb555(clr1)], mask, dist)
+            ([clr0, clr1], mask, dist)
         }
     }
 }
@@ -149,51 +139,70 @@ quant_template!(quant2_4pix, 4);
 #[derive(Default)]
 struct BlockState {
     fill_dist:  u32,
-    fill_val:   u16,
+    fill_val:   UnpackedPixel,
     clr2_dist:  u32,
     clr2_flags: u16,
-    clr2:       [u16; 2],
+    clr2:       [UnpackedPixel; 2],
     clr8_dist:  u32,
     clr8_flags: u16,
-    clr8:       [[u16; 2]; 4],
+    clr8:       [[UnpackedPixel; 2]; 4],
+    pal_mode:   bool,
 }
 
 impl BlockState {
-    fn calc_clrs(buf: &[u16; 16]) -> Option<(u16, u16)> {
+    fn set_fill_val(&mut self, val: UnpackedPixel) {
+        self.fill_val = val;
+        if !self.pal_mode {
+            self.fill_val[0] &= !1;
+        }
+    }
+    fn calc_clrs(buf: &[UnpackedPixel; 16]) -> (Option<UnpackedPixel>, Option<UnpackedPixel>) {
         let     clr0 = buf[0];
-        let mut clr1 = INVALID_CLR;
+        let mut clr1 = clr0;
+        let mut single = true;
         for &pix in buf[1..].iter() {
-            if pix != clr0 && pix != clr1 {
-                if clr1.is_invalid() {
+            if pix != clr0 {
+                if single {
                     clr1 = pix;
-                } else {
-                    return None;
+                    single = false;
+                } else if pix != clr1 {
+                    return (None, None);
                 }
             }
         }
-        Some((clr0, clr1))
+        if !single {
+            (Some(clr0), Some(clr1))
+        } else {
+            (Some(clr0), None)
+        }
     }
-    fn calc_stats(&mut self, buf: &[u16; 16]) {
+    fn calc_stats(&mut self, buf: &[UnpackedPixel; 16]) {
         let mut filled = false;
         let mut two_clr = false;
-        if let Some((clr0, clr1)) = Self::calc_clrs(buf) {
-            self.clr2[0] = clr0;
-            self.clr2[1] = if !clr1.is_invalid() { clr1 } else { clr0 };
-            if clr0 == clr1 {
-                self.fill_val = buf[0] & !0x400;
+        match Self::calc_clrs(buf) {
+            (Some(clr0), Some(clr1)) => {
+                self.clr2[0] = clr0;
+                self.clr2[1] = clr1;
+                two_clr = true;
+            },
+            (Some(clr0), None) => {
+                self.clr2[0] = clr0;
+                self.clr2[1] = clr0;
+                self.set_fill_val(buf[0]);
                 filled = true;
-            }
-            two_clr = true;
-        }
+                two_clr = true;
+            },
+            _ => {},
+        };
         self.fill_dist = 0;
         if !filled {
             let mut avg = PixelAverage::new();
-            for &pix in buf.iter() {
-                avg.add(&pix.unpack());
-            }
-            self.fill_val = pack_rgb555(avg.get_avg()) & !0x400;
             for pix in buf.iter() {
-                self.fill_dist += pix.dist(self.fill_val);
+                avg.add(pix);
+            }
+            self.set_fill_val(avg.get_avg());
+            for pix in buf.iter() {
+                self.fill_dist += dist_core(self.fill_val, pix);
             }
         }
         if self.fill_dist == 0 {
@@ -232,7 +241,7 @@ impl BlockState {
             return;
         }
 
-        self.clr8 = [[0; 2]; 4];
+        self.clr8 = [[UnpackedPixel::default(); 2]; 4];
         self.clr8_flags = 0;
         self.clr8_dist = 0;
         for i in 0..4 {
@@ -248,54 +257,74 @@ impl BlockState {
             self.clr8[3].swap(0, 1);
         }
     }
-    fn put_fill(&self, dst: &mut [u16], dstride: usize) {
+}
+
+struct BlockPainter15 {}
+impl BlockPainter15 {
+    fn new() -> Self { Self{} }
+    fn put_fill(&self, bstate: &BlockState, dst: &mut [u16], dstride: usize) -> u16 {
+        let fill_val = pack_rgb555(bstate.fill_val);
         for line in dst.chunks_mut(dstride) {
             for i in 0..4 {
-                line[i] = self.fill_val;
+                line[i] = fill_val;
             }
         }
+        fill_val
     }
-    fn put_clr2(&self, dst: &mut [u16], dstride: usize) {
+    fn put_clr2(&self, bstate: &BlockState, dst: &mut [u16], dstride: usize) -> [u16; 2] {
+        let clr2 = [pack_rgb555(bstate.clr2[0]), pack_rgb555(bstate.clr2[1])];
         for j in 0..4 {
             for i in 0..4 {
-                if (self.clr2_flags & (1 << (i + j * 4))) == 0 {
-                    dst[i + j * dstride] = self.clr2[0];
+                if (bstate.clr2_flags & (1 << (i + j * 4))) == 0 {
+                    dst[i + j * dstride] = clr2[0];
                 } else {
-                    dst[i + j * dstride] = self.clr2[1];
+                    dst[i + j * dstride] = clr2[1];
                 }
             }
         }
+        clr2
     }
-    fn put_clr8(&self, dst: &mut [u16], dstride: usize) {
+    fn put_clr8(&self, bstate: &BlockState, dst: &mut [u16], dstride: usize) -> [[u16; 4]; 4] {
+        let mut clr8 = [[0; 4]; 4];
+        for (dst, src) in clr8.iter_mut().zip(bstate.clr8.iter()) {
+            for (dst, &src) in dst.iter_mut().zip(src.iter()) {
+                *dst = pack_rgb555(src);
+            }
+        }
         for i in 0..4 {
             let off = (i & 1) * 2 + (i & 2) * dstride;
-            let cur_flg = (self.clr8_flags >> (i * 4)) & 0xF;
-            dst[off]               = self.clr8[i][( !cur_flg       & 1) as usize];
-            dst[off + 1]           = self.clr8[i][((!cur_flg >> 1) & 1) as usize];
-            dst[off +     dstride] = self.clr8[i][((!cur_flg >> 2) & 1) as usize];
-            dst[off + 1 + dstride] = self.clr8[i][((!cur_flg >> 3) & 1) as usize];
+            let cur_flg = (bstate.clr8_flags >> (i * 4)) & 0xF;
+            dst[off]               = clr8[i][( !cur_flg       & 1) as usize];
+            dst[off + 1]           = clr8[i][((!cur_flg >> 1) & 1) as usize];
+            dst[off +     dstride] = clr8[i][((!cur_flg >> 2) & 1) as usize];
+            dst[off + 1 + dstride] = clr8[i][((!cur_flg >> 3) & 1) as usize];
         }
+        clr8
     }
-    fn write_fill(&self, bw: &mut ByteWriter) -> EncoderResult<()> {
-        bw.write_u16le(self.fill_val | 0x8000)?;
+}
+
+struct BlockWriter15 {}
+impl BlockWriter15 {
+    fn write_fill(bw: &mut ByteWriter, fill_val: u16) -> EncoderResult<()> {
+        bw.write_u16le(fill_val | 0x8000)?;
         Ok(())
     }
-    fn write_clr2(&self, bw: &mut ByteWriter) -> EncoderResult<()> {
-        bw.write_u16le(self.clr2_flags)?;
-        bw.write_u16le(self.clr2[0])?;
-        bw.write_u16le(self.clr2[1])?;
+    fn write_clr2(bw: &mut ByteWriter, clr2_flags: u16, clr2: [u16; 2]) -> EncoderResult<()> {
+        bw.write_u16le(clr2_flags)?;
+        bw.write_u16le(clr2[0])?;
+        bw.write_u16le(clr2[1])?;
         Ok(())
     }
-    fn write_clr8(&self, bw: &mut ByteWriter) -> EncoderResult<()> {
-        bw.write_u16le(self.clr8_flags)?;
-        bw.write_u16le(self.clr8[0][0] | 0x8000)?;
-        bw.write_u16le(self.clr8[0][1])?;
-        bw.write_u16le(self.clr8[1][0])?;
-        bw.write_u16le(self.clr8[1][1])?;
-        bw.write_u16le(self.clr8[2][0])?;
-        bw.write_u16le(self.clr8[2][1])?;
-        bw.write_u16le(self.clr8[3][0])?;
-        bw.write_u16le(self.clr8[3][1])?;
+    fn write_clr8(bw: &mut ByteWriter, clr8_flags: u16, clr8: &[[u16; 4]; 4]) -> EncoderResult<()> {
+        bw.write_u16le(clr8_flags)?;
+        bw.write_u16le(clr8[0][0] | 0x8000)?;
+        bw.write_u16le(clr8[0][1])?;
+        bw.write_u16le(clr8[1][0])?;
+        bw.write_u16le(clr8[1][1])?;
+        bw.write_u16le(clr8[2][0])?;
+        bw.write_u16le(clr8[2][1])?;
+        bw.write_u16le(clr8[3][0])?;
+        bw.write_u16le(clr8[3][1])?;
         Ok(())
     }
 }
@@ -322,14 +351,11 @@ impl MSVideo1Encoder {
             key_int:    25,
         }
     }
-    fn get_block(src: &[u16], sstride: usize, buf: &mut [u16; 16]) {
+    fn get_block(src: &[u16], sstride: usize, buf: &mut [UnpackedPixel; 16]) {
         for (line, dst) in src.chunks(sstride).zip(buf.chunks_mut(4)) {
-            dst.copy_from_slice(&line[..4]);
-        }
-    }
-    fn put_block(dst: &mut [u16], dstride: usize, buf: &[u16; 16]) {
-        for (line, dst) in buf.chunks(4).zip(dst.chunks_mut(dstride)) {
-            dst[..4].copy_from_slice(&line);
+            for (dst, src) in dst.iter_mut().zip(line.iter()) {
+                *dst = src.unpack();
+            }
         }
     }
     fn write_skips(bw: &mut ByteWriter, skips: usize) -> EncoderResult<()> {
@@ -350,22 +376,25 @@ impl MSVideo1Encoder {
         let doff = cur_frm.get_offset(0);
         let dst = cur_frm.get_data_mut().unwrap();
         let mut skip_run = 0;
+        let bpainter = BlockPainter15::new();
         for ((sstrip, rstrip), dstrip) in (&src[soff..]).chunks(sstride * 4).take(h / 4).zip((&rsrc[roff..]).chunks(rstride * 4)).zip((&mut dst[doff..]).chunks_mut(dstride * 4)) {
             for x in (0..w).step_by(4) {
-                let mut buf = [0; 16];
-                let mut refbuf = [0; 16];
+                let mut buf = [UnpackedPixel::default(); 16];
+                let mut refbuf = [UnpackedPixel::default(); 16];
                 Self::get_block(&sstrip[x..], sstride, &mut buf);
                 Self::get_block(&rstrip[x..], rstride, &mut refbuf);
 
                 let mut skip_dist = 0;
                 for (pix, rpix) in buf.iter().zip(refbuf.iter()) {
-                    skip_dist += pix.dist(*rpix);
+                    skip_dist += dist_core(*rpix, pix);
                 }
                 if skip_dist <= skip_threshold {
                     skip_run += 1;
                     is_intra = false;
                     if skip_threshold > 0 {
-                        Self::put_block(&mut dstrip[x..], dstride, &refbuf);
+                        for (dst, src) in dstrip[x..].chunks_mut(dstride).zip(rstrip[x..].chunks(rstride)).take(4) {
+                            dst[..4].copy_from_slice(&src[..4]);
+                        }
                     }
                     if skip_run == 1023 {
                         Self::write_skips(bw, skip_run)?;
@@ -381,33 +410,35 @@ impl MSVideo1Encoder {
                 if skip_dist <= bstate.fill_dist {
                     skip_run += 1;
                     is_intra = false;
-                    Self::put_block(dst, dstride, &refbuf);
+                    for (dst, src) in dst.chunks_mut(dstride).zip(rstrip[x..].chunks(rstride)).take(4) {
+                        dst[..4].copy_from_slice(&src[..4]);
+                    }
                     if skip_run == 1023 {
                         Self::write_skips(bw, skip_run)?;
                         skip_run = 0;
                     }
                 } else if bstate.fill_dist <= fill_threshold ||
                           bstate.fill_dist <= bstate.clr2_dist {
-                    bstate.put_fill(dst, dstride);
+                    let fill_val = bpainter.put_fill(&bstate, dst, dstride);
                     if skip_run != 0 {
                         Self::write_skips(bw, skip_run)?;
                         skip_run = 0;
                     }
-                    bstate.write_fill(bw)?;
+                    BlockWriter15::write_fill(bw, fill_val)?;
                 } else if bstate.clr8_dist < bstate.clr2_dist {
-                    bstate.put_clr8(dst, dstride);
+                    let clr8 = bpainter.put_clr8(&bstate, dst, dstride);
                     if skip_run != 0 {
                         Self::write_skips(bw, skip_run)?;
                         skip_run = 0;
                     }
-                    bstate.write_clr8(bw)?;
+                    BlockWriter15::write_clr8(bw, bstate.clr8_flags, &clr8)?;
                 } else {
-                    bstate.put_clr2(dst, dstride);
+                    let clr2 = bpainter.put_clr2(&bstate, dst, dstride);
                     if skip_run != 0 {
                         Self::write_skips(bw, skip_run)?;
                         skip_run = 0;
                     }
-                    bstate.write_clr2(bw)?;
+                    BlockWriter15::write_clr2(bw, bstate.clr2_flags, clr2)?;
                 }
             }
         }
@@ -428,9 +459,10 @@ impl MSVideo1Encoder {
         let dstride = cur_frm.get_stride(0);
         let doff = cur_frm.get_offset(0);
         let dst = cur_frm.get_data_mut().unwrap();
+        let bpainter = BlockPainter15::new();
         for (sstrip, dstrip) in (&src[soff..]).chunks(sstride * 4).take(h / 4).zip((&mut dst[doff..]).chunks_mut(dstride * 4)) {
             for x in (0..w).step_by(4) {
-                let mut buf = [0; 16];
+                let mut buf = [UnpackedPixel::default(); 16];
                 Self::get_block(&sstrip[x..], sstride, &mut buf);
                 let mut bstate = BlockState::default();
                 bstate.calc_stats(&buf);
@@ -438,14 +470,14 @@ impl MSVideo1Encoder {
                 let dst = &mut dstrip[x..];
                 if bstate.fill_dist <= fill_threshold ||
                    bstate.fill_dist <= bstate.clr2_dist {
-                    bstate.put_fill(dst, dstride);
-                    bstate.write_fill(bw)?;
+                    let fill_val = bpainter.put_fill(&bstate, dst, dstride);
+                    BlockWriter15::write_fill(bw, fill_val)?;
                 } else if bstate.clr8_dist < bstate.clr2_dist {
-                    bstate.put_clr8(dst, dstride);
-                    bstate.write_clr8(bw)?;
+                    let clr8 = bpainter.put_clr8(&bstate, dst, dstride);
+                    BlockWriter15::write_clr8(bw, bstate.clr8_flags, &clr8)?;
                 } else {
-                    bstate.put_clr2(dst, dstride);
-                    bstate.write_clr2(bw)?;
+                    let clr2 = bpainter.put_clr2(&bstate, dst, dstride);
+                    BlockWriter15::write_clr2(bw, bstate.clr2_flags, clr2)?;
                 }
             }
         }
