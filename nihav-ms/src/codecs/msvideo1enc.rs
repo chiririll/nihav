@@ -873,6 +873,31 @@ impl NAEncoder for MSVideo1Encoder {
     }
     fn encode(&mut self, frm: &NAFrame) -> EncoderResult<()> {
         let buf = frm.get_buffer();
+        if frm.frame_type == FrameType::Skip {
+            if let Some(ref stream) = self.stream {
+                let mut dbuf = Vec::with_capacity(4);
+                let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
+                let mut bw   = ByteWriter::new(&mut gw);
+
+                let vinfo = stream.get_info().get_properties().get_video_info().unwrap();
+                let mut nskips = ((vinfo.get_width() + 3) / 4) * ((vinfo.get_height() + 3) / 4);
+                while nskips >= 1023 {
+                    Self::write_skips(&mut bw, 1023)?;
+                    nskips -= 1023;
+                }
+                if nskips > 0 {
+                    Self::write_skips(&mut bw, nskips)?;
+                }
+                self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, false, dbuf));
+                self.frmcount += 1;
+                if self.frmcount == self.key_int {
+                    self.frmcount = 0;
+                }
+                return Ok(());
+            } else {
+                return Err(EncoderError::Bug);
+            }
+        }
         if let Some(ref vbuf) = buf.get_vbuf16() {
             if self.pal_mode {
                 return Err(EncoderError::InvalidParameters);
