@@ -162,7 +162,7 @@ impl Indeo3Encoder {
         for plane in self.cframe.plane.iter() {
             checksum ^= plane.checksum();
         }
-        write_u16le(&mut dbuf[26..], checksum)?;
+        write_u16le(&mut dbuf[26..], checksum * 2)?;
 
         let size = (dbuf.len() - OS_HEADER_SIZE) as u32;
         write_u32le(&mut dbuf[8..], self.frameno ^ HDR_FIELD_2 ^ FRMH_TAG ^ size)?;
@@ -587,7 +587,7 @@ mod test {
         let enc_options = &[
                 NAOption { name: super::TRY_AGAIN_OPTION, value: NAValue::Bool(true) },
             ];
-        encode_test("indeo3.avi", enc_options, Some(4), &[0x4cc927d3, 0x9872f824, 0x92dee9cb, 0xaf912ecc]);
+        encode_test("indeo3.avi", enc_options, Some(4), &[0xd62f9996, 0x7fb4ba1b, 0x1f552801, 0xfd4e4726]);
     }
     /*#[test]
     fn test_indeo3_roundtrip() {
@@ -626,6 +626,7 @@ mod test {
         }
         let info = NACodecInfo::new("indeo3", NACodecTypeInfo::Video(dst_vinfo), None).into_ref();
         let frm = NAFrame::new(NATimeInfo::new(Some(0), None, None, 1, 12), FrameType::I, true, info.clone(), buffer);
+        //ienc.set_options(&[NAOption{ name: super::DEBUG_FRAME_OPTION, value: NAValue::Bool(true) }]);
         ienc.encode(&frm).unwrap();
         let pkt = ienc.get_packet().unwrap().unwrap();
         println!(" pkt size {}", pkt.get_buffer().len());
@@ -636,6 +637,7 @@ mod test {
         let mut dec = (decfunc)();
         let mut dsupp = Box::new(NADecoderSupport::new());
         dec.init(&mut dsupp, info).unwrap();
+        dec.set_options(&[NAOption{ name: "checksum", value: NAValue::Bool(true) }]);
         let dst = dec.decode(&mut dsupp, &pkt).unwrap();
         if let NABufferType::Video(ref vbuf) = dst.get_buffer() {
             for plane in 0..3 {

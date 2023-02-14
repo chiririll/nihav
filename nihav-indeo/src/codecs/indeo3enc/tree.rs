@@ -169,7 +169,7 @@ impl Plane {
         self.mvs.clear();
     }
     pub fn checksum(&self) -> u16 {
-        let xors = self.data[self.width..].chunks(2).fold([0u8; 2], |acc, pair| [acc[0] ^ pair[0], acc[1] ^ pair[1]]);
+        let xors = self.data.chunks(2).fold([0u8; 2], |acc, pair| [acc[0] ^ pair[0], acc[1] ^ pair[1]]);
         u16::from(xors[0]) | (u16::from(xors[1]) * 256)
     }
     pub fn find_cells(&mut self, is_intra: bool, pplane: &Plane, mv_est: &MotionEstimator) -> Box<Indeo3PrimaryTree> {
