@@ -429,6 +429,7 @@ impl<'a> AVIDemuxer<'a> {
             if pe.stream_no == stream_no {
                 let start_clr           = self.src.read_byte()? as usize;
                 let len                 = self.src.read_byte()? as usize;
+                let len = if len == 0 { 256 } else { len };
                 let _flags              = self.src.read_u16le()?;
                 validate!(start_clr + len <= 256);
                 validate!(len * 4 + 4 == size);
