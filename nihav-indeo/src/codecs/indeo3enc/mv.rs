@@ -118,36 +118,16 @@ fn calc_mv_score(cur: &Plane, prev: &Plane, cell: Indeo3Cell, mv: MV) -> u32 {
     calc_cell_diff(cur_ptr, ref_ptr, cur.width, cell.get_width(), cell.get_height())
 }
 
-fn get_mv_diff(mv1: MV, mv2: MV) -> i8 {
-    (mv1.x - mv2.x).abs() + (mv1.y - mv2.y).abs()
-}
-
 pub fn compact_mvs(mvs: &mut Vec<(MV, u16)>) {
-    mvs.sort_by(|a, b| a.1.cmp(&b.1));
-    while mvs.len() > 256 {
-        let (mv, _) = mvs.pop().unwrap();
-        if let Some(idx) = find_mv(mv, mvs) {
-            mvs[usize::from(idx)].1 += 1;
-        }
-    }
+    mvs.sort_by(|a, b| b.1.cmp(&a.1));
+    mvs.truncate(256);
 }
 
 pub fn find_mv(mv: MV, mvs: &[(MV, u16)]) -> Option<u8> {
-    let mut best_idx = None;
-    let mut best_cand_diff = 42;
-    let mut best_cand_count = 0;
-    for (i, &(cand_mv, count)) in mvs.iter().enumerate() {
+    for (i, &(cand_mv, _)) in mvs.iter().enumerate() {
         if cand_mv == mv {
             return Some(i as u8);
         }
-        let diff = get_mv_diff(mv, cand_mv);
-        if diff <= 2 {
-            if diff < best_cand_diff || (diff == best_cand_diff && count > best_cand_count) {
-                best_idx = Some(i as u8);
-                best_cand_diff = diff;
-                best_cand_count = count;
-            }
-        }
     }
-    best_idx
+    None
 }

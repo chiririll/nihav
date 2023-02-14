@@ -339,14 +339,17 @@ impl NAEncoder for Indeo3Encoder {
             // prepare plane data structure
             for &planeno in PLANE_ORDER.iter() {
                 let ref_plane = &self.pframe.plane[planeno];
-                let tree = self.cframe.plane[planeno].find_cells(is_intra, ref_plane, &self.mv_est);
+                let mut tree = self.cframe.plane[planeno].find_cells(is_intra, ref_plane, &self.mv_est);
                 if self.debug_tree {
                     println!(" tree for plane {}:", planeno);
                     tree.print();
                 }
-                trees.push(tree);
                 let mvs = &mut self.cframe.plane[planeno].mvs;
-                compact_mvs(mvs);
+                if mvs.len() > 256 {
+                    compact_mvs(mvs);
+                    self.cframe.plane[planeno].prune_extra_mvs(&mut tree);
+                }
+                trees.push(tree);
             }
 
             self.encode_planes(&mut dbuf, &trees, is_intra)?;
@@ -587,7 +590,7 @@ mod test {
         let enc_options = &[
                 NAOption { name: super::TRY_AGAIN_OPTION, value: NAValue::Bool(true) },
             ];
-        encode_test("indeo3.avi", enc_options, Some(4), &[0xd62f9996, 0x7fb4ba1b, 0x1f552801, 0xfd4e4726]);
+        encode_test("indeo3.avi", enc_options, Some(4), &[0xc23464a1, 0xd319a38f, 0x7421165e, 0x42786e50]);
     }
     /*#[test]
     fn test_indeo3_roundtrip() {

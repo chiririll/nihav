@@ -1,6 +1,7 @@
 use super::Indeo3Writer;
 use super::mv::*;
 use super::cell::{CellEncoder, MAX_CELL_SIZE};
+use std::ops::DerefMut;
 
 pub enum Indeo3PrimaryTree {
     VSplit(Box<Indeo3PrimaryTree>, Box<Indeo3PrimaryTree>),
@@ -208,7 +209,7 @@ impl Plane {
         } else {
             if !cell.intra {
                 if let Some((mv, flat)) = mv_est.mv_search(self, pplane, cell) {
-                    return self.add_mv_tree(mv, flat);
+                    return self.add_mv_tree(mv, flat, cell);
                 }
 
                 // try splitting once to see if it improves situation
@@ -223,13 +224,13 @@ impl Plane {
                     let search2 = mv_est.mv_search(self, pplane, cell2);
                     if search1.is_some() || search2.is_some() {
                         let tree1 = if let Some((mv, flat)) = search1 {
-                                self.add_mv_tree(mv, flat)
+                                self.add_mv_tree(mv, flat, cell1)
                             } else {
                                 let sec = self.split_sec(cell1);
                                 Box::new(Indeo3PrimaryTree::AbsFill(sec))
                             };
                         let tree2 = if let Some((mv, flat)) = search2 {
-                                self.add_mv_tree(mv, flat)
+                                self.add_mv_tree(mv, flat, cell2)
                             } else {
                                 let sec = self.split_sec(cell2);
                                 Box::new(Indeo3PrimaryTree::AbsFill(sec))
@@ -246,7 +247,7 @@ impl Plane {
             Box::new(Indeo3PrimaryTree::AbsFill(sec))
         }
     }
-    fn add_mv_tree(&mut self, mv: MV, flat: bool) -> Box<Indeo3PrimaryTree> {
+    fn add_mv_tree(&mut self, mv: MV, flat: bool, cell: Indeo3Cell) -> Box<Indeo3PrimaryTree> {
         let sec = if flat {
                 Box::new(Indeo3SecondaryTree::VQNull(0))
             } else {
@@ -256,7 +257,7 @@ impl Plane {
         let mut found = false;
         for (ref cmv, ref mut count) in self.mvs.iter_mut() {
             if cmv == &mv {
-                *count += 1;
+                *count += u16::from(cell.w) * u16::from(cell.h);
                 found = true;
                 break;
             }
@@ -326,6 +327,31 @@ impl Plane {
         }
         let area = (w * h) as u32;
         (hdiff * 16 / area, vdiff * 16 / area)
+    }
+    pub fn prune_extra_mvs(&mut self, tree: &mut Box<Indeo3PrimaryTree>) {
+        let cell = Indeo3Cell::new(self.width, self.height, true);
+        self.prune_pri(cell, tree)
+    }
+    fn prune_pri(&mut self, cell: Indeo3Cell, tree: &mut Box<Indeo3PrimaryTree>) {
+        match tree.deref_mut() {
+            Indeo3PrimaryTree::HSplit(ref mut tree1, ref mut tree2) => {
+                let (cell1, cell2) = cell.split_h();
+                self.prune_pri(cell1, tree1);
+                self.prune_pri(cell2, tree2);
+            },
+            Indeo3PrimaryTree::VSplit(ref mut tree1, ref mut tree2) => {
+                let (cell1, cell2) = cell.split_v(self.stripw);
+                self.prune_pri(cell1, tree1);
+                self.prune_pri(cell2, tree2);
+            },
+            Indeo3PrimaryTree::AbsFill(_) => {},
+            Indeo3PrimaryTree::RelFill(ref mv, ref _sec) => {
+                if find_mv(*mv, &self.mvs).is_none() {
+                    let sec = self.split_sec(cell);
+                    *tree = Box::new(Indeo3PrimaryTree::AbsFill(sec));
+                }
+            },
+        }
     }
     pub fn encode_tree(&mut self, iw: &mut Indeo3Writer, tree: &Indeo3PrimaryTree, cenc: &mut CellEncoder, is_intra: bool, refp: &Plane) {
         let cell = Indeo3Cell::new(self.width, self.height, is_intra);
