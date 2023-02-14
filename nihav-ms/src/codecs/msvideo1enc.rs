@@ -201,9 +201,9 @@ macro_rules! quant_template {
             for clr in pix.iter() {
                 if clr[best_axis] > avg[best_axis] {
                     avg2.add(clr);
-                    mask |= mask_bit;
                 } else {
                     avg1.add(clr);
+                    mask |= mask_bit;
                 }
                 mask_bit <<= 1;
             }
@@ -338,8 +338,8 @@ impl BlockState {
             let src2 = [buf[off], buf[off + 1], buf[off + 4], buf[off + 5]];
             let (clrs, mask, dist) = quant2_4pix(&src2);
             self.clr8[i] = clrs;
-            let lo_bits = (mask & 0x3) ^ 0x3;
-            let hi_bits = ((mask & 0xC) ^ 0xC) << 2;
+            let lo_bits = mask & 0x3;
+            let hi_bits = (mask & 0xC) << 2;
             self.clr8_flags |= (hi_bits | lo_bits) << ((i & 1) * 2 + (i & 2) * 4);
             self.clr8_dist += dist;
         }
@@ -1075,7 +1075,7 @@ mod test {
             };
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, &[]);
         test_encoding_md5(&dec_config, &enc_config, enc_params, &[],
-                          &[0x27a9db38, 0x74f1000a, 0x38818c05, 0x99d692ba]);
+                          &[0x5afaf853, 0xd53ba9dd, 0x630f53e7, 0x41b33a36]);
     }
 
     #[test]
@@ -1121,6 +1121,6 @@ mod test {
             };
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, &[]);
         test_encoding_md5(&dec_config, &enc_config, enc_params, &[],
-                          &[0xe570a206, 0xc223063f, 0x44a0b70e, 0xa71fed1f]);
+                          &[0xb3175a7b, 0x4a6cb45e, 0x526f3f5d, 0xaa1574cc]);
     }
 }
