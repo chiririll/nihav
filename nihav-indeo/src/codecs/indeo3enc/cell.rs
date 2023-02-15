@@ -368,10 +368,6 @@ impl CellEncoder {
                 }
             }
             self.out[0] = (mode << 4) | (idx as u8);
-
-            if idx >= 8 {
-                requant_idx = Some(idx - 8);
-            }
         } else {
             self.out[0] = (mode << 4) | (cb_no1 as u8);
 
@@ -379,7 +375,7 @@ impl CellEncoder {
                 requant_idx = Some(cb_no1 - 8);
             }
         }
-        if self.cell.get_y() == 0 {
+        if self.cell.get_y() == 0 || !matches!(mode, 0 | 3 | 10) {
             requant_idx = None;
         }
 
