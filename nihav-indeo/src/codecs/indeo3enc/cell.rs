@@ -619,13 +619,11 @@ impl CellEncoder {
         let dst = &mut data[x + y * stride..];
         let mut dst_idx = stride;
         for line in 0..4 {
-            for x in 0..4 {
-                let top = dst[dst_idx - stride + x * 2];
-                let cur = cell[(line + 1) * 4 + x];
-                dst[dst_idx + x * 2]     = (top + cur) >> 1;
-                dst[dst_idx + x * 2 + 1] = (top + cur) >> 1;
-                dst[dst_idx + stride + x * 2]     = cur;
-                dst[dst_idx + stride + x * 2 + 1] = cur;
+            for x in 0..8 {
+                let top = dst[dst_idx - stride + x];
+                let cur = cell[(line + 1) * 4 + x / 2];
+                dst[dst_idx + x]            = (top + cur) >> 1;
+                dst[dst_idx + stride + x]   = cur;
             }
             dst_idx += stride * 2;
         }

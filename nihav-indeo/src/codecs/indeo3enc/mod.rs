@@ -590,7 +590,7 @@ mod test {
         let enc_options = &[
                 NAOption { name: super::TRY_AGAIN_OPTION, value: NAValue::Bool(true) },
             ];
-        encode_test("indeo3.avi", enc_options, Some(4), &[0xc23464a1, 0xd319a38f, 0x7421165e, 0x42786e50]);
+        encode_test("indeo3.avi", enc_options, Some(4), &[0x17d742bc, 0x6f4c1200, 0x79422bac, 0xc46b5dd0]);
     }
     /*#[test]
     fn test_indeo3_roundtrip() {
