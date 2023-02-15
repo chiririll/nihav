@@ -355,7 +355,7 @@ impl NAEncoder for Indeo3Encoder {
             self.encode_planes(&mut dbuf, &trees, is_intra)?;
 
             let cur_quant = self.cenc.quant.unwrap_or(42);
-            if !is_intra && cur_quant < 8 {
+            if self.try_again && !is_intra && cur_quant < 8 {
                 let expected_size = self.rc.get_expected_size();
                 if expected_size > 0 {
                     let cur_size = dbuf.len() as u32;
