@@ -87,13 +87,13 @@ pub struct Indeo3Cell {
 }
 
 impl Indeo3Cell {
-    pub fn new(width: usize, height: usize, intra: bool) -> Self {
+    pub fn new(width: usize, height: usize) -> Self {
         Self {
             x:      0,
             y:      0,
             w:      (width / 4) as u8,
             h:      (height / 4) as u8,
-            intra,
+            intra:  false,
         }
     }
 
@@ -174,10 +174,10 @@ impl Plane {
         u16::from(xors[0]) | (u16::from(xors[1]) * 256)
     }
     pub fn find_cells(&mut self, is_intra: bool, pplane: &Plane, mv_est: &MotionEstimator) -> Box<Indeo3PrimaryTree> {
-        let cell = Indeo3Cell::new(self.width, self.height, is_intra);
-        self.split_pri(cell, pplane, mv_est)
+        let cell = Indeo3Cell::new(self.width, self.height);
+        self.split_pri(cell, pplane, mv_est, is_intra)
     }
-    fn split_pri(&mut self, cell: Indeo3Cell, pplane: &Plane, mv_est: &MotionEstimator) -> Box<Indeo3PrimaryTree> {
+    fn split_pri(&mut self, mut cell: Indeo3Cell, pplane: &Plane, mv_est: &MotionEstimator, is_intra: bool) -> Box<Indeo3PrimaryTree> {
         let width  = cell.get_width();
         let height = cell.get_height();
         if width * height > MAX_CELL_SIZE {
@@ -191,14 +191,14 @@ impl Plane {
             match (hsplit, vsplit) {
                 (true, _) => {
                     let (cell1, cell2) = cell.split_v(self.stripw);
-                    let tree1 = self.split_pri(cell1, pplane, mv_est);
-                    let tree2 = self.split_pri(cell2, pplane, mv_est);
+                    let tree1 = self.split_pri(cell1, pplane, mv_est, is_intra);
+                    let tree2 = self.split_pri(cell2, pplane, mv_est, is_intra);
                     Box::new(Indeo3PrimaryTree::VSplit(tree1, tree2))
                 },
                 (_, true) => {
                     let (cell1, cell2) = cell.split_h();
-                    let tree1 = self.split_pri(cell1, pplane, mv_est);
-                    let tree2 = self.split_pri(cell2, pplane, mv_est);
+                    let tree1 = self.split_pri(cell1, pplane, mv_est, is_intra);
+                    let tree2 = self.split_pri(cell2, pplane, mv_est, is_intra);
                     Box::new(Indeo3PrimaryTree::HSplit(tree1, tree2))
                 },
                 (false, false) => {
@@ -207,7 +207,7 @@ impl Plane {
                 },
             }
         } else {
-            if !cell.intra {
+            if !is_intra {
                 if let Some((mv, flat)) = mv_est.mv_search(self, pplane, cell) {
                     return self.add_mv_tree(mv, flat, cell);
                 }
@@ -215,7 +215,7 @@ impl Plane {
                 // try splitting once to see if it improves situation
                 if width >= 16 && height >= 16 {
                     let vsplit = width > height;
-                    let (cell1, cell2) = if vsplit {
+                    let (mut cell1, mut cell2) = if vsplit {
                             cell.split_v(self.stripw)
                         } else {
                             cell.split_h()
@@ -226,12 +226,14 @@ impl Plane {
                         let tree1 = if let Some((mv, flat)) = search1 {
                                 self.add_mv_tree(mv, flat, cell1)
                             } else {
+                                cell1.intra = true;
                                 let sec = self.split_sec(cell1);
                                 Box::new(Indeo3PrimaryTree::AbsFill(sec))
                             };
                         let tree2 = if let Some((mv, flat)) = search2 {
                                 self.add_mv_tree(mv, flat, cell2)
                             } else {
+                                cell2.intra = true;
                                 let sec = self.split_sec(cell2);
                                 Box::new(Indeo3PrimaryTree::AbsFill(sec))
                             };
@@ -243,6 +245,7 @@ impl Plane {
                     }
                 }
             }
+            cell.intra = true;
             let sec = self.split_sec(cell);
             Box::new(Indeo3PrimaryTree::AbsFill(sec))
         }
@@ -329,7 +332,7 @@ impl Plane {
         (hdiff * 16 / area, vdiff * 16 / area)
     }
     pub fn prune_extra_mvs(&mut self, tree: &mut Box<Indeo3PrimaryTree>) {
-        let cell = Indeo3Cell::new(self.width, self.height, true);
+        let cell = Indeo3Cell::new(self.width, self.height);
         self.prune_pri(cell, tree)
     }
     fn prune_pri(&mut self, cell: Indeo3Cell, tree: &mut Box<Indeo3PrimaryTree>) {
@@ -353,8 +356,8 @@ impl Plane {
             },
         }
     }
-    pub fn encode_tree(&mut self, iw: &mut Indeo3Writer, tree: &Indeo3PrimaryTree, cenc: &mut CellEncoder, is_intra: bool, refp: &Plane) {
-        let cell = Indeo3Cell::new(self.width, self.height, is_intra);
+    pub fn encode_tree(&mut self, iw: &mut Indeo3Writer, tree: &Indeo3PrimaryTree, cenc: &mut CellEncoder, refp: &Plane) {
+        let cell = Indeo3Cell::new(self.width, self.height);
         self.encode_pri(iw, cell, tree, cenc, refp);
     }
     fn encode_pri(&mut self, iw: &mut Indeo3Writer, mut cell: Indeo3Cell, tree: &Indeo3PrimaryTree, cenc: &mut CellEncoder, refp: &Plane) {

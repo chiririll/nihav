@@ -176,7 +176,7 @@ impl CellEncoder {
             buf:    [0; MAX_CELL_SIZE + 160],
             rbuf:   [0; MAX_CELL_SIZE + 160],
             deltas: [0; MAX_CELL_SIZE],
-            cell:   Indeo3Cell::new(0, 0, false),
+            cell:   Indeo3Cell::new(0, 0),
             out:    [0; MAX_CELL_SIZE / 2 + 1],
             osize:  0,
 

@@ -148,7 +148,7 @@ impl Indeo3Encoder {
             }
 
             let mut iw = Indeo3Writer::new(dbuf);
-            self.cframe.plane[planeno].encode_tree(&mut iw, &tree, &mut self.cenc, is_intra, ref_plane);
+            self.cframe.plane[planeno].encode_tree(&mut iw, &tree, &mut self.cenc, ref_plane);
             drop(iw);
             while (dbuf.len() & 3) != 0 {
                 dbuf.push(0);
