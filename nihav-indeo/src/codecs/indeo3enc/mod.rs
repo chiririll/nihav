@@ -273,6 +273,7 @@ impl NAEncoder for Indeo3Encoder {
 
             let fsize = dbuf.len() as u32;
             self.rc.advance(fsize);
+            self.frameno += 1;
 
             self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, false, dbuf));
             return Ok(());
