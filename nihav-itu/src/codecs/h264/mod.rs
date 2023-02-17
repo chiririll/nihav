@@ -1072,8 +1072,8 @@ impl NAOptionHandler for H264Decoder {
             for opt_def in DECODER_OPTIONS.iter() {
                 if opt_def.check(option).is_ok() {
                     match (option.name, &option.value) {
-                        (FRAME_SKIP_OPTION, NAValue::String(ref str)) => {
-                            if let Ok(smode) = FrameSkipMode::from_str(str) {
+                        (FRAME_SKIP_OPTION, NAValue::String(ref strval)) => {
+                            if let Ok(smode) = FrameSkipMode::from_str(strval) {
                                 self.skip_mode = smode;
                             }
                         },

@@ -217,7 +217,7 @@ pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &Encode
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let in_stream = dmx.get_streams().find(|str| str.get_media_type() == dec_config.stream_type).unwrap();
+    let in_stream = dmx.get_streams().find(|strm| strm.get_media_type() == dec_config.stream_type).unwrap();
     let in_stream_id = in_stream.id;
     let decfunc = dec_config.dec_reg.find_decoder(in_stream.get_info().get_name()).unwrap();
     let mut dec = (decfunc)();
@@ -326,7 +326,7 @@ pub fn test_encoding_md5(dec_config: &DecoderTestParams, enc_config: &EncoderTes
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let in_stream = dmx.get_streams().find(|str| str.get_media_type() == dec_config.stream_type).unwrap();
+    let in_stream = dmx.get_streams().find(|strm| strm.get_media_type() == dec_config.stream_type).unwrap();
     let in_stream_id = in_stream.id;
     let decfunc = dec_config.dec_reg.find_decoder(in_stream.get_info().get_name()).unwrap();
     let mut dec = (decfunc)();

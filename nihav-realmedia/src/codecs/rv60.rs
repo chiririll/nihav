@@ -595,11 +595,11 @@ impl DeblockInfo {
     fn get_left_strength(&self, pos: usize) -> u8 {
         self.left_str[pos] & 3
     }
-    fn set_top_strength(&mut self, pos: usize, str: u8) {
-        self.top_str[pos] |= str;
+    fn set_top_strength(&mut self, pos: usize, strength: u8) {
+        self.top_str[pos] |= strength;
     }
-    fn set_left_strength(&mut self, pos: usize, str: u8) {
-        self.left_str[pos] |= str;
+    fn set_left_strength(&mut self, pos: usize, strength: u8) {
+        self.left_str[pos] |= strength;
     }
 }
 
@@ -1552,8 +1552,8 @@ impl NAOptionHandler for RealVideo60Decoder {
             for opt_def in DECODER_OPTIONS.iter() {
                 if opt_def.check(option).is_ok() {
                     match (option.name, &option.value) {
-                        (FRAME_SKIP_OPTION, NAValue::String(ref str)) => {
-                            if let Ok(smode) = FrameSkipMode::from_str(str) {
+                        (FRAME_SKIP_OPTION, NAValue::String(ref strval)) => {
+                            if let Ok(smode) = FrameSkipMode::from_str(strval) {
                                 self.skip_mode = smode;
                             }
                         },

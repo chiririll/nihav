@@ -176,11 +176,11 @@ impl<'a> CC<'a> {
             CC::Le(ref arg)      => { arg.le(src) },
             CC::Gt(ref arg)      => { arg.gt(src) },
             CC::Ge(ref arg)      => { arg.ge(src) },
-            CC::Str(str) => {
-                let mut val: Vec<u8> = vec![0; str.len()];
+            CC::Str(strng) => {
+                let mut val: Vec<u8> = vec![0; strng.len()];
                 let res = src.peek_buf(val.as_mut_slice());
                 if res.is_err() { return false; }
-                val == str
+                val == strng
             }
         }
     }

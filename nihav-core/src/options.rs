@@ -89,8 +89,8 @@ impl NAOptionDefinition {
             NAOptionDefinitionType::None => Ok((NAOption { name: self.name, value: NAValue::None }, 1)),
             NAOptionDefinitionType::Bool => Ok((NAOption { name: self.name, value: NAValue::Bool(true) }, 1)),
             NAOptionDefinitionType::Int(_, _) => {
-                if let Some(str) = value {
-                    let ret = str.parse::<i64>();
+                if let Some(strval) = value {
+                    let ret = strval.parse::<i64>();
                     if let Ok(val) = ret {
                         let opt = NAOption { name: self.name, value: NAValue::Int(val) };
                         self.check(&opt)?;
@@ -103,8 +103,8 @@ impl NAOptionDefinition {
                 }
             },
             NAOptionDefinitionType::Float(_, _) => {
-                if let Some(str) = value {
-                    let ret = str.parse::<f64>();
+                if let Some(strval) = value {
+                    let ret = strval.parse::<f64>();
                     if let Ok(val) = ret {
                         let opt = NAOption { name: self.name, value: NAValue::Float(val) };
                         self.check(&opt)?;
@@ -117,8 +117,8 @@ impl NAOptionDefinition {
                 }
             },
             NAOptionDefinitionType::String(_) => {
-                if let Some(str) = value {
-                    let opt = NAOption { name: self.name, value: NAValue::String(str.to_string()) };
+                if let Some(strval) = value {
+                    let opt = NAOption { name: self.name, value: NAValue::String(strval.to_string()) };
                     self.check(&opt)?;
                     Ok((opt, 2))
                 } else {

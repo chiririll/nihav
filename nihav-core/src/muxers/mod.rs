@@ -74,10 +74,10 @@ pub struct Muxer<'a> {
 
 impl<'a> Muxer<'a> {
     /// Constructs a new `Muxer` instance.
-    fn new(mux: Box<dyn MuxCore<'a> + 'a>, str: StreamManager) -> Self {
+    fn new(mux: Box<dyn MuxCore<'a> + 'a>, strmgr: StreamManager) -> Self {
         Muxer {
             mux,
-            streams:    str,
+            streams:    strmgr,
         }
     }
     /// Returns a stream reference by its number.
@@ -134,10 +134,10 @@ pub trait MuxerCreator {
 }
 
 /// Creates muxer for a provided bytestream writer.
-pub fn create_muxer<'a>(mxcr: &dyn MuxerCreator, str: StreamManager, bw: &'a mut ByteWriter<'a>) -> MuxerResult<Muxer<'a>> {
+pub fn create_muxer<'a>(mxcr: &dyn MuxerCreator, strmgr: StreamManager, bw: &'a mut ByteWriter<'a>) -> MuxerResult<Muxer<'a>> {
     let mut mux = mxcr.new_muxer(bw);
-    mux.create(&str)?;
-    Ok(Muxer::new(mux, str))
+    mux.create(&strmgr)?;
+    Ok(Muxer::new(mux, strmgr))
 }
 
 /// List of registered muxers.

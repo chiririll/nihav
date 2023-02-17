@@ -72,10 +72,10 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         if strmgr.get_num_streams() > 99 {
             return Err(MuxerError::UnsupportedFormat);
         }
-        for (str_no, str) in strmgr.iter().enumerate() {
-            if str.get_media_type() == StreamType::Video {
+        for (str_no, strm) in strmgr.iter().enumerate() {
+            if strm.get_media_type() == StreamType::Video {
                 self.video_str = Some(str_no);
-                self.video_id  = str.id;
+                self.video_id  = strm.id;
                 break;
             }
         }
@@ -111,20 +111,20 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
 
         self.pal_pos.clear();
         self.pal_pos.resize(strmgr.get_num_streams(), 0);
-        for (strno, str) in strmgr.iter().enumerate() {
+        for (strno, strm) in strmgr.iter().enumerate() {
             let strl_pos = self.bw.tell() + 8;
             self.bw.write_buf(b"LIST\0\0\0\0strlstrh")?;
             self.bw.write_u32le(56)?; // strh size
 
-            match str.get_media_type() {
+            match strm.get_media_type() {
                 StreamType::Video => {
                     self.bw.write_buf(b"vids")?;
-                    let fcc = find_avi_fourcc(str.get_info().get_name());
+                    let fcc = find_avi_fourcc(strm.get_info().get_name());
                     if fcc.is_none() {
                         return Err(MuxerError::UnsupportedFormat);
                     }
                     self.bw.write_buf(&fcc.unwrap_or([0; 4]))?;
-                    let vinfo = str.get_info().get_properties().get_video_info().unwrap();
+                    let vinfo = strm.get_info().get_properties().get_video_info().unwrap();
                     if vinfo.width >= (1 << 16) || vinfo.height >= (1 << 16) {
                         return Err(MuxerError::UnsupportedFormat);
                     }
@@ -141,7 +141,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             };
             self.stream_info.push(AVIStream {
                     strh_pos:   self.bw.tell(),
-                    is_video:   str.get_media_type() == StreamType::Video,
+                    is_video:   strm.get_media_type() == StreamType::Video,
                     nframes:    0,
                     max_size:   0,
                 });
@@ -150,8 +150,8 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             self.bw.write_u16le(0)?; // priority
             self.bw.write_u16le(0)?; // language
             self.bw.write_u32le(0)?; // initial frames
-            self.bw.write_u32le(str.tb_num)?;
-            self.bw.write_u32le(str.tb_den)?;
+            self.bw.write_u32le(strm.tb_num)?;
+            self.bw.write_u32le(strm.tb_den)?;
             self.bw.write_u32le(0)?; // start
             self.bw.write_u32le(0)?; // length
             self.bw.write_u32le(0)?; // suggested buffer size
@@ -165,9 +165,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             self.bw.write_buf(b"strf")?;
             self.bw.write_u32le(0)?;
             let strf_pos = self.bw.tell();
-            match str.get_media_type() {
+            match strm.get_media_type() {
                 StreamType::Video => {
-                    let vinfo = str.get_info().get_properties().get_video_info().unwrap();
+                    let vinfo = strm.get_info().get_properties().get_video_info().unwrap();
                     let hdr_pos = self.bw.tell();
                     self.bw.write_u32le(0)?;
                     self.bw.write_u32le(vinfo.width as u32)?;
@@ -179,7 +179,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                         self.bw.write_u16le(1)?;
                         self.bw.write_u16le(8)?;
                     }
-                    let fcc = find_avi_fourcc(str.get_info().get_name());
+                    let fcc = find_avi_fourcc(strm.get_info().get_name());
                     if fcc.is_none() {
                         return Err(MuxerError::UnsupportedFormat);
                     }
@@ -198,7 +198,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                         self.bw.write_u32le(0)?; // total colors
                         self.bw.write_u32le(0)?; // important colors
                     }
-                    if let Some(ref edata) = str.get_info().get_extradata() {
+                    if let Some(ref edata) = strm.get_info().get_extradata() {
                         self.bw.write_buf(edata.as_slice())?;
                     }
                     let bisize = self.bw.tell() - hdr_pos;
@@ -207,8 +207,8 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     self.bw.seek(SeekFrom::End(0))?;
                 },
                 StreamType::Audio => {
-                    let ainfo = str.get_info().get_properties().get_audio_info().unwrap();
-                    let twocc = find_wav_twocc(str.get_info().get_name());
+                    let ainfo = strm.get_info().get_properties().get_audio_info().unwrap();
+                    let twocc = find_wav_twocc(strm.get_info().get_name());
                     if twocc.is_none() {
                         return Err(MuxerError::UnsupportedFormat);
                     }
@@ -218,12 +218,12 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     self.bw.write_u32le(0)?; // avg bytes per second
                     self.bw.write_u16le(ainfo.block_len as u16)?;
                     self.bw.write_u16le(ainfo.format.bits as u16)?;
-                    if let Some(ref edata) = str.get_info().get_extradata() {
+                    if let Some(ref edata) = strm.get_info().get_extradata() {
                         self.bw.write_buf(edata.as_slice())?;
                     }
                 },
                 StreamType::Subtitles => {
-                    if let Some(ref edata) = str.get_info().get_extradata() {
+                    if let Some(ref edata) = strm.get_info().get_extradata() {
                         self.bw.write_buf(edata.as_slice())?;
                     }
                 },

@@ -1053,8 +1053,8 @@ impl NAOptionHandler for CinepakEncoder {
                             }
                         },
                         "quant_mode" => {
-                            if let NAValue::String(ref str) = option.value {
-                                match str.as_str() {
+                            if let NAValue::String(ref strval) = option.value {
+                                match strval.as_str() {
                                     "elbg"      => self.qmode = QuantMode::ELBG,
                                     "hybrid"    => self.qmode = QuantMode::Hybrid,
                                     "mediancut" => self.qmode = QuantMode::MedianCut,

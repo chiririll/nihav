@@ -1388,14 +1388,14 @@ pub struct NAPacket {
 
 impl NAPacket {
     /// Constructs a new `NAPacket` instance.
-    pub fn new(str: NAStreamRef, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
+    pub fn new(stream: NAStreamRef, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
-        NAPacket { stream: str, ts, keyframe: kf, buffer: NABufferRef::new(vec), side_data: Vec::new() }
+        NAPacket { stream, ts, keyframe: kf, buffer: NABufferRef::new(vec), side_data: Vec::new() }
     }
     /// Constructs a new `NAPacket` instance reusing a buffer reference.
-    pub fn new_from_refbuf(str: NAStreamRef, ts: NATimeInfo, kf: bool, buffer: NABufferRef<Vec<u8>>) -> Self {
-        NAPacket { stream: str, ts, keyframe: kf, buffer, side_data: Vec::new() }
+    pub fn new_from_refbuf(stream: NAStreamRef, ts: NATimeInfo, kf: bool, buffer: NABufferRef<Vec<u8>>) -> Self {
+        NAPacket { stream, ts, keyframe: kf, buffer, side_data: Vec::new() }
     }
     /// Returns information about the stream packet belongs to.
     pub fn get_stream(&self) -> NAStreamRef { self.stream.clone() }
@@ -1414,8 +1414,8 @@ impl NAPacket {
     /// Adds side data for a packet.
     pub fn add_side_data(&mut self, side_data: NASideData) { self.side_data.push(side_data); }
     /// Assigns packet to a new stream.
-    pub fn reassign(&mut self, str: NAStreamRef, ts: NATimeInfo) {
-        self.stream = str;
+    pub fn reassign(&mut self, stream: NAStreamRef, ts: NATimeInfo) {
+        self.stream = stream;
         self.ts = ts;
     }
 }

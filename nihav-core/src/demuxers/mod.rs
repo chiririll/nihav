@@ -45,18 +45,18 @@ pub trait DemuxCore<'a>: NAOptionHandler {
 /// An auxiliary trait to make bytestream reader read packet data.
 pub trait NAPacketReader {
     /// Reads input and constructs a packet containing it.
-    fn read_packet(&mut self, str: NAStreamRef, ts: NATimeInfo, keyframe: bool, size: usize) -> DemuxerResult<NAPacket>;
+    fn read_packet(&mut self, strm: NAStreamRef, ts: NATimeInfo, keyframe: bool, size: usize) -> DemuxerResult<NAPacket>;
     /// Reads input into already existing packet.
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()>;
 }
 
 impl<'a> NAPacketReader for ByteReader<'a> {
-    fn read_packet(&mut self, str: NAStreamRef, ts: NATimeInfo, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
+    fn read_packet(&mut self, strm: NAStreamRef, ts: NATimeInfo, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
         let mut buf: Vec<u8> = Vec::with_capacity(size);
         if buf.capacity() < size { return Err(DemuxerError::MemoryError); }
         buf.resize(size, 0);
         self.read_buf(buf.as_mut_slice())?;
-        let pkt = NAPacket::new(str, ts, kf, buf);
+        let pkt = NAPacket::new(strm, ts, kf, buf);
         Ok(pkt)
     }
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()> {
@@ -300,8 +300,8 @@ impl SeekIndex {
     }
     /// Adds a new stream to the index.
     pub fn stream_id_to_index(&self, id: u32) -> Option<usize> {
-        for (idx, str) in self.seek_info.iter().enumerate() {
-            if str.id == id {
+        for (idx, strm) in self.seek_info.iter().enumerate() {
+            if strm.id == id {
                 return Some(idx);
             }
         }
@@ -354,10 +354,10 @@ pub struct Demuxer<'a> {
 
 impl<'a> Demuxer<'a> {
     /// Constructs a new `Demuxer` instance.
-    fn new(dmx: Box<dyn DemuxCore<'a> + 'a>, str: StreamManager, seek_idx: SeekIndex) -> Self {
+    fn new(dmx: Box<dyn DemuxCore<'a> + 'a>, strmgr: StreamManager, seek_idx: SeekIndex) -> Self {
         Demuxer {
             dmx,
-            streams:    str,
+            streams:    strmgr,
             seek_idx,
         }
     }
