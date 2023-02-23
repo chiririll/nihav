@@ -237,6 +237,7 @@ struct CinepakEncoder {
     qmode:      QuantMode,
     quality:    u8,
     nstrips:    usize,
+    force_v1:   bool,
     cur_strip:  usize,
     v1_entries: Vec<YUVCode>,
     v4_entries: Vec<YUVCode>,
@@ -277,6 +278,7 @@ impl CinepakEncoder {
             key_int:    25,
             quality:    0,
             nstrips:    2,
+            force_v1:   false,
             cur_strip:  0,
             v1_entries: Vec::new(),
             v4_entries: Vec::new(),
@@ -615,11 +617,15 @@ impl CinepakEncoder {
                 }
 
                 self.v1_len = elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
-                self.v4_len = elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip]);
+                self.v4_len = if !self.force_v1 { elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip]) } else { 0 };
             },
             QuantMode::Hybrid => {
                 let v1_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
-                let v4_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip]);
+                let v4_len = if !self.force_v1 {
+                        quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip])
+                    } else {
+                        0
+                    };
                 self.v1_len = if v1_len < 256 {
                         v1_len
                     } else {
@@ -635,7 +641,11 @@ impl CinepakEncoder {
             },
             QuantMode::MedianCut => {
                 self.v1_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
-                self.v4_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip]);
+                if !self.force_v1 {
+                    self.v4_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip]);
+                } else {
+                    self.v4_len = 0;
+                }
             },
         };
 
@@ -691,7 +701,7 @@ impl CinepakEncoder {
 
             for (v1_entry, v4_entries) in self.v1_entries.iter().zip(self.v4_entries.chunks(4)) {
                 let (v1_idx, v1_dist) = Self::find_nearest(&self.v1_cur_cb[self.cur_strip][..self.v1_len], *v1_entry);
-                if v1_dist == 0 {
+                if v1_dist == 0 || self.force_v1 {
                     self.masks.put_v1();
                     self.v1_idx.push(v1_idx);
                     continue;
@@ -836,7 +846,7 @@ impl CinepakEncoder {
                 } else {
                     self.masks.put_inter(false);
                 }
-                if v1_dist == 0 {
+                if v1_dist == 0 || self.force_v1 {
                     self.masks.put_v1();
                     self.v1_idx.push(v1_idx);
                     continue;
@@ -1041,6 +1051,9 @@ const ENCODER_OPTS: &[NAOptionDefinition] = &[
     NAOptionDefinition {
         name: "quant_mode", description: "Quantisation mode",
         opt_type: NAOptionDefinitionType::String(Some(&["elbg", "hybrid", "mediancut"])) },
+    NAOptionDefinition {
+        name: "force_v1", description: "Force coarse (V1-only) mode",
+        opt_type: NAOptionDefinitionType::Bool },
 ];
 
 impl NAOptionHandler for CinepakEncoder {
@@ -1070,6 +1083,11 @@ impl NAOptionHandler for CinepakEncoder {
                                 };
                             }
                         },
+                        "force_v1" => {
+                            if let NAValue::Bool(val) = option.value {
+                                self.force_v1 = val;
+                            }
+                        },
                         _ => {},
                     };
                 }
@@ -1081,6 +1099,7 @@ impl NAOptionHandler for CinepakEncoder {
             KEYFRAME_OPTION => Some(NAValue::Int(i64::from(self.key_int))),
             "nstrips" => Some(NAValue::Int(self.nstrips as i64)),
             "quant_mode" => Some(NAValue::String(self.qmode.to_string())),
+            "force_v1" => Some(NAValue::Bool(self.force_v1)),
             _ => None,
         }
     }
