@@ -883,7 +883,7 @@ impl CinepakEncoder {
             let mut skip = true;
             for mask in self.masks.masks.iter() {
                 bw.write_u32be(*mask)?;
-                if *mask == 0 { continue; }
+                if *mask == 0 && skip { continue; }
                 let mut bit = 1 << 31;
                 while bit > 0 {
                     if skip {
