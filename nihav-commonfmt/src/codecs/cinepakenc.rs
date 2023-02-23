@@ -391,7 +391,7 @@ impl CinepakEncoder {
             }
         } else {
             let mut end = 256;
-            for (i, (ncw, ocw)) in new_cb.iter().rev().zip(old_cb.iter().rev()).enumerate() {
+            for (i, (ncw, ocw)) in new_cb.iter().zip(old_cb.iter()).enumerate().rev() {
                 if ncw == ocw {
                     end = i;
                 } else {
