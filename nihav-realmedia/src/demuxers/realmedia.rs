@@ -846,10 +846,15 @@ fn parse_aformat3(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
 
     skip_ra_metadata(src)?;
 
-    let _can_copy           = src.read_byte()?;
-    let fcc_len             = src.read_byte()?;
-    validate!(fcc_len == 4);
-    let fcc                 = src.read_u32be()?;
+    // the original RealAudio has no such fields
+    let fcc = if src.tell() != start + u64::from(header_len) + 2 {
+        let _can_copy           = src.read_byte()?;
+        let fcc_len             = src.read_byte()?;
+        validate!(fcc_len == 0 || fcc_len == 4);
+                                  src.read_u32be()?
+    } else {
+        read_u32be(b"lpcJ")?
+    };
 
     let end = src.tell();
     validate!(end - start <= (header_len as u64) + 2);
