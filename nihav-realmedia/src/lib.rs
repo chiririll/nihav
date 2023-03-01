@@ -25,3 +25,8 @@ pub use crate::codecs::realmedia_register_all_decoders;
 mod demuxers;
 #[cfg(feature="demuxers")]
 pub use crate::demuxers::realmedia_register_all_demuxers;
+
+#[cfg(feature="muxers")]
+mod muxers;
+#[cfg(feature="muxers")]
+pub use crate::muxers::realmedia_register_all_muxers;

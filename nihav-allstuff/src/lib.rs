@@ -78,6 +78,7 @@ pub fn nihav_register_all_muxers(rm: &mut RegisteredMuxers) {
     flash_register_all_muxers(rm);
     generic_register_all_muxers(rm);
     llaudio_register_all_muxers(rm);
+    realmedia_register_all_muxers(rm);
 }
 
 #[cfg(test)]
