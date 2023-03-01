@@ -510,7 +510,11 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
         };
         let cname = find_codec_name(RM_AUDIO_CODEC_REGISTER, ainfo.fcc);
         let blk_size = if ainfo.fcc != mktag!(b"sipr") {
-                ainfo.granularity as usize
+                if let Some(ref iinfo) = ainfo.ileave_info {
+                    iinfo.block_size as usize
+                } else {
+                    ainfo.granularity as usize
+                }
             } else {
                 validate!(ainfo.flavor <= 3);
                 RM_SIPRO_BLOCK_SIZES[ainfo.flavor as usize]
