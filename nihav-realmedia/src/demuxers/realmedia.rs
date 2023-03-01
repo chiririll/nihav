@@ -1247,7 +1247,8 @@ impl<'a> DemuxCore<'a> for RealAudioDemuxer<'a> {
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if !self.queued_pkts.is_empty() {
-            let pkt = self.queued_pkts.pop().unwrap();
+            let mut pkt = self.queued_pkts.pop().unwrap();
+            pkt.ts.pts = None;
             return Ok(pkt);
         }
         if (self.data_end != 0) && (self.src.tell() >= self.data_end) {
@@ -1257,9 +1258,12 @@ impl<'a> DemuxCore<'a> for RealAudioDemuxer<'a> {
         let stream = streamres.unwrap();
         if let Some(ref mut astr) = self.stream {
             loop {
-                let ret = astr.read_apackets(&mut self.queued_pkts, self.src, stream.clone(), 0, false, self.blk_size);
+                let mut ret = astr.read_apackets(&mut self.queued_pkts, self.src, stream.clone(), 0, false, self.blk_size);
                 if let Err(DemuxerError::TryAgain) = ret {
                     continue;
+                }
+                if let Ok(ref mut pkt) = ret {
+                    pkt.ts.pts = None;
                 }
                 return ret;
             }
