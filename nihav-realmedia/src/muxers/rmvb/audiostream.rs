@@ -16,6 +16,8 @@ static AUDIO_CODEC_REGISTRY: &[(&[u8;4], &str, &[u8;4], u8)] = &[
 ];
 
 struct InterleaveParams {
+    sample_rate:    u32,
+    channels:       u8,
     block_size:     usize,
     factor:         usize,
     frames_per_blk: usize,
@@ -152,7 +154,7 @@ struct GenericInterleaver {
     map:        Vec<usize>,
 }
 impl GenericInterleaver {
-    fn new(frame_size: usize, fcc: [u8; 4]) -> MuxerResult<Self> {
+    fn new(ainfo: NAAudioInfo, frame_size: usize, fcc: [u8; 4]) -> MuxerResult<Self> {
         let params = match &fcc {
                 b"atrc" => ATRAC_INTERLEAVE_PARAMS,
                 b"cook" => COOK_INTERLEAVE_PARAMS,
@@ -160,6 +162,12 @@ impl GenericInterleaver {
                 _ => return Err(MuxerError::UnsupportedFormat),
             };
         for (flavor, entry) in params.iter().enumerate() {
+            if entry.sample_rate != 0 && entry.sample_rate != ainfo.sample_rate {
+                continue;
+            }
+            if entry.channels != 0 && entry.channels != ainfo.channels {
+                continue;
+            }
             if entry.block_size / entry.frames_per_blk == frame_size {
                 let full_size = entry.frames_per_blk * entry.factor;
                 let mut map = vec![0; full_size];
@@ -619,7 +627,7 @@ fn create_interleaver(id: [u8; 4], fcc: [u8; 4], ainfo: NAAudioInfo) -> MuxerRes
         b"Int0" => Ok(Box::new(NoInterleaver{ frame_size, pkt: None })),
         b"Int4" => Ok(Box::new(Int4Interleaver::new(frame_size)?)),
         b"sipr" => Ok(Box::new(SiproInterleaver::new(frame_size)?)),
-        b"genr" => Ok(Box::new(GenericInterleaver::new(frame_size, fcc)?)),
+        b"genr" => Ok(Box::new(GenericInterleaver::new(ainfo, frame_size, fcc)?)),
         b"vbrs" | b"vbrf" => Ok(Box::new(AACInterleaver::new(1024))),
         _ => unimplemented!(),
     }
@@ -672,58 +680,70 @@ const SIPRO_SWAPS:   [[u8; 2]; 38] = [
     [ 67, 83 ], [ 77, 80 ]
 ];
 
+macro_rules! int_params {
+    ($rate:expr, $ch:expr, $bsize:expr, $factor:expr, $frm_per_blk:expr) => {
+        InterleaveParams {
+            sample_rate:    $rate,
+            channels:       $ch,
+            block_size:     $bsize,
+            factor:         $factor,
+            frames_per_blk: $frm_per_blk,
+        }
+    }
+}
+
 const RA_28_8_INTERLEAVE_PARAMS: &[InterleaveParams] = &[
-    InterleaveParams { block_size: 228, factor: 12, frames_per_blk: 6 },
+    int_params!(0, 1, 228, 12, 6)
 ];
-const SIPRO_INTERLEAVE_PARAMS: &[InterleaveParams] = &[
-    InterleaveParams { block_size: 232, factor: 6, frames_per_blk: 16 },
-    InterleaveParams { block_size: 304, factor: 6, frames_per_blk: 16 },
-    InterleaveParams { block_size: 296, factor: 6, frames_per_blk: 16 },
-    InterleaveParams { block_size: 320, factor: 6, frames_per_blk: 16 }
+const SIPRO_INTERLEAVE_PARAMS: &[InterleaveParams] = &[ //2,1,3,0
+    int_params!( 8000, 1, 232, 6, 16),
+    int_params!( 8000, 1, 304, 6, 16),
+    int_params!( 8000, 1, 296, 6, 16),
+    int_params!(16000, 1, 320, 6, 16),
 ];
 const ATRAC_INTERLEAVE_PARAMS: &[InterleaveParams] = &[
-    InterleaveParams { block_size:  768, factor: 20, frames_per_blk: 4 },
-    InterleaveParams { block_size: 1088, factor: 20, frames_per_blk: 4 },
-    InterleaveParams { block_size:  912, factor: 30, frames_per_blk: 3 },
-    InterleaveParams { block_size: 1152, factor: 30, frames_per_blk: 3 },
-    InterleaveParams { block_size: 1272, factor: 30, frames_per_blk: 3 },
-    InterleaveParams { block_size: 1024, factor: 30, frames_per_blk: 2 },
-    InterleaveParams { block_size:  768, factor: 10, frames_per_blk: 1 },
-    InterleaveParams { block_size: 1024, factor: 10, frames_per_blk: 1 }
+    int_params!(0, 0,  768, 20, 4),
+    int_params!(0, 0, 1088, 20, 4),
+    int_params!(0, 0,  912, 30, 3),
+    int_params!(0, 0, 1152, 30, 3),
+    int_params!(0, 0, 1272, 30, 3),
+    int_params!(0, 0, 1024, 30, 2),
+    int_params!(0, 0,  768, 10, 1),
+    int_params!(0, 0, 1024, 10, 1),
 ];
 const COOK_INTERLEAVE_PARAMS: &[InterleaveParams] = &[
-    InterleaveParams { block_size:  288, factor:  8, frames_per_blk:  9 },
-    InterleaveParams { block_size:  352, factor:  8, frames_per_blk: 11 },
-    InterleaveParams { block_size:  564, factor:  8, frames_per_blk: 12 },
-    InterleaveParams { block_size:  600, factor:  9, frames_per_blk: 10 },
-    InterleaveParams { block_size:  651, factor: 14, frames_per_blk:  7 },
-    InterleaveParams { block_size:  640, factor: 15, frames_per_blk:  5 },
-    InterleaveParams { block_size:  744, factor: 20, frames_per_blk:  4 },
-    InterleaveParams { block_size:  558, factor: 16, frames_per_blk:  6 },
-    InterleaveParams { block_size:  288, factor:  6, frames_per_blk: 12 },
-    InterleaveParams { block_size:  580, factor: 10, frames_per_blk: 10 },
-    InterleaveParams { block_size:  564, factor: 14, frames_per_blk:  6 },
-    InterleaveParams { block_size:  640, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size:  744, factor: 20, frames_per_blk:  4 },
-    InterleaveParams { block_size:  834, factor: 30, frames_per_blk:  3 },
-    InterleaveParams { block_size:  644, factor: 20, frames_per_blk:  4 },
-    InterleaveParams { block_size:  600, factor:  9, frames_per_blk: 10 },
-    InterleaveParams { block_size:  651, factor: 14, frames_per_blk:  7 },
-    InterleaveParams { block_size:  528, factor:  8, frames_per_blk: 11 },
-    InterleaveParams { block_size:  600, factor: 10, frames_per_blk: 10 },
-    InterleaveParams { block_size:  600, factor: 10, frames_per_blk: 10 },
-    InterleaveParams { block_size:  465, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size:  465, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size:  640, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size:  640, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size:  930, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size: 1400, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size:  376, factor:  8, frames_per_blk: 11 },
-    InterleaveParams { block_size:  930, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size: 1400, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size:  640, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size: 1395, factor: 16, frames_per_blk:  5 },
-    InterleaveParams { block_size: 1143, factor: 10, frames_per_blk:  3 },
-    InterleaveParams { block_size: 1064, factor: 10, frames_per_blk:  2 },
-    InterleaveParams { block_size:  778, factor:  1, frames_per_blk:  1 }
+    int_params!( 8000, 1,  288,  8,  9),
+    int_params!(11025, 1,  352,  8, 11),
+    int_params!(22050, 1,  564,  8, 12),
+    int_params!(22050, 1,  600,  9, 10),
+    int_params!(44100, 1,  651, 14,  7),
+    int_params!(44100, 1,  640, 15,  5),
+    int_params!(44100, 1,  744, 20,  4),
+    int_params!(22050, 1,  558, 16,  6),
+    int_params!( 8000, 1,  288,  6, 12),
+    int_params!(11025, 2,  580, 10, 10),
+    int_params!(22050, 2,  564, 14,  6),
+    int_params!(22050, 2,  640, 16,  5),
+    int_params!(44100, 2,  744, 20,  4),
+    int_params!(44100, 2,  834, 30,  3),
+    int_params!(44100, 1,  644, 20,  4),
+    int_params!(44100, 1,  600,  9, 10),
+    int_params!(44100, 1,  651, 14,  7),
+    int_params!(22050, 2,  528, 10, 10),
+    int_params!(22050, 2,  600, 10, 10),
+    int_params!(22050, 2,  600, 10, 10),
+    int_params!(22050, 2,  465, 16,  5),
+    int_params!(44100, 2,  465, 16,  5),
+    int_params!(44100, 2,  640, 16,  5),
+    int_params!(44100, 2,  640, 16,  5),
+    int_params!(44100, 2,  930, 16,  5),
+    int_params!(44100, 2, 1400, 16,  5),
+    int_params!(11025, 2,  376,  8, 11),
+    int_params!(44100, 2,  930, 16,  5),
+    int_params!(44100, 2, 1400, 16,  5),
+    int_params!(22050, 2,  640, 16,  5),
+    int_params!(44100, 5, 1395, 16,  5),
+    int_params!(44100, 6, 1143, 10,  3),
+    int_params!(44100, 6, 1064, 10,  2),
+    int_params!(44100, 6,  778,  1,  1),
 ];
