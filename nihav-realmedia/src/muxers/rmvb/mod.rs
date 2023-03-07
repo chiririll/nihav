@@ -34,8 +34,8 @@ impl<'a> RMWriterHelper for ByteWriter<'a> {
 
 pub trait RMStreamWriter {
     fn write_header(&mut self, bw: &mut ByteWriter, astream: &NAStream) -> MuxerResult<()>;
-    fn queue_packet(&mut self, pkt: NAPacket) -> bool;
-    fn get_packet(&mut self) -> Option<(Vec<u8>, bool)>;
+    fn queue_packet(&mut self, pkt: NAPacket, ms: u32) -> bool;
+    fn get_packet(&mut self) -> Option<(Vec<u8>, u32, bool)>;
     fn flush(&mut self);
     fn finish(&mut self, bw: &mut ByteWriter) -> MuxerResult<()>;
 }
@@ -127,21 +127,21 @@ impl RMStream {
             self.time = self.time.max(ms);
             self.cur_time = ms;
         }
-        self.keyframe = pkt.keyframe;
-        self.packetiser.queue_packet(pkt);
+        self.keyframe = pkt.keyframe || self.audio;
+        self.packetiser.queue_packet(pkt, self.cur_time);
         self.write_packets(bw, pkt_no)
     }
     fn write_packets(&mut self, bw: &mut ByteWriter, pkt_no: &mut u32) -> MuxerResult<()> {
-        while let Some((data, first)) = self.packetiser.get_packet() {
+        while let Some((data, ts, first)) = self.packetiser.get_packet() {
             validate!(data.len() < 65000);
             if self.keyframe && first {
-                self.index.push(IndexEntry{ time: self.cur_time, pos: bw.tell(), pkt_no: *pkt_no });
+                self.index.push(IndexEntry{ time: ts, pos: bw.tell(), pkt_no: *pkt_no });
             }
             let is_keyframe = self.keyframe && (!self.audio || first);
             bw.write_u16be(0)?; //version;
             bw.write_u16be((data.len() + 12) as u16)?;
             bw.write_u16be(self.stream_id)?;
-            bw.write_u32be(self.cur_time)?;
+            bw.write_u32be(ts)?;
             bw.write_byte(0)?; //packet group
             bw.write_byte(if is_keyframe { 0x2 } else { 0x0 })?;
             bw.write_buf(&data)?;
@@ -383,8 +383,8 @@ impl<'a> MuxCore<'a> for RAMuxer<'a> {
     }
     fn mux_frame(&mut self, _strmgr: &StreamManager, pkt: NAPacket) -> MuxerResult<()> {
         if let Some(ref mut sw) = self.sw {
-            sw.queue_packet(pkt);
-            while let Some((data, _)) = sw.get_packet() {
+            sw.queue_packet(pkt, 0);
+            while let Some((data, _, _)) = sw.get_packet() {
                 self.bw.write_buf(&data)?;
             }
             Ok(())
@@ -570,7 +570,7 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "realmedia", &mux_reg,
-                          [0xe38b36c0, 0x1aedef10, 0x4e418ac4, 0x4ff57f6c]);
+                          [0xcfa1a27b, 0x78314fa7, 0xeb90c31c, 0x7eafeaa8]);
     }
     #[test]
     fn test_rm_muxer_ralf() {

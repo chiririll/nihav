@@ -17,10 +17,10 @@ impl RMStreamWriter for DummyStreamWriter {
     fn write_header(&mut self, _bw: &mut ByteWriter, _stream: &NAStream) -> MuxerResult<()> {
         Ok(())
     }
-    fn queue_packet(&mut self, _pkt: NAPacket) -> bool {
+    fn queue_packet(&mut self, _pkt: NAPacket, _ms: u32) -> bool {
         true
     }
-    fn get_packet(&mut self) -> Option<(Vec<u8>, bool)> {
+    fn get_packet(&mut self) -> Option<(Vec<u8>, u32, bool)> {
         None
     }
     fn flush(&mut self) { }
@@ -35,6 +35,7 @@ struct VideoStreamWriter {
     nslices:    usize,
     cur_slice:  usize,
     seq_no:     u8,
+    time:       u32,
 }
 
 impl RMStreamWriter for VideoStreamWriter {
@@ -75,7 +76,7 @@ impl RMStreamWriter for VideoStreamWriter {
         bw.seek(SeekFrom::Start(end))?;
         Ok(())
     }
-    fn queue_packet(&mut self, pkt: NAPacket) -> bool {
+    fn queue_packet(&mut self, pkt: NAPacket, ms: u32) -> bool {
         if self.nslices == 0 {
             let src = pkt.get_buffer();
             let nslices = usize::from(src[0]) + 1;
@@ -84,13 +85,14 @@ impl RMStreamWriter for VideoStreamWriter {
                 self.cur_slice = 0;
                 self.buf.resize(src.len(), 0);
                 self.buf.copy_from_slice(&src);
+                self.time = ms;
             }
             true
         } else {
             false
         }
     }
-    fn get_packet(&mut self) -> Option<(Vec<u8>, bool)> {
+    fn get_packet(&mut self) -> Option<(Vec<u8>, u32, bool)> {
         if self.cur_slice < self.nslices {
             let first = self.cur_slice == 0;
             let hdr_size = self.nslices * 8 + 1;
@@ -138,7 +140,7 @@ impl RMStreamWriter for VideoStreamWriter {
                 self.cur_slice = 0;
                 self.seq_no = self.seq_no.wrapping_add(1);
             }
-            Some((ret, first))
+            Some((ret, self.time, first))
         } else {
             None
         }
@@ -161,6 +163,7 @@ pub fn create_video_stream(stream: &NAStream) -> MuxerResult<Box<dyn RMStreamWri
                     nslices:    0,
                     cur_slice:  0,
                     seq_no:     0,
+                    time:       0,
                 }));
         }
     }

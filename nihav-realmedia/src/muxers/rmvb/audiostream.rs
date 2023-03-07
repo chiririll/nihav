@@ -26,6 +26,7 @@ trait Interleaver {
     fn get_block_size(&self) -> usize;
     fn get_factor(&self) -> usize;
     fn get_frames_per_block(&self) -> usize;
+    fn is_empty(&self) -> bool;
     fn add_packet(&mut self, src: &[u8]) -> bool;
     fn get_packet(&mut self) -> Option<(Vec<u8>, bool)>;
     fn flush(&mut self);
@@ -42,6 +43,7 @@ impl Interleaver for NoInterleaver {
     fn get_block_size(&self) -> usize { self.frame_size }
     fn get_factor(&self) -> usize { 1 }
     fn get_frames_per_block(&self) -> usize { 1 }
+    fn is_empty(&self) -> bool { self.pkt.is_none() }
     fn add_packet(&mut self, src: &[u8]) -> bool {
         if self.pkt.is_none() {
             self.pkt = Some(src.to_vec());
@@ -107,6 +109,7 @@ impl Interleaver for Int4Interleaver {
     fn get_block_size(&self) -> usize { self.block_size }
     fn get_factor(&self) -> usize { self.factor }
     fn get_frames_per_block(&self) -> usize { self.fpb }
+    fn is_empty(&self) -> bool { self.cur_frame == 0 }
     fn add_packet(&mut self, src: &[u8]) -> bool {
         if self.cur_frame == self.factor * self.fpb {
             return false;
@@ -200,6 +203,7 @@ impl Interleaver for GenericInterleaver {
     fn get_block_size(&self) -> usize { self.block_size }
     fn get_factor(&self) -> usize { self.factor }
     fn get_frames_per_block(&self) -> usize { self.fpb }
+    fn is_empty(&self) -> bool { self.cur_frame == 0 }
     fn add_packet(&mut self, src: &[u8]) -> bool {
         if self.cur_frame == self.factor * self.fpb {
             return false;
@@ -266,6 +270,7 @@ impl Interleaver for SiproInterleaver {
     fn get_block_size(&self) -> usize { self.block_size }
     fn get_factor(&self) -> usize { self.factor }
     fn get_frames_per_block(&self) -> usize { 1 }
+    fn is_empty(&self) -> bool { self.wr_pos == 0 }
     fn add_packet(&mut self, src: &[u8]) -> bool {
         if self.wr_pos < self.factor {
             self.buf[self.wr_pos * self.block_size..][..self.block_size].copy_from_slice(src);
@@ -340,6 +345,7 @@ impl Interleaver for AACInterleaver {
     fn get_block_size(&self) -> usize { self.frame_size }
     fn get_factor(&self) -> usize { 1 }
     fn get_frames_per_block(&self) -> usize { 1 }
+    fn is_empty(&self) -> bool { self.data.is_empty() }
     fn add_packet(&mut self, src: &[u8]) -> bool {
         if !self.full {
             self.data.extend_from_slice(src);
@@ -396,6 +402,10 @@ struct AudioStreamWriter {
     header_pos:     u64,
     interleave:     Box<dyn Interleaver>,
     data_size:      usize,
+    first_time:     u32,
+    last_time:      u32,
+    size_in:        usize,
+    size_out:       usize,
 }
 
 impl RMStreamWriter for AudioStreamWriter {
@@ -424,10 +434,18 @@ impl RMStreamWriter for AudioStreamWriter {
         }
         Ok(())
     }
-    fn queue_packet(&mut self, pkt: NAPacket) -> bool {
+    fn queue_packet(&mut self, pkt: NAPacket, ms: u32) -> bool {
         let src = pkt.get_buffer();
         self.data_size += src.len();
         let frame_size = self.interleave.get_frame_size();
+        self.last_time = ms;
+        if self.interleave.is_empty() {
+            self.first_time = ms;
+            self.size_in = 0;
+            self.size_out = 0;
+        } else {
+            self.size_in += src.len() / frame_size;
+        }
         if !self.is_raw {
             let mut ret = false;
             for frame in src.chunks(frame_size) {
@@ -438,7 +456,21 @@ impl RMStreamWriter for AudioStreamWriter {
             self.interleave.add_packet(&src)
         }
     }
-    fn get_packet(&mut self) -> Option<(Vec<u8>, bool)> { self.interleave.get_packet() }
+    fn get_packet(&mut self) -> Option<(Vec<u8>, u32, bool)> {
+        if let Some((pkt, first)) = self.interleave.get_packet() {
+            let time_add = if self.last_time > self.first_time && self.size_in > 0 {
+                    let size = pkt.len();
+                    let time_add = (self.size_out * ((self.last_time - self.first_time) as usize) / self.size_in) as u32;
+                    self.size_out += size / self.interleave.get_frame_size();
+                    time_add
+                } else {
+                    0
+                };
+            Some((pkt, self.first_time + time_add, first))
+        } else {
+            None
+        }
+    }
     fn flush(&mut self) { self.interleave.flush() }
     fn finish(&mut self, bw: &mut ByteWriter) -> MuxerResult<()> {
         let cur_pos = bw.tell();
@@ -617,6 +649,10 @@ pub fn create_audio_stream(stream: &NAStream) -> MuxerResult<Box<dyn RMStreamWri
             interleave: create_interleaver(ileave, fourcc, ainfo)?,
             header_pos: 0,
             data_size:  0,
+            first_time: 0,
+            last_time:  0,
+            size_in:    0,
+            size_out:   0,
         }))
     } else {
         Err(MuxerError::UnsupportedFormat)
