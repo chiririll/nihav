@@ -52,7 +52,7 @@ pub mod ra144;
 pub mod ra288;
 #[cfg(feature="decoder_cook")]
 pub mod cook;
-#[cfg(feature="decoder_cook")]
+#[cfg(any(feature="decoder_cook", feature="encoder_cook"))]
 pub mod cookdata;
 #[cfg(feature="decoder_ralf")]
 pub mod ralf;
@@ -83,5 +83,22 @@ const RM_CODECS: &[DecoderInfo] = &[
 pub fn realmedia_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in RM_CODECS.iter() {
         rd.add_decoder(*decoder);
+    }
+}
+
+#[cfg(feature="encoder_cook")]
+mod cookenc;
+
+#[cfg(feature="encoders")]
+const ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_cook")]
+    EncoderInfo { name: "cook", get_encoder: cookenc::get_encoder },
+];
+
+/// Registers all available encoders provided by this crate.
+#[cfg(feature="encoders")]
+pub fn realmedia_register_all_encoders(re: &mut RegisteredEncoders) {
+    for encoder in ENCODERS.iter() {
+        re.add_encoder(*encoder);
     }
 }

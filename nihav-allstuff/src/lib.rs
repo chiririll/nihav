@@ -71,6 +71,7 @@ pub fn nihav_register_all_encoders(re: &mut RegisteredEncoders) {
     duck_register_all_encoders(re);
     llaudio_register_all_encoders(re);
     ms_register_all_encoders(re);
+    realmedia_register_all_encoders(re);
 }
 
 /// Registers all known demuxers.

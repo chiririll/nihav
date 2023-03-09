@@ -12,7 +12,7 @@ path = "../nihav-codec-support"
 features = ["h263", "mdct", "blockdsp"]
 
 [features]
-default = ["all_decoders", "all_demuxers", "all_muxers"]
+default = ["all_decoders", "all_demuxers", "all_encoders", "all_muxers"]
 demuxers = []
 all_demuxers = ["demuxer_real"]
 demuxer_real = ["demuxers"]
@@ -36,3 +36,11 @@ decoder_realaudio144 = ["decoders"]
 decoder_realaudio288 = ["decoders"]
 decoder_cook = ["decoders"]
 decoder_ralf = ["decoders"]
+
+all_encoders = ["all_video_encoders", "all_audio_encoders"]
+encoders = []
+
+all_video_encoders = []
+
+all_audio_encoders = ["encoder_cook"]
+encoder_cook = ["encoders"]
