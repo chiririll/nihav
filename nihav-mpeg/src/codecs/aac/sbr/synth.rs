@@ -41,7 +41,7 @@ pub struct SBRChannel {
     pub num_env:            usize,
         prev_num_env:       usize,
     pub freq_res:           [bool; NUM_ENVELOPES],
-    pub env_border:         [usize; NUM_ENVELOPES],
+    pub env_border:         [usize; NUM_ENVELOPES + 1],
     pub noise_env_border:   [usize; 3],
     pub pointer:            u8,
     pub num_noise:          usize,
@@ -93,7 +93,7 @@ impl SBRChannel {
             num_env:            0,
             prev_num_env:       0,
             freq_res:           [false; NUM_ENVELOPES],
-            env_border:         [0; NUM_ENVELOPES],
+            env_border:         [0; NUM_ENVELOPES + 1],
             noise_env_border:   [0; 3],
             pointer:            0,
             num_noise:          0,
@@ -214,7 +214,7 @@ impl SBRChannel {
                 };
         }
 
-        for (l, x_high) in self.x_high.iter_mut().enumerate().skip(HF_ADJ).take(self.env_border[self.num_env - 1] * 2) {
+        for (l, x_high) in self.x_high.iter_mut().enumerate().skip(HF_ADJ).take(self.env_border[self.num_env] * 2).skip(self.env_border[0]) {
             *x_high = [FFTC_ZERO; SBR_BANDS];
             let mut dst_k = state.k_x;
             for (&patch_start, &patch_len) in state.patch_start_subband[..state.num_patches].iter().zip(state.patch_num_subbands.iter()) {
@@ -247,7 +247,8 @@ impl SBRChannel {
 
         let kx = state.k_x;
         let km = state.f[state.num_master];
-        let envelope_end = self.env_border[self.num_env - 1];
+        let envelope_start = self.env_border[0];
+        let envelope_end = self.env_border[self.num_env];
 
         let high_start = state.f[..=state.num_master].binary_search(&state.k_x).unwrap();
         let f_high = &state.f[..=state.num_master][high_start..];
@@ -342,11 +343,11 @@ impl SBRChannel {
             }
         };
         let mut q_mapped = [[0.0; SBR_BANDS]; NUM_ENVELOPES];
-        let mut start = 0;
-        let noise_env = [0, self.noise_env_border[0], self.noise_env_border[1]];
+        let mut start = self.env_border[0];
+        let noise_env = self.noise_env_border;
         match self.qmode {
             QuantMode::Single => {
-                for (env_no, &env_end) in self.env_border[..self.num_env].iter().enumerate() {
+                for (env_no, &env_end) in self.env_border[1..=self.num_env].iter().enumerate() {
                     let env_end = env_end;
                     let mut noise_env_no = 0;
                     for nenv in 0..self.num_noise {
@@ -367,7 +368,7 @@ impl SBRChannel {
                 }
             },
             QuantMode::Left => {
-                for (env_no, &env_end) in self.env_border[..self.num_env].iter().enumerate() {
+                for (env_no, &env_end) in self.env_border[1..=self.num_env].iter().enumerate() {
                     let env_end = env_end;
                     let mut noise_env_no = 0;
                     for nenv in 0..self.num_noise {
@@ -388,7 +389,7 @@ impl SBRChannel {
                 }
             },
             QuantMode::Right => {
-                for (env_no, &env_end) in self.env_border[..self.num_env].iter().enumerate() {
+                for (env_no, &env_end) in self.env_border[1..=self.num_env].iter().enumerate() {
                     let env_end = env_end;
                     let mut noise_env_no = 0;
                     for nenv in 0..self.num_noise {
@@ -410,9 +411,9 @@ impl SBRChannel {
             },
         };
 
-        let mut start = 0;
+        let mut start = self.env_border[0];
         let mut e_curr = [[0.0f32; SBR_BANDS]; NUM_ENVELOPES];
-        for (e_curr, &env_end) in e_curr.iter_mut().zip(self.env_border[..self.num_env].iter()) {
+        for (e_curr, &env_end) in e_curr.iter_mut().zip(self.env_border[1..=self.num_env].iter()) {
             for slot in self.x_high[HF_ADJ..][(start * 2)..(env_end * 2)].iter() {
                 for (dst, x) in e_curr[kx..km].iter_mut().zip(slot[kx..km].iter()) {
                     *dst += x.sq_modulus();
@@ -504,8 +505,8 @@ impl SBRChannel {
         }
 
         let mut env_map = [0; MAX_SLOTS * 2 + QMF_DELAY];
-        let mut start = 0;
-        for (env, &env_end) in self.env_border[..self.num_env].iter().enumerate() {
+        let mut start = self.env_border[0];
+        for (env, &env_end) in self.env_border[1..=self.num_env].iter().enumerate() {
             for l in (start * 2)..(env_end * 2) {
                 env_map[l] = env;
             }
@@ -517,8 +518,8 @@ impl SBRChannel {
         if self.last_env_end > 0 {
             ghead.copy_from_slice(&gcur[self.last_env_end - SMOOTH_DELAY..][..SMOOTH_DELAY]);
             qhead.copy_from_slice(&qcur[self.last_env_end - SMOOTH_DELAY..][..SMOOTH_DELAY]);
-            let mut start = 0;
-            for (&env_end, (g_lim, q_lim)) in self.env_border[..self.num_env].iter().zip(g_lim_boost.iter().zip(q_m_lim_boost.iter())) {
+            let mut start = self.env_border[0];
+            for (&env_end, (g_lim, q_lim)) in self.env_border[1..=self.num_env].iter().zip(g_lim_boost.iter().zip(q_m_lim_boost.iter())) {
                 for slot in (start * 2)..(env_end * 2) {
                     gcur[slot] = *g_lim;
                     qcur[slot] = *q_lim;
@@ -533,7 +534,7 @@ impl SBRChannel {
                 *dst = q_m_lim_boost[0];
             }
             let mut start = 0;
-            for (&env_end, (g_lim, q_lim)) in self.env_border[..self.num_env].iter().zip(g_lim_boost.iter().zip(q_m_lim_boost.iter())) {
+            for (&env_end, (g_lim, q_lim)) in self.env_border[1..=self.num_env].iter().zip(g_lim_boost.iter().zip(q_m_lim_boost.iter())) {
                 for slot in (start * 2)..(env_end * 2) {
                     gcur[slot] = *g_lim;
                     qcur[slot] = *q_lim;
@@ -545,7 +546,7 @@ impl SBRChannel {
         let mut g_filt = [[0.0; SBR_BANDS]; MAX_SLOTS * 2 + QMF_DELAY];
         let mut q_filt = [[0.0; SBR_BANDS]; MAX_SLOTS * 2 + QMF_DELAY];
         if !hdr.smoothing_mode {
-            for slot in 0..(envelope_end * 2) {
+            for slot in (envelope_start * 2)..(envelope_end * 2) {
                 if (slot as i8) == (la_prev * 2) {
                     g_filt[slot].copy_from_slice(&self.g_temp[slot + SMOOTH_DELAY]);
                     q_filt[slot].copy_from_slice(&self.q_temp[slot + SMOOTH_DELAY]);
@@ -568,7 +569,7 @@ impl SBRChannel {
         }
 
         let index_noise = self.index_noise.wrapping_sub(self.env_border[0] * 2) & 511;
-        for (slot, y) in self.y.iter_mut().skip(HF_ADJ).take(envelope_end * 2).enumerate() {
+        for (slot, y) in self.y.iter_mut().skip(HF_ADJ).take(envelope_end * 2).skip(envelope_start * 2).enumerate() {
             for (k, y) in y.iter_mut().enumerate().skip(kx).take(km - kx) {
                 *y = self.x_high[HF_ADJ + slot][k].scale(g_filt[slot][k]);
 

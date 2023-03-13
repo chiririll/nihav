@@ -107,14 +107,14 @@ fn read_grid(br: &mut BitReader, chan: &mut SBRChannel) -> DecoderResult<()> {
             for el in chan.freq_res[..chan.num_env].iter_mut() {
                 *el = freq_res;
             }
+            chan.env_border[0] = 0;
             if chan.num_env > 1 {
                 let delta = (MAX_SLOTS + chan.num_env / 2) / chan.num_env;
-                chan.env_border[0] = delta;
-                for i in 0..chan.num_env - 1 {
-                    chan.env_border[i + 1] = chan.env_border[i] + delta;
+                for i in 1..chan.num_env {
+                    chan.env_border[i] = chan.env_border[i - 1] + delta;
                 }
             }
-            chan.env_border[chan.num_env - 1] = MAX_SLOTS;
+            chan.env_border[chan.num_env] = MAX_SLOTS;
         },
         FrameClass::FixVar => {
             let var_bord_1              = br.read(2)? as u8;
@@ -129,9 +129,10 @@ fn read_grid(br: &mut BitReader, chan: &mut SBRChannel) -> DecoderResult<()> {
                 *el                 = br.read_bool()?;
             }
 
-            chan.env_border[chan.num_env - 1] = MAX_SLOTS + usize::from(var_bord_1);
+            chan.env_border[0] = 0;
+            chan.env_border[chan.num_env] = MAX_SLOTS + usize::from(var_bord_1);
             for (i, &delta) in (1..chan.num_env).rev().zip(rel_bord_1.iter()) {
-                chan.env_border[i - 1] = chan.env_border[i] - usize::from(delta);
+                chan.env_border[i] = chan.env_border[i + 1] - usize::from(delta);
             }
         },
         FrameClass::VarFix => {
@@ -147,11 +148,11 @@ fn read_grid(br: &mut BitReader, chan: &mut SBRChannel) -> DecoderResult<()> {
                 *el                 = br.read_bool()?;
             }
 
-            chan.env_border[0] = usize::from(var_bord_0 + rel_bord_0[0]);
-            for i in 1..chan.num_env {
-                chan.env_border[i] = chan.env_border[i - 1] + usize::from(rel_bord_0[i]);
+            chan.env_border[0] = usize::from(var_bord_0);
+            for i in 0..chan.num_env - 1 {
+                chan.env_border[i + 1] = chan.env_border[i] + usize::from(rel_bord_0[i]);
             }
-            chan.env_border[chan.num_env - 1] = MAX_SLOTS;
+            chan.env_border[chan.num_env] = MAX_SLOTS;
         },
         FrameClass::VarVar => {
             let var_bord_0          = br.read(2)? as u8;
@@ -173,35 +174,37 @@ fn read_grid(br: &mut BitReader, chan: &mut SBRChannel) -> DecoderResult<()> {
                 *el                 = br.read_bool()?;
             }
 
-            chan.env_border[0] = usize::from(var_bord_0 + rel_bord_0[0]);
-            for i in 1..=num_rel_0 {
-                chan.env_border[i] = chan.env_border[i - 1] + usize::from(rel_bord_0[i]);
+            chan.env_border[0] = usize::from(var_bord_0);
+            for i in 0..num_rel_0 {
+                chan.env_border[i + 1] = chan.env_border[i] + usize::from(rel_bord_0[i]);
             }
-            chan.env_border[chan.num_env - 1] = MAX_SLOTS + usize::from(var_bord_1);
+            chan.env_border[chan.num_env] = MAX_SLOTS + usize::from(var_bord_1);
             for i in 0..num_rel_1 {
-                chan.env_border[chan.num_env - 2 - i] = chan.env_border[chan.num_env - 1 - i] - usize::from(rel_bord_1[i]);
+                chan.env_border[chan.num_env - 1 - i] = chan.env_border[chan.num_env - i] - usize::from(rel_bord_1[i]);
             }
         },
     };
-    for i in 0..chan.num_env - 1 {
+    for i in 0..chan.num_env {
         validate!(chan.env_border[i] < chan.env_border[i + 1]);
     }
 
     if chan.num_env > 1 {
         chan.num_noise = 2;
         let mid = match (chan.fclass, chan.pointer) {
-                (FrameClass::FixFix, _) => chan.num_env / 2 - 1,
-                (FrameClass::VarFix, 0) => 0,
-                (FrameClass::VarFix, 1) => chan.num_env - 2,
-                (FrameClass::VarFix, _) => chan.pointer as usize - 2,
-                (_, 0) | (_, 1)         => chan.num_env - 2,
-                (_, _)                  => chan.num_env - (chan.pointer as usize),
+                (FrameClass::FixFix, _) => chan.num_env / 2,
+                (FrameClass::VarFix, 0) => 1,
+                (FrameClass::VarFix, 1) => chan.num_env - 1,
+                (FrameClass::VarFix, _) => chan.pointer as usize - 1,
+                (_, 0) | (_, 1)         => chan.num_env - 1,
+                (_, _)                  => chan.num_env + 1 - (chan.pointer as usize),
             };
-        chan.noise_env_border[0] = chan.env_border[mid];
-        chan.noise_env_border[1] = chan.env_border[chan.num_env - 1];
+        chan.noise_env_border[0] = chan.env_border[0];
+        chan.noise_env_border[1] = chan.env_border[mid];
+        chan.noise_env_border[2] = chan.env_border[chan.num_env];
     } else {
         chan.num_noise = 1;
         chan.noise_env_border[0] = chan.env_border[0];
+        chan.noise_env_border[1] = chan.env_border[1];
     }
 
 
