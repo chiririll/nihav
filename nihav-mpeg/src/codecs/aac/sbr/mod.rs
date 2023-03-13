@@ -189,9 +189,10 @@ impl SBRState {
             }
         }
         for (dst, high) in self.low_to_high_res.iter_mut().zip(high_src.iter()) {
-            match low_src.binary_search(high) {
-                Ok(idx) | Err(idx) => *dst = idx,
-            };
+            *dst = match low_src.binary_search(high) {
+                    Ok(idx) => idx,
+                    Err(idx) => idx - 1,
+                };
         }
 
         let num_q = (((hdr.noise_bands as f32) * ((k2 as f32) / (k_x as f32)).log2()).round() as usize).max(1);

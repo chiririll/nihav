@@ -259,8 +259,8 @@ fn read_envelope(br: &mut BitReader, chan: &mut SBRChannel, coupled: bool, cbs: 
             for (i, band_env) in envelope[..num_env_bands].iter_mut().enumerate() {
                 let delta           = br.read_cb(t_cb)?;
                 let last = match (freq_res, chan.last_freq_res) {
-                        (true, false) => chan.last_envelope[state.high_to_low_res[i]],
-                        (false, true) => chan.last_envelope[state.low_to_high_res[i]],
+                        (false, true) => chan.last_envelope[state.high_to_low_res[i]],
+                        (true, false) => chan.last_envelope[state.low_to_high_res[i]],
                         _ => chan.last_envelope[i],
                     };
                 *band_env = last + delta * scale;
