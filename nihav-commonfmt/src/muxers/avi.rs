@@ -256,7 +256,12 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                 if let NASideData::Palette(_, ref pal) = sdata {
                     let cur_pos = self.bw.tell();
                     self.bw.seek(SeekFrom::Start(u64::from(self.pal_pos[str_num])))?;
-                    self.bw.write_buf(pal.as_ref())?;
+                    for quad in pal.chunks(4) {
+                        self.bw.write_byte(quad[2])?;
+                        self.bw.write_byte(quad[1])?;
+                        self.bw.write_byte(quad[0])?;
+                        self.bw.write_byte(0)?;
+                    }
                     self.bw.seek(SeekFrom::Start(cur_pos))?;
                     self.pal_pos[str_num] = 0;
                     break;
