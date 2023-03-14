@@ -417,6 +417,7 @@ impl NAEncoder for FLACEncoder {
             }
         }
     }
+    fn get_capabilities(&self) -> u64 { 0 }
     fn init(&mut self, stream_id: u32, encinfo: EncodeParameters) -> EncoderResult<NAStreamRef> {
         match encinfo.format {
             NACodecTypeInfo::None => Err(EncoderError::FormatError),

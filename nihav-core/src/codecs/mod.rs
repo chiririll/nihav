@@ -210,6 +210,13 @@ pub const ENC_MODE_CBR: u64 = 1 << 0;
 /// Encoding parameter flag to force constant framerate mode.
 pub const ENC_MODE_CFR: u64 = 1 << 1;
 
+/// Encoder supports constant bitrate mode.
+pub const ENC_CAPS_CBR: u64 = 1 << 0;
+/// Encoder supports skip frames.
+pub const ENC_CAPS_SKIPFRAME: u64 = 1 << 1;
+/// Encoder supports mid-stream parameters change.
+pub const ENC_CAPS_PARAMCHANGE: u64 = 1 << 2;
+
 /// Encoding parameters.
 #[derive(Clone,Copy,PartialEq)]
 pub struct EncodeParameters {
@@ -300,6 +307,10 @@ pub trait NAEncoder: NAOptionHandler {
     /// // convert input into format defined in target_params, feed to the encoder, ...
     /// ```
     fn negotiate_format(&self, encinfo: &EncodeParameters) -> EncoderResult<EncodeParameters>;
+    /// Queries encoder capabilities.
+    ///
+    /// See `ENC_CAPS_*` for examples.
+    fn get_capabilities(&self) -> u64;
     /// Initialises the encoder.
     fn init(&mut self, stream_id: u32, encinfo: EncodeParameters) -> EncoderResult<NAStreamRef>;
     /// Takes a single frame for encoding.

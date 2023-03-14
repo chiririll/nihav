@@ -215,6 +215,7 @@ impl NAEncoder for IMAADPCMEncoder {
             }
         }
     }
+    fn get_capabilities(&self) -> u64 { ENC_CAPS_CBR }
     fn init(&mut self, stream_id: u32, encinfo: EncodeParameters) -> EncoderResult<NAStreamRef> {
         match encinfo.format {
             NACodecTypeInfo::None => Err(EncoderError::FormatError),
