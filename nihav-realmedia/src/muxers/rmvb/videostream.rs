@@ -36,6 +36,7 @@ struct VideoStreamWriter {
     cur_slice:  usize,
     seq_no:     u8,
     time:       u32,
+    mi_time:    u32,
 }
 
 impl RMStreamWriter for VideoStreamWriter {
@@ -86,6 +87,9 @@ impl RMStreamWriter for VideoStreamWriter {
                 self.buf.resize(src.len(), 0);
                 self.buf.copy_from_slice(&src);
                 self.time = ms;
+                if ms > 0 {
+                    self.mi_time = ms.max(self.mi_time + 1);
+                }
             }
             true
         } else {
@@ -140,7 +144,7 @@ impl RMStreamWriter for VideoStreamWriter {
                 self.cur_slice = 0;
                 self.seq_no = self.seq_no.wrapping_add(1);
             }
-            Some((ret, self.time, first))
+            Some((ret, self.mi_time, first))
         } else {
             None
         }
@@ -164,6 +168,7 @@ pub fn create_video_stream(stream: &NAStream) -> MuxerResult<Box<dyn RMStreamWri
                     cur_slice:  0,
                     seq_no:     0,
                     time:       0,
+                    mi_time:    0,
                 }));
         }
     }
