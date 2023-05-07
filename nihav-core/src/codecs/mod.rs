@@ -226,7 +226,7 @@ pub struct EncodeParameters {
     pub tb_num:     u32,
     /// Time base denominator. Ignored for audio.
     pub tb_den:     u32,
-    /// Bitrate in kilobits per second.
+    /// Bitrate in bits per second.
     pub bitrate:    u32,
     /// A collection of various boolean encoder settings like CBR mode.
     ///
