@@ -38,6 +38,7 @@ pub trait RMStreamWriter {
     fn get_packet(&mut self) -> Option<(Vec<u8>, u32, bool)>;
     fn flush(&mut self);
     fn finish(&mut self, bw: &mut ByteWriter) -> MuxerResult<()>;
+    fn set_pkt_size(&mut self, pkt_size: usize);
 }
 
 #[derive(Clone,Copy)]
@@ -59,12 +60,13 @@ struct RMStream {
     keyframe:       bool,
     audio:          bool,
     index:          Vec<IndexEntry>,
+    debug:          bool,
 }
 
 impl RMStream {
-    fn new(strno: usize, stream: &NAStream) -> MuxerResult<Self> {
+    fn new(strno: usize, stream: &NAStream, pkt_size: usize) -> MuxerResult<Self> {
         let packetiser = match stream.get_media_type() {
-                StreamType::Video => create_video_stream(stream)?,
+                StreamType::Video => create_video_stream(stream, pkt_size)?,
                 StreamType::Audio => create_audio_stream(stream)?,
                 _ => Box::new(DummyStreamWriter{}),
             };
@@ -80,6 +82,7 @@ impl RMStream {
             keyframe:       false,
             audio:          false,
             index:          Vec::new(),
+            debug:          false,
         })
     }
     fn write_mdpr(&mut self, bw: &mut ByteWriter, strm: &NAStream) -> MuxerResult<()> {
@@ -138,6 +141,9 @@ impl RMStream {
                 self.index.push(IndexEntry{ time: ts, pos: bw.tell(), pkt_no: *pkt_no });
             }
             let is_keyframe = self.keyframe && (!self.audio || first);
+            if self.debug {
+                println!(" writing packet for stream {} size {}{}", self.stream_id, data.len(), if is_keyframe { " kf" } else { "" });
+            }
             bw.write_u16be(0)?; //version;
             bw.write_u16be((data.len() + 12) as u16)?;
             bw.write_u16be(self.stream_id)?;
@@ -177,6 +183,9 @@ struct RMMuxer<'a> {
     data_pos:       u64,
     num_chunks:     u32,
     cur_packet:     u32,
+
+    debug:          bool,
+    vpkt_size:      usize,
 }
 
 impl<'a> RMMuxer<'a> {
@@ -187,6 +196,9 @@ impl<'a> RMMuxer<'a> {
             data_pos:   0,
             num_chunks: 0,
             cur_packet: 0,
+
+            debug:      false,
+            vpkt_size:  1400,
         }
     }
     fn write_index(&mut self) -> MuxerResult<()> {
@@ -284,7 +296,7 @@ impl<'a> MuxCore<'a> for RMMuxer<'a> {
 
         self.streams.clear();
         for (strno, strm) in strmgr.iter().enumerate() {
-            let mut swriter = RMStream::new(strno, &strm)?;
+            let mut swriter = RMStream::new(strno, &strm, self.vpkt_size)?;
             swriter.write_mdpr(self.bw, &strm)?;
             self.streams.push(swriter);
             self.num_chunks += 1;
@@ -336,10 +348,54 @@ impl<'a> MuxCore<'a> for RMMuxer<'a> {
     }
 }
 
+const DEBUG_OPTION: &str = "debug";
+const VPKT_SIZE_OPTION: &str = "vpkt_size";
+
+const MUXER_OPTIONS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: DEBUG_OPTION, description: "print some muxer statistics",
+        opt_type: NAOptionDefinitionType::Bool },
+    NAOptionDefinition {
+        name: VPKT_SIZE_OPTION, description: "video packet maximum size",
+        opt_type: NAOptionDefinitionType::Int(Some(1024), Some(14800)) },
+];
+
 impl<'a> NAOptionHandler for RMMuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { MUXER_OPTIONS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            for opt_def in MUXER_OPTIONS.iter() {
+                if opt_def.check(option).is_ok() {
+                    match option.name {
+                        DEBUG_OPTION => {
+                            if let NAValue::Bool(val) = option.value {
+                                self.debug = val;
+                                for stream in self.streams.iter_mut() {
+                                    stream.debug = val;
+                                }
+                            }
+                        },
+                        VPKT_SIZE_OPTION => {
+                            if let NAValue::Int(intval) = option.value {
+                                self.vpkt_size = intval as usize;
+                                for stream in self.streams.iter_mut() {
+                                    stream.packetiser.set_pkt_size(self.vpkt_size);
+                                }
+                            }
+                        },
+                        _ => {},
+                    };
+                }
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        match name {
+            DEBUG_OPTION => Some(NAValue::Bool(self.debug)),
+            VPKT_SIZE_OPTION => Some(NAValue::Int(self.vpkt_size as i64)),
+            _ => None,
+        }
+    }
 }
 
 pub struct RealMediaMuxerCreator {}
@@ -449,7 +505,7 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "realmedia", &mux_reg,
-                          [0x26422839, 0xa2d7bdd1, 0xd6ea2a78, 0x1b58033a]);
+                          [0x80e7d0c2, 0x5bf1b72b, 0x653beb40, 0x81ab14e9]);
     }
 
     #[test]
@@ -570,7 +626,7 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "realmedia", &mux_reg,
-                          [0xcfa1a27b, 0x78314fa7, 0xeb90c31c, 0x7eafeaa8]);
+                          [0x7cfb02af, 0xbbf64748, 0x086b5005, 0xc55dbc9d]);
     }
     #[test]
     fn test_rm_muxer_ralf() {
@@ -594,6 +650,6 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "realmedia", &mux_reg,
-                          [0xa0c336d1, 0x76221455, 0x75252067, 0x6189d4af]);
+                          [0xaf8345be, 0xf3912b40, 0xf720acdc, 0xc825b29e]);
     }
 }

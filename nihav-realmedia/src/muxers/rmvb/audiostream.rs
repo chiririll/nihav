@@ -499,6 +499,7 @@ impl RMStreamWriter for AudioStreamWriter {
         bw.seek(SeekFrom::Start(cur_pos))?;
         Ok(())
     }
+    fn set_pkt_size(&mut self, _pkt_size: usize) {}
 }
 
 fn write_audio_metadata(bw: &mut ByteWriter) -> MuxerResult<()> {
