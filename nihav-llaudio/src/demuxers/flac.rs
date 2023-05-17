@@ -21,6 +21,17 @@ struct FLACDemuxer<'a> {
     srate:          u32,
     known_frames:   Vec<FrameSeekInfo>,
     build_index:    bool,
+    frame_hdr:      u32,
+}
+
+fn common_header_word(mut val: u32) -> u32 {
+    val &= !0x1F000; // blocking strategy and block size
+    let ch_map = (val >> 4) & 0xF;
+    if matches!(ch_map, 0x1 | 0x8 | 0x9 | 0xA) { // stereo coding modes
+        val &= !0xF0;
+        val |= 0x10;
+    }
+    val
 }
 
 impl<'a> FLACDemuxer<'a> {
@@ -37,6 +48,7 @@ impl<'a> FLACDemuxer<'a> {
             srate:          0,
             known_frames:   Vec::new(),
             build_index:    false,
+            frame_hdr:      0,
         }
     }
     fn read_frame(&mut self) -> DemuxerResult<(Vec<u8>, u64, u64)> {
@@ -49,6 +61,9 @@ impl<'a> FLACDemuxer<'a> {
             buf.push(byte);
             crc = update_crc16(crc, byte);
         }
+        if self.frame_hdr == 0 {
+            self.frame_hdr = read_u32be(&buf).unwrap_or(0);
+        }
         let mut ref_crc                 = self.src.read_u16be()?;
         loop {
             let byte                    = self.src.read_byte()?;
@@ -56,9 +71,9 @@ impl<'a> FLACDemuxer<'a> {
             buf.push(old_byte);
             ref_crc = (ref_crc << 8) | u16::from(byte);
             crc = update_crc16(crc, old_byte);
-            if buf.len() + 2 >= self.min_size && crc == ref_crc {
-                let ret                 = self.src.peek_u16be();
-                if ret.is_err() || ((ret.unwrap_or(0) & 0xFFFE) == 0xFFF8) {
+            if buf.len() + 4 >= self.min_size && crc == ref_crc {
+                let ret                 = self.src.peek_u32be();
+                if ret.is_err() || (common_header_word(ret.unwrap_or(0)) == common_header_word(self.frame_hdr)) {
                     buf.push((ref_crc >> 8) as u8);
                     buf.push(ref_crc as u8);
                     break;
