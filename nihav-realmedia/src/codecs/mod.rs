@@ -33,6 +33,8 @@ pub mod rv30dsp;
 #[cfg(feature="decoder_realvideo4")]
 pub mod rv40;
 #[cfg(feature="decoder_realvideo4")]
+pub mod rv40data;
+#[cfg(feature="decoder_realvideo4")]
 #[allow(clippy::erasing_op)]
 #[allow(clippy::many_single_char_names)]
 pub mod rv40dsp;
