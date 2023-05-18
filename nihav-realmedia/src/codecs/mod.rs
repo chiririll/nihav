@@ -11,7 +11,7 @@ macro_rules! validate {
 
 #[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4"))]
 mod rv3040;
-#[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4"))]
+#[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4", feature="encoder_realvideo4"))]
 #[allow(clippy::erasing_op)]
 mod rv34codes;
 #[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4"))]
@@ -32,7 +32,7 @@ pub mod rv30;
 pub mod rv30dsp;
 #[cfg(feature="decoder_realvideo4")]
 pub mod rv40;
-#[cfg(feature="decoder_realvideo4")]
+#[cfg(any(feature="decoder_realvideo4", feature="encoder_realvideo4"))]
 pub mod rv40data;
 #[cfg(feature="decoder_realvideo4")]
 #[allow(clippy::erasing_op)]
@@ -91,10 +91,16 @@ pub fn realmedia_register_all_decoders(rd: &mut RegisteredDecoders) {
 #[cfg(feature="encoder_cook")]
 mod cookenc;
 
+#[cfg(feature="encoder_rv40")]
+mod rv40enc;
+
 #[cfg(feature="encoders")]
 const ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_cook")]
     EncoderInfo { name: "cook", get_encoder: cookenc::get_encoder },
+
+#[cfg(feature="encoder_rv40")]
+    EncoderInfo { name: "realvideo4", get_encoder: rv40enc::get_encoder },
 ];
 
 /// Registers all available encoders provided by this crate.
