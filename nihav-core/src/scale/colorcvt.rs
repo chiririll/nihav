@@ -265,8 +265,8 @@ impl Kernel for RgbToYuv {
                     let (y, u, v) = matrix_mul(&self.matrix, r, g, b);
 
                     dst[yoff + x] = (y as i16).max(0).min(255) as u8;
-                    dst[uoff + x] = ((u as i16).max(-128).min(128) + 128) as u8;
-                    dst[voff + x] = ((v as i16).max(-128).min(128) + 128) as u8;
+                    dst[uoff + x] = ((u as i16).max(-128).min(127) + 128) as u8;
+                    dst[voff + x] = ((v as i16).max(-128).min(127) + 128) as u8;
                 }
                 roff += istrides[0];
                 goff += istrides[1];
