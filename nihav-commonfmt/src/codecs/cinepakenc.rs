@@ -1000,6 +1000,12 @@ impl NAEncoder for CinepakEncoder {
     fn encode(&mut self, frm: &NAFrame) -> EncoderResult<()> {
         let buf = frm.get_buffer();
         if let Some(ref vbuf) = buf.get_vbuf() {
+            if self.nstrips == 0 {
+                let (w, h) = vbuf.get_dimensions(0);
+                self.nstrips = ((((w * h) >> 4) + 1200) / 2400).max(1).min(3);
+                let strip_h = ((h + self.nstrips - 1) / self.nstrips + 3) & !3;
+                self.nstrips = (h + strip_h - 1) / strip_h;
+            }
             let cur_strips = self.v1_cb.len();
             if cur_strips != self.nstrips {
                 self.frmcount = 0;
