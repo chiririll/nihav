@@ -595,4 +595,60 @@ mod test {
         assert_eq!(odata[paloff + 1], 129);
         assert_eq!(odata[paloff + 2], 170);
     }
+    #[test]
+    fn test_scale_modes() {
+        const IN_DATA: [[u8; 6]; 2] = [
+            [0xFF, 0xC0, 0x40, 0x00, 0x40, 0xC0],
+            [0x00, 0x40, 0xC0, 0xFF, 0xC0, 0x40]
+        ];
+        const TEST_DATA: &[(&str, [[u8; 9]; 3])] = &[
+            ("nn",
+               [[0xFF, 0xC0, 0x40, 0xFF, 0xC0, 0x40, 0x00, 0x40, 0xC0],
+                [0xFF, 0xC0, 0x40, 0xFF, 0xC0, 0x40, 0x00, 0x40, 0xC0],
+                [0x00, 0x40, 0xC0, 0x00, 0x40, 0xC0, 0xFF, 0xC0, 0x40]]),
+            ("bilin",
+               [[0xFF, 0xC0, 0x40, 0x55, 0x6A, 0x95, 0x00, 0x40, 0xC0],
+                [0x55, 0x6A, 0x95, 0x8D, 0x86, 0x78, 0xAA, 0x95, 0x6A],
+                [0x00, 0x40, 0xC0, 0xAA, 0x95, 0x6A, 0xFF, 0xC0, 0x40]]),
+            ("bicubic",
+               [[0xFF, 0xC0, 0x40, 0x4B, 0x65, 0x9A, 0x00, 0x36, 0xC9],
+                [0x4B, 0x65, 0x9A, 0x94, 0x8A, 0x74, 0xB3, 0x9D, 0x61],
+                [0x00, 0x36, 0xC9, 0xBA, 0x9D, 0x61, 0xFF, 0xD3, 0x2B]]),
+            ("lanczos",
+               [[0xFF, 0xC0, 0x40, 0x4C, 0x66, 0x98, 0x00, 0x31, 0xCD],
+                [0x4C, 0x66, 0x98, 0x91, 0x88, 0x74, 0xB1, 0x9D, 0x5F],
+                [0x00, 0x31, 0xCD, 0xBB, 0x9D, 0x5F, 0xFF, 0xDD, 0x1E]]),
+            ("lanczos2",
+               [[0xFF, 0xC0, 0x40, 0x4F, 0x68, 0x9B, 0x00, 0x35, 0xCD],
+                [0x4F, 0x68, 0x9B, 0x96, 0x8D, 0x79, 0xB3, 0xA0, 0x64],
+                [0x00, 0x35, 0xCD, 0xBE, 0xA1, 0x65, 0xFF, 0xDC, 0x28]]),
+        ];
+
+        let in_pic = alloc_video_buffer(NAVideoInfo::new(2, 2, false, RGB24_FORMAT), 3).unwrap();
+        if let Some(ref mut vbuf) = in_pic.get_vbuf() {
+            let stride = vbuf.get_stride(0);
+            let data = vbuf.get_data_mut().unwrap();
+            for (dline, rline) in data.chunks_mut(stride).zip(IN_DATA.iter()) {
+                dline[..6].copy_from_slice(rline);
+            }
+        } else {
+            panic!("wrong format");
+        }
+        let mut out_pic = alloc_video_buffer(NAVideoInfo::new(3, 3, false, RGB24_FORMAT), 3).unwrap();
+        let ifmt = get_scale_fmt_from_pic(&in_pic);
+        let ofmt = get_scale_fmt_from_pic(&out_pic);
+        for (method, ref_data) in TEST_DATA.iter() {
+            fill_pic(&mut out_pic, 0);
+            let mut scaler = NAScale::new_with_options(ifmt, ofmt, &[("scaler".to_string(), method.to_string())]).unwrap();
+            scaler.convert(&in_pic, &mut out_pic).unwrap();
+            let obuf = out_pic.get_vbuf().unwrap();
+            let ostride = obuf.get_stride(0);
+            let odata = obuf.get_data();
+            for (oline, rline) in odata.chunks(ostride).zip(ref_data.iter()) {
+                for (&a, &b) in oline.iter().zip(rline.iter()) {
+                    assert_eq!(a, b);
+                }
+            }
+        }
+    }
 }
