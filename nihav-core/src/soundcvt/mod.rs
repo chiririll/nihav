@@ -10,6 +10,9 @@ use crate::io::byteio::*;
 use crate::io::bitreader::*;
 use std::f32::consts::SQRT_2;
 
+mod resample;
+pub use resample::NAResample;
+
 /// A list specifying general sound conversion errors.
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum SoundConvertError {
@@ -373,6 +376,9 @@ Result<NABufferType, SoundConvertError> {
     }
     let src_chmap = src.get_chmap().unwrap();
     let src_info  = src.get_audio_info().unwrap();
+    if src_info.sample_rate != dst_info.sample_rate {
+        return Err(SoundConvertError::Unsupported);
+    }
     if (src_chmap.num_channels() == 0) || (dst_chmap.num_channels() == 0) {
         return Err(SoundConvertError::InvalidInput);
     }
