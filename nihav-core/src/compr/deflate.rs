@@ -790,6 +790,7 @@ impl Inflate {
         self.state = InflateState::Start;
     }
 
+    #[allow(clippy::comparison_chain)]
     ///! Decompresses input data into output returning the uncompressed data length.
     pub fn uncompress(src: &[u8], dst: &mut [u8]) -> DecompressResult<usize> {
         let mut csrc = CurrentSource::new(src, BitReaderState::default());
@@ -886,13 +887,11 @@ impl Inflate {
                     }
                     let hdist = csrc.read(5)? as usize + 1;
                     let hclen = csrc.read(4)? as usize + 4;
-                    let mut cur_len_idx = 0;
                     let mut len_lengths = [0; 19];
                     let mut all_lengths = [0; NUM_LITERALS + NUM_DISTS];
 
-                    for _ in 0..hclen {
+                    for cur_len_idx in 0..hclen {
                         len_lengths[LEN_RECODE[cur_len_idx]] = csrc.read(3)? as u8;
-                        cur_len_idx += 1;
                     }
                     let mut len_codes = [ShortCodebookDesc { code: 0, bits: 0 }; 19];
                     lengths_to_codes(&len_lengths, &mut len_codes)?;
