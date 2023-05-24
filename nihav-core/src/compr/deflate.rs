@@ -1583,25 +1583,25 @@ fn gen_tree(codes: &mut [u16], lens: &mut [u8], num_codes: &mut usize, stats: &m
         *num_codes = 0;
         return;
     }
-    while tot_w > (1 << max_bits) {
-        for w in stats.iter_mut() {
-            *w = (*w + 1) >> 1;
+    loop {
+        let mut tree = Tree::new();
+        for (sym, &w) in stats.iter().enumerate() {
+            tree.insert(Node{ sym: sym as u16, w: w as u16, idx0: 64000, idx1: 64000 });
         }
-        tot_w = 0;
-        for &w in stats.iter() {
-            tot_w += w;
-        }
-    }
-    let mut tree = Tree::new();
-    for (sym, &w) in stats.iter().enumerate() {
-        tree.insert(Node{ sym: sym as u16, w: w as u16, idx0: 64000, idx1: 64000 });
-    }
-    tree.trim();
-    tree.build();
+        tree.trim();
+        tree.build();
 
-    for n in tree.nodes[..tree.nnodes].iter() {
-        if n.sym != NODE_SYM {
-            lens[n.sym as usize] = n.w as u8;
+        for n in tree.nodes[..tree.nnodes].iter() {
+            if n.sym != NODE_SYM {
+                lens[n.sym as usize] = n.w as u8;
+            }
+        }
+        if !lens.iter().any(|&x| x > max_bits) {
+            break;
+        } else {
+            for w in stats.iter_mut() {
+                *w = (*w + 1) >> 1;
+            }
         }
     }
     lengths_to_codes16(lens, codes);
