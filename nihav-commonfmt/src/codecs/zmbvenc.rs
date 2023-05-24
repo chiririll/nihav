@@ -596,7 +596,7 @@ mod test {
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0x08615111, 0x6f644a35, 0xa4e28f32, 0x35d2e66c]);
+                          &[0x18bd3754, 0x97007f81, 0xff2bcd07, 0x739c48dc]);
     }
 
     #[test]
@@ -643,7 +643,7 @@ mod test {
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0x1cff4116, 0x5926d91b, 0x60aac53f, 0x8a22bc7b]);
+                          &[0x00311257, 0xd26a0e9e, 0xfd4b003f, 0x7c962d7b]);
     }
 
     #[test]
@@ -690,7 +690,7 @@ mod test {
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0xb48aa633, 0x673539fe, 0xa312d45a, 0x76eee134]);
+                          &[0x4eea104f, 0x2ebe544b, 0x54deb0f9, 0xe5ca88f4]);
     }
 
     #[test]
@@ -737,6 +737,6 @@ mod test {
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0x0836152c, 0xfcd7e1fc, 0xf1e2f619, 0x874d3dbc]);
+                          &[0xffceb4bd, 0xb1beccd9, 0x4983e7f6, 0xf46e33ba]);
     }
 }
