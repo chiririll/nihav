@@ -1671,110 +1671,92 @@ fn check_match(src1: &[u8], src2: &[u8]) -> u16 {
 const HASH_SIZE: usize = 4096;
 const MAX_MATCH_LEN: usize = 258;
 const WINDOW_SIZE: usize = 32768 - MAX_MATCH_LEN;
-const NONEXT: usize = WINDOW_SIZE * 2;
+const WINDOW_MASK: usize = 32767;
 
 struct MatchFinder<'a> {
     src:        &'a [u8],
     pos:        usize,
     hstart:     [usize; HASH_SIZE],
-    hend:       [usize; HASH_SIZE],
-    hnext:      [usize; WINDOW_SIZE * 3],
+    hnext:      [usize; WINDOW_MASK + 1],
 }
 
 impl<'a> MatchFinder<'a> {
     fn new(src: &'a [u8]) -> Self {
-        let mut obj = Self {
+        Self {
             src,
             pos:        0,
-            hstart:     [0; HASH_SIZE],
-            hend:       [0; HASH_SIZE],
-            hnext:      [0; WINDOW_SIZE * 3],
-        };
-        obj.build_hash();
-        obj
+            hstart:     [src.len(); HASH_SIZE],
+            hnext:      [src.len(); WINDOW_MASK + 1],
+        }
     }
     fn hash(src: &[u8]) -> usize {
         let _ = src[2];
         (((u16::from(src[0]) << 10) ^ (u16::from(src[1]) << 5) ^ u16::from(src[2])) & ((HASH_SIZE as u16) - 1)) as usize
     }
-    fn build_hash(&mut self) {
-        for el in self.hstart.iter_mut() { *el = NONEXT; }
-        for el in self.hend.iter_mut()   { *el = NONEXT; }
-        for el in self.hnext.iter_mut()  { *el = NONEXT; }
-        if self.pos + 3 >= self.src.len() {
-            return;
-        }
-        let end = (self.src.len() - 3).min(self.pos + NONEXT);
-        for i in (self.pos .. end).rev() {
-            let key = Self::hash(&self.src[i..]);
-            if self.hstart[key] == NONEXT {
-                self.hstart[key] = i;
-                self.hend[key] = i;
-                self.hnext[key] = NONEXT;
-            } else {
-                self.hnext[self.hend[key]] = i;
-                self.hend[key] = i;
-            }
-        }
+    fn add_hash(&mut self, hash: usize) {
+        self.hnext[self.pos & WINDOW_MASK] = self.hstart[hash];
+        self.hstart[hash] = self.pos;
+        self.hnext[(self.pos + 1) & WINDOW_MASK] = self.src.len();
     }
     fn find_match(&mut self) -> (u16, u16) {
         if self.pos == 0 || self.pos + 3 > self.src.len() {
             return (0, 0);
         }
-        let key = Self::hash(&self.src[self.pos..]) as usize;
+        let key = Self::hash(&self.src[self.pos..]);
 
         let mut best_pos = 0;
         let mut best_len = 0;
         let mut idx = self.hstart[key];
-        while idx != NONEXT && idx + WINDOW_SIZE > self.pos {
-            if idx < self.pos {
-                let cur_len = check_match(&self.src[self.pos..], &self.src[idx..]);
-                if cur_len > best_len {
-                    best_len = cur_len;
-                    best_pos = self.pos - idx;
-                    if best_len >= (MAX_MATCH_LEN as u16) {
-                        return (best_pos as u16, MAX_MATCH_LEN as u16);
-                    }
+        let search_end = self.pos.saturating_sub(WINDOW_SIZE);
+        let mut tries = 0;
+        while idx >= search_end && idx < self.pos {
+            let cur_len = check_match(&self.src[self.pos..], &self.src[idx..]);
+            if cur_len > best_len {
+                best_len = cur_len;
+                best_pos = self.pos - idx;
+                if best_len >= (MAX_MATCH_LEN as u16) {
+                    return (best_pos as u16, MAX_MATCH_LEN as u16);
                 }
             }
-            idx = self.hnext[idx];
+            tries += 1;
+            if tries > 16 {
+                break;
+            }
+            idx = self.hnext[idx & WINDOW_MASK];
         }
+        self.add_hash(key);
         (best_pos as u16, best_len)
     }
     fn find_all_matches(&mut self, dists: &mut [u16; MAX_MATCH_LEN + 1]) {
         if self.pos == 0 || self.pos + 3 > self.src.len() {
             return;
         }
-        let key = Self::hash(&self.src[self.pos..]) as usize;
+        let key = Self::hash(&self.src[self.pos..]);
         let mut idx = self.hstart[key];
-        while idx != NONEXT && idx + WINDOW_SIZE > self.pos {
-            if idx < self.pos {
-                let cur_len = (check_match(&self.src[self.pos..], &self.src[idx..]) as usize).min(MAX_MATCH_LEN);
-                if cur_len > 0 && dists[cur_len] == 0 {
-                    dists[cur_len] = (self.pos - idx) as u16;
-                }
+        let search_end = self.pos.saturating_sub(WINDOW_SIZE);
+        let mut tries = 0;
+        while idx >= search_end && idx < self.pos {
+            let cur_len = (check_match(&self.src[self.pos..], &self.src[idx..]) as usize).min(MAX_MATCH_LEN);
+            if cur_len > 0 && dists[cur_len] == 0 {
+                dists[cur_len] = (self.pos - idx) as u16;
             }
-            idx = self.hnext[idx];
+            idx = self.hnext[idx & WINDOW_MASK];
+            tries += 1;
+            if tries > 128 {
+                break;
+            }
         }
+        self.add_hash(key);
     }
     fn advance(&mut self, num: usize) {
-        self.pos += num;
-
-        if self.pos >= NONEXT {
-            let (_, tail) = self.src.split_at(self.pos - WINDOW_SIZE);
-            self.src = tail;
-            self.pos = WINDOW_SIZE;
-            self.build_hash();
-        } else {
-            for (start, end) in self.hstart.iter_mut().zip(self.hend.iter_mut()) {
-                let mut idx = *start;
-                while idx != NONEXT && idx + WINDOW_SIZE < self.pos {
-                    idx = self.hnext[idx];
-                    *start = idx;
+        self.pos += 1;
+        if num > 1 {
+            for _ in 1..num {
+                if self.pos + 3 <= self.src.len() {
+                    let key = Self::hash(&self.src[self.pos..]);
+                    self.add_hash(key);
                 }
-                if idx == NONEXT {
-                    *end = NONEXT;
-                }
+                self.pos += 1;
             }
         }
     }
