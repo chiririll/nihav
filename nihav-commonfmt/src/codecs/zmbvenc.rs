@@ -139,13 +139,14 @@ impl ZMBVEncoder {
         }
     }
     fn encode_intra(&mut self, bw: &mut ByteWriter, buf: NABufferType) -> EncoderResult<()> {
-        let bpp = buf_type_to_bpp(&buf);
+        let mut bpp = buf_type_to_bpp(&buf);
 
         if let NABufferType::None = buf {
             if self.bpp == 0 {
                 return Err(EncoderError::FormatError);
             }
             self.frm1.copy_from_slice(&self.frm2);
+            bpp = self.bpp;
         } else {
             if bpp == 0 {
                 return Err(EncoderError::FormatError);
