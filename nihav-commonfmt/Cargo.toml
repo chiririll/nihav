@@ -28,9 +28,10 @@ demuxer_avi = ["demuxers"]
 demuxer_mov = ["demuxers"]
 demuxer_wav = ["demuxers"]
 demuxer_y4m = ["demuxers"]
-all_muxers = ["muxer_avi", "muxer_wav"]
+all_muxers = ["muxer_avi", "muxer_wav", "muxer_y4m"]
 muxer_avi = ["muxers"]
 muxer_wav = ["muxers"]
+muxer_y4m = ["muxers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
