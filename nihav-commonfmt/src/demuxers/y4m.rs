@@ -85,7 +85,7 @@ impl<'a> Y4MDemuxer<'a> {
         }
     }
     fn parse_header(&mut self) -> DemuxerResult<NAPixelFormaton> {
-        let mut format = RGB24_FORMAT;
+        let mut format = YUV420_FORMAT;
 
         let mut magic = [0u8; 10];
                                     self.src.read_buf(&mut magic)?;
@@ -149,7 +149,7 @@ impl<'a> Y4MDemuxer<'a> {
                 break;
             }
         }
-        validate!(self.width > 0 && self.height > 0 && format.model.is_yuv());
+        validate!(self.width > 0 && self.height > 0);
         self.frame_size = 0;
         for chromaton in format.comp_info.iter() {
             if let Some(ref chr) = chromaton {
