@@ -214,7 +214,6 @@ impl MaskWriter {
 #[derive(Clone,Copy,PartialEq)]
 enum QuantMode {
     ELBG,
-    Hybrid,
     MedianCut,
 }
 
@@ -222,7 +221,6 @@ impl std::string::ToString for QuantMode {
     fn to_string(&self) -> String {
         match *self {
             QuantMode::ELBG => "elbg".to_string(),
-            QuantMode::Hybrid => "hybrid".to_string(),
             QuantMode::MedianCut => "mediancut".to_string(),
         }
     }
@@ -606,20 +604,6 @@ impl CinepakEncoder {
     fn quant_vectors(&mut self) {
         match self.qmode {
             QuantMode::ELBG => {
-                let mut elbg_v1: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v1_cb[self.cur_strip]);
-                let mut elbg_v4: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v4_cb[self.cur_strip]);
-
-                for entry in self.v1_cb[self.cur_strip].iter_mut().skip(self.v1_len) {
-                    self.rng.fill_entry(entry);
-                }
-                for entry in self.v4_cb[self.cur_strip].iter_mut().skip(self.v4_len) {
-                    self.rng.fill_entry(entry);
-                }
-
-                self.v1_len = elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
-                self.v4_len = if !self.force_v1 { elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip]) } else { 0 };
-            },
-            QuantMode::Hybrid => {
                 let v1_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
                 let v4_len = if !self.force_v1 {
                         quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip])
@@ -1057,7 +1041,7 @@ const ENCODER_OPTS: &[NAOptionDefinition] = &[
         opt_type: NAOptionDefinitionType::Int(Some(0), Some(16)) },
     NAOptionDefinition {
         name: "quant_mode", description: "Quantisation mode",
-        opt_type: NAOptionDefinitionType::String(Some(&["elbg", "hybrid", "mediancut"])) },
+        opt_type: NAOptionDefinitionType::String(Some(&["elbg", "mediancut"])) },
     NAOptionDefinition {
         name: "force_v1", description: "Force coarse (V1-only) mode",
         opt_type: NAOptionDefinitionType::Bool },
@@ -1084,7 +1068,6 @@ impl NAOptionHandler for CinepakEncoder {
                             if let NAValue::String(ref strval) = option.value {
                                 match strval.as_str() {
                                     "elbg"      => self.qmode = QuantMode::ELBG,
-                                    "hybrid"    => self.qmode = QuantMode::Hybrid,
                                     "mediancut" => self.qmode = QuantMode::MedianCut,
                                     _ => {},
                                 };
