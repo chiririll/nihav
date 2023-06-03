@@ -214,6 +214,7 @@ impl MaskWriter {
 #[derive(Clone,Copy,PartialEq)]
 enum QuantMode {
     ELBG,
+    Fast,
     MedianCut,
 }
 
@@ -221,6 +222,7 @@ impl std::string::ToString for QuantMode {
     fn to_string(&self) -> String {
         match *self {
             QuantMode::ELBG => "elbg".to_string(),
+            QuantMode::Fast => "fast".to_string(),
             QuantMode::MedianCut => "mediancut".to_string(),
         }
     }
@@ -251,10 +253,19 @@ struct CinepakEncoder {
     rng:        RNG,
     masks:      MaskWriter,
     skip_dist:  Vec<u32>,
+    fst_bins:   [Vec<YUVCode>; 4],
 }
 
 fn avg4(a: u8, b: u8, c: u8, d: u8) -> u8 {
     ((u16::from(a) + u16::from(b) + u16::from(c) + u16::from(d) + 3) >> 2) as u8
+}
+
+fn variance(a: u8, mean: u8) -> u32 {
+    if a >= mean {
+        u32::from(a - mean) * u32::from(a - mean)
+    } else {
+        u32::from(mean - a) * u32::from(mean - a)
+    }
 }
 
 fn patch_size(bw: &mut ByteWriter, pos: u64) -> EncoderResult<()> {
@@ -275,6 +286,41 @@ fn elbg_quant(entries: &[YUVCode], codebook: &mut [YUVCode]) -> usize {
     }
 }
 
+fn quant_fast(bins: &mut [Vec<YUVCode>; 4], entries: &[YUVCode], codebook: &mut [YUVCode]) -> usize {
+    for bin in bins.iter_mut() {
+        bin.clear();
+    }
+    for &entry in entries.iter() {
+        let y_avg = avg4(entry.y[0], entry.y[1], entry.y[2], entry.y[3]);
+        let dist = entry.y.iter().fold(0u32, |acc, &x| acc + variance(x, y_avg));
+        let ilog = if dist == 0 { 0 } else { 32 - dist.leading_zeros() };
+        let bin = match ilog {
+                0..=3 => &mut bins[0],
+                4..=7 => &mut bins[1],
+                8..=11 => &mut bins[2],
+                _ => &mut bins[3],
+            };
+        bin.push(entry);
+    }
+    let mut free_cw = codebook.len();
+    let mut entries_left = entries.len();
+    let mut offset = 0;
+    for bin in bins.iter() {
+        if bin.is_empty() {
+            continue;
+        }
+        if free_cw == 0 || entries_left == 0 {
+            break;
+        }
+        let target = (free_cw * bin.len() + entries_left - 1) / entries_left;
+        let cur_len = elbg_quant(bin, &mut codebook[offset..][..target]);
+        offset += cur_len;
+        free_cw -= cur_len;
+        entries_left -= bin.len();
+    }
+    offset
+}
+
 impl CinepakEncoder {
     fn new() -> Self {
         Self {
@@ -282,7 +328,7 @@ impl CinepakEncoder {
             pkt:        None,
             lastfrm:    None,
             frmcount:   0,
-            qmode:      QuantMode::MedianCut,
+            qmode:      QuantMode::Fast,
             key_int:    25,
             quality:    0,
             nstrips:    2,
@@ -302,6 +348,7 @@ impl CinepakEncoder {
             v4_idx:     Vec::new(),
             masks:      MaskWriter::new(),
             skip_dist:  Vec::new(),
+            fst_bins:   [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
         }
     }
     fn read_strip(&mut self, in_frm: &NAVideoBuffer<u8>, start: usize, end: usize) {
@@ -617,6 +664,17 @@ impl CinepakEncoder {
                 self.v1_len = elbg_quant(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
                 self.v4_len = if !self.force_v1 {
                         elbg_quant(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip])
+                    } else {
+                        0
+                    };
+            },
+            QuantMode::Fast => {
+                for bin in self.fst_bins.iter_mut() {
+                    bin.clear();
+                }
+                self.v1_len = quant_fast(&mut self.fst_bins, &self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
+                self.v4_len = if !self.force_v1 {
+                        quant_fast(&mut self.fst_bins, &self.v4_entries, &mut self.v4_cur_cb[self.cur_strip])
                     } else {
                         0
                     };
@@ -1039,7 +1097,7 @@ const ENCODER_OPTS: &[NAOptionDefinition] = &[
         opt_type: NAOptionDefinitionType::Int(Some(0), Some(16)) },
     NAOptionDefinition {
         name: "quant_mode", description: "Quantisation mode",
-        opt_type: NAOptionDefinitionType::String(Some(&["elbg", "mediancut"])) },
+        opt_type: NAOptionDefinitionType::String(Some(&["elbg", "fast", "mediancut"])) },
     NAOptionDefinition {
         name: "force_v1", description: "Force coarse (V1-only) mode",
         opt_type: NAOptionDefinitionType::Bool },
@@ -1066,6 +1124,7 @@ impl NAOptionHandler for CinepakEncoder {
                             if let NAValue::String(ref strval) = option.value {
                                 match strval.as_str() {
                                     "elbg"      => self.qmode = QuantMode::ELBG,
+                                    "fast"      => self.qmode = QuantMode::Fast,
                                     "mediancut" => self.qmode = QuantMode::MedianCut,
                                     _ => {},
                                 };
@@ -1145,8 +1204,11 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        //test_encoding_to_file(&dec_config, &enc_config, enc_params, &[]);
-        test_encoding_md5(&dec_config, &enc_config, enc_params, &[],
+        let enc_options = &[
+                NAOption { name: "quant_mode", value: NAValue::String("mediancut".to_string()) },
+            ];
+        //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
+        test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
                           &[0x1d4690c8, 0x3b15b4b3, 0xc2df3c7b, 0x1a25b159]);
     }
 }
