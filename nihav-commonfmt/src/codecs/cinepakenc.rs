@@ -265,6 +265,16 @@ fn patch_size(bw: &mut ByteWriter, pos: u64) -> EncoderResult<()> {
     Ok(())
 }
 
+fn elbg_quant(entries: &[YUVCode], codebook: &mut [YUVCode]) -> usize {
+    let cb_len = quantise_median_cut::<YUVCode, YUVCodeSum>(entries, codebook);
+    if cb_len < codebook.len() {
+        cb_len
+    } else {
+        let mut elbg: ELBG<YUVCode, YUVCodeSum> = ELBG::new(codebook);
+        elbg.quantise(entries, codebook)
+    }
+}
+
 impl CinepakEncoder {
     fn new() -> Self {
         Self {
@@ -604,23 +614,11 @@ impl CinepakEncoder {
     fn quant_vectors(&mut self) {
         match self.qmode {
             QuantMode::ELBG => {
-                let v1_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
-                let v4_len = if !self.force_v1 {
-                        quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip])
+                self.v1_len = elbg_quant(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip]);
+                self.v4_len = if !self.force_v1 {
+                        elbg_quant(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip])
                     } else {
                         0
-                    };
-                self.v1_len = if v1_len < 256 {
-                        v1_len
-                    } else {
-                        let mut elbg_v1: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v1_cur_cb[self.cur_strip]);
-                        elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb[self.cur_strip])
-                    };
-                self.v4_len = if v4_len < 256 {
-                        v4_len
-                    } else {
-                        let mut elbg_v4: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v4_cur_cb[self.cur_strip]);
-                        elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb[self.cur_strip])
                     };
             },
             QuantMode::MedianCut => {
