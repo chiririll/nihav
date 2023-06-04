@@ -77,6 +77,8 @@ pub fn generic_register_all_decoders(rd: &mut RegisteredDecoders) {
 
 #[cfg(feature="encoder_cinepak")]
 mod cinepakenc;
+#[cfg(feature="encoder_rawvideo")]
+mod rawvideoenc;
 #[cfg(feature="encoder_zmbv")]
 mod zmbvenc;
 
@@ -84,6 +86,8 @@ mod zmbvenc;
 const ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_cinepak")]
     EncoderInfo { name: "cinepak", get_encoder: cinepakenc::get_encoder },
+#[cfg(feature="encoder_rawvideo")]
+    EncoderInfo { name: "rawvideo", get_encoder: rawvideoenc::get_encoder },
 #[cfg(feature="encoder_zmbv")]
     EncoderInfo { name: "zmbv", get_encoder: zmbvenc::get_encoder },
 
