@@ -228,6 +228,13 @@ impl std::string::ToString for QuantMode {
     }
 }
 
+#[derive(Clone,Copy,PartialEq)]
+enum CodingMode {
+    Skip,
+    V1,
+    V4
+}
+
 struct CinepakEncoder {
     stream:     Option<NAStreamRef>,
     lastfrm:    Option<NAVideoBufferRef<u8>>,
@@ -236,6 +243,7 @@ struct CinepakEncoder {
     key_int:    u8,
     qmode:      QuantMode,
     quality:    u8,
+    refine:     bool,
     nstrips:    usize,
     force_v1:   bool,
     cur_strip:  usize,
@@ -254,6 +262,9 @@ struct CinepakEncoder {
     masks:      MaskWriter,
     skip_dist:  Vec<u32>,
     fst_bins:   [Vec<YUVCode>; 4],
+    v1_cand:    Vec<YUVCode>,
+    v4_cand:    Vec<YUVCode>,
+    cmode:      Vec<CodingMode>,
 }
 
 fn avg4(a: u8, b: u8, c: u8, d: u8) -> u8 {
@@ -331,6 +342,7 @@ impl CinepakEncoder {
             qmode:      QuantMode::Fast,
             key_int:    25,
             quality:    0,
+            refine:     false,
             nstrips:    2,
             force_v1:   false,
             cur_strip:  0,
@@ -349,6 +361,9 @@ impl CinepakEncoder {
             masks:      MaskWriter::new(),
             skip_dist:  Vec::new(),
             fst_bins:   [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
+            v1_cand:    Vec::new(),
+            v4_cand:    Vec::new(),
+            cmode:      Vec::new(),
         }
     }
     fn read_strip(&mut self, in_frm: &NAVideoBuffer<u8>, start: usize, end: usize) {
@@ -692,6 +707,52 @@ impl CinepakEncoder {
         for e in self.v1_cur_cb[self.cur_strip].iter_mut().skip(self.v1_len) { *e = YUVCode::default(); }
         for e in self.v4_cur_cb[self.cur_strip].iter_mut().skip(self.v4_len) { *e = YUVCode::default(); }
     }
+    fn refine_vectors(&mut self) {
+        match self.qmode {
+            QuantMode::ELBG => {
+                self.v1_len = if !self.v1_cand.is_empty() {
+                        elbg_quant(&self.v1_cand, &mut self.v1_cur_cb[self.cur_strip])
+                    } else {
+                        0
+                    };
+                self.v4_len = if !self.force_v1 && !self.v4_cand.is_empty() {
+                        elbg_quant(&self.v4_cand, &mut self.v4_cur_cb[self.cur_strip])
+                    } else {
+                        0
+                    };
+            },
+            QuantMode::Fast => {
+                for bin in self.fst_bins.iter_mut() {
+                    bin.clear();
+                }
+                self.v1_len = if !self.v1_cand.is_empty() {
+                        quant_fast(&mut self.fst_bins, &self.v1_cand, &mut self.v1_cur_cb[self.cur_strip])
+                    } else {
+                        0
+                    };
+                self.v4_len = if !self.force_v1 && !self.v4_cand.is_empty() {
+                        quant_fast(&mut self.fst_bins, &self.v4_cand, &mut self.v4_cur_cb[self.cur_strip])
+                    } else {
+                        0
+                    };
+            },
+            QuantMode::MedianCut => {
+                self.v1_len = if !self.v1_cand.is_empty() {
+                        quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_cand, &mut self.v1_cur_cb[self.cur_strip])
+                    } else {
+                        0
+                    };
+                if !self.force_v1 && !self.v4_cand.is_empty() {
+                    self.v4_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_cand, &mut self.v4_cur_cb[self.cur_strip]);
+                } else {
+                    self.v4_len = 0;
+                }
+            },
+        };
+
+        for e in self.v1_cur_cb[self.cur_strip].iter_mut().skip(self.v1_len) { *e = YUVCode::default(); }
+        for e in self.v4_cur_cb[self.cur_strip].iter_mut().skip(self.v4_len) { *e = YUVCode::default(); }
+    }
     fn encode_intra(&mut self, bw: &mut ByteWriter, in_frm: &NAVideoBuffer<u8>) -> EncoderResult<bool> {
         let (width, height) = in_frm.get_dimensions(0);
         let mut strip_h = (height / self.nstrips + 3) & !3;
@@ -739,11 +800,19 @@ impl CinepakEncoder {
             self.v4_idx.clear();
             self.masks.reset();
 
+            self.cmode.clear();
+            self.v1_cand.clear();
+            self.v4_cand.clear();
             for (v1_entry, v4_entries) in self.v1_entries.iter().zip(self.v4_entries.chunks(4)) {
                 let (v1_idx, v1_dist) = Self::find_nearest(&self.v1_cur_cb[self.cur_strip][..self.v1_len], *v1_entry);
                 if v1_dist == 0 || self.force_v1 {
-                    self.masks.put_v1();
-                    self.v1_idx.push(v1_idx);
+                    if !self.refine {
+                        self.masks.put_v1();
+                        self.v1_idx.push(v1_idx);
+                    } else {
+                        self.cmode.push(CodingMode::V1);
+                        self.v1_cand.push(*v1_entry);
+                    }
                     continue;
                 }
                 let (v40_idx, v40_dist) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[0]);
@@ -751,14 +820,53 @@ impl CinepakEncoder {
                 let (v42_idx, v42_dist) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[2]);
                 let (v43_idx, v43_dist) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[3]);
                 if v40_dist + v41_dist + v42_dist + v43_dist > v1_dist {
-                    self.masks.put_v4();
-                    self.v4_idx.push(v40_idx);
-                    self.v4_idx.push(v41_idx);
-                    self.v4_idx.push(v42_idx);
-                    self.v4_idx.push(v43_idx);
+                    if !self.refine {
+                        self.masks.put_v4();
+                        self.v4_idx.push(v40_idx);
+                        self.v4_idx.push(v41_idx);
+                        self.v4_idx.push(v42_idx);
+                        self.v4_idx.push(v43_idx);
+                    } else {
+                        self.cmode.push(CodingMode::V4);
+                        self.v4_cand.extend_from_slice(v4_entries);
+                    }
                 } else {
-                    self.masks.put_v1();
-                    self.v1_idx.push(v1_idx);
+                    if !self.refine {
+                        self.masks.put_v1();
+                        self.v1_idx.push(v1_idx);
+                    } else {
+                        self.cmode.push(CodingMode::V1);
+                        self.v1_cand.push(*v1_entry);
+                    }
+                }
+            }
+            if self.refine {
+                self.refine_vectors();
+                let mut v1_src = self.v1_cand.iter();
+                let mut v4_src = self.v4_cand.chunks_exact(4);
+                for &cmode in self.cmode.iter() {
+                    match cmode {
+                        CodingMode::Skip => unreachable!(),
+                        CodingMode::V1 => {
+                            let v1_entry = v1_src.next().unwrap();
+                            let (v1_idx, _) = Self::find_nearest(&self.v1_cur_cb[self.cur_strip][..self.v1_len], *v1_entry);
+                            self.masks.put_v1();
+                            self.v1_idx.push(v1_idx);
+                        },
+                        CodingMode::V4 => {
+                            let v4_entries = v4_src.next().unwrap();
+                            let (v40_idx, _) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[0]);
+                            let (v41_idx, _) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[1]);
+                            let (v42_idx, _) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[2]);
+                            let (v43_idx, _) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[3]);
+
+                            self.masks.put_v4();
+                            self.v4_idx.push(v40_idx);
+                            self.v4_idx.push(v41_idx);
+                            self.v4_idx.push(v42_idx);
+                            self.v4_idx.push(v43_idx);
+                        },
+                    };
                 }
             }
             self.masks.end();
@@ -872,23 +980,40 @@ impl CinepakEncoder {
             self.v4_idx.clear();
             self.masks.reset();
 
+            self.cmode.clear();
+            self.v1_cand.clear();
+            self.v4_cand.clear();
+
             let mut skip_iter = self.skip_dist.iter();
             for (v1_entry, v4_entries) in self.v1_entries.iter().zip(self.v4_entries.chunks(4)) {
                 let skip_dist = *skip_iter.next().unwrap();
                 if skip_dist == 0 {
-                    self.masks.put_inter(true);
+                    if !self.refine {
+                        self.masks.put_inter(true);
+                    } else {
+                        self.cmode.push(CodingMode::Skip);
+                    }
                     continue;
                 }
                 let (v1_idx, v1_dist) = Self::find_nearest(&self.v1_cur_cb[self.cur_strip][..self.v1_len], *v1_entry);
                 if skip_dist < v1_dist {
-                    self.masks.put_inter(true);
+                    if !self.refine {
+                        self.masks.put_inter(true);
+                    } else {
+                        self.cmode.push(CodingMode::Skip);
+                    }
                     continue;
-                } else {
+                } else if !self.refine {
                     self.masks.put_inter(false);
                 }
                 if v1_dist == 0 || self.force_v1 {
-                    self.masks.put_v1();
-                    self.v1_idx.push(v1_idx);
+                    if !self.refine {
+                        self.masks.put_v1();
+                        self.v1_idx.push(v1_idx);
+                    } else {
+                        self.cmode.push(CodingMode::V1);
+                        self.v1_cand.push(*v1_entry);
+                    }
                     continue;
                 }
                 let (v40_idx, v40_dist) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[0]);
@@ -896,14 +1021,57 @@ impl CinepakEncoder {
                 let (v42_idx, v42_dist) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[2]);
                 let (v43_idx, v43_dist) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[3]);
                 if v40_dist + v41_dist + v42_dist + v43_dist > v1_dist {
-                    self.masks.put_v4();
-                    self.v4_idx.push(v40_idx);
-                    self.v4_idx.push(v41_idx);
-                    self.v4_idx.push(v42_idx);
-                    self.v4_idx.push(v43_idx);
+                    if !self.refine {
+                        self.masks.put_v4();
+                        self.v4_idx.push(v40_idx);
+                        self.v4_idx.push(v41_idx);
+                        self.v4_idx.push(v42_idx);
+                        self.v4_idx.push(v43_idx);
+                    } else {
+                        self.cmode.push(CodingMode::V4);
+                        self.v4_cand.extend_from_slice(v4_entries);
+                    }
                 } else {
-                    self.masks.put_v1();
-                    self.v1_idx.push(v1_idx);
+                    if !self.refine {
+                        self.masks.put_v1();
+                        self.v1_idx.push(v1_idx);
+                    } else {
+                        self.cmode.push(CodingMode::V1);
+                        self.v1_cand.push(*v1_entry);
+                    }
+                }
+            }
+            if self.refine {
+                self.refine_vectors();
+                let mut v1_src = self.v1_cand.iter();
+                let mut v4_src = self.v4_cand.chunks_exact(4);
+                for &cmode in self.cmode.iter() {
+                    match cmode {
+                        CodingMode::Skip => {
+                            self.masks.put_inter(true);
+                        },
+                        CodingMode::V1 => {
+                            let v1_entry = v1_src.next().unwrap();
+                            let (v1_idx, _) = Self::find_nearest(&self.v1_cur_cb[self.cur_strip][..self.v1_len], *v1_entry);
+                            self.masks.put_inter(false);
+                            self.masks.put_v1();
+                            self.v1_idx.push(v1_idx);
+                        },
+                        CodingMode::V4 => {
+                            let v4_entries = v4_src.next().unwrap();
+                            let (v40_idx, _) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[0]);
+                            let (v41_idx, _) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[1]);
+                            let (v42_idx, _) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[2]);
+                            let (v43_idx, _) = Self::find_nearest(&self.v4_cur_cb[self.cur_strip][..self.v4_len], v4_entries[3]);
+
+                            self.masks.put_inter(false);
+                            self.masks.put_v4();
+                            self.v4_idx.push(v40_idx);
+                            self.v4_idx.push(v41_idx);
+                            self.v4_idx.push(v42_idx);
+                            self.v4_idx.push(v43_idx);
+                        },
+                    };
                 }
             }
             self.masks.end();
@@ -1101,6 +1269,9 @@ const ENCODER_OPTS: &[NAOptionDefinition] = &[
     NAOptionDefinition {
         name: "force_v1", description: "Force coarse (V1-only) mode",
         opt_type: NAOptionDefinitionType::Bool },
+    NAOptionDefinition {
+        name: "refine", description: "Try to improve coded picture",
+        opt_type: NAOptionDefinitionType::Bool },
 ];
 
 impl NAOptionHandler for CinepakEncoder {
@@ -1135,6 +1306,11 @@ impl NAOptionHandler for CinepakEncoder {
                                 self.force_v1 = val;
                             }
                         },
+                        "refine" => {
+                            if let NAValue::Bool(val) = option.value {
+                                self.refine = val;
+                            }
+                        },
                         _ => {},
                     };
                 }
@@ -1147,6 +1323,7 @@ impl NAOptionHandler for CinepakEncoder {
             "nstrips" => Some(NAValue::Int(self.nstrips as i64)),
             "quant_mode" => Some(NAValue::String(self.qmode.to_string())),
             "force_v1" => Some(NAValue::Bool(self.force_v1)),
+            "refine" => Some(NAValue::Bool(self.refine)),
             _ => None,
         }
     }
