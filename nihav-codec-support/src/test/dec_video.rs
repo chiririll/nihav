@@ -5,6 +5,7 @@ use nihav_core::codecs::*;
 use nihav_core::demuxers::*;
 //use nihav_core::io::byteio::*;
 //use nihav_core::scale::*;
+use nihav_core::reorder::MTFrameReorderer;
 use super::wavwriter::WavWriter;
 use super::md5::MD5;
 use crate::imgwrite::write_pnm;
@@ -334,6 +335,178 @@ println!("frame pts {:?} hash {}", pkt.get_pts(), md5);
 println!("frame pts {:?} hash [0x{:08x}, 0x{:08x}, 0x{:08x}, 0x{:08x}],", pkt.get_pts(), hash[0], hash[1], hash[2], hash[3]);
                 },
             };
+        }
+    }
+    if let ExpectedTestResult::MD5(ref ref_hash) = test {
+        md5.finish();
+        let mut hash = [0u32; 4];
+        md5.get_hash(&mut hash);
+println!("full hash {}", md5);
+        assert_eq!(&hash, ref_hash);
+    }
+    if let ExpectedTestResult::GenerateMD5Frames = test {
+        panic!("generated hashes");
+    }
+}
+
+const THREADS: usize = 3;
+
+fn check_frame(frm: NAFrameRef, test: &ExpectedTestResult, glbl_md5: &mut MD5, frameiter: &mut Option<std::slice::Iter<[u32; 4]>>, last_ts: &mut Option<u64>) -> bool {
+    let frm_pts = frm.get_pts();
+    let frm_dts = frm.get_dts();
+    if let (Some(lts), Some(cts)) = (*last_ts, frm_dts) {
+        assert!(lts < cts);
+    }
+    *last_ts = frm_dts;
+    match test {
+        ExpectedTestResult::Decodes => {},
+        ExpectedTestResult::MD5(_) => { frame_checksum(glbl_md5, frm); },
+        ExpectedTestResult::MD5Frames(_) => {
+            let mut loc_md5 = MD5::new();
+            frame_checksum(&mut loc_md5, frm);
+            loc_md5.finish();
+            if let Some(ref mut iter) = frameiter {
+                let ret = iter.next();
+                if ret.is_none() {
+                    return true;
+                }
+                let ref_hash = ret.unwrap();
+                let mut hash = [0u32; 4];
+                loc_md5.get_hash(&mut hash);
+println!("frame pts {:?} dts {:?} hash {}", frm_pts, frm_dts, loc_md5);
+                assert_eq!(&hash, ref_hash);
+            }
+        },
+        ExpectedTestResult::GenerateMD5Frames => {
+            let mut loc_md5 = MD5::new();
+            frame_checksum(&mut loc_md5, frm);
+            loc_md5.finish();
+            let mut hash = [0u32; 4];
+            loc_md5.get_hash(&mut hash);
+println!("frame pts {:?} dts {:?} hash [0x{:08x}, 0x{:08x}, 0x{:08x}, 0x{:08x}],", frm_pts, frm_dts, hash[0], hash[1], hash[2], hash[3]);
+        },
+    };
+    false
+}
+
+/// Tests multi-threaded decoder for requested codec in provided file.
+///
+/// The syntax is very similar to [`test_file_decoding`] except that it tests multi-threaded decoders instead.
+///
+/// [`test_file_decoding`]: ./fn.test_file_decoding.html
+pub fn test_mt_decoding(demuxer: &str, dec_name: &str, filename: &str, limit: Option<u64>,
+                     dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredMTDecoders,
+                     test: ExpectedTestResult) {
+    let mut dec_threads = THREADS;
+    for (key, value) in std::env::vars_os() {
+        if key == "MT_THREADS" {
+            if let Some(val) = value.to_str() {
+                dec_threads = val.parse::<usize>().unwrap_or(THREADS);
+                break;
+            }
+        }
+    }
+
+    let dmx_f = dmx_reg.find_demuxer(demuxer).expect("demuxer is not found");
+    let mut file = File::open(filename).expect("input file should be present");
+    let mut fr = FileReader::new_read(&mut file);
+    let mut br = ByteReader::new(&mut fr);
+    let mut dmx = create_demuxer(dmx_f, &mut br).expect("demuxer can't be created");
+
+    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoderMT>)>> = Vec::new();
+    let mut found = false;
+    for i in 0..dmx.get_num_streams() {
+        let s = dmx.get_stream(i).unwrap();
+        let info = s.get_info();
+println!("stream {} codec {} / {}", i, info.get_name(), dec_name);
+        if !found && (info.get_name() == dec_name) {
+            let decfunc = dec_reg.find_decoder(info.get_name());
+            if let Some(df) = decfunc {
+                let mut dec = (df)();
+                let mut dsupp = Box::new(NADecoderSupport::new());
+                dec.init(&mut dsupp, info, dec_threads).unwrap();
+                decs.push(Some((dsupp, dec)));
+                found = true;
+            } else {
+                decs.push(None);
+            }
+        } else {
+            decs.push(None);
+        }
+    }
+
+    let mut md5 = MD5::new();
+    let mut frameiter = if let ExpectedTestResult::MD5Frames(ref vec) = test {
+            Some(vec.iter())
+        } else {
+            None
+        };
+    let mut reord = MTFrameReorderer::new();
+    let mut last_ts = None;
+    'dec_loop: loop {
+        let pktres = dmx.get_frame();
+        if let Err(e) = pktres {
+            if e == DemuxerError::EOF { break; }
+            panic!("error");
+        }
+        let pkt = pktres.expect("packet");
+        let streamno = pkt.get_stream().get_id() as usize;
+        if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
+            if limit.is_some() && pkt.get_pts().is_some() && pkt.get_pts().unwrap() > limit.unwrap() {
+                break;
+            }
+            let queue_id = reord.register_frame();
+            match dec.queue_pkt(dsupp, &pkt, queue_id) {
+                Ok(true) => {},
+                Ok(false) => {
+                    while !dec.can_take_input() || dec.has_output() {
+                        match dec.get_frame() {
+                            (Ok(frm), id) => {
+                                reord.add_frame(frm, id);
+                                while let Some(nfrm) = reord.get_frame() {
+                                    if check_frame(nfrm, &test, &mut md5, &mut frameiter, &mut last_ts) {
+                                        break 'dec_loop;
+                                    }
+                                }
+                            },
+                            (Err(err), id) => {
+                                reord.drop_frame(id);
+                                panic!("frame {} decoding error {:?}", id, err);
+                            },
+                        };
+                    }
+                    match dec.queue_pkt(dsupp, &pkt, queue_id) {
+                        Ok(true) => {},
+                        Ok(false) => panic!("still can't queue frame!"),
+                        Err(err) => panic!("queueing error {:?}", err),
+                    };
+                },
+                Err(err) => panic!("queueing error {:?}", err),
+            };
+
+        }
+    }
+    'tail_loop: for dentry in decs.iter_mut() {
+        if let Some((_, ref mut dec)) = dentry {
+            loop {
+                match dec.get_frame() {
+                    (Ok(frm), id) => {
+                        reord.add_frame(frm, id);
+                        while let Some(nfrm) = reord.get_frame() {
+                            if check_frame(nfrm, &test, &mut md5, &mut frameiter, &mut last_ts) {
+                                break 'tail_loop;
+                            }
+                        }
+                    },
+                    (Err(DecoderError::NoFrame), _) => break,
+                    (Err(err), id) => panic!("frame {} decoding error {:?}", id, err),
+                };
+            }
+            while let Some(nfrm) = reord.get_last_frames() {
+                if check_frame(nfrm, &test, &mut md5, &mut frameiter, &mut last_ts) {
+                    break;
+                }
+            }
         }
     }
     if let ExpectedTestResult::MD5(ref ref_hash) = test {
