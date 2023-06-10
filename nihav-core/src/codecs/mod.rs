@@ -134,6 +134,74 @@ impl RegisteredDecoders {
     }
 }
 
+/// Multithreaded decoder trait.
+pub trait NADecoderMT: NAOptionHandler {
+    /// Initialises the decoder.
+    ///
+    /// It takes [`NADecoderSupport`] allocated by the caller and `NACodecInfoRef` provided by demuxer.
+    ///
+    /// [`NADecoderSupport`]: ./struct.NADecoderSupport.html
+    fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef, nthreads: usize) -> DecoderResult<()>;
+    /// Checks if a new frame can be queued for encoding.
+    fn can_take_input(&mut self) -> bool;
+    /// Queues a frame for decoding.
+    ///
+    /// Returns flag signalling whether the frame was queued or an error if it occured during the preparation stage.
+    ///
+    /// Parameter `id` is used to distinguish pictures as the output may be an error code with no timestamp available.
+    fn queue_pkt(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket, id: u32) -> DecoderResult<bool>;
+    /// Checks if some frames are already decoded and waiting to be retrieved.
+    fn has_output(&mut self) -> bool;
+    /// Waits for a frame to be decoded.
+    ///
+    /// In case there are no decoded frames yet, `None` is returned.
+    /// Otherwise, a decoding result and the input picture ID are returned.
+    fn get_frame(&mut self) -> (DecoderResult<NAFrameRef>, u32);
+    /// Tells decoder to clear internal state (e.g. after error or seeking).
+    fn flush(&mut self);
+}
+
+/// Decoder information used during creating a multi-threaded decoder for requested codec.
+#[derive(Clone,Copy)]
+pub struct MTDecoderInfo {
+    /// Short decoder name.
+    pub name: &'static str,
+    /// The function that creates a multi-threaded decoder instance.
+    pub get_decoder: fn () -> Box<dyn NADecoderMT + Send>,
+}
+
+/// Structure for registering known multi-threaded decoders.
+///
+/// It is supposed to be filled using `register_all_mt_decoders()` from some decoders crate and then it can be used to create multi-threaded decoders for the requested codecs.
+#[derive(Default)]
+pub struct RegisteredMTDecoders {
+    decs:   Vec<MTDecoderInfo>,
+}
+
+impl RegisteredMTDecoders {
+    /// Constructs a new instance of `RegisteredMTDecoders`.
+    pub fn new() -> Self {
+        Self { decs: Vec::new() }
+    }
+    /// Adds another decoder to the registry.
+    pub fn add_decoder(&mut self, dec: MTDecoderInfo) {
+        self.decs.push(dec);
+    }
+    /// Searches for the decoder for the provided name and returns a function for creating it on success.
+    pub fn find_decoder(&self, name: &str) -> Option<fn () -> Box<dyn NADecoderMT + Send>> {
+        for &dec in self.decs.iter() {
+            if dec.name == name {
+                return Some(dec.get_decoder);
+            }
+        }
+        None
+    }
+    /// Provides an iterator over currently registered decoders.
+    pub fn iter(&self) -> std::slice::Iter<MTDecoderInfo> {
+        self.decs.iter()
+    }
+}
+
 /// Frame skipping mode for decoders.
 #[derive(Clone,Copy,PartialEq,Debug)]
 pub enum FrameSkipMode {
