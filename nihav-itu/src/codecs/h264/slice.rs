@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nihav_core::codecs::{DecoderResult, DecoderError};
 use nihav_core::frame::FrameType;
 use nihav_core::io::bitreader::*;
@@ -154,7 +156,7 @@ pub fn parse_slice_header_minimal(br: &mut BitReader) -> DecoderResult<(usize, S
 
 #[allow(clippy::cognitive_complexity)]
 #[allow(clippy::manual_range_contains)]
-pub fn parse_slice_header(br: &mut BitReader, sps_arr: &[SeqParameterSet], pps_arr: &[PicParameterSet], is_idr: bool, nal_ref_idc: u8) -> DecoderResult<SliceHeader> {
+pub fn parse_slice_header(br: &mut BitReader, sps_arr: &[Arc<SeqParameterSet>], pps_arr: &[Arc<PicParameterSet>], is_idr: bool, nal_ref_idc: u8) -> DecoderResult<SliceHeader> {
     let mut hdr: SliceHeader = unsafe { std::mem::zeroed() };
 
     hdr.first_mb_in_slice                           = br.read_ue()? as usize;

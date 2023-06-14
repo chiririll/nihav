@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nihav_core::codecs::{DecoderResult, DecoderError};
 use nihav_core::io::bitreader::*;
 
@@ -303,7 +305,7 @@ pub struct PicParameterSet {
     pub second_chroma_qp_index_offset:      i8,
 }
 
-pub fn parse_pps(src: &[u8], sps_arr: &[SeqParameterSet], full_size: usize) -> DecoderResult<PicParameterSet> {
+pub fn parse_pps(src: &[u8], sps_arr: &[Arc<SeqParameterSet>], full_size: usize) -> DecoderResult<Arc<PicParameterSet>> {
     let mut br = BitReader::new(src, BitReaderMode::BE);
     let mut pps: PicParameterSet = unsafe { std::mem::zeroed() };
 
@@ -417,5 +419,5 @@ println!("slice mode!");
         pps.second_chroma_qp_index_offset = pps.chroma_qp_index_offset;
     }
 
-    Ok(pps)
+    Ok(Arc::new(pps))
 }

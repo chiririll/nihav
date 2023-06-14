@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 
@@ -9,9 +11,9 @@ struct H264Decoder {
     height:     usize,
     num_mbs:    usize,
     nal_len:    u8,
-    sps:        Vec<SeqParameterSet>,
+    sps:        Vec<Arc<SeqParameterSet>>,
     cur_sps:    usize,
-    pps:        Vec<PicParameterSet>,
+    pps:        Vec<Arc<PicParameterSet>>,
     cur_pps:    usize,
 
     skip_mode:      FrameSkipMode,
@@ -104,7 +106,7 @@ impl H264Decoder {
                 let mut br = BitReader::new(&src[..(full_size + 7)/8], BitReaderMode::BE);
                                                     br.skip(8)?;
 
-                let slice_hdr = parse_slice_header(&mut br, &self.sps, &self.pps, is_idr, nal_ref_idc)?;
+                let slice_hdr = parse_slice_header(&mut br, self.sps.as_slice(), self.pps.as_slice(), is_idr, nal_ref_idc)?;
                 validate!(br.tell() < full_size);
                 let full_id;
                 if slice_hdr.first_mb_in_slice == 0 {
@@ -206,7 +208,7 @@ println!("PAFF?");
                             cur_mb: 0,
                             is_ref: nal_ref_idc != 0,
                             long_term: get_long_term_id(is_idr, &slice_hdr),
-                            mv_info: FrameMV::new(sps.pic_width_in_mbs, sps.pic_height_in_mbs),
+                            mv_info: NABufferRef::new(FrameMV::new(sps.pic_width_in_mbs, sps.pic_height_in_mbs)),
                         });
                 }
 
@@ -245,7 +247,7 @@ println!("PAFF?");
              6 => {}, //SEI
              7 => {
                 let sps = parse_sps(&src[1..])?;
-                self.sps.push(sps);
+                self.sps.push(Arc::new(sps));
             },
              8 => {
                 validate!(full_size >= 8 + 16);
@@ -253,7 +255,7 @@ println!("PAFF?");
                 let mut found = false;
                 for stored_pps in self.pps.iter_mut() {
                     if stored_pps.pic_parameter_set_id == pps.pic_parameter_set_id {
-                        *stored_pps = pps.clone();
+                        *stored_pps = Arc::clone(&pps);
                         found = true;
                         break;
                     }

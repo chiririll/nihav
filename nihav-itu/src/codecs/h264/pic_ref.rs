@@ -1,5 +1,6 @@
 use nihav_core::codecs::DecoderResult;
 use nihav_core::frame::{FrameType, NAVideoBufferRef};
+use nihav_core::refs::*;
 use nihav_codec_support::codecs::MV;
 use super::sets::SeqParameterSet;
 use super::slice::*;
@@ -15,7 +16,7 @@ pub struct PictureInfo {
     pub is_ref:     bool,
     pub long_term:  Option<usize>,
 
-    pub mv_info:    FrameMV, //todo replace with refcounted index to a pool
+    pub mv_info:    NABufferRef<FrameMV>,
 }
 
 #[derive(Clone,Copy,Default, Debug)]
