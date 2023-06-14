@@ -45,12 +45,103 @@ impl FrameMV {
     }
 }
 
-pub struct FrameRefs {
-    pub ref_pics:   Vec<PictureInfo>,
+#[derive(Clone)]
+pub struct SliceRefs {
     pub ref_list0:  Vec<Option<PictureInfo>>,
     pub ref_list1:  Vec<Option<PictureInfo>>,
+    pub cur_id:     u32,
+}
+
+impl SliceRefs {
+    pub fn select_ref_pic(&self, list_id: u8, ref_id: usize) -> Option<NAVideoBufferRef<u8>> {
+        let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
+        if ref_list.len() > ref_id {
+            ref_list[ref_id].as_ref().map(|pic| pic.buf.clone())
+        } else {
+            None
+        }
+    }
+    pub fn get_colocated_info(&self, mb_x: usize, mb_y: usize) -> (FrameMBInfo, u16, bool) {
+        if let Some(ref ref_pic) = &self.ref_list1[0] {
+            let mv_info = &ref_pic.mv_info;
+            let mb = mv_info.mbs[mb_x + mb_y * mv_info.mb_stride];
+            (mb, ref_pic.full_id as u16, ref_pic.long_term.is_some())
+        } else {
+            (FrameMBInfo::default(), 0, false)
+        }
+    }
+    pub fn map_ref0(&self, ref0_id: u16) -> (PicRef, bool) {
+        let mut r0_idx = 0;
+        let mut long = false;
+        for (i, rpic0) in self.ref_list0.iter().enumerate() {
+            if let Some(ref pic) = rpic0 {
+                if (pic.full_id as u16) == ref0_id {
+                    r0_idx = i as u8;
+                    long = pic.long_term.is_some();
+                    break;
+                }
+            }
+        }
+        (PicRef::new(r0_idx), long)
+    }
+    pub fn map_refs(&self, ref_idx: [PicRef; 2]) -> [u16; 2] {
+        let r0 = ref_idx[0].index();
+        let r1 = ref_idx[1].index();
+        let ref0 = if r0 < self.ref_list0.len() {
+                if let Some(ref pic) = self.ref_list0[r0] {
+                    pic.full_id as u16
+                } else {
+                    MISSING_POC
+                }
+            } else {
+                MISSING_POC
+            };
+        let ref1 = if r1 < self.ref_list1.len() {
+                if let Some(ref pic) = self.ref_list1[r1] {
+                    pic.full_id as u16
+                } else {
+                    MISSING_POC
+                }
+            } else {
+                MISSING_POC
+            };
+        [ref0, ref1]
+    }
+    pub fn cmp_refs(&self, ref1: [PicRef; 2], ref2: [PicRef; 2]) -> bool {
+        if ref1 != ref2 {
+            self.cmp_ref(ref1[0], ref2[0], 0) && self.cmp_ref(ref1[1], ref2[1], 1)
+        } else {
+            true
+        }
+    }
+    fn cmp_ref(&self, ref1: PicRef, ref2: PicRef, list: u8) -> bool {
+        if ref1 == ref2 {
+            true
+        } else {
+            let idx0 = ref1.index();
+            let idx1 = ref2.index();
+            if idx0 == idx1 {
+                return true;
+            }
+            let src = if list == 0 { &self.ref_list0 } else { &self.ref_list1 };
+            if idx0 >= src.len() || idx1 >= src.len() {
+//panic!("wrong refs");
+                return false;
+            }
+            if let (Some(ref pic0), Some(ref pic1)) = (&src[idx0], &src[idx1]) {
+                pic0.full_id == pic1.full_id
+            } else {
+//panic!("missing pics");
+                false
+            }
+        }
+    }
+}
+
+pub struct FrameRefs {
+    pub ref_pics:   Vec<PictureInfo>,
+    pub cur_refs:   SliceRefs,
     pub long_term:  Vec<Option<PictureInfo>>,
-    pub cur_id:         u32,
 
     prev_poc_msb:       u32,
     prev_poc_lsb:       u16,
@@ -64,10 +155,12 @@ impl FrameRefs {
     pub fn new() -> Self {
         Self {
             ref_pics:   Vec::with_capacity(16),
-            ref_list0:  Vec::with_capacity(3),
-            ref_list1:  Vec::with_capacity(3),
+            cur_refs:   SliceRefs {
+                            ref_list0:  Vec::with_capacity(3),
+                            ref_list1:  Vec::with_capacity(3),
+                            cur_id:     0,
+                        },
             long_term:  Vec::new(),
-            cur_id:     0,
 
             prev_poc_msb:       0,
             prev_poc_lsb:       0,
@@ -222,14 +315,15 @@ impl FrameRefs {
     }
     #[allow(clippy::cognitive_complexity)]
     pub fn select_refs(&mut self, sps: &SeqParameterSet, slice_hdr: &SliceHeader, cur_id: u32) {
-        self.cur_id = cur_id;
-        self.ref_list0.clear();
-        self.ref_list1.clear();
+        self.cur_refs.cur_id = cur_id;
+        self.cur_refs.ref_list0.clear();
+        self.cur_refs.ref_list1.clear();
         let pic_num_mask = if sps.log2_max_frame_num == 16 {
                 0xFFFF
             } else {
                 (1 << sps.log2_max_frame_num) - 1
             };
+
         if !slice_hdr.slice_type.is_intra() {
             let has_reordering = slice_hdr.ref_pic_list_reordering_l0;
             if !has_reordering {
@@ -237,7 +331,7 @@ impl FrameRefs {
                 if slice_hdr.slice_type.is_p() {
                     if !self.ref_pics.is_empty() {
                         for pic in self.ref_pics.iter().rev().take(num_ref) {
-                            self.ref_list0.push(Some(pic.clone()));
+                            self.cur_refs.ref_list0.push(Some(pic.clone()));
                         }
                     }
                 } else {
@@ -249,26 +343,26 @@ impl FrameRefs {
                         }
                     }
                     for pic in self.ref_pics[..pivot].iter().rev() {
-                        if self.ref_list0.len() >= num_ref {
+                        if self.cur_refs.ref_list0.len() >= num_ref {
                             break;
                         }
-                        self.ref_list0.push(Some(pic.clone()));
+                        self.cur_refs.ref_list0.push(Some(pic.clone()));
                     }
                     for pic in self.ref_pics.iter().skip(pivot) {
-                        if self.ref_list0.len() >= num_ref {
+                        if self.cur_refs.ref_list0.len() >= num_ref {
                             break;
                         }
-                        self.ref_list0.push(Some(pic.clone()));
+                        self.cur_refs.ref_list0.push(Some(pic.clone()));
                     }
                 }
-                if !self.long_term.is_empty() && self.ref_list0.len() < num_ref {
-                    let copy_size = num_ref - self.ref_list0.len();
+                if !self.long_term.is_empty() && self.cur_refs.ref_list0.len() < num_ref {
+                    let copy_size = num_ref - self.cur_refs.ref_list0.len();
                     for ltpic in self.long_term.iter().take(copy_size) {
-                        self.ref_list0.push(ltpic.clone());
+                        self.cur_refs.ref_list0.push(ltpic.clone());
                     }
                 }
             } else {
-                form_ref_list(&mut self.ref_list0,
+                form_ref_list(&mut self.cur_refs.ref_list0,
                               &self.ref_pics, &self.long_term,
                               &slice_hdr.reordering_list_l0,
                               slice_hdr.frame_num, pic_num_mask);
@@ -285,26 +379,26 @@ impl FrameRefs {
                         }
                     }
                     for pic in self.ref_pics.iter().skip(pivot) {
-                        if self.ref_list1.len() >= num_ref {
+                        if self.cur_refs.ref_list1.len() >= num_ref {
                             break;
                         }
-                        self.ref_list1.push(Some(pic.clone()));
+                        self.cur_refs.ref_list1.push(Some(pic.clone()));
                     }
                     for pic in self.ref_pics[..pivot].iter().rev() {
-                        if self.ref_list1.len() >= num_ref {
+                        if self.cur_refs.ref_list1.len() >= num_ref {
                             break;
                         }
-                        self.ref_list1.push(Some(pic.clone()));
+                        self.cur_refs.ref_list1.push(Some(pic.clone()));
                     }
-                    if !self.long_term.is_empty() && self.ref_list1.len() < num_ref {
-                        let copy_size = num_ref - self.ref_list1.len();
+                    if !self.long_term.is_empty() && self.cur_refs.ref_list1.len() < num_ref {
+                        let copy_size = num_ref - self.cur_refs.ref_list1.len();
                         for ltpic in self.long_term.iter().take(copy_size) {
-                            self.ref_list1.push(ltpic.clone());
+                            self.cur_refs.ref_list1.push(ltpic.clone());
                         }
                     }
-                    if self.ref_list1.len() > 1 && self.ref_list0.len() == self.ref_list1.len() {
+                    if self.cur_refs.ref_list1.len() > 1 && self.cur_refs.ref_list0.len() == self.cur_refs.ref_list1.len() {
                         let mut equal = true;
-                        for (pic1, pic2) in self.ref_list0.iter().zip(self.ref_list1.iter()) {
+                        for (pic1, pic2) in self.cur_refs.ref_list0.iter().zip(self.cur_refs.ref_list1.iter()) {
                             match (pic1, pic2) {
                                 (Some(p1), Some(p2)) => {
                                     if p1.full_id != p2.full_id {
@@ -320,11 +414,11 @@ impl FrameRefs {
                             };
                         }
                         if equal {
-                            self.ref_list1.swap(0, 1);
+                            self.cur_refs.ref_list1.swap(0, 1);
                         }
                     }
                 } else {
-                    form_ref_list(&mut self.ref_list1,
+                    form_ref_list(&mut self.cur_refs.ref_list1,
                                   &self.ref_pics, &self.long_term,
                                   &slice_hdr.reordering_list_l1,
                                   slice_hdr.frame_num, pic_num_mask);
@@ -366,89 +460,6 @@ impl FrameRefs {
     pub fn add_long_term(&mut self, lt_idx: usize, cpic: PictureInfo) {
         if lt_idx < self.long_term.len() {
             self.long_term[lt_idx] = Some(cpic);
-        }
-    }
-    pub fn select_ref_pic(&self, list_id: u8, ref_id: usize) -> Option<NAVideoBufferRef<u8>> {
-        let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
-        if ref_list.len() > ref_id {
-            ref_list[ref_id].as_ref().map(|pic| pic.buf.clone())
-        } else {
-            None
-        }
-    }
-    pub fn get_colocated_info(&self, mb_x: usize, mb_y: usize) -> (FrameMBInfo, u16, bool) {
-        if let Some(ref ref_pic) = &self.ref_list1[0] {
-            let mv_info = &ref_pic.mv_info;
-            let mb = mv_info.mbs[mb_x + mb_y * mv_info.mb_stride];
-            (mb, ref_pic.full_id as u16, ref_pic.long_term.is_some())
-        } else {
-            (FrameMBInfo::default(), 0, false)
-        }
-    }
-    pub fn map_ref0(&self, ref0_id: u16) -> (PicRef, bool) {
-        let mut r0_idx = 0;
-        let mut long = false;
-        for (i, rpic0) in self.ref_list0.iter().enumerate() {
-            if let Some(ref pic) = rpic0 {
-                if (pic.full_id as u16) == ref0_id {
-                    r0_idx = i as u8;
-                    long = pic.long_term.is_some();
-                    break;
-                }
-            }
-        }
-        (PicRef::new(r0_idx), long)
-    }
-    pub fn map_refs(&self, ref_idx: [PicRef; 2]) -> [u16; 2] {
-        let r0 = ref_idx[0].index();
-        let r1 = ref_idx[1].index();
-        let ref0 = if r0 < self.ref_list0.len() {
-                if let Some(ref pic) = self.ref_list0[r0] {
-                    pic.full_id as u16
-                } else {
-                    MISSING_POC
-                }
-            } else {
-                MISSING_POC
-            };
-        let ref1 = if r1 < self.ref_list1.len() {
-                if let Some(ref pic) = self.ref_list1[r1] {
-                    pic.full_id as u16
-                } else {
-                    MISSING_POC
-                }
-            } else {
-                MISSING_POC
-            };
-        [ref0, ref1]
-    }
-    pub fn cmp_refs(&self, ref1: [PicRef; 2], ref2: [PicRef; 2]) -> bool {
-        if ref1 != ref2 {
-            self.cmp_ref(ref1[0], ref2[0], 0) && self.cmp_ref(ref1[1], ref2[1], 1)
-        } else {
-            true
-        }
-    }
-    fn cmp_ref(&self, ref1: PicRef, ref2: PicRef, list: u8) -> bool {
-        if ref1 == ref2 {
-            true
-        } else {
-            let idx0 = ref1.index();
-            let idx1 = ref2.index();
-            if idx0 == idx1 {
-                return true;
-            }
-            let src = if list == 0 { &self.ref_list0 } else { &self.ref_list1 };
-            if idx0 >= src.len() || idx1 >= src.len() {
-//panic!("wrong refs");
-                return false;
-            }
-            if let (Some(ref pic0), Some(ref pic1)) = (&src[idx0], &src[idx1]) {
-                pic0.full_id == pic1.full_id
-            } else {
-//panic!("missing pics");
-                false
-            }
         }
     }
 }

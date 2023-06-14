@@ -2,7 +2,7 @@ use nihav_core::frame::*;
 use nihav_codec_support::codecs::MV;
 use super::{CurrentMBInfo, I4X4_SCAN};
 use super::dsp::*;
-use super::pic_ref::FrameRefs;
+use super::pic_ref::SliceRefs;
 use super::slice::{SliceHeader, WeightInfo, DEF_WEIGHT_INFO};
 use super::types::*;
 
@@ -368,7 +368,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
     }
 }
 
-fn get_weights(slice_hdr: &SliceHeader, frame_refs: &FrameRefs, mode: BMode, weight_mode: u8, ref_l0: PicRef, ref_l1: PicRef) -> (WeightInfo, WeightInfo) {
+fn get_weights(slice_hdr: &SliceHeader, frame_refs: &SliceRefs, mode: BMode, weight_mode: u8, ref_l0: PicRef, ref_l1: PicRef) -> (WeightInfo, WeightInfo) {
     let idx_l0 = ref_l0.index();
     let idx_l1 = ref_l1.index();
     if mode != BMode::Bi || weight_mode != 2 {
@@ -418,7 +418,7 @@ fn get_weights(slice_hdr: &SliceHeader, frame_refs: &FrameRefs, mode: BMode, wei
     }
 }
 
-pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_info: &CurrentMBInfo, sstate: &mut SliceState, frame_refs: &FrameRefs, mc_dsp: &mut H264MC, weight_mode: u8) {
+pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_info: &CurrentMBInfo, sstate: &mut SliceState, frame_refs: &SliceRefs, mc_dsp: &mut H264MC, weight_mode: u8) {
     let xpos = sstate.mb_x * 16;
     let ypos = sstate.mb_y * 16;
 

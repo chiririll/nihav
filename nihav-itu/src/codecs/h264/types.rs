@@ -1,7 +1,7 @@
 use nihav_core::frame::NASimpleVideoFrame;
 use nihav_codec_support::codecs::{MV, ZERO_MV};
 use nihav_codec_support::data::GenericCache;
-use super::FrameRefs;
+use super::SliceRefs;
 use super::pic_ref::FrameMBInfo;
 
 #[repr(u8)]
@@ -490,7 +490,7 @@ impl SliceState {
             }
         }
     }
-    pub fn fill_deblock(&mut self, frefs: &FrameRefs, deblock_mode: u8, is_s: bool) {
+    pub fn fill_deblock(&mut self, frefs: &SliceRefs, deblock_mode: u8, is_s: bool) {
         if deblock_mode == 1 {
             return;
         }
@@ -744,7 +744,7 @@ impl SliceState {
         self.fill_mv (0, 0, 16, 16, 0, mv);
         self.fill_ref(0, 0, 16, 16, 0, ref_idx);
     }
-    pub fn predict_direct_mb(&mut self, frame_refs: &FrameRefs, temporal_mv: bool, direct_8x8: bool, cur_id: u16) {
+    pub fn predict_direct_mb(&mut self, frame_refs: &SliceRefs, temporal_mv: bool, direct_8x8: bool, cur_id: u16) {
         let (col_mb, r1_poc, r1_long) = frame_refs.get_colocated_info(self.mb_x, self.mb_y);
         if direct_8x8 {
             for blk4 in 0..16 {
@@ -764,7 +764,7 @@ impl SliceState {
             }
         }
     }
-    pub fn predict_direct_sub(&mut self, frame_refs: &FrameRefs, temporal_mv: bool, direct8x8: bool, cur_id: u16, blk4: usize) {
+    pub fn predict_direct_sub(&mut self, frame_refs: &SliceRefs, temporal_mv: bool, direct8x8: bool, cur_id: u16, blk4: usize) {
         let src_blk = if !direct8x8 { blk4 } else { BLK4_TO_D8[blk4] };
         let (mbi, r1_poc, r1_long) = frame_refs.get_colocated_info(self.mb_x, self.mb_y);
         let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, &mbi, r1_poc, r1_long, temporal_mv, cur_id, src_blk);
@@ -772,7 +772,7 @@ impl SliceState {
         self.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx = [ref0, ref1];
     }
     #[allow(clippy::nonminimal_bool)]
-    pub fn get_direct_mv(&self, frame_refs: &FrameRefs, mbi: &FrameMBInfo, r1_poc: u16, r1_long: bool, temporal_mv: bool, cur_id: u16, blk4: usize) -> (MV, PicRef, MV, PicRef) {
+    pub fn get_direct_mv(&self, frame_refs: &SliceRefs, mbi: &FrameMBInfo, r1_poc: u16, r1_long: bool, temporal_mv: bool, cur_id: u16, blk4: usize) -> (MV, PicRef, MV, PicRef) {
         let blk8 = blk4_to_blk8(blk4);
         let (col_mv, r0_poc, col_idx) = if mbi.ref_poc[blk8] == [MISSING_POC; 2] {
                 (ZERO_MV, MISSING_POC, MISSING_REF)
