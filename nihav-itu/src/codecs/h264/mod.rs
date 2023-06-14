@@ -4,11 +4,15 @@
   * not fully correct deblock strength selection for P/B-macroblocks
   * scaling lists for 4x4 blocks
 */
+use std::sync::{Arc, RwLock};
+
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::intcode::*;
 use nihav_codec_support::codecs::{MV, ZERO_MV};
+
+pub type Shareable<T> = Arc<RwLock<T>>;
 
 mod types;
 pub use types::*;
@@ -37,6 +41,9 @@ use slice::*;
 
 mod decoder_st;
 pub use decoder_st::*;
+mod dispatch;
+mod decoder_mt;
+pub use decoder_mt::*;
 
 trait ReadUE {
     fn read_ue(&mut self) -> DecoderResult<u32>;
@@ -200,15 +207,16 @@ const DECODER_OPTIONS: &[NAOptionDefinition] = &[
 
 #[cfg(test)]
 mod test {
-    use nihav_core::codecs::RegisteredDecoders;
+    use nihav_core::codecs::*;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::itu_register_all_decoders;
+    use crate::*;
     use nihav_commonfmt::generic_register_all_demuxers;
 
     // samples if not specified otherwise come from H.264 conformance suite
     mod raw_demux;
     mod conformance;
+    mod conformance_mt;
     use self::raw_demux::RawH264DemuxerCreator;
 
     #[test]
@@ -344,6 +352,66 @@ mod test {
                             [0x50b9fd9a, 0x64393126, 0xd03162ec, 0xfb54172a],
                             [0x80d1f58f, 0x12e454c0, 0x2140ca5c, 0xe19350ba],
                             [0x26078d38, 0xf6a59d57, 0xcd14eaf8, 0x8eb08259],
+                            [0x31494337, 0x6f8d3f52, 0x4bc9ff92, 0x0c601b1c]]));
+    }
+    #[test]
+    fn test_h264_mt_perframe() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        dmx_reg.add_demuxer(&RawH264DemuxerCreator{});
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredMTDecoders::new();
+        itu_register_all_mt_decoders(&mut dec_reg);
+
+        test_mt_decoding("rawh264", "h264",
+                      "assets/ITU/h264-conformance/CABAST3_Sony_E.jsv",
+                      None, &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                        [0xb5e5e368, 0x6ac59bfc, 0x82e35b7b, 0xbed17b81],
+                        [0x940c38bc, 0x559fb990, 0x2b82a7ca, 0x3543188a],
+                        [0x60d7544d, 0x2fc8cc23, 0x4acac90f, 0x44c2a91c],
+                        [0x8343b34d, 0x0de80ae9, 0xe9c08cc9, 0x05161d82],
+                        [0xaed8e194, 0xa24b3a8a, 0xbed9085d, 0x05d68293],
+                        [0x1cddffac, 0x0ce9d209, 0xc4090b8a, 0xc3008856],
+                        [0x26e08b9b, 0x84949759, 0x71622124, 0x9bfff254],
+                        [0x19a70aa8, 0xd8bc987d, 0x51c04849, 0x71191523],
+                        [0x74532da6, 0xecb92919, 0xd39cb150, 0x9ca9933d],
+                        [0x68d86265, 0x15fc15b9, 0xe4946d83, 0x39d9584d],
+                        [0xce209363, 0xf8d8331f, 0x72e0102f, 0x88de3a97],
+                        [0xdbcfa40a, 0x7eed5940, 0xa5c53a66, 0xdfcd3cea],
+                        [0x42ee0e5e, 0x4c1c3b64, 0xd91cc00b, 0x88be4b15],
+                        [0x7673f569, 0xfccfb96a, 0x1f614c82, 0xf62ea376],
+                        [0x8669d98b, 0x9fdf4e7d, 0xa4083a7f, 0x9b66d296],
+                        [0x0444b315, 0x2ddfb91a, 0x1e21ce06, 0x0c8613e6],
+                        [0xbde82067, 0x6cf23a0c, 0xdd29e64d, 0xcaa72ff3],
+                        [0xcfcb544a, 0x1f1a81b0, 0x2217108c, 0x4888d5ef],
+                        [0x00796b14, 0x58f16117, 0xb6a5efd1, 0xfb129acd],
+                        [0x253a1f45, 0x85954311, 0x983dbabe, 0x658f4ce3],
+                        [0xec97b332, 0xa17b26d0, 0xbead22af, 0xa6bd7d8e],
+                        [0xf0537976, 0x924229ab, 0xd0f4612f, 0xad4b614e],
+                        [0x5673d973, 0x78528036, 0xabfe5e13, 0xdcedfb26],
+                        [0xd6110fa9, 0x532d6a30, 0xb7f0aa7c, 0xae7b544b],
+                        [0x3369f874, 0x6a6dde75, 0x46d64780, 0xbf6ced32]]));
+    }
+    // a sample downloaded from gfycat.com
+    #[test]
+    fn test_h264_mt_real2() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        dmx_reg.add_demuxer(&RawH264DemuxerCreator{});
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredMTDecoders::new();
+        itu_register_all_mt_decoders(&mut dec_reg);
+        test_mt_decoding("mov", "h264", "assets/ITU/DimpledSpanishCuckoo-mobile.mp4",
+                      Some(10), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                            [0x674c6d60, 0xc7ab918d, 0x9db1beaf, 0xda9f2456],
+                            [0x6a935350, 0x3d463ab2, 0xa3ab3c53, 0x97eb896b],
+                            [0xa3d829e3, 0xb404dd32, 0x11983613, 0xbdf10ee6],
+                            [0xc87afeaa, 0x79899908, 0x152e6320, 0xe689827f],
+                            [0x2440ea01, 0x5b9d7fc7, 0x4fa5632b, 0xd2d76090],
+                            [0xf6c60411, 0x19ea2c49, 0x3512371a, 0xce6cb26a],
+                            [0x50b9fd9a, 0x64393126, 0xd03162ec, 0xfb54172a],
+                            [0xd80e8bf9, 0xe9190ab7, 0x2be8fa38, 0xb94182e8],
+                            [0x26078d38, 0xf6a59d57, 0xcd14eaf8, 0x8eb08259],
+                            [0x80d1f58f, 0x12e454c0, 0x2140ca5c, 0xe19350ba],
                             [0x31494337, 0x6f8d3f52, 0x4bc9ff92, 0x0c601b1c]]));
     }
 }

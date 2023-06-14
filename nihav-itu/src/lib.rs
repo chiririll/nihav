@@ -8,6 +8,7 @@ extern crate nihav_codec_support;
 #[allow(clippy::useless_let_if_seq)]
 mod codecs;
 pub use crate::codecs::itu_register_all_decoders;
+pub use crate::codecs::itu_register_all_mt_decoders;
 
 #[cfg(test)]
 extern crate nihav_commonfmt;

@@ -1,5 +1,5 @@
 use nihav_core::codecs::DecoderResult;
-use nihav_core::frame::{FrameType, NAVideoBufferRef};
+use nihav_core::frame::{FrameType, NAVideoBufferRef, NATimeInfo};
 use nihav_core::refs::*;
 use nihav_codec_support::codecs::MV;
 use super::sets::SeqParameterSet;
@@ -10,10 +10,13 @@ use super::types::*;
 pub struct PictureInfo {
     pub id:         u16,
     pub full_id:    u32,
+    pub time:       NATimeInfo,
+    pub user_id:    u32,
     pub pic_type:   FrameType,
     pub buf:        NAVideoBufferRef<u8>,
     pub cur_mb:     usize,
     pub is_ref:     bool,
+    pub is_idr:     bool,
     pub long_term:  Option<usize>,
 
     pub mv_info:    NABufferRef<FrameMV>,
@@ -54,6 +57,14 @@ pub struct SliceRefs {
 }
 
 impl SliceRefs {
+    pub fn get_ref_id(&self, list_id: u8, ref_id: usize) -> Option<u32> {
+        let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
+        if ref_list.len() > ref_id {
+            ref_list[ref_id].as_ref().map(|pic| pic.full_id)
+        } else {
+            None
+        }
+    }
     pub fn select_ref_pic(&self, list_id: u8, ref_id: usize) -> Option<NAVideoBufferRef<u8>> {
         let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
         if ref_list.len() > ref_id {
@@ -169,6 +180,20 @@ impl FrameRefs {
             prev_frame_num:     0,
             frame_num_offset:   0,
             max_frame_num:      0,
+        }
+    }
+    pub fn fill_ref_nums(&self, dst: &mut Vec<u32>) {
+        for pic in self.ref_pics.iter() {
+            if !dst.contains(&pic.full_id) {
+                dst.push(pic.full_id);
+            }
+        }
+        for ltpic in self.long_term.iter() {
+            if let Some(ref pic) = ltpic {
+                if !dst.contains(&pic.full_id) {
+                    dst.push(pic.full_id);
+                }
+            }
         }
     }
     pub fn calc_picture_num(&mut self, slice_hdr: &SliceHeader, is_idr: bool, ref_id: u8, sps: &SeqParameterSet) -> u32 {

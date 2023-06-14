@@ -203,10 +203,13 @@ println!("PAFF?");
                     self.cur_pic = Some(PictureInfo {
                             id: slice_hdr.frame_num,
                             full_id,
+                            user_id:    full_id,
+                            time:       NATimeInfo::new(None, None, None, 0, 0),
                             pic_type: slice_hdr.slice_type.to_frame_type(),
                             buf,
                             cur_mb: 0,
                             is_ref: nal_ref_idc != 0,
+                            is_idr,
                             long_term: get_long_term_id(is_idr, &slice_hdr),
                             mv_info: NABufferRef::new(FrameMV::new(sps.pic_width_in_mbs, sps.pic_height_in_mbs)),
                         });

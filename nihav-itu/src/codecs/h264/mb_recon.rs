@@ -1,6 +1,8 @@
+use nihav_core::codecs::{DecoderResult, DecoderError};
 use nihav_core::frame::*;
-use nihav_codec_support::codecs::MV;
-use super::{CurrentMBInfo, I4X4_SCAN};
+use nihav_codec_support::codecs::{MV, ZERO_MV};
+use super::{CurrentMBInfo, I4X4_SCAN, Shareable};
+use super::dispatch::{ThreadDispatcher, FrameDecodingStatus};
 use super::dsp::*;
 use super::pic_ref::SliceRefs;
 use super::slice::{SliceHeader, WeightInfo, DEF_WEIGHT_INFO};
@@ -605,4 +607,276 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
         }
         add_chroma(frm, sstate, mb_info);
     }
+}
+
+pub fn wait_for_mb(disp: &Shareable<ThreadDispatcher>, sstate: &SliceState, xpos: usize, ypos: usize, mv: MV, ref_id: u32) -> DecoderResult<()> {
+    let xpos = xpos as isize + ((mv.x >> 2) as isize) + 4;
+    let ypos = ypos as isize + ((mv.y >> 2) as isize) + 4;
+    let dst_mb_x = ((xpos.max(0) as usize) / 16).min(sstate.mb_w - 1);
+    let dst_mb_y = ((ypos.max(0) as usize) / 16).min(sstate.mb_h - 1);
+    let expected_mb = dst_mb_x + dst_mb_y * sstate.mb_w;
+    loop {
+        if let Ok(ds) = disp.read() {
+            match ds.check_pos(ref_id, expected_mb) {
+                FrameDecodingStatus::Ok => return Ok(()),
+                FrameDecodingStatus::NotReady => {},
+                _ => return Err(DecoderError::MissingReference),
+            };
+        }
+        std::thread::yield_now();
+    }
+}
+
+fn wait_b_mc(disp: &Shareable<ThreadDispatcher>, sstate: &SliceState, frame_refs: &SliceRefs, mv: [MV; 2], ref_idx: [PicRef; 2], xpos: usize, ypos: usize, w: usize, h: usize) -> DecoderResult<()> {
+    if let Some(ref_id) = frame_refs.get_ref_id(0, ref_idx[0].index()) {
+        wait_for_mb(disp, sstate, xpos + w, ypos + h, mv[0], ref_id)?;
+    }
+    if let Some(ref_id) = frame_refs.get_ref_id(1, ref_idx[1].index()) {
+        wait_for_mb(disp, sstate, xpos + w, ypos + h, mv[1], ref_id)?;
+    }
+    Ok(())
+}
+
+pub fn recon_mb_mt(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_info: &CurrentMBInfo, sstate: &mut SliceState, frame_refs: &SliceRefs, mc_dsp: &mut H264MC, weight_mode: u8, disp: &Shareable<ThreadDispatcher>) -> DecoderResult<()> {
+    let xpos = sstate.mb_x * 16;
+    let ypos = sstate.mb_y * 16;
+
+    match mb_info.mb_type {
+        MBType::Intra16x16(_, _, _) => {
+            pred_intra(frm, sstate, mb_info);
+        },
+        MBType::Intra4x4 | MBType::Intra8x8 => {
+            pred_intra(frm, sstate, mb_info);
+        },
+        MBType::PCM => {},
+        MBType::PSkip => {
+            let mv = sstate.get_cur_blk4(0).mv[0];
+            if let Some(ref_id) = frame_refs.get_ref_id(0, 0) {
+                wait_for_mb(disp, sstate, xpos + 16, ypos + 16, mv, ref_id)?;
+            }
+            let rpic = frame_refs.select_ref_pic(0, 0);
+            let weight = &slice_hdr.get_weight(0, 0);
+            do_p_mc(frm, xpos, ypos, 16, 16, mv, rpic, weight, mc_dsp);
+        },
+        MBType::P16x16 => {
+            let mv = sstate.get_cur_blk4(0).mv[0];
+            if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[0].index()) {
+                wait_for_mb(disp, sstate, xpos + 16, ypos + 16, mv, ref_id)?;
+            }
+            let rpic = frame_refs.select_ref_pic(0, mb_info.ref_l0[0].index());
+            let weight = &slice_hdr.get_weight(0, mb_info.ref_l0[0].index());
+            do_p_mc(frm, xpos, ypos, 16, 16, mv, rpic, weight, mc_dsp);
+        },
+        MBType::P16x8 | MBType::P8x16 => {
+            let (bw, bh, bx, by) = if mb_info.mb_type == MBType::P16x8 {
+                    (16, 8, 0, 8)
+                } else {
+                    (8, 16, 8, 0)
+                };
+            let mv = sstate.get_cur_blk4(0).mv[0];
+            if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[0].index()) {
+                wait_for_mb(disp, sstate, xpos + bw, ypos + bh, mv, ref_id)?;
+            }
+            let rpic = frame_refs.select_ref_pic(0, mb_info.ref_l0[0].index());
+            let weight = &slice_hdr.get_weight(0, mb_info.ref_l0[0].index());
+            do_p_mc(frm, xpos, ypos, bw, bh, mv, rpic, weight, mc_dsp);
+            let mv = sstate.get_cur_blk4(bx / 4 + by).mv[0];
+            if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[1].index()) {
+                wait_for_mb(disp, sstate, xpos + 16, ypos + 16, mv, ref_id)?;
+            }
+            let rpic = frame_refs.select_ref_pic(0, mb_info.ref_l0[1].index());
+            let weight = &slice_hdr.get_weight(0, mb_info.ref_l0[1].index());
+            do_p_mc(frm, xpos + bx, ypos + by, bw, bh, mv, rpic, weight, mc_dsp);
+        },
+        MBType::P8x8 | MBType::P8x8Ref0 => {
+            for part in 0..4 {
+                let bx = (part & 1) * 8;
+                let by = (part & 2) * 4;
+                let mv = sstate.get_cur_blk4(bx / 4 + by).mv[0];
+                let rpic = frame_refs.select_ref_pic(0, mb_info.ref_l0[part].index());
+                let weight = &slice_hdr.get_weight(0, mb_info.ref_l0[part].index());
+
+                match mb_info.sub_mb_type[part] {
+                    SubMBType::P8x8 => {
+                        if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[part].index()) {
+                            wait_for_mb(disp, sstate, xpos + bx + 8, ypos + by + 8, mv, ref_id)?;
+                        }
+                        do_p_mc(frm, xpos + bx, ypos + by, 8, 8, mv, rpic, weight, mc_dsp);
+                    },
+                    SubMBType::P8x4 => {
+                        if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[part].index()) {
+                            wait_for_mb(disp, sstate, xpos + bx + 8, ypos + by + 4, mv, ref_id)?;
+                        }
+                        do_p_mc(frm, xpos + bx, ypos + by, 8, 4, mv, rpic.clone(), weight, mc_dsp);
+                        let mv = sstate.get_cur_blk4(bx / 4 + by + 4).mv[0];
+                        if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[part].index()) {
+                            wait_for_mb(disp, sstate, xpos + bx + 8, ypos + by + 8, mv, ref_id)?;
+                        }
+                        do_p_mc(frm, xpos + bx, ypos + by + 4, 8, 4, mv, rpic, weight, mc_dsp);
+                    },
+                    SubMBType::P4x8 => {
+                        if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[part].index()) {
+                            wait_for_mb(disp, sstate, xpos + bx + 4, ypos + by + 8, mv, ref_id)?;
+                        }
+                        do_p_mc(frm, xpos + bx, ypos + by, 4, 8, mv, rpic.clone(), weight, mc_dsp);
+                        let mv = sstate.get_cur_blk4(bx / 4 + by + 1).mv[0];
+                        if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[part].index()) {
+                            wait_for_mb(disp, sstate, xpos + bx + 8, ypos + by + 8, mv, ref_id)?;
+                        }
+                        do_p_mc(frm, xpos + bx + 4, ypos + by, 4, 8, mv, rpic, weight, mc_dsp);
+                    },
+                    SubMBType::P4x4 => {
+                        for sb_no in 0..4 {
+                            let sxpos = xpos + bx + (sb_no & 1) * 4;
+                            let sypos = ypos + by + (sb_no & 2) * 2;
+                            let sblk_no = (bx / 4 + (sb_no & 1)) + ((by / 4) + (sb_no >> 1)) * 4;
+                            let mv = sstate.get_cur_blk4(sblk_no).mv[0];
+                            if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[part].index()) {
+                                wait_for_mb(disp, sstate, sxpos + 4, sypos + 4, mv, ref_id)?;
+                            }
+                            do_p_mc(frm, sxpos, sypos, 4, 4, mv, rpic.clone(), weight, mc_dsp);
+                        }
+                    },
+                    _ => unreachable!(),
+                };
+            }
+        },
+        MBType::B16x16(mode) => {
+            let mv0 = sstate.get_cur_blk4(0).mv[0];
+            let rpic0 = frame_refs.select_ref_pic(0, mb_info.ref_l0[0].index());
+            let mv1 = sstate.get_cur_blk4(0).mv[1];
+            let rpic1 = frame_refs.select_ref_pic(1, mb_info.ref_l1[0].index());
+            let (weight0, weight1) = get_weights(slice_hdr, frame_refs, mode, weight_mode, mb_info.ref_l0[0], mb_info.ref_l1[0]);
+            wait_b_mc(disp, sstate, frame_refs, [mv0, mv1], [mb_info.ref_l0[0], mb_info.ref_l1[0]], xpos, ypos, 16, 16)?;
+            do_b_mc(frm, mode, xpos, ypos, 16, 16, mv0, rpic0, &weight0, mv1, rpic1, &weight1, mc_dsp);
+        },
+        MBType::B16x8(mode0, mode1) | MBType::B8x16(mode0, mode1) => {
+            let (pw, ph) = mb_info.mb_type.size();
+            let (px, py) = (pw & 8, ph & 8);
+            let modes = [mode0, mode1];
+            let (mut bx, mut by) = (0, 0);
+            for part in 0..2 {
+                let blk = if part == 0 { 0 } else { (px / 4) + py };
+                let mv0 = sstate.get_cur_blk4(blk).mv[0];
+                let rpic0 = frame_refs.select_ref_pic(0, mb_info.ref_l0[part].index());
+                let mv1 = sstate.get_cur_blk4(blk).mv[1];
+                let rpic1 = frame_refs.select_ref_pic(1, mb_info.ref_l1[part].index());
+                let (weight0, weight1) = get_weights(slice_hdr, frame_refs, modes[part], weight_mode, mb_info.ref_l0[part], mb_info.ref_l1[part]);
+                wait_b_mc(disp, sstate, frame_refs, [mv0, mv1], [mb_info.ref_l0[part], mb_info.ref_l1[part]], xpos + bx, ypos + by, pw, ph)?;
+                do_b_mc(frm, modes[part], xpos + bx, ypos + by, pw, ph, mv0, rpic0, &weight0, mv1, rpic1, &weight1, mc_dsp);
+                bx += px;
+                by += py;
+            }
+        },
+        MBType::Direct | MBType::BSkip => {
+            if let Some(ref_id) = frame_refs.get_ref_id(1, mb_info.ref_l1[0].index()) {
+                wait_for_mb(disp, sstate, xpos, ypos, ZERO_MV, ref_id)?;
+            }
+            let colo_mb_type = frame_refs.get_colocated_info(sstate.mb_x, sstate.mb_y).0.mb_type;
+            let is_16x16 = colo_mb_type.is_16x16_ref();
+
+            if is_16x16 {
+                let mv = sstate.get_cur_blk4(0).mv;
+                let ref_idx = sstate.get_cur_blk8(0).ref_idx;
+                let rpic0 = frame_refs.select_ref_pic(0, ref_idx[0].index());
+                let rpic1 = frame_refs.select_ref_pic(1, ref_idx[1].index());
+                if let Some(ref_id) = frame_refs.get_ref_id(0, mb_info.ref_l0[0].index()) {
+                    wait_for_mb(disp, sstate, xpos + 16, ypos + 16, mv[0], ref_id)?;
+                }
+                if let Some(ref_id) = frame_refs.get_ref_id(1, mb_info.ref_l1[0].index()) {
+                    wait_for_mb(disp, sstate, xpos + 16, ypos + 16, mv[1], ref_id)?;
+                }
+                let (weight0, weight1) = get_weights(slice_hdr, frame_refs, BMode::Bi, weight_mode, ref_idx[0], ref_idx[1]);
+                wait_b_mc(disp, sstate, frame_refs, mv, ref_idx, xpos, ypos, 16, 16)?;
+                do_b_mc(frm, BMode::Bi, xpos, ypos, 16, 16, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
+            } else {
+                for blk4 in 0..16 {
+                    let mv = sstate.get_cur_blk4(blk4).mv;
+                    let ref_idx = sstate.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx;
+                    if let Some(ref_id) = frame_refs.get_ref_id(0, ref_idx[0].index()) {
+                        wait_for_mb(disp, sstate, xpos + 16, ypos + 16, mv[0], ref_id)?;
+                    }
+                    if let Some(ref_id) = frame_refs.get_ref_id(1, ref_idx[1].index()) {
+                        wait_for_mb(disp, sstate, xpos + 16, ypos + 16, mv[1], ref_id)?;
+                    }
+                    let rpic0 = frame_refs.select_ref_pic(0, ref_idx[0].index());
+                    let rpic1 = frame_refs.select_ref_pic(1, ref_idx[1].index());
+                    let (weight0, weight1) = get_weights(slice_hdr, frame_refs, BMode::Bi, weight_mode, ref_idx[0], ref_idx[1]);
+                    wait_b_mc(disp, sstate, frame_refs, mv, ref_idx, xpos + (blk4 & 3) * 4, ypos + (blk4 >> 2) * 4, 4, 4)?;
+                    do_b_mc(frm, BMode::Bi, xpos + (blk4 & 3) * 4, ypos + (blk4 >> 2) * 4, 4, 4, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
+                }
+            }
+            sstate.apply_to_blk8(|blk8| { blk8.ref_idx[0].set_direct(); blk8.ref_idx[1].set_direct(); });
+        },
+        MBType::B8x8 => {
+            for part in 0..4 {
+                let ridx = sstate.get_cur_blk8(part).ref_idx;
+                let rpic0 = frame_refs.select_ref_pic(0, ridx[0].index());
+                let rpic1 = frame_refs.select_ref_pic(1, ridx[1].index());
+                let subtype = mb_info.sub_mb_type[part];
+                let blk8 = (part & 1) * 2 + (part & 2) * 4;
+                let mut bx = (part & 1) * 8;
+                let mut by = (part & 2) * 4;
+                match subtype {
+                    SubMBType::Direct8x8 => {
+                        for blk in 0..4 {
+                            let mv = sstate.get_cur_blk4(bx / 4 + (by / 4) * 4).mv;
+                            let ref_idx = sstate.get_cur_blk8(bx / 8 + (by / 8) * 2).ref_idx;
+                            let rpic0 = frame_refs.select_ref_pic(0, ref_idx[0].index());
+                            let rpic1 = frame_refs.select_ref_pic(1, ref_idx[1].index());
+                            let (weight0, weight1) = get_weights(slice_hdr, frame_refs, BMode::Bi, weight_mode, ref_idx[0], ref_idx[1]);
+                            wait_b_mc(disp, sstate, frame_refs, mv, ref_idx, xpos + bx, ypos + by, 4, 4)?;
+                            do_b_mc(frm, BMode::Bi, xpos + bx, ypos + by, 4, 4, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
+                            bx += 4;
+                            if blk == 1 {
+                                bx -= 8;
+                                by += 4;
+                            }
+                        }
+                        sstate.get_cur_blk8(part).ref_idx[0].set_direct();
+                        sstate.get_cur_blk8(part).ref_idx[1].set_direct();
+                    },
+                    SubMBType::B8x8(mode) => {
+                        let mv = sstate.get_cur_blk4(blk8).mv;
+                        let (weight0, weight1) = get_weights(slice_hdr, frame_refs, mode, weight_mode, ridx[0], ridx[1]);
+                        wait_b_mc(disp, sstate, frame_refs, mv, ridx, xpos + bx, ypos + by, 8, 8)?;
+                        do_b_mc(frm, mode, xpos + bx, ypos + by, 8, 8, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
+                    },
+                    SubMBType::B8x4(mode) | SubMBType::B4x8(mode) => {
+                        let (weight0, weight1) = get_weights(slice_hdr, frame_refs, mode, weight_mode, ridx[0], ridx[1]);
+                        let (pw, ph) = subtype.size();
+                        let mv = sstate.get_cur_blk4(blk8).mv;
+                        wait_b_mc(disp, sstate, frame_refs, mv, ridx, xpos + bx, ypos + by, pw, ph)?;
+                        do_b_mc(frm, mode, xpos + bx, ypos + by, pw, ph, mv[0], rpic0.clone(), &weight0, mv[1], rpic1.clone(), &weight1, mc_dsp);
+                        let addr2 = blk8 + (pw & 4) / 4 + (ph & 4);
+                        let mv = sstate.get_cur_blk4(addr2).mv;
+                        wait_b_mc(disp, sstate, frame_refs, mv, ridx, xpos + bx + (pw & 4), ypos + by + (ph & 4), pw, ph)?;
+                        do_b_mc(frm, mode, xpos + bx + (pw & 4), ypos + by + (ph & 4), pw, ph, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
+                    },
+                    SubMBType::B4x4(mode) => {
+                        let (weight0, weight1) = get_weights(slice_hdr, frame_refs, mode, weight_mode, ridx[0], ridx[1]);
+                        for i in 0..4 {
+                            let addr2 = blk8 + (i & 1) + (i & 2) * 2;
+                            let mv = sstate.get_cur_blk4(addr2).mv;
+                            wait_b_mc(disp, sstate, frame_refs, mv, ridx, xpos + bx, ypos + by, 4, 4)?;
+                            do_b_mc(frm, mode, xpos + bx, ypos + by, 4, 4, mv[0], rpic0.clone(), &weight0, mv[1], rpic1.clone(), &weight1, mc_dsp);
+                            bx += 4;
+                            if i == 1 {
+                                bx -= 8;
+                                by += 4;
+                            }
+                        }
+                    },
+                    _ => unreachable!(),
+                };
+            }
+        },
+    };
+    if !mb_info.mb_type.is_skip() {
+        if mb_info.mb_type != MBType::Intra4x4 && mb_info.mb_type != MBType::Intra8x8 {
+            add_luma(frm, sstate, mb_info);
+        }
+        add_chroma(frm, sstate, mb_info);
+    }
+    Ok(())
 }

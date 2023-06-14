@@ -26,3 +26,15 @@ pub fn itu_register_all_decoders(rd: &mut RegisteredDecoders) {
         rd.add_decoder(*decoder);
     }
 }
+
+const ITU_MT_CODECS: &[MTDecoderInfo] = &[
+#[cfg(feature="decoder_h264")]
+    MTDecoderInfo { name: "h264", get_decoder: h264::get_decoder_mt },
+];
+
+/// Registers all available multi-threaded decoders provided by this crate.
+pub fn itu_register_all_mt_decoders(rd: &mut RegisteredMTDecoders) {
+    for decoder in ITU_MT_CODECS.iter() {
+        rd.add_decoder(*decoder);
+    }
+}
