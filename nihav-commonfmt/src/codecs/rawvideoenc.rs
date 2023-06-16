@@ -23,7 +23,15 @@ impl NAEncoder for RawEncoder {
                     ..Default::default()
                 })
             },
-            NACodecTypeInfo::Video(_) => Ok(*encinfo),
+            NACodecTypeInfo::Video(_) => {
+                let mut new_info = *encinfo;
+                if let NACodecTypeInfo::Video(ref mut vinfo) = new_info.format {
+                    if !vinfo.format.model.is_yuv() {
+                        vinfo.format = YUV420_FORMAT;
+                    }
+                }
+                Ok(new_info)
+            },
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
         }
     }
