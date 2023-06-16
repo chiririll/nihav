@@ -294,11 +294,11 @@ macro_rules! scale_loop {
                         }
                     }
                     let resizer = &mut $scalers[idx].1;
-                    for (dline, sline) in $tbuf.chunks_mut(tstride).zip(src[ioff..].chunks(istride)).take(dh) {
+                    for (dline, sline) in $tbuf.chunks_mut(tstride).zip(src[ioff..].chunks(istride)).take(sh) {
                         resizer.resize_line(sline, sw, 1, dline, dw, 1);
                     }
                 } else {
-                    for (dline, sline) in $tbuf.chunks_mut(tstride).zip(src[ioff..].chunks(istride)).take(dh) {
+                    for (dline, sline) in $tbuf.chunks_mut(tstride).zip(src[ioff..].chunks(istride)).take(sh) {
                         dline[..dw].copy_from_slice(&sline[..sw]);
                     }
                 }
