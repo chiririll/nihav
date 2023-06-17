@@ -16,6 +16,7 @@ struct AVIStream {
     nframes:    u32,
     is_video:   bool,
     max_size:   u32,
+    pal_change: bool,
 }
 
 struct AVIMuxer<'a> {
@@ -144,6 +145,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     is_video:   strm.get_media_type() == StreamType::Video,
                     nframes:    0,
                     max_size:   0,
+                    pal_change: false,
                 });
 
             self.bw.write_u32le(0)?; // flags
@@ -283,6 +285,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                         self.bw.write_byte((end_clr - start_clr) as u8)?;
                         self.bw.write_u16le(0)?; //flags
                         self.bw.write_buf(&pal[start_clr * 4..end_clr * 4])?;
+                        self.stream_info[str_num].pal_change = true;
                     }
                 }
             }
@@ -325,6 +328,10 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         for stri in self.stream_info.iter() {
             max_frames = max_frames.max(stri.nframes);
             max_size = max_size.max(stri.max_size);
+            if stri.pal_change {
+                self.bw.seek(SeekFrom::Start(stri.strh_pos))?;
+                self.bw.write_u32le(0x00010000)?;
+            }
             self.bw.seek(SeekFrom::Start(stri.strh_pos + 0x18))?;
             self.bw.write_u32le(if stri.is_video { stri.nframes } else { 0 })?;
             self.bw.write_u32le(stri.max_size)?;
