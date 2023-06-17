@@ -1323,7 +1323,7 @@ impl Track {
                     Some(dts)
                 }
             } else {
-                None
+                Some(pts_val)
             };
         let mut pts = NATimeInfo::new(Some(pts_val), dts, None, self.tb_num, self.tb_den);
         if self.chunk_offsets.len() == self.chunk_sizes.len() { // simple one-to-one mapping
