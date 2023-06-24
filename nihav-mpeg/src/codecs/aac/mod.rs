@@ -183,6 +183,9 @@ impl ICS {
     fn get_intensity_dir(&self, g: usize, sfb: usize) -> bool {
         self.sfb_cb[g][sfb] == INTENSITY_HCB
     }
+    fn is_noise(&self, g: usize, sfb: usize) -> bool {
+        self.sfb_cb[g][sfb] == NOISE_HCB
+    }
     fn decode_scale_factor_data(&mut self, br: &mut BitReader, codebooks: &Codebooks) -> DecoderResult<()> {
         decode_scale_factor_data(br, &mut self.scales, self.global_gain, &self.info, &self.sfb_cb, codebooks)
     }
@@ -341,10 +344,10 @@ impl ChannelPair {
                 for sfb in 0..self.ics[0].info.max_sfb {
                     let start = w * 128 + self.ics[0].get_band_start(sfb);
                     let end   = w * 128 + self.ics[0].get_band_start(sfb + 1);
-                    if self.ics[0].is_intensity(g, sfb) {
+                    if self.ics[1].is_intensity(g, sfb) {
                         let invert = (self.ms_mask_present == 1) && self.ms_used[g][sfb];
-                        let dir = self.ics[0].get_intensity_dir(g, sfb) ^ invert;
-                        let scale = 0.5f32.powf(0.25 * (f32::from(self.ics[0].scales[g][sfb]) + f32::from(INTENSITY_SCALE_MIN)));
+                        let dir = self.ics[1].get_intensity_dir(g, sfb) ^ invert;
+                        let scale = 0.5f32.powf(0.25 * (f32::from(self.ics[1].scales[g][sfb]) + f32::from(INTENSITY_SCALE_MIN)));
                         if !dir {
                             for i in start..end {
                                 self.ics[1].coeffs[i] = scale * self.ics[0].coeffs[i];
@@ -354,7 +357,7 @@ impl ChannelPair {
                                 self.ics[1].coeffs[i] = -scale * self.ics[0].coeffs[i];
                             }
                         }
-                    } else if (self.ms_mask_present == 2) || self.ms_used[g][sfb] {
+                    } else if ((self.ms_mask_present == 2) || self.ms_used[g][sfb]) && !self.ics[0].is_noise(g, sfb) {
                         for i in start..end {
                             let tmp = self.ics[0].coeffs[i] - self.ics[1].coeffs[i];
                             self.ics[0].coeffs[i] += self.ics[1].coeffs[i];
