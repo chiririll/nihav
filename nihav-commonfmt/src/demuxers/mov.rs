@@ -1407,7 +1407,7 @@ impl Track {
         }
     }
     #[allow(clippy::collapsible_if)]
-    fn seek(&mut self, pts: u64, tpoint: NATimePoint) -> DemuxerResult<()> {
+    fn seek(&mut self, pts: u64, tpoint: NATimePoint) -> DemuxerResult<u64> {
         self.cur_sample = pts as usize;
         self.samples_left = 0;
         self.cur_ts = None;
@@ -1575,7 +1575,9 @@ impl Track {
             self.samples_left = csamp + cur_samps - self.cur_sample;
             self.cur_chunk += 1;
         }
-        Ok(())
+        let cur_pts = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
+        let cur_time = NATimeInfo::ts_to_time(cur_pts, 1000, self.tb_num, self.tb_den);
+        Ok(cur_time)
     }
 }
 
@@ -1741,14 +1743,36 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
         let seek_info = ret.unwrap();
         let tbn = self.tracks[seek_info.str_id as usize].tb_num;
         let tbd = self.tracks[seek_info.str_id as usize].tb_den;
+        let mut vpts = None;
+        let mut apts = None;
         for track in self.tracks.iter_mut() {
             let cur_pts = if track.track_id == seek_info.str_id {
                     seek_info.pts
                 } else {
                     seek_info.pts * u64::from(tbn) * u64::from(track.tb_den) / (u64::from(tbd) * u64::from(track.tb_num))
                 };
-            track.seek(cur_pts, time)?;
+            let actual_time = track.seek(cur_pts, time)?;
+            match track.stream_type {
+                StreamType::Video => vpts = Some(actual_time),
+                StreamType::Audio => apts = Some(actual_time),
+                _ => {},
+            };
         }
+        /* For audio+video stream case when the post-seek actual times differ
+           by more than half a second try to seek audio to a closer position
+           to video.
+        */
+        if let (true, Some(vtime), Some(atime)) = (self.tracks.len() == 2, vpts, apts) {
+            if vtime.max(atime) - vtime.min(atime) > 500 && atime != 0 {
+                for track in self.tracks.iter_mut() {
+                    if track.stream_type == StreamType::Audio {
+                        let new_pts = NATimeInfo::time_to_ts(vtime, 1000, track.tb_num, track.tb_den);
+                        track.seek(new_pts, NATimePoint::Milliseconds(vtime))?;
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
     fn get_duration(&self) -> u64 {
