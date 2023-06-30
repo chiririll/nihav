@@ -754,7 +754,9 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                     track.bsize = (sample_size / 8) as usize;
                 },
             };
-            track.tb_den = sample_rate;
+            if track.tb_den <= 1 {
+                track.tb_den = sample_rate;
+            }
             track.raw_audio = matches!(&fcc,
                     b"NONE" | b"raw " | b"twos" | b"sowt" |
                     b"in24" | b"in32" | b"fl32" | b"fl64" |
