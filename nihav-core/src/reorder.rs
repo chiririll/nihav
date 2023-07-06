@@ -286,6 +286,7 @@ impl MTFrameReorderer {
     pub fn flush(&mut self) {
         self.flush_mode = false;
         self.frames.clear();
+        self.ids.clear();
         self.output_to = None;
         self.last_ts = None;
     }
