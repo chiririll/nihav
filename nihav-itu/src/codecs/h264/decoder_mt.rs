@@ -923,6 +923,7 @@ impl NADecoderMT for H264MTDecoder {
     }
     fn flush(&mut self) {
         clear_threads(&mut self.dispatch);
+        self.frame_refs.clear_refs();
     }
 }
 
