@@ -11,6 +11,8 @@ macro_rules! validate {
 
 #[cfg(feature="decoder_truemotion1")]
 mod truemotion1;
+#[cfg(feature="decoder_truemotion1")]
+mod truemotion1data;
 #[cfg(feature="decoder_truemotionrt")]
 mod truemotionrt;
 #[cfg(feature="decoder_truemotion2")]
