@@ -11,7 +11,7 @@ macro_rules! validate {
 
 #[cfg(feature="decoder_truemotion1")]
 mod truemotion1;
-#[cfg(feature="decoder_truemotion1")]
+#[cfg(any(feature="decoder_truemotion1", feature="encoder_truemotion1"))]
 mod truemotion1data;
 #[cfg(feature="decoder_truemotionrt")]
 mod truemotionrt;
@@ -133,6 +133,8 @@ pub fn duck_register_all_decoders(rd: &mut RegisteredDecoders) {
     }
 }
 
+#[cfg(feature="encoder_truemotion1")]
+mod truemotion1enc;
 #[cfg(feature="encoder_truemotionrt")]
 mod truemotionrtenc;
 #[cfg(feature="encoder_vp6")]
@@ -146,6 +148,8 @@ mod vp6enc;
 mod vp7enc;
 
 const DUCK_ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_truemotion1")]
+    EncoderInfo { name: "truemotion1", get_encoder: truemotion1enc::get_encoder },
 #[cfg(feature="encoder_truemotionrt")]
     EncoderInfo { name: "truemotionrt", get_encoder: truemotionrtenc::get_encoder },
 #[cfg(feature="encoder_vp6")]
