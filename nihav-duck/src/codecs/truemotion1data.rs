@@ -50,7 +50,7 @@ pub const DUCK_Y_DELTAS: [[i32; 8]; 4] = [
 ];
 const DUCK_Y_FAT_DELTA3: [i32; 8] = [ 0, -15, 50, -50, 115, -115, 235, -235 ];
 const DUCK_Y_FAT_DELTA4: [i32; 8] = [ 0,  40, 80, -76, 160, -154, 236, -236 ];
-pub const DUCK_Y_FAT_DELTAS: [&[i32]; 4] = [
+pub const DUCK_Y_FAT_DELTAS: [&[i32; 8]; 4] = [
     &DUCK_Y_FAT_DELTA3, &DUCK_Y_FAT_DELTA3, &DUCK_Y_FAT_DELTA3, &DUCK_Y_FAT_DELTA4
 ];
 
@@ -61,7 +61,7 @@ pub const DUCK_C_DELTAS: [[i32; 8]; 4] = [
     [ 0, -2, 2,  -8,  8, -18, 18, -40 ]
 ];
 const DUCK_C_FAT_DELTA3: [i32; 8] = [ 0, -20, 15, -80, 100, -160, 180, -160 ];
-pub const DUCK_C_FAT_DELTAS: [&[i32]; 4] = [
+pub const DUCK_C_FAT_DELTAS: [&[i32; 8]; 4] = [
     &DUCK_C_FAT_DELTA3, &DUCK_C_FAT_DELTA3, &DUCK_C_FAT_DELTA3, &DUCK_Y_FAT_DELTA4
 ];
 
