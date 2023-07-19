@@ -348,7 +348,7 @@ impl ChannelPair {
                         let invert = (self.ms_mask_present == 1) && self.ms_used[g][sfb];
                         let dir = self.ics[1].get_intensity_dir(g, sfb) ^ invert;
                         let scale = 0.5f32.powf(0.25 * (f32::from(self.ics[1].scales[g][sfb]) + f32::from(INTENSITY_SCALE_MIN)));
-                        if !dir {
+                        if dir {
                             for i in start..end {
                                 self.ics[1].coeffs[i] = scale * self.ics[0].coeffs[i];
                             }
