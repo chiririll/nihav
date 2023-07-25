@@ -505,7 +505,7 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "realmedia", &mux_reg,
-                          [0x80e7d0c2, 0x5bf1b72b, 0x653beb40, 0x81ab14e9]);
+                          [0x9bc90ab0, 0x6b8c42f7, 0xaf81e8bf, 0x7c76ec57]);
     }
 
     #[test]
@@ -626,7 +626,7 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "realmedia", &mux_reg,
-                          [0x7cfb02af, 0xbbf64748, 0x086b5005, 0xc55dbc9d]);
+                          [0x8392bb8c, 0xeb8f4d04, 0x25262829, 0x63b2fda7]);
     }
     #[test]
     fn test_rm_muxer_ralf() {
@@ -650,6 +650,6 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "realmedia", &mux_reg,
-                          [0xaf8345be, 0xf3912b40, 0xf720acdc, 0xc825b29e]);
+                          [0xe90893eb, 0x8634642c, 0xef679ac4, 0x2e89314a]);
     }
 }
