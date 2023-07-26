@@ -97,24 +97,24 @@ fn h264_mc10(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usiz
 }
 
 fn h264_mc11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
+    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     h264_mc02(&mut tmp,  TMP_BUF_STRIDE, src, sstride, w, h);
     h264_mc20(&mut tmp2, TMP_BUF_STRIDE, src, sstride, w, h);
     mc_avg_tmp(dst, dstride, w, h, &tmp, &tmp2);
 }
 
 fn h264_mc12(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
+    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     h264_mc02(&mut tmp,  TMP_BUF_STRIDE, src, sstride, w, h);
     h264_mc22(&mut tmp2, TMP_BUF_STRIDE, src, sstride, w, h);
     mc_avg_tmp(dst, dstride, w, h, &tmp, &tmp2);
 }
 
 fn h264_mc13(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
+    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     h264_mc02(&mut tmp,  TMP_BUF_STRIDE, src, sstride, w, h);
     h264_mc20(&mut tmp2, TMP_BUF_STRIDE, &src[1..], sstride, w, h);
     mc_avg_tmp(dst, dstride, w, h, &tmp, &tmp2);
@@ -125,15 +125,15 @@ fn h264_mc20(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usiz
 }
 
 fn h264_mc21(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
+    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     h264_mc22(&mut tmp,  TMP_BUF_STRIDE, src, sstride, w, h);
     h264_mc20(&mut tmp2, TMP_BUF_STRIDE, src, sstride, w, h);
     mc_avg_tmp(dst, dstride, w, h, &tmp, &tmp2);
 }
 
 fn h264_mc22(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp: [i32; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp: [i32; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     unsafe {
         let mut src = src.as_ptr();
         let mut dst = tmp.as_mut_ptr();
@@ -168,8 +168,8 @@ fn h264_mc22(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usiz
 }
 
 fn h264_mc23(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
+    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     h264_mc22(&mut tmp,  TMP_BUF_STRIDE, src, sstride, w, h);
     h264_mc20(&mut tmp2, TMP_BUF_STRIDE, &src[1..], sstride, w, h);
     mc_avg_tmp(dst, dstride, w, h, &tmp, &tmp2);
@@ -180,24 +180,24 @@ fn h264_mc30(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usiz
 }
 
 fn h264_mc31(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
+    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     h264_mc20(&mut tmp,  TMP_BUF_STRIDE, src, sstride, w, h);
     h264_mc02(&mut tmp2, TMP_BUF_STRIDE, &src[sstride..], sstride, w, h);
     mc_avg_tmp(dst, dstride, w, h, &tmp, &tmp2);
 }
 
 fn h264_mc32(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
+    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     h264_mc22(&mut tmp,  TMP_BUF_STRIDE, src, sstride, w, h);
     h264_mc02(&mut tmp2, TMP_BUF_STRIDE, &src[sstride..], sstride, w, h);
     mc_avg_tmp(dst, dstride, w, h, &tmp, &tmp2);
 }
 
 fn h264_mc33(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, w: usize, h: usize) {
-    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut tmp : [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
+    let mut tmp2: [u8; TMP_BUF_STRIDE * 16] = unsafe { let arr = std::mem::MaybeUninit::uninit(); arr.assume_init() };
     h264_mc20(&mut tmp,  TMP_BUF_STRIDE, &src[1..], sstride, w, h);
     h264_mc02(&mut tmp2, TMP_BUF_STRIDE, &src[sstride..], sstride, w, h);
     mc_avg_tmp(dst, dstride, w, h, &tmp, &tmp2);
