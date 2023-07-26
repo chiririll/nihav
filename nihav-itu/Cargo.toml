@@ -3,6 +3,7 @@ name = "nihav_itu"
 version = "0.1.0"
 authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
 edition = "2018"
+rust-version = "1.69"
 
 [dependencies.nihav_core]
 path = "../nihav-core"
@@ -14,7 +15,7 @@ path = "../nihav-codec-support"
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
 
 [features]
-default = ["all_decoders"]
+default = ["all_decoders", "simd"]
 simd = [] #enable when the default rustc is >=1.62
 
 all_decoders = ["all_video_decoders"]
