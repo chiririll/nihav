@@ -56,10 +56,7 @@ impl<T: Copy> HAMShuffler<T> {
     /// Returns the original saved reference frame or `None` if it is not present.
     #[allow(dead_code)]
     pub fn get_output_frame(&mut self) -> Option<NAVideoBufferRef<T>> {
-        match self.lastframe {
-            Some(ref frm) => Some(frm.clone()),
-            None => None,
-        }
+        self.lastframe.as_ref().cloned()
     }
 }
 
@@ -102,11 +99,7 @@ impl IPShuffler {
     /// Returns the original saved reference frame or `None` if it is not present.
     #[allow(dead_code)]
     pub fn get_ref(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.lastframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.lastframe.as_ref().cloned()
     }
 }
 
@@ -162,38 +155,22 @@ impl IPBShuffler {
     /// Returns the previous reference frame or `None` if it is not present.
     #[allow(dead_code)]
     pub fn get_lastref(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.lastframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.lastframe.as_ref().cloned()
     }
     /// Returns second last reference frame or `None` if it is not present.
     #[allow(dead_code)]
     pub fn get_nextref(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.nextframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.nextframe.as_ref().cloned()
     }
     /// Returns the temporally following reference for B-frame or `None` if it is not present.
     #[allow(dead_code)]
     pub fn get_b_fwdref(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.nextframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.nextframe.as_ref().cloned()
     }
     /// Returns the temporally preceeding reference for B-frame or `None` if it is not present.
     #[allow(dead_code)]
     pub fn get_b_bwdref(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.lastframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.lastframe.as_ref().cloned()
     }
 }
 
@@ -219,6 +196,7 @@ pub struct MV {
 
 #[allow(clippy::many_single_char_names)]
 #[allow(clippy::collapsible_if)]
+#[allow(clippy::collapsible_else_if)]
 impl MV {
     /// Creates a new motion vector instance.
     pub fn new(x: i16, y: i16) -> Self { MV{ x, y } }

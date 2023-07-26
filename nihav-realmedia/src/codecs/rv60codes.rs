@@ -169,7 +169,7 @@ fn quant(val: i16, q: i16) -> i16 { (val * q + 8) >> 4 }
 
 fn decode_2x2_dc(br: &mut BitReader, cb: &Codebook<u16>, coeffs: &mut [i16], stride: usize, block2: bool, dsc: usize, q_dc: i16, q_ac: i16) -> DecoderResult<()> {
     if dsc == 0 { return Ok(()); }
-    let lx = RV60_DSC_TO_LX[dsc as usize];
+    let lx = RV60_DSC_TO_LX[dsc];
     let l0 = ((lx >>  0) & 0xFF) as i16;
     let l1 = ((lx >>  8) & 0xFF) as i16;
     let l2 = ((lx >> 16) & 0xFF) as i16;
@@ -187,7 +187,7 @@ fn decode_2x2_dc(br: &mut BitReader, cb: &Codebook<u16>, coeffs: &mut [i16], str
 }
 fn decode_2x2(br: &mut BitReader, cb: &Codebook<u16>, coeffs: &mut [i16], stride: usize, block2: bool, dsc: usize, q_ac: i16) -> DecoderResult<()> {
     if dsc == 0 { return Ok(()); }
-    let lx = RV60_DSC_TO_LX[dsc as usize];
+    let lx = RV60_DSC_TO_LX[dsc];
     let l0 = ((lx >>  0) & 0xFF) as i16;
     let l1 = ((lx >>  8) & 0xFF) as i16;
     let l2 = ((lx >> 16) & 0xFF) as i16;

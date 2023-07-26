@@ -233,22 +233,20 @@ const RV60_AVAIL_MASK: [u8; 64] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 ];
 
-#[derive(Clone,Copy,PartialEq,Debug)]
+#[derive(Clone,Copy,PartialEq,Debug,Default)]
 enum CUType {
+    #[default]
     Intra,
     InterMV,
     Skip,
     InterNoMV,
 }
 
-impl Default for CUType {
-    fn default() -> Self { CUType::Intra }
-}
-
 const RV60_CU_TYPES: [CUType; 4] = [ CUType::Intra, CUType::InterMV, CUType::Skip, CUType::InterNoMV ];
 
-#[derive(Clone,Copy,PartialEq,Debug)]
+#[derive(Clone,Copy,PartialEq,Debug,Default)]
 enum PUType {
+    #[default]
     Full,
     N2Hor,
     N2Ver,
@@ -317,10 +315,6 @@ impl PUType {
     }
 }
 
-impl Default for PUType {
-    fn default() -> Self { PUType::Full }
-}
-
 #[derive(Clone,Copy,Debug)]
 enum IntraMode {
     Index(u8),
@@ -329,16 +323,13 @@ enum IntraMode {
     Plane64,
 }
 
-#[derive(Clone,Copy,PartialEq,Debug)]
+#[derive(Clone,Copy,PartialEq,Debug,Default)]
 enum TransformType {
+    #[default]
     None,
     T4X4,
     T8X8,
     T16X16,
-}
-
-impl Default for TransformType {
-    fn default() -> Self { TransformType::None }
 }
 
 #[derive(Clone,Copy,PartialEq,Debug)]
@@ -1502,7 +1493,7 @@ impl NADecoder for RealVideo60Decoder {
         if hdr.deblock {
             self.dblk.reinit(hdr.awidth, hdr.aheight);
         }
-        let mut off = hsize + ((br.tell() >> 3) as usize);
+        let mut off = hsize + (br.tell() >> 3);
         let mut dframe = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
         for (cu_y, size) in slices.into_iter().enumerate() {
             self.decode_cu_line(&mut dframe, &hdr, &src[off..][..size], cu_y)?;

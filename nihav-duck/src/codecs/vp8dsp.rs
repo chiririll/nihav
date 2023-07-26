@@ -177,7 +177,7 @@ fn mc_block_common(dst: &mut [u8], mut doff: usize, dstride: usize, src: &[u8], 
     if (mx == 0) && (my == 0) {
         let dst = &mut dst[doff..];
         for (out, src) in dst.chunks_mut(dstride).take(size).zip(src.chunks(sstride)) {
-            (&mut out[0..size]).copy_from_slice(&src[0..size]);
+            out[..size].copy_from_slice(&src[..size]);
         }
     } else if my == 0 {
         for src in src.chunks(sstride).take(size) {
@@ -218,7 +218,7 @@ fn mc_block(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize, ypos: usiz
         let src = &reffrm.get_data();
         let src = &src[srcoff..];
         for (out, src) in dst.chunks_mut(dstride).take(size).zip(src.chunks(sstride)) {
-            (&mut out[0..size]).copy_from_slice(&src[0..size]);
+            out[..size].copy_from_slice(&src[..size]);
         }
         return;
     }

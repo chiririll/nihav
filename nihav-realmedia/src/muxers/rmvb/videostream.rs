@@ -249,7 +249,7 @@ fn write_16_or_32(dst: &mut Vec<u8>, val: u32) {
 fn write_multiple_frame(dst: &mut Vec<u8>, frm: &VideoData) {
     dst.push(0xC0); // 0x3 = multiple frame
     write_16_or_32(dst, frm.data.len() as u32);
-    write_16_or_32(dst, frm.pts as u32);
+    write_16_or_32(dst, frm.pts);
     dst.push(frm.seq_no);
     dst.extend_from_slice(&frm.data);
 }

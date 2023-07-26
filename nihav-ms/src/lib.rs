@@ -3,6 +3,7 @@ extern crate nihav_core;
 extern crate nihav_codec_support;
 
 #[allow(clippy::needless_range_loop)]
+#[allow(clippy::needless_late_init)]
 #[allow(clippy::single_match)]
 #[allow(clippy::verbose_bit_mask)]
 mod codecs;

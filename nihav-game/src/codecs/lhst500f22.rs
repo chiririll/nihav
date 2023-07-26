@@ -191,7 +191,7 @@ impl NADecoder for LHDecoder {
             let abuf = alloc_audio_buffer(self.ainfo, daudio.len(), self.chmap.clone())?;
             let mut adata = abuf.get_abuf_f32().unwrap();
             let buf = adata.get_data_mut().unwrap();
-            (&mut buf[..daudio.len()]).copy_from_slice(daudio.as_slice());
+            buf[..daudio.len()].copy_from_slice(daudio.as_slice());
 
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), abuf);
             frm.set_duration(Some(CODEC_SAMPLES as u64));

@@ -287,7 +287,7 @@ pub fn decode_mb_pred_cabac(cabac: &mut CABAC, slice_hdr: &SliceHeader, mb_type:
                         } else { new_mode };
                 }
                 mb_info.ipred[x + y * 4] = pred_mode.into();
-                sstate.get_cur_blk4(x + y * 4).ipred = (pred_mode as u8).into();
+                sstate.get_cur_blk4(x + y * 4).ipred = pred_mode.into();
             }
             let mut ctx = 0;
             if sstate.get_left_mb().cmode != 0 {
@@ -329,10 +329,10 @@ pub fn decode_mb_pred_cabac(cabac: &mut CABAC, slice_hdr: &SliceHeader, mb_type:
                 mb_info.ipred[blk4 + 1] = pred_mode.into();
                 mb_info.ipred[blk4 + 4] = pred_mode.into();
                 mb_info.ipred[blk4 + 5] = pred_mode.into();
-                sstate.get_cur_blk4(blk4).ipred = (pred_mode as u8).into();
-                sstate.get_cur_blk4(blk4 + 1).ipred = (pred_mode as u8).into();
-                sstate.get_cur_blk4(blk4 + 4).ipred = (pred_mode as u8).into();
-                sstate.get_cur_blk4(blk4 + 5).ipred = (pred_mode as u8).into();
+                sstate.get_cur_blk4(blk4).ipred = pred_mode.into();
+                sstate.get_cur_blk4(blk4 + 1).ipred = pred_mode.into();
+                sstate.get_cur_blk4(blk4 + 4).ipred = pred_mode.into();
+                sstate.get_cur_blk4(blk4 + 5).ipred = pred_mode.into();
             }
             let mut ctx = 0;
             if sstate.get_left_mb().cmode != 0 {
@@ -589,9 +589,9 @@ pub fn decode_mb_qp_delta_cabac(cabac: &mut CABAC, ctx: usize) -> i32 {
             val += 1;
         }
         if (val & 1) != 0 {
-            ((val >> 1) as i32) + 2
+            (val >> 1) + 2
         } else {
-            -((val >> 1) as i32) - 1
+            -(val >> 1) - 1
         }
     }
 }

@@ -81,7 +81,7 @@ impl MPADecoder {
             ctx.mpeg1 = self.sf_idx < 3;
             ctx.sf_idx = self.sf_idx;
             ctx.read_mp3_side_data(br, channels)?;
-            let hdr_size = (br.tell() / 8) as usize;
+            let hdr_size = br.tell() / 8;
             let add_len = src.len() - hdr_size;
             if self.bytebuf.len() + add_len > BYTEBUF_SIZE {
                 self.bytebuf.drain(..self.bytebuf.len() + add_len - BYTEBUF_SIZE);

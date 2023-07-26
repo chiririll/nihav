@@ -93,13 +93,13 @@ impl<'a, S: Copy> CodebookReader<S> for QdmBitReader<'a> {
         let mut idx = 0;
         let mut lut_bits = cb.lut_bits;
         while esc {
-            let lut_idx = (self.peek(lut_bits) as usize) + (idx as usize);
+            let lut_idx = (self.peek(lut_bits) as usize) + idx;
             if cb.table[lut_idx] == TABLE_FILL_VALUE { return Err(CodebookError::InvalidCode); }
             let bits = cb.table[lut_idx] & 0x7F;
             esc  = (cb.table[lut_idx] & 0x80) != 0;
             idx  = (cb.table[lut_idx] >> 8) as usize;
             let skip_bits = if esc { u32::from(lut_bits) } else { bits };
-            self.skip(skip_bits as u32);
+            self.skip(skip_bits);
             lut_bits = bits as u8;
         }
         Ok(cb.syms[idx])

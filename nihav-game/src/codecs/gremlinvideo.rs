@@ -453,7 +453,7 @@ impl GremlinVideoDecoder {
                     let top = (bits.read_bits(br, 4)? as usize) << 8;
                     let offs = top + (br.read_byte()? as usize);
                     if (subtag != 0) || (offs <= 0xF80) {
-                        let len = (subtag as usize) + 3;
+                        let len = subtag + 3;
                         self.lz_copy(idx, (offs as isize) - 4096, len)?;
                         idx += len;
                     } else {

@@ -25,8 +25,9 @@ impl<'a> VPTreeReader for BoolCoder<'a> {
 }
 
 #[repr(u8)]
-#[derive(Clone,Copy,PartialEq,Debug)]
+#[derive(Clone,Copy,PartialEq,Debug,Default)]
 pub enum PredMode {
+    #[default]
     DCPred,
     HPred,
     VPred,
@@ -42,10 +43,6 @@ pub enum PredMode {
     HUPred,
 
     Inter,
-}
-
-impl Default for PredMode {
-    fn default() -> Self { PredMode::DCPred }
 }
 
 impl PredMode {

@@ -2,18 +2,15 @@ use nihav_codec_support::codecs::{MV, ZERO_MV};
 
 use std::str::FromStr;
 
-#[derive(Debug,Clone,Copy,PartialEq)]
+#[derive(Debug,Clone,Copy,PartialEq,Default)]
 #[allow(dead_code)]
 pub enum MVSearchMode {
     Full,
     SEA,
     Diamond,
+    #[default]
     Hexagon,
     EPZS,
-}
-
-impl Default for MVSearchMode {
-    fn default() -> Self { MVSearchMode::Hexagon }
 }
 
 pub struct ParseError{}

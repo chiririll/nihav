@@ -45,12 +45,13 @@ mod palettise;
 //use mediancut::quantise_median_cut;
 //use neuquant::NeuQuantQuantiser;
 
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 /// Palette quantisation algorithms.
 pub enum QuantisationMode {
     /// Median cut approach proposed by Paul Heckbert.
     ///
     /// This is moderately fast and moderately good.
+    #[default]
     MedianCut,
     /// Enhanced LBG algorithm proposed by Giuseppe Patane and Marco Russo.
     ///
@@ -63,23 +64,16 @@ pub enum QuantisationMode {
     NeuQuant(u8),
 }
 
-impl Default for QuantisationMode {
-    fn default() -> Self { QuantisationMode::MedianCut }
-}
-
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 /// Algorithms for seaching an appropriate palette entry for a given pixel.
 pub enum PaletteSearchMode {
     /// Full search (slowest).
     Full,
     /// Local search (faster but may be not so good).
+    #[default]
     Local,
     /// k-d tree based one (the fastest but not so accurate).
     KDTree,
-}
-
-impl Default for PaletteSearchMode {
-    fn default() -> Self { PaletteSearchMode::Local }
 }
 
 use crate::scale::palette::elbg::ELBG;
@@ -146,7 +140,7 @@ fn palettise_frame_internal(pic_in: &NABufferType, pic_out: &mut NABufferType, q
         };
         let esize = ofmt.elem_size as usize;
         let coffs = [ofmt.comp_info[0].unwrap().comp_offs as usize, ofmt.comp_info[1].unwrap().comp_offs as usize, ofmt.comp_info[2].unwrap().comp_offs as usize];
-        for (dpal, spal) in (&mut dst[paloff..]).chunks_mut(esize).zip(pal.iter()) {
+        for (dpal, spal) in dst[paloff..].chunks_mut(esize).zip(pal.iter()) {
             dpal[coffs[0]] = spal[0];
             dpal[coffs[1]] = spal[1];
             dpal[coffs[2]] = spal[2];

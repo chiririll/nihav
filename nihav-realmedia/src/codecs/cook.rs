@@ -292,7 +292,7 @@ impl CookChannelPair {
         for _ in 0..num_vectors {
             let idx = tcat[tcat_idx2];
             tcat_idx2 += 1;
-            self.category[idx] = (self.category[idx] + 1).min((NUM_CATEGORIES - 1) as u8) as u8;
+            self.category[idx] = (self.category[idx] + 1).min((NUM_CATEGORIES - 1) as u8);
         }
     }
     fn decode_channel_data(&mut self, dsp: &mut CookDSP, rnd: &mut RND, codebooks: &Codebooks, src: &[u8], buf: &mut [u8], channel: usize) -> DecoderResult<()> {

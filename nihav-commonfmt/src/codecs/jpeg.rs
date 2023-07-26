@@ -637,9 +637,7 @@ impl NADecoder for JPEGDecoder {
                                 std::mem::swap(&mut self.buf, &mut data);
                                 let ret = self.decode_scan(&data, buf, &ci[..ns], ss, se);
                                 std::mem::swap(&mut self.buf, &mut data);
-                                if let Err(err) = ret {
-                                    return Err(err);
-                                }
+                                ret?;
                             } else { unreachable!(); }
                         },
                         JPEGType::Progressive => {

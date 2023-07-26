@@ -89,7 +89,7 @@ impl RMStream {
         self.mdpr_pos = bw.tell();
 
         bw.write_chunk(b"MDPR", 0, 0)?;
-        bw.write_u16be(self.stream_id as u16)?;
+        bw.write_u16be(self.stream_id)?;
         bw.write_u32be(0)?; //max br
         bw.write_u32be(0)?; //avg br
         bw.write_u32be(0)?; //max ps
@@ -453,7 +453,7 @@ impl<'a> MuxCore<'a> for RAMuxer<'a> {
     }
     fn end(&mut self) -> MuxerResult<()> {
         if let Some(ref mut sw) = self.sw {
-            sw.finish(&mut self.bw)?;
+            sw.finish(self.bw)?;
         }
         Ok(())
     }

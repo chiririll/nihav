@@ -136,7 +136,7 @@ impl BitRateControl {
     }
     pub fn get_frame_quant(&self, is_intra: bool) -> usize {
         if let Some(q) = self.force_q {
-            q as usize
+            q
         } else {
             let expected_size = self.get_target_size(is_intra);
             let nits_per_mb = ((expected_size * 8) as f32) / (self.num_mb as f32);

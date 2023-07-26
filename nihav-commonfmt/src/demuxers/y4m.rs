@@ -151,10 +151,8 @@ impl<'a> Y4MDemuxer<'a> {
         }
         validate!(self.width > 0 && self.height > 0);
         self.frame_size = 0;
-        for chromaton in format.comp_info.iter() {
-            if let Some(ref chr) = chromaton {
-                self.frame_size += chr.get_data_size(self.width, self.height);
-            }
+        for chr in format.comp_info.iter().flatten() {
+            self.frame_size += chr.get_data_size(self.width, self.height);
         }
         validate!(self.frame_size > 0);
 

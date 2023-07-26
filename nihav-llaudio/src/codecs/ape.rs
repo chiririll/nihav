@@ -107,7 +107,7 @@ impl NADecoder for APEDecoder {
                     } else {
                         return Err(DecoderError::NotImplemented);
                     };
-                self.ainfo = NAAudioInfo::new(srate, channels as u8, SND_S16P_FORMAT, 4602);
+                self.ainfo = NAAudioInfo::new(srate, channels, SND_S16P_FORMAT, 4602);
                 Ok(())
             } else {
                 Err(DecoderError::InvalidData)

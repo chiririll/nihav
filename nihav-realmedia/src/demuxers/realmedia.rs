@@ -398,7 +398,7 @@ fn read_14or30(src: &mut ByteReader) -> DemuxerResult<(bool, u32)> {
 }
 
 fn read_video_buf(src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: bool, frame_size: usize) -> DemuxerResult<NAPacket> {
-    let size = (frame_size as usize) + 9;
+    let size = frame_size + 9;
     let mut vec: Vec<u8> = vec![0; size];
     //v[0] = 0; // 1 slice
     vec[4] = 1;
@@ -444,7 +444,7 @@ impl RMDemuxCommon {
             let soniton = NASoniton::new(samp_size as u8, SONITON_FLAG_SIGNED);
             let ahdr = NAAudioInfo::new(sample_rate, channels as u8, soniton, 1);
             let nainfo = NACodecInfo::new("ralf", NACodecTypeInfo::Audio(ahdr), extradata);
-            let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, 1000, u64::from(duration)));
+            let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no, nainfo, 1, 1000, u64::from(duration)));
             if res.is_none() { return Err(MemoryError); }
             let astr = RMAudioStream::new(None);
             str_data.streams.push(RMStreamType::Audio(astr));
@@ -530,7 +530,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
             };
         let duration = if duration == 0 { ainfo.get_duration(1000) } else { u64::from(duration) };
         let nainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, 1000, duration));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no, nainfo, 1, 1000, duration));
         if res.is_none() { return Err(MemoryError); }
 
         let astr = RMAudioStream::new(ainfo.ileave_info);
@@ -563,7 +563,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
 
         let vhdr = NAVideoInfo::new(width, height, false, RGB24_FORMAT);
         let vinfo = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), extradata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Video, stream_no as u32, vinfo, 1, 1000, u64::from(duration)));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, stream_no, vinfo, 1, 1000, u64::from(duration)));
         if res.is_none() { return Err(DemuxerError::MemoryError); }
 
         let vstr = RMVideoStream::new();
@@ -571,6 +571,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
         Ok(())
     }
 #[allow(unused_variables)]
+    #[allow(clippy::question_mark)]
     fn parse_packet_payload(src: &mut ByteReader, rmstream: &mut RMStreamType, stream: NAStreamRef, slice_buf: &mut Vec<u8>, queued_pkts: &mut Vec<NAPacket>, keyframe: bool, ts: u32, payload_size: usize) -> DemuxerResult<NAPacket> {
         match rmstream {
             RMStreamType::Video(ref mut vstr) => {
@@ -588,7 +589,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
                                 let seq_no = src.read_byte()?;
                                 let hdr_skip = (src.tell() - pos) as usize;
 
-                                let slice_size = (payload_size - hdr_skip) as usize;
+                                let slice_size = payload_size - hdr_skip;
                                 slice_buf.resize(slice_size, 0);
                                 src.read_buf(slice_buf.as_mut_slice())?;
                                 if packet_num == 1 {
@@ -714,7 +715,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
 
             let payload_size = len - (hdr_size as usize);
 
-            let stream_id = self.str_data.get_stream_id(str_no as u32, pkt_grp);
+            let stream_id = self.str_data.get_stream_id(str_no, pkt_grp);
             let sr = self.str_data.find_stream(stream_id);
             if sr.is_none() {
                 self.src.read_skip(payload_size)?;
@@ -1502,7 +1503,7 @@ impl RecordDemuxer {
                         validate!(sr.is_some());
                         let str_no = self.start_str + (sr.unwrap() as u32);
                         let pkt_grp = ((flags >> 8) & 0xFF) as u16;
-                        let stream_id = str_data.get_stream_id(str_no as u32, pkt_grp);
+                        let stream_id = str_data.get_stream_id(str_no, pkt_grp);
                         let sr = str_data.find_stream(stream_id);
                         if sr.is_none() {
                             src.read_skip(payload_size)?;

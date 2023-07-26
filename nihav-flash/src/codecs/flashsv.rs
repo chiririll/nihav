@@ -33,16 +33,10 @@ impl FSVShuffler {
     }
     fn has_last_frame(&self) -> bool { self.lastframe.is_some() }
     fn get_key_frame(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        match self.keyframe {
-            Some(ref frm) => Some(frm.clone()),
-            None => None,
-        }
+        self.keyframe.as_ref().cloned()
     }
     fn get_last_frame(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        match self.lastframe {
-            Some(ref frm) => Some(frm.clone()),
-            None => None,
-        }
+        self.lastframe.as_ref().cloned()
     }
 }
 

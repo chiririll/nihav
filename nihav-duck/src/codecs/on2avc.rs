@@ -355,7 +355,7 @@ impl AVCDecoder {
             0 | 1 => {
                 self.imdct_long.imdct_half(coeffs, &mut self.tmp);
                 overlap_half(dst, &self.tmp, delay, self.win_long);
-                (&mut delay[0..COEFFS/2]).copy_from_slice(&self.tmp[COEFFS/2..COEFFS]);
+                delay[0..COEFFS/2].copy_from_slice(&self.tmp[COEFFS/2..COEFFS]);
                 for i in COEFFS/2..COEFFS {
                     delay[i] = delay[COEFFS - 1 - i];
                 }
@@ -657,12 +657,12 @@ fn synth_recursive(dst: &mut [f32], tmp: &mut [f32], size: usize, order: &[u8], 
         let idx = if !dir { i } else { bands - 1 - i };
         synth_filter(src, tmp, size, step, bands, idx);
     }
-    (&mut dst[..size]).copy_from_slice(&tmp[..size]);
+    dst[..size].copy_from_slice(&tmp[..size]);
 }
 
 fn synth_generic(src: &[f32], dst: &mut [f32], tmpbuf: &mut [f32; COEFFS * 2], is_40khz: bool, size: usize) {
     let order = if is_40khz { MERGE_ORDER_40K } else { MERGE_ORDER_44K };
-    (&mut dst[..size]).copy_from_slice(&src[..size]);
+    dst[..size].copy_from_slice(&src[..size]);
     let mut order_idx = 0;
     synth_recursive(dst, tmpbuf, size, order, &mut order_idx, false);
     for el in dst.iter_mut().take(COEFFS) { *el *= 0.125; }
@@ -908,7 +908,7 @@ fn dequant(val: i16, qtab: &[f32; QTAB_SIZE], scale: f32) -> f32 {
     if val >= 0 {
         qtab[val as usize] * scale
     } else {
-        -qtab[val.abs() as usize] * scale
+        -qtab[val.unsigned_abs() as usize] * scale
     }
 }
 

@@ -161,8 +161,8 @@ impl QVideoDecoder {
                         const MV_PART: [i8; 16] = [ 0, 4, 8, 12, 16, 20, 24, 28, -32, -4, -8, -12, -16, -20, -24, -28 ];
 
                         let idx         = br.read_byte()? as usize;
-                        let x = MV_PART[(idx & 0xF) as usize] as isize;
-                        let y = MV_PART[(idx >>  4) as usize] as isize;
+                        let x = MV_PART[idx & 0xF] as isize;
+                        let y = MV_PART[idx >>  4] as isize;
                         let src_off = (tile_off as isize) + x + y * (self.w as isize);
                         validate!(src_off >= 0);
                         validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);

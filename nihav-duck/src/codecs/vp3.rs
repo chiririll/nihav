@@ -1141,8 +1141,8 @@ impl VP34Decoder {
         if let Some(ref codes) = self.aux_codes {
             for _ in 0..self.y_blocks/4 {
                 if self.blocks[self.blk_addr[cur_blk] >> 2].btype == VPMBType::InterFourMV {
-                    let x_cb = &codes.mv_x_cb[VP40_MV_LUT_INDEX[last_mv.x.abs() as usize]];
-                    let y_cb = &codes.mv_y_cb[VP40_MV_LUT_INDEX[last_mv.y.abs() as usize]];
+                    let x_cb = &codes.mv_x_cb[VP40_MV_LUT_INDEX[last_mv.x.unsigned_abs() as usize]];
+                    let y_cb = &codes.mv_y_cb[VP40_MV_LUT_INDEX[last_mv.y.unsigned_abs() as usize]];
                     let x_sign = last_mv.x < 0;
                     let y_sign = last_mv.y < 0;
                     last2_mv = last_mv;
@@ -1167,8 +1167,8 @@ impl VP34Decoder {
                             cur_mv = ZERO_MV;
                         },
                         VPMBType::InterMV => {
-                            let x_cb = &codes.mv_x_cb[VP40_MV_LUT_INDEX[last_mv.x.abs() as usize]];
-                            let y_cb = &codes.mv_y_cb[VP40_MV_LUT_INDEX[last_mv.y.abs() as usize]];
+                            let x_cb = &codes.mv_x_cb[VP40_MV_LUT_INDEX[last_mv.x.unsigned_abs() as usize]];
+                            let y_cb = &codes.mv_y_cb[VP40_MV_LUT_INDEX[last_mv.y.unsigned_abs() as usize]];
                             let x_sign = last_mv.x < 0;
                             let y_sign = last_mv.y < 0;
                             let x               = i16::from(br.read_cb(x_cb)?);
@@ -1185,8 +1185,8 @@ impl VP34Decoder {
                             std::mem::swap(&mut last_mv, &mut last2_mv);
                         },
                         _ => { // GoldenMV
-                            let x_cb = &codes.mv_x_cb[VP40_MV_LUT_INDEX[last_mv_g.x.abs() as usize]];
-                            let y_cb = &codes.mv_y_cb[VP40_MV_LUT_INDEX[last_mv_g.y.abs() as usize]];
+                            let x_cb = &codes.mv_x_cb[VP40_MV_LUT_INDEX[last_mv_g.x.unsigned_abs() as usize]];
+                            let y_cb = &codes.mv_y_cb[VP40_MV_LUT_INDEX[last_mv_g.y.unsigned_abs() as usize]];
                             let x_sign = last_mv_g.x < 0;
                             let y_sign = last_mv_g.y < 0;
                             let x               = i16::from(br.read_cb(x_cb)?);
@@ -1466,7 +1466,7 @@ impl VP34Decoder {
         let mut pred = 0i32;
         for i in 0..4 {
             if (pp & (1 << i)) != 0 {
-                pred += (preds[i] as i32) * i32::from(VP31_DC_WEIGHTS[pp][i]);
+                pred += preds[i] * i32::from(VP31_DC_WEIGHTS[pp][i]);
             }
         }
         pred /= i32::from(VP31_DC_WEIGHTS[pp][4]);
@@ -1501,7 +1501,7 @@ impl VP34Decoder {
         let mut npred = 0;
         for i in 0..4 {
             if (pp & (1 << i)) != 0 {
-                pred += preds[i] as i32;
+                pred += preds[i];
                 npred += 1;
                 if npred == 2 {
                     return (pred / 2) as i16;

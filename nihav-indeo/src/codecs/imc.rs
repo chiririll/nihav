@@ -161,7 +161,7 @@ impl BitAlloc {
                 if len < 0 { len = 0; }
                 if len > 6 { len = 6; }
                 self.band_bits[band] = len as u8;
-                cur_bits += (self.band_width[band] as i32) * (len as i32);
+                cur_bits += (self.band_width[band] as i32) * len;
                 if len > 0 {
                     acc += self.band_width[band] as i32;
                 }
@@ -643,7 +643,7 @@ impl IMCDecoder {
             }
             if self.ba.band_present[band] {
                 let band_w = IMC_BANDS[band + 1] - IMC_BANDS[band];
-                let bitsum = self.ba.band_bitsum[band] as usize;
+                let bitsum = self.ba.band_bitsum[band];
                 if (bitsum > 0) && (((band_w * 3) >> 1) > bitsum) {
                     self.ba.band_skip[band] = true;
                 }
@@ -903,8 +903,8 @@ impl NADecoder for IMCDecoder {
         let channels = self.ainfo.get_channels() as usize;
         for chunk in pktbuf.chunks(BLOCK_SIZE * channels) {
             for ch in 0..channels {
-                let off = abuf.get_offset(ch as usize) + start;
-                self.decode_block(chunk, ch as usize, &mut dst[off..off+COEFFS])?;
+                let off = abuf.get_offset(ch) + start;
+                self.decode_block(chunk, ch, &mut dst[off..off+COEFFS])?;
             }
             if (channels == 2) && ((chunk[1] & 0x20) != 0) {
                 let off1 = abuf.get_offset(0) + start;

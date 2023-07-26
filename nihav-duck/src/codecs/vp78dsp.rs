@@ -396,7 +396,7 @@ fn mc_block_common(dst: &mut [u8], mut doff: usize, dstride: usize, src: &[u8], 
         let dst = &mut dst[doff..];
         let src = &src[EDGE_PRE + EDGE_PRE * sstride..];
         for (out, src) in dst.chunks_mut(dstride).take(size).zip(src.chunks(sstride)) {
-            (&mut out[0..size]).copy_from_slice(&src[0..size]);
+            out[..size].copy_from_slice(&src[..size]);
         }
     } else if my == 0 {
         let src = &src[EDGE_PRE * sstride..];
@@ -439,7 +439,7 @@ fn mc_block(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize, ypos: usiz
         let src = &reffrm.get_data();
         let src = &src[srcoff..];
         for (out, src) in dst.chunks_mut(dstride).take(size).zip(src.chunks(sstride)) {
-            (&mut out[0..size]).copy_from_slice(&src[0..size]);
+            out[..size].copy_from_slice(&src[..size]);
         }
         return;
     }
@@ -512,7 +512,7 @@ pub fn mc_block_special(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize
             (&data[off + (start_x as usize) + (start_y as usize) * stride..],
              ((stride as isize) + xstep) as usize)
         } else {
-            let add = (size + EDGE_PRE + EDGE_POST) * (xstep.abs() as usize);
+            let add = (size + EDGE_PRE + EDGE_POST) * xstep.unsigned_abs();
             let bw = size + EDGE_PRE + EDGE_POST + add;
             let bh = (end_y - start_y) as usize;
             let bo = if xstep >= 0 { 0 } else { add };

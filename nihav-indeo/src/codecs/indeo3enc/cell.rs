@@ -132,7 +132,7 @@ impl CodebookSuggester {
             if delta == 0 {
                 continue;
             }
-            let delta = delta.abs() as u8;
+            let delta = delta.unsigned_abs();
             self.add_delta(delta);
         }
     }
@@ -141,7 +141,7 @@ impl CodebookSuggester {
             if delta == 0 {
                 continue;
             }
-            let delta = delta.abs() as u8;
+            let delta = delta.unsigned_abs();
             self.add_delta(delta);
         }
     }
@@ -253,9 +253,9 @@ impl CellEncoder {
     fn determine_mode(&self, intra: bool, mut mode_hint: u8) -> (u8, [u8; 2]) {
         if let Some(qmode) = self.quant {
             if intra {
-                return (mode_hint, [qmode as u8, qmode as u8]);
+                return (mode_hint, [qmode, qmode]);
             } else {
-                let qmode = (qmode & 7) as u8;
+                let qmode = qmode & 7;
                 return (mode_hint, [qmode, qmode]);
             }
         }
@@ -646,7 +646,7 @@ fn compress_intra_cell(iwriter: &mut IndexWriter, cell4: &mut [u8; 20], cbs: &[&
         let (prev, cur) = cell4.split_at_mut(pivot);
         let prev = &prev[prev.len() - 4..];
         let cur = &mut cur[..4];
-        let (idx0, idx1) = find_quad(&cb.data, prev, cur);
+        let (idx0, idx1) = find_quad(cb.data, prev, cur);
 
         cur[0] = ((prev[0] as i8) + cb.data[usize::from(idx1) * 2]) as u8;
         cur[1] = ((prev[1] as i8) + cb.data[usize::from(idx1) * 2 + 1]) as u8;
@@ -665,7 +665,7 @@ fn compress_inter_cell(iwriter: &mut IndexWriter, ccell4: &mut [u8; 20], pcell: 
         let cb = cbs[y];
         let esc_val = esc_vals[y];
 
-        let (idx0, idx1) = find_quad(&cb.data, prev, cur);
+        let (idx0, idx1) = find_quad(cb.data, prev, cur);
 
         cur[0] = ((prev[0] as i8) + cb.data[usize::from(idx1) * 2]) as u8;
         cur[1] = ((prev[1] as i8) + cb.data[usize::from(idx1) * 2 + 1]) as u8;
@@ -780,8 +780,8 @@ fn compress_inter_cell_mode11(iwriter: &mut IndexWriter, cell: &mut [u8; 32], di
 }
 
 fn pair_dist(src: &[i8], pair: &[i8]) -> u32 {
-    let d0 = (i32::from(src[0]) - i32::from(pair[0])).abs() as u32;
-    let d1 = (i32::from(src[1]) - i32::from(pair[1])).abs() as u32;
+    let d0 = (i32::from(src[0]) - i32::from(pair[0])).unsigned_abs();
+    let d1 = (i32::from(src[1]) - i32::from(pair[1])).unsigned_abs();
     d0 * d0 + d1 * d1
 }
 

@@ -38,6 +38,7 @@ struct WVHeader {
 const WV_HEADER_SIZE: usize = 32;
 
 impl WVHeader {
+    #[allow(clippy::field_reassign_with_default)]
     fn parse(src: &[u8]) -> DecoderResult<Self> {
         let mut mr = MemoryReader::new_read(src);
         let mut br = ByteReader::new(&mut mr);

@@ -2,6 +2,8 @@
 extern crate nihav_core;
 extern crate nihav_codec_support;
 
+#[allow(clippy::upper_case_acronyms)]
+#[allow(clippy::needless_late_init)]
 mod codecs;
 mod demuxers;
 

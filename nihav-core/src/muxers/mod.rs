@@ -157,12 +157,7 @@ impl RegisteredMuxers {
     }
     /// Searches for a muxer that supports requested container format.
     pub fn find_muxer(&self, name: &str) -> Option<&dyn MuxerCreator> {
-        for &mux in self.muxes.iter() {
-            if mux.get_name() == name {
-                return Some(mux);
-            }
-        }
-        None
+        self.muxes.iter().find(|&&mux| mux.get_name() == name).copied()
     }
     /// Provides an iterator over currently registered muxers.
     pub fn iter(&self) -> std::slice::Iter<&dyn MuxerCreator> {

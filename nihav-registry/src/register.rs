@@ -147,12 +147,7 @@ macro_rules! desc {
 
 /// Returns codec description for the provided codec short name if it is found.
 pub fn get_codec_description(name: &str) -> Option<&'static CodecDescription> {
-    for reg in CODEC_REGISTER {
-        if reg.name == name {
-            return Some(reg);
-        }
-    }
-    None
+    CODEC_REGISTER.iter().find(|&reg| reg.name == name)
 }
 
 static CODEC_REGISTER: &[CodecDescription] = &[

@@ -210,7 +210,7 @@ impl<'a, S: Copy> CodebookReader<S> for CurrentSource<'a> {
         let mut lut_bits = cb.lut_bits;
         let orig_br = self.br;
         while esc {
-            let lut_idx = (self.peek(lut_bits) as usize) + (idx as usize);
+            let lut_idx = (self.peek(lut_bits) as usize) + idx;
             if cb.table[lut_idx] == TABLE_FILL_VALUE { return Err(CodebookError::InvalidCode); }
             let bits = cb.table[lut_idx] & 0x7F;
             esc  = (cb.table[lut_idx] & 0x80) != 0;
@@ -221,7 +221,7 @@ impl<'a, S: Copy> CodebookReader<S> for CurrentSource<'a> {
                 self.refill();
                 return Err(CodebookError::MemoryError);
             }
-            self.skip(skip_bits as u32).unwrap();
+            self.skip(skip_bits).unwrap();
             lut_bits = bits as u8;
         }
         Ok(cb.syms[idx])
@@ -1918,20 +1918,17 @@ impl LZParse for OptimalParser {
 }
 
 ///! Deflate compression mode.
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 pub enum DeflateMode {
     ///! No compression.
     NoCompr,
     ///! Fast compression.
     Fast,
     ///! Still fast but better compression.
+    #[default]
     Better,
     ///! Slow but the best compression.
     Best,
-}
-
-impl Default for DeflateMode {
-    fn default() -> Self { DeflateMode::Better }
 }
 
 pub const DEFLATE_MODE_DESCRIPTION: &str = "Deflate compression level.";

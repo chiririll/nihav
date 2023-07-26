@@ -45,8 +45,8 @@ fn read_bink_float(br: &mut BitReader) -> DecoderResult<f32> {
         Ok(v)
     }*/
     let exp                                     = br.read(5)? as u8;
-    let mant                                    = br.read(23)? as u32;
-    let sign                                    = br.read(1)? as u32;
+    let mant                                    = br.read(23)?;
+    let sign                                    = br.read(1)?;
     let nexp = exp.wrapping_add(0x7E) as u32;
     let nmant = (mant << 1) & ((1 << 23) - 1);
     Ok(f32::from_bits((sign << 31) | (nexp << 23) | nmant))

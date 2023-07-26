@@ -181,18 +181,15 @@ impl<'a> Iterator for StreamIter<'a> {
 }
 
 /// Seeking modes.
-#[derive(Clone,Copy,PartialEq)]
+#[derive(Clone,Copy,PartialEq,Default)]
 pub enum SeekIndexMode {
     /// No seeking index present.
+    #[default]
     None,
     /// Seeking index is present.
     Present,
     /// Seeking index should be constructed by the demuxer if possible.
     Automatic,
-}
-
-impl Default for SeekIndexMode {
-    fn default() -> Self { SeekIndexMode::None }
 }
 
 /// A structure holding seeking information.
@@ -309,12 +306,7 @@ impl SeekIndex {
     }
     /// Returns stream reference for provided stream ID.
     pub fn get_stream_index(&mut self, id: u32) -> Option<&mut StreamSeekInfo> {
-        for stream in self.seek_info.iter_mut() {
-            if stream.id == id {
-                return Some(stream);
-            }
-        }
-        None
+        self.seek_info.iter_mut().find(|stream| stream.id == id)
     }
     /// Adds seeking information to the index.
     pub fn add_entry(&mut self, id: u32, entry: SeekEntry) {
@@ -498,12 +490,7 @@ impl RegisteredDemuxers {
     }
     /// Searches for a demuxer that supports requested container format.
     pub fn find_demuxer(&self, name: &str) -> Option<&dyn DemuxerCreator> {
-        for &dmx in self.dmxs.iter() {
-            if dmx.get_name() == name {
-                return Some(dmx);
-            }
-        }
-        None
+        self.dmxs.iter().find(|&&dmx| dmx.get_name() == name).copied()
     }
     /// Provides an iterator over currently registered demuxers.
     pub fn iter(&self) -> std::slice::Iter<&dyn DemuxerCreator> {
@@ -674,12 +661,7 @@ impl RegisteredRawDemuxers {
     }
     /// Searches for a demuxer that supports requested container format.
     pub fn find_demuxer(&self, name: &str) -> Option<&dyn RawDemuxerCreator> {
-        for &dmx in self.dmxs.iter() {
-            if dmx.get_name() == name {
-                return Some(dmx);
-            }
-        }
-        None
+        self.dmxs.iter().find(|&&dmx| dmx.get_name() == name).copied()
     }
     /// Provides an iterator over currently registered demuxers.
     pub fn iter(&self) -> std::slice::Iter<&dyn RawDemuxerCreator> {

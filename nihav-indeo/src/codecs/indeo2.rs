@@ -223,8 +223,8 @@ impl Indeo2Decoder {
                 }
                 x += run;
             } else {
-                framebuf[base + x + 0] = table[(idx * 2 + 0) as usize];
-                framebuf[base + x + 1] = table[(idx * 2 + 1) as usize];
+                framebuf[base + x + 0] = table[idx * 2];
+                framebuf[base + x + 1] = table[idx * 2 + 1];
                 x += 2;
             }
         }

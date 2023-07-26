@@ -138,7 +138,7 @@ impl SmackerTree16 {
 
         let mut esc: [u32; 3] = [0; 3];
         for i in 0..esc.len() {
-            esc[i] = br.read(16)? as u32;
+            esc[i] = br.read(16)?;
         }
 
         let nsyms = (((size + 3) >> 2) + 4) as usize;
@@ -573,7 +573,7 @@ impl NADecoder for SmackerAudioDecoder {
                     let mut pred: [u8; 2] = [ pred1, pred0 ];
                     for ch in 0..2 { dst[ch] = pred[ch]; }
                     for i in 2..unp_size {
-                        let diff = br.read_tree8(&trees[i & 1])? as u8;
+                        let diff = br.read_tree8(&trees[i & 1])?;
                         pred[i & 1] = pred[i & 1].wrapping_add(diff);
                         dst[i] = pred[i & 1];
                     }
@@ -583,7 +583,7 @@ impl NADecoder for SmackerAudioDecoder {
                     let mut pred                = br.read(8)? as u8;
                     dst[0] = pred;
                     for i in 1..unp_size {
-                        let diff = br.read_tree8(&tree)? as u8;
+                        let diff = br.read_tree8(&tree)?;
                         pred = pred.wrapping_add(diff);
                         dst[i] = pred;
                     }

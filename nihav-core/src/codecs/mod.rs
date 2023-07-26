@@ -203,20 +203,15 @@ impl RegisteredMTDecoders {
 }
 
 /// Frame skipping mode for decoders.
-#[derive(Clone,Copy,PartialEq,Debug)]
+#[derive(Clone,Copy,PartialEq,Debug,Default)]
 pub enum FrameSkipMode {
     /// Decode all frames.
+    #[default]
     None,
     /// Decode all key frames.
     KeyframesOnly,
     /// Decode only intra frames.
     IntraOnly,
-}
-
-impl Default for FrameSkipMode {
-    fn default() -> Self {
-        FrameSkipMode::None
-    }
 }
 
 impl FromStr for FrameSkipMode {

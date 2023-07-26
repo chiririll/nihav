@@ -267,7 +267,6 @@ impl MSADPCMEncoder {
             }
         }
         self.samples.drain(..len * self.channels);
-        drop(bw);
         let ts = NATimeInfo::new(None, None, Some(1), 1, self.srate);
         Ok(NAPacket::new(self.stream.clone().unwrap(), ts, true, dbuf))
     }

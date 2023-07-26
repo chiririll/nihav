@@ -47,7 +47,7 @@ impl<'a> VQBox<'a> {
                 pivot = start + end;
                 cand1 = start;
             }
-            (&mut arr[start..][..end]).copy_from_slice(bucket.as_slice());
+            arr[start..][..end].copy_from_slice(bucket.as_slice());
             start += end;
         }
         for bucket in buckets.iter() {

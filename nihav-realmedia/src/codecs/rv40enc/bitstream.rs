@@ -432,7 +432,7 @@ impl CodeSets {
         }
     }
     pub fn init(&mut self, quant: usize, subset: usize) {
-        let mut idx = quant as usize;
+        let mut idx = quant;
         if (subset == 2) && (idx < 19) {
             idx += 10;
         } else if (subset != 0) && (idx < 26) {

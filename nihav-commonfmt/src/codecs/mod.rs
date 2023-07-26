@@ -30,6 +30,7 @@ mod atrac3;
 mod pcm;
 #[cfg(feature="decoder_sipro")]
 #[allow(clippy::collapsible_if)]
+#[allow(clippy::collapsible_else_if)]
 #[allow(clippy::identity_op)]
 #[allow(clippy::manual_memcpy)]
 mod sipro;

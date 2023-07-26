@@ -172,7 +172,7 @@ pub fn fade_frame(srcfrm: NAVideoBufferRef<u8>, dstfrm: &mut NASimpleVideoFrame<
         let dstride = dstfrm.stride[plane];
         let dst = &mut dstfrm.data[dstfrm.offset[plane]..];
         for (src, dst) in src.chunks(sstride).zip(dst.chunks_mut(dstride)).take(ha) {
-            (&mut dst[0..wa]).copy_from_slice(&src[0..wa]);
+            dst[..wa].copy_from_slice(&src[..wa]);
         }
     }
 }

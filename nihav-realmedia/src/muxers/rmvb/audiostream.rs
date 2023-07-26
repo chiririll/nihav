@@ -57,11 +57,7 @@ impl Interleaver for NoInterleaver {
     fn get_packet(&mut self) -> Option<(Vec<u8>, bool)> {
         let mut ret = None;
         std::mem::swap(&mut self.pkt, &mut ret);
-        if let Some(pkt) = ret {
-            Some((pkt, true))
-        } else {
-            None
-        }
+        ret.map(|pkt| (pkt, true))
     }
     fn flush(&mut self) {}
 }
@@ -117,7 +113,7 @@ impl Interleaver for Int4Interleaver {
             return false;
         }
         let pos = self.map[self.cur_frame];
-        self.buf[pos * self.frame_size..][..self.frame_size].copy_from_slice(&src);
+        self.buf[pos * self.frame_size..][..self.frame_size].copy_from_slice(src);
         self.cur_frame += 1;
         true
     }
@@ -217,7 +213,7 @@ impl Interleaver for GenericInterleaver {
             return false;
         }
         let pos = self.map[self.cur_frame];
-        self.buf[pos * self.frame_size..][..self.frame_size].copy_from_slice(&src);
+        self.buf[pos * self.frame_size..][..self.frame_size].copy_from_slice(src);
         self.cur_frame += 1;
         true
     }

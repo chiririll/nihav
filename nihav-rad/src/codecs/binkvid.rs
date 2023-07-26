@@ -227,7 +227,7 @@ impl Bundle<u8> {
             last = col_hi[last as usize].read_sym(br, trees)?;
             let lo = self.tree.read_sym(br, trees)?;
             let val = Self::cvt_color(lo, last, new_bink);
-            for i in 0..len { self.data[self.dec_pos + i] = val as u8; }
+            for i in 0..len { self.data[self.dec_pos + i] = val; }
             self.dec_pos += len;
         } else {
             while self.dec_pos < end {

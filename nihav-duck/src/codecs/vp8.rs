@@ -7,16 +7,13 @@ use super::vp78data::*;
 use super::vp78dsp::*;
 use super::vp8dsp::*;
 
-#[derive(Clone,Copy,PartialEq,Debug)]
+#[derive(Clone,Copy,PartialEq,Debug,Default)]
 enum VP8Ref {
+    #[default]
     Intra,
     Last,
     Golden,
     AltRef,
-}
-
-impl Default for VP8Ref {
-    fn default() -> Self { VP8Ref::Intra }
 }
 
 #[derive(Default)]
@@ -43,25 +40,13 @@ impl VP8Shuffler {
         self.altframe = Some(buf);
     }
     pub fn get_last(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.lastframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.lastframe.as_ref().cloned()
     }
     pub fn get_golden(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.goldframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.goldframe.as_ref().cloned()
     }
     pub fn get_altref(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.altframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.altframe.as_ref().cloned()
     }
     pub fn has_refs(&self) -> bool {
         self.lastframe.is_some()

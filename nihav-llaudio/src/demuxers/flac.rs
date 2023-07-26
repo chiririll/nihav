@@ -212,7 +212,7 @@ impl<'a> DemuxCore<'a> for FLACDemuxer<'a> {
         self.srate = srate;
 
         let base = if self.blk_samples != 0 { u32::from(self.blk_samples) } else { 1 };
-        let ahdr = NAAudioInfo::new(srate, channels as u8, SND_S16P_FORMAT, base as usize);
+        let ahdr = NAAudioInfo::new(srate, channels, SND_S16P_FORMAT, base as usize);
         let ainfo = NACodecInfo::new("flac", NACodecTypeInfo::Audio(ahdr), Some(streaminfo));
         strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, base, srate, 0)).unwrap();
 

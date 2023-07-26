@@ -263,7 +263,7 @@ impl NADecoder for FlacDecoder {
                         _ => return Err(DecoderError::NotImplemented),
                     };
 
-                self.ainfo = NAAudioInfo::new(self.srate, self.channels as u8, fmt, self.max_blk_size.max(1));
+                self.ainfo = NAAudioInfo::new(self.srate, self.channels, fmt, self.max_blk_size.max(1));
                 Ok(())
             } else {
                 Err(DecoderError::InvalidData)

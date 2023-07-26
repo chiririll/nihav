@@ -326,7 +326,7 @@ impl MVEstimator {
 fn sad(src1: &[u8; 64], src2: &[u8; 64]) -> u32 {
     let mut sum = 0;
     for (&p1, &p2) in src1.iter().zip(src2.iter()) {
-        sum += (i32::from(p1) - i32::from(p2)).abs() as u32;
+        sum += (i32::from(p1) - i32::from(p2)).unsigned_abs();
     }
     sum
 }
@@ -341,7 +341,7 @@ pub fn calc_mb_dist(mb1: &ResidueMB, mb2: &ResidueMB) -> u32 {
     let mut sum = 0;
     for (blk1, blk2) in mb1.coeffs.iter().zip(mb2.coeffs.iter()) {
         for (&c1, &c2) in blk1.iter().zip(blk2.iter()) {
-            sum += (i32::from(c1) - i32::from(c2)).abs() as u32;
+            sum += (i32::from(c1) - i32::from(c2)).unsigned_abs();
         }
     }
     sum

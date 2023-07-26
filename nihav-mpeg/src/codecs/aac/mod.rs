@@ -628,8 +628,8 @@ impl AACDecoder {
                 4 => { // ID_DSE
                         let _id                         = br.read(4)?;
                         let align                       = br.read_bool()?;
-                        let mut count                   = br.read(8)? as u32;
-                        if count == 255 { count        += br.read(8)? as u32; }
+                        let mut count                   = br.read(8)?;
+                        if count == 255 { count        += br.read(8)?; }
                         if align {                        br.align(); }
                                                           br.skip(count * 8)?; // no SBR payload or such
                     },

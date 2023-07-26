@@ -159,7 +159,7 @@ fn read_grid(br: &mut BitReader, chan: &mut SBRChannel) -> DecoderResult<()> {
             let var_bord_1          = br.read(2)? as u8;
             let num_rel_0           = br.read(2)? as usize;
             let num_rel_1           = br.read(2)? as usize;
-            chan.num_env = (num_rel_0 as usize) + (num_rel_1 as usize) + 1;
+            chan.num_env = num_rel_0 + num_rel_1 + 1;
             let mut rel_bord_0 = [0u8; NUM_ENVELOPES];
             let mut rel_bord_1 = [0u8; NUM_ENVELOPES];
             for el in rel_bord_0[..num_rel_0].iter_mut() {

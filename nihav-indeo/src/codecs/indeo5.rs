@@ -7,7 +7,7 @@ use super::ivi::*;
 use super::ivibr::*;
 
 fn calc_quant(glob_q: u32, qd: i16) -> usize {
-    let qq = (glob_q as i16) + (qd as i16);
+    let qq = (glob_q as i16) + qd;
     if qq < 0 {
         0
     } else if qq > 23 {

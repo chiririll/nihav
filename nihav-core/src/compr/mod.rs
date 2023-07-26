@@ -1,5 +1,6 @@
 //! Various compression formats support.
 #[cfg(feature="deflate")]
+#[allow(clippy::manual_range_contains)]
 pub mod deflate;
 
 use crate::io::byteio::ByteIOError;
@@ -64,7 +65,7 @@ pub fn lz_copy(buf: &mut [u8], dst_pos: usize, offset: usize, len: usize) {
     let buf = &mut buf[ipos..];
     if ipos + len <= dst_pos {
         let (src, dst) = buf.split_at_mut(offset);
-        (&mut dst[..len]).copy_from_slice(&src[..len]);
+        dst[..len].copy_from_slice(&src[..len]);
     } else {
         for i in 0..len {
             buf[offset + i] = buf[i];

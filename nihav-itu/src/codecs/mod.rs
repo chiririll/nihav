@@ -10,6 +10,7 @@ macro_rules! validate {
 }
 
 #[allow(clippy::collapsible_else_if)]
+#[allow(clippy::manual_range_contains)]
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::upper_case_acronyms)]
 #[cfg(feature="decoder_h264")]

@@ -572,7 +572,7 @@ fn decode_dct_block(br: &mut BitReader, blk: &mut [i32; 64], ac_quant: i32, has_
             } else {
                 eob = br.read_bool()?;
                 let run = br.read(6)? as usize;
-                let lev = br.read_s(8)? as i32;
+                let lev = br.read_s(8)?;
                 (lev, run)
             };
         idx += skip;

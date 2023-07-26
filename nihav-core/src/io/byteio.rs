@@ -624,7 +624,7 @@ impl<T: Read+Seek> ByteIO for FileReader<T> {
     }
 
     fn tell(&mut self) -> u64 {
-        self.file.seek(SeekFrom::Current(0)).unwrap()
+        self.file.stream_position().unwrap()
     }
 
     fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {
@@ -681,7 +681,7 @@ impl<T: Read+Seek> BoundedFileReader<T> {
     /// Destroys the reader and releases the reader resource for a further use.
     pub fn finish(self) -> Box<T> { self.file }
     fn real_tell(&mut self) -> u64 {
-        self.file.seek(SeekFrom::Current(0)).unwrap()
+        self.file.stream_position().unwrap()
     }
     fn max_read_len(&mut self, len: usize) -> usize {
         if let Some(epos) = self.end {
@@ -779,7 +779,7 @@ impl<T: Read+Seek> ByteIO for BoundedFileReader<T> {
     }
 
     fn tell(&mut self) -> u64 {
-        self.file.seek(SeekFrom::Current(0)).unwrap() - self.start
+        self.file.stream_position().unwrap() - self.start
     }
 
     fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {
@@ -1188,7 +1188,7 @@ impl<T: Write+Seek> ByteIO for FileWriter<T> {
     }
 
     fn tell(&mut self) -> u64 {
-        self.file.seek(SeekFrom::Current(0)).unwrap()
+        self.file.stream_position().unwrap()
     }
 
     fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {

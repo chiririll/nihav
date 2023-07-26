@@ -631,7 +631,7 @@ impl RV40Encoder {
             }
 
             if self.debug_log.is_set(DEBUG_BIT_PSNR) {
-                let psnr = calc_psnr(&vbuf, &rvbuf);
+                let psnr = calc_psnr(vbuf, &rvbuf);
                 println!("  encoded frame PSNR {} size {}", psnr, dvec.len());
             }
 
@@ -675,7 +675,7 @@ fn calc_psnr(pic1: &NAVideoBuffer<u8>, pic2: &NAVideoBuffer<u8>) -> f64 {
         for (line1, line2) in data1[pic1.get_offset(comp)..].chunks(pic1.get_stride(comp)).zip(
                 data2[pic2.get_offset(comp)..].chunks(pic2.get_stride(comp))).take(h) {
             for (&pix1, &pix2) in line1[..w].iter().zip(line2.iter()) {
-                let diff = (i32::from(pix1) - i32::from(pix2)).abs() as u32;
+                let diff = (i32::from(pix1) - i32::from(pix2)).unsigned_abs();
                 sum += u64::from(diff * diff);
             }
         }

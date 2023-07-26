@@ -257,7 +257,7 @@ impl<'a> RealVideo20BR<'a> {
 
         let rl_cb = if sstate.is_iframe { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
         let q = if plane_no == 0 { (quant * 2) as i16 } else { (H263_CHROMA_QUANT[quant as usize] * 2) as i16 };
-        let q_add = if q == 0 || sstate.is_iframe { 0i16 } else { (((q >> 1) - 1) | 1) as i16 };
+        let q_add = if q == 0 || sstate.is_iframe { 0i16 } else { ((q >> 1) - 1) | 1 };
         while idx < 64 {
             let code = br.read_cb(rl_cb)?;
             let run;
@@ -593,7 +593,7 @@ impl RealVideo20Decoder {
             h:              0,
             minor_ver:      0,
             rpr:            RPRInfo { present: false, bits: 0, widths: [0; 8], heights: [0; 8] },
-            bdsp:           Box::new(RV20BlockDSP::default()),
+            bdsp:           Box::<RV20BlockDSP>::default(),
             base_ts:        0,
             last_ts:        0,
             next_ts:        0,
@@ -626,7 +626,7 @@ impl NADecoder for RealVideo20Decoder {
                 self.rpr.present = false;
             } else {
                 self.rpr.present = true;
-                self.rpr.bits    = ((rprb >> 1) + 1).min(3) as u8;
+                self.rpr.bits    = ((rprb >> 1) + 1).min(3);
                 let num_dim = ((src.len() - 8) / 2).min(self.rpr.widths.len() - 1);
                 for i in 0..num_dim {
                     self.rpr.widths [i] = (src[i * 2 + 8] as usize) * 4;

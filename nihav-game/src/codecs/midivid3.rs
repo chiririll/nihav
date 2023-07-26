@@ -211,7 +211,7 @@ impl Midivid3Decoder {
                     let src = &ref_frm.get_data()[ref_frm.get_offset(0) + (src_x as usize) + (src_y as usize) * sstride..];
                     let dst = &mut frm.data[ydst + x..];
                     for (dst, src) in dst.chunks_mut(frm.stride[0]).zip(src.chunks(sstride)).take(16) {
-                        (&mut dst[..16]).copy_from_slice(&src[..16]);
+                        dst[..16].copy_from_slice(&src[..16]);
                     }
                     let xoff = (src_x as usize) >> 1;
                     let yoff = (src_y as usize) >> 1;
@@ -220,7 +220,7 @@ impl Midivid3Decoder {
                         let src = &ref_frm.get_data()[ref_frm.get_offset(plane) + xoff + yoff * sstride..];
                         let dst = &mut frm.data[if plane == 1 { udst } else { vdst } + x / 2..];
                         for (dst, src) in dst.chunks_mut(frm.stride[plane]).zip(src.chunks(sstride)).take(8) {
-                            (&mut dst[..8]).copy_from_slice(&src[..8]);
+                            dst[..8].copy_from_slice(&src[..8]);
                         }
                     }
                     if has_residue {

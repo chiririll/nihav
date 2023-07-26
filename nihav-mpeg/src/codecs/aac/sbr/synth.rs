@@ -447,15 +447,15 @@ impl SBRChannel {
                 let mut e_o_sum = EPS0;
                 let mut e_c_sum = EPS0;
                 for k in start..end {
-                    e_o_sum += e_orig_mapped[env][k] as f32;
+                    e_o_sum += e_orig_mapped[env][k];
                     e_c_sum += e_curr[env][k];
                 }
                 *dst = (e_o_sum / e_c_sum).sqrt() * LIM_GAIN[hdr.limiter_gains as usize];
                 start = end;
             }
             for k in kx..km {
-                let e_orig = e_orig_mapped[env][k] as f32;
-                let q_orig = q_mapped[env][k] as f32;
+                let e_orig = e_orig_mapped[env][k];
+                let q_orig = q_mapped[env][k];
                 let e_curr = e_curr[env][k];
 
                 q_m[k] = (e_orig * q_orig / (1.0 + q_orig)).sqrt();
@@ -485,7 +485,7 @@ impl SBRChannel {
                 let mut nsum = EPS0;
                 let mut dsum = EPS0;
                 for k in start..end {
-                    nsum += e_orig_mapped[env][k] as f32;
+                    nsum += e_orig_mapped[env][k];
                     dsum += e_curr[env][k] * g_lim[k] * g_lim[k];
                     if s_m[k] != 0.0 || (env as i8) == l_a || (env as i8) == la_prev {
                         dsum += s_m[k] * s_m[k];

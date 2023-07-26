@@ -124,7 +124,7 @@ impl<'a> Drop for WavWriter<'a> {
             let res = self.io.seek(SeekFrom::Start(4));
             let res = self.io.write_u32le((size - 8) as u32);
             let res = self.io.seek(SeekFrom::Start(self.data_pos - 4));
-            let res = self.io.write_u32le(((size as u64) - self.data_pos) as u32);
+            let res = self.io.write_u32le((size - self.data_pos) as u32);
         }
     }
 }

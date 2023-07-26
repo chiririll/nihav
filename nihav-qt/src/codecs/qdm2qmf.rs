@@ -359,7 +359,7 @@ unimplemented!();
                             }
                             q = q.wrapping_sub(self.grid_3_quant[ch][band - 4]);
                         }
-                        self.tone_idx[ch][band][i] = q as i8;
+                        self.tone_idx[ch][band][i] = q;
                         if q > 0 || (self.is_intra && q == 0) {
                             self.tone_scale[ch][band][i] = TONE_SCALES[0][(q & 0x3F) as usize];
                         } else {

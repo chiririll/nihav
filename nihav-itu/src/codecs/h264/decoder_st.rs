@@ -222,7 +222,7 @@ println!("PAFF?");
                     self.has_pic = self.decode_slice_cavlc(&mut br, &slice_hdr, full_size)?;
                 } else {
                     br.align();
-                    let start = (br.tell() / 8) as usize;
+                    let start = br.tell() / 8;
                     let csrc = &src[start..];
                     validate!(csrc.len() >= 2);
                     let mut cabac = CABAC::new(csrc, slice_hdr.slice_type, slice_hdr.slice_qp, slice_hdr.cabac_init_idc as usize)?;
@@ -482,7 +482,7 @@ _ => {},
             17, 18, 20, 24, 19, 21, 26, 28, 23, 27, 29, 30, 22, 25, 38, 41
         ];
 
-        let mut mb_idx = slice_hdr.first_mb_in_slice as usize;
+        let mut mb_idx = slice_hdr.first_mb_in_slice;
         let mut mb_info = CurrentMBInfo { qp_y: slice_hdr.slice_qp, ..Default::default() };
         let skip_type = if slice_hdr.slice_type.is_p() { MBType::PSkip } else { MBType::BSkip };
         while br.tell() < full_size && mb_idx < self.num_mbs {
@@ -576,7 +576,7 @@ _ => {},
         Ok(mb_idx == self.num_mbs)
     }
     fn decode_slice_cabac(&mut self, cabac: &mut CABAC, slice_hdr: &SliceHeader) -> DecoderResult<bool> {
-        let mut mb_idx = slice_hdr.first_mb_in_slice as usize;
+        let mut mb_idx = slice_hdr.first_mb_in_slice;
         let mut prev_mb_skipped = false;
         let skip_type = if slice_hdr.slice_type.is_p() { MBType::PSkip } else { MBType::BSkip };
         let mut last_qp_diff = false;
@@ -763,7 +763,7 @@ impl NADecoder for H264Decoder {
             }
 
             let num_bufs = if !self.sps.is_empty() {
-                    self.sps[0].num_ref_frames as usize + 1
+                    self.sps[0].num_ref_frames + 1
                 } else {
                     3
                 }.max(16 + 1);

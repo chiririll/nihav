@@ -396,7 +396,7 @@ impl G7231Decoder {
         Self::inverse_quant(&self.prev_lsp, &mut cur_lsp, &self.lsp_index, bad_frame);
         Self::interpolate_lsp(&mut self.lpc, &cur_lsp, &self.prev_lsp);
         self.prev_lsp.copy_from_slice(&cur_lsp);
-        (&mut self.excitation[..MAX_PITCH]).copy_from_slice(&self.prev_excitation);
+        self.excitation[..MAX_PITCH].copy_from_slice(&self.prev_excitation);
         if self.erased_frames == 0 {
             let mut acb_vector = [0; SUBFRAME_LEN];
             self.interp_gain = FIXED_CB_GAIN[(self.subframe[2].amp_index + self.subframe[3].amp_index) >> 1];
@@ -562,15 +562,15 @@ impl G7231Decoder {
             }
         }
 
-        (&mut self.synth_buf[LPC_ORDER..][..MAX_PITCH]).copy_from_slice(&self.prev_excitation);
+        self.synth_buf[LPC_ORDER..][..MAX_PITCH].copy_from_slice(&self.prev_excitation);
         let mut acb_vec = [0; SUBFRAME_LEN];
         let mut tmp = [0; SUBFRAME_LEN * 2];
         for i in (0..SUBFRAMES).step_by(2) {
             let buf = &mut self.synth_buf[LPC_ORDER + SUBFRAME_LEN * i..];
             self.subframe[i].gen_acb_excitation(&mut acb_vec, buf, self.is_6300);
-            (&mut buf[..SUBFRAME_LEN]).copy_from_slice(&acb_vec);
+            buf[..SUBFRAME_LEN].copy_from_slice(&acb_vec);
             self.subframe[i + 1].gen_acb_excitation(&mut acb_vec, &buf[SUBFRAME_LEN..], self.is_6300);
-            (&mut buf[SUBFRAME_LEN..][..SUBFRAME_LEN]).copy_from_slice(&acb_vec);
+            buf[SUBFRAME_LEN..][..SUBFRAME_LEN].copy_from_slice(&acb_vec);
 
             let mut max = 0;
             for j in 0..SUBFRAME_LEN*2 {
@@ -783,9 +783,9 @@ impl G7231Decoder {
         }
     }
     fn formant_postfilter(&mut self, dst: &mut [i16]) {
-        (&mut self.synth_buf[..LPC_ORDER]).copy_from_slice(&self.fir_mem);
+        self.synth_buf[..LPC_ORDER].copy_from_slice(&self.fir_mem);
         let mut filter_data = [0; LPC_ORDER + SAMPLES];
-        (&mut filter_data[..LPC_ORDER]).copy_from_slice(&self.iir_mem);
+        filter_data[..LPC_ORDER].copy_from_slice(&self.iir_mem);
 
         let mut filter_coef = [[0; LPC_ORDER]; 2];
         for i in 0..SUBFRAMES {
@@ -945,7 +945,7 @@ impl NADecoder for G7231Decoder {
             self.synth_frame_other();
         }
         self.prev_ftype = self.cur_ftype;
-        (&mut self.synth_buf[..LPC_ORDER]).copy_from_slice(&self.filt_mem);
+        self.synth_buf[..LPC_ORDER].copy_from_slice(&self.filt_mem);
         for i in 0..SUBFRAMES {
             Self::do_lpc(&mut self.synth_buf, LPC_ORDER + i * SUBFRAME_LEN, &self.lpc[i]);
         }

@@ -341,7 +341,7 @@ impl FrameEncoder {
         }
     }
     pub fn estimate_mvs(&mut self, ref_frame: NAVideoBufferRef<u8>, mc_buf: NAVideoBufferRef<u8>, golden: bool) {
-        let loop_thr = i16::from(VP56_FILTER_LIMITS[self.quant as usize]);
+        let loop_thr = i16::from(VP56_FILTER_LIMITS[self.quant]);
 
         let inter_mbs = if !golden { &mut self.inter_mbs } else { &mut self.golden_mbs };
 
@@ -384,7 +384,7 @@ impl FrameEncoder {
         }
     }
     fn estimate_fourmv(&mut self, ref_frame: NAVideoBufferRef<u8>, mc_buf: NAVideoBufferRef<u8>, mb_x: usize, mb_y: usize) -> bool {
-        let loop_thr = i16::from(VP56_FILTER_LIMITS[self.quant as usize]);
+        let loop_thr = i16::from(VP56_FILTER_LIMITS[self.quant]);
 
         if self.fourmv_mbs.is_empty() {
             for _ in 0..self.mb_w * self.mb_h {
@@ -526,7 +526,7 @@ impl FrameEncoder {
         }
     }
     pub fn select_inter_blocks_fast(&mut self, ref_frame: NAVideoBufferRef<u8>, gold_frame: Option<NAVideoBufferRef<u8>>, mc_buf: NAVideoBufferRef<u8>, lambda: f32) {
-        let loop_thr = i16::from(VP56_FILTER_LIMITS[self.quant as usize]);
+        let loop_thr = i16::from(VP56_FILTER_LIMITS[self.quant]);
 
         if self.inter_mbs.is_empty() {
             for _ in 0..self.mb_w * self.mb_h {

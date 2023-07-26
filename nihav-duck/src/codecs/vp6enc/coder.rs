@@ -199,16 +199,16 @@ fn calc_mb_model_probs(prob_xmitted: &[u8; 20], mbtype_models: &mut [VP56MBTypeM
         let sum = u32::from(prob_xmitted[mode * 2]) + u32::from(prob_xmitted[mode * 2 + 1]);
         mdl.probs[9] = 255 - rescale_mb_mode_prob(u32::from(prob_xmitted[mode * 2 + 1]), sum);
 
-        let inter_mv0_weight = (cnt[0] as u32) + (cnt[2] as u32);
-        let inter_mv1_weight = (cnt[3] as u32) + (cnt[4] as u32);
-        let gold_mv0_weight = (cnt[5] as u32) + (cnt[6] as u32);
-        let gold_mv1_weight = (cnt[8] as u32) + (cnt[9] as u32);
-        let mix_weight = (cnt[1] as u32) + (cnt[7] as u32);
+        let inter_mv0_weight = cnt[0] + cnt[2];
+        let inter_mv1_weight = cnt[3] + cnt[4];
+        let gold_mv0_weight = cnt[5] + cnt[6];
+        let gold_mv1_weight = cnt[8] + cnt[9];
+        let mix_weight = cnt[1] + cnt[7];
         mdl.probs[0] = 1 + rescale_mb_mode_prob(inter_mv0_weight + inter_mv1_weight, total);
         mdl.probs[1] = 1 + rescale_mb_mode_prob(inter_mv0_weight, inter_mv0_weight + inter_mv1_weight);
         mdl.probs[2] = 1 + rescale_mb_mode_prob(mix_weight, mix_weight + gold_mv0_weight + gold_mv1_weight);
-        mdl.probs[3] = 1 + rescale_mb_mode_prob(cnt[0] as u32, inter_mv0_weight);
-        mdl.probs[4] = 1 + rescale_mb_mode_prob(cnt[3] as u32, inter_mv1_weight);
+        mdl.probs[3] = 1 + rescale_mb_mode_prob(cnt[0], inter_mv0_weight);
+        mdl.probs[4] = 1 + rescale_mb_mode_prob(cnt[3], inter_mv1_weight);
         mdl.probs[5] = 1 + rescale_mb_mode_prob(cnt[1], mix_weight);
         mdl.probs[6] = 1 + rescale_mb_mode_prob(gold_mv0_weight, gold_mv0_weight + gold_mv1_weight);
         mdl.probs[7] = 1 + rescale_mb_mode_prob(cnt[5], gold_mv0_weight);
@@ -341,7 +341,7 @@ pub fn encode_mode_prob_models(bc: &mut BoolEncoder, models: &mut VP56Models, pm
                                 bc.put_bool(diff < 0, 128)?;
                                 bc.write_el(d0, MODE_TREE_DIFF, MODE_TREE_DIFF_PROBS)?;
                                 if d0 == 7 {
-                                    bc.put_bits(diff.abs() as u32, 7)?;
+                                    bc.put_bits(u32::from(diff.unsigned_abs()), 7)?;
                                 }
                                 tprob[i ^ 1] = (i16::from(tprob[i ^ 1]) + deltas[i ^ 1]) as u8;
                             }

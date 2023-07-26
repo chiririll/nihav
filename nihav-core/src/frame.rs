@@ -65,9 +65,9 @@ impl NAVideoInfo {
         NAVideoInfo { width: w, height: h, flipped: flip, format: fmt, bits }
     }
     /// Returns picture width.
-    pub fn get_width(&self)  -> usize { self.width as usize }
+    pub fn get_width(&self)  -> usize { self.width }
     /// Returns picture height.
-    pub fn get_height(&self) -> usize { self.height as usize }
+    pub fn get_height(&self) -> usize { self.height }
     /// Returns picture orientation.
     pub fn is_flipped(&self) -> bool { self.flipped }
     /// Returns picture pixel format.
@@ -535,12 +535,12 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     let mut strides: Vec<usize> = Vec::new();
 
     for i in 0..fmt.get_num_comp() {
-        if fmt.get_chromaton(i) == None { return Err(AllocatorError::FormatError); }
+        if fmt.get_chromaton(i).is_none() { return Err(AllocatorError::FormatError); }
     }
 
     let align_mod = ((1 << align) as usize) - 1;
-    let width  = ((vinfo.width  as usize) + align_mod) & !align_mod;
-    let height = ((vinfo.height as usize) + align_mod) & !align_mod;
+    let width  = (vinfo.width  + align_mod) & !align_mod;
+    let height = (vinfo.height + align_mod) & !align_mod;
     let mut max_depth = 0;
     let mut all_packed = true;
     let mut all_bytealigned = true;
@@ -562,10 +562,10 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
 //todo various-sized palettes?
         let stride = vinfo.get_format().get_chromaton(0).unwrap().get_linesize(width);
         let pic_sz = stride.checked_mul(height);
-        if pic_sz == None { return Err(AllocatorError::TooLargeDimensions); }
+        if pic_sz.is_none() { return Err(AllocatorError::TooLargeDimensions); }
         let pal_size = 256 * (fmt.get_elem_size() as usize);
         let new_size = pic_sz.unwrap().checked_add(pal_size);
-        if new_size == None { return Err(AllocatorError::TooLargeDimensions); }
+        if new_size.is_none() { return Err(AllocatorError::TooLargeDimensions); }
         offs.push(0);
         offs.push(stride * height);
         strides.push(stride);
@@ -577,13 +577,13 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
             let ochr = fmt.get_chromaton(i);
             if ochr.is_none() { continue; }
             let chr = ochr.unwrap();
-            offs.push(new_size as usize);
+            offs.push(new_size);
             let stride = chr.get_linesize(width);
             let cur_h = chr.get_height(height);
             let cur_sz = stride.checked_mul(cur_h);
-            if cur_sz == None { return Err(AllocatorError::TooLargeDimensions); }
+            if cur_sz.is_none() { return Err(AllocatorError::TooLargeDimensions); }
             let new_sz = new_size.checked_add(cur_sz.unwrap());
-            if new_sz == None { return Err(AllocatorError::TooLargeDimensions); }
+            if new_sz.is_none() { return Err(AllocatorError::TooLargeDimensions); }
             new_size = new_sz.unwrap();
             strides.push(stride);
         }
@@ -603,9 +603,9 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     } else if all_bytealigned || unfit_elem_size {
         let elem_sz = fmt.get_elem_size();
         let line_sz = width.checked_mul(elem_sz as usize);
-        if line_sz == None { return Err(AllocatorError::TooLargeDimensions); }
+        if line_sz.is_none() { return Err(AllocatorError::TooLargeDimensions); }
         let new_sz = line_sz.unwrap().checked_mul(height);
-        if new_sz == None { return Err(AllocatorError::TooLargeDimensions); }
+        if new_sz.is_none() { return Err(AllocatorError::TooLargeDimensions); }
         new_size = new_sz.unwrap();
         let data: Vec<u8> = vec![0; new_size];
         strides.push(line_sz.unwrap());
@@ -614,7 +614,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     } else {
         let elem_sz = fmt.get_elem_size();
         let new_sz = width.checked_mul(height);
-        if new_sz == None { return Err(AllocatorError::TooLargeDimensions); }
+        if new_sz.is_none() { return Err(AllocatorError::TooLargeDimensions); }
         new_size = new_sz.unwrap();
         match elem_sz {
             2 => {
@@ -636,11 +636,12 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
 
 /// Constructs a new audio buffer for the requested format and length.
 #[allow(clippy::collapsible_if)]
+#[allow(clippy::collapsible_else_if)]
 pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelMap) -> Result<NABufferType, AllocatorError> {
     let mut offs: Vec<usize> = Vec::new();
     if ainfo.format.is_planar() || ((ainfo.format.get_bits() % 8) == 0) {
         let len = nsamples.checked_mul(ainfo.channels as usize);
-        if len == None { return Err(AllocatorError::TooLargeDimensions); }
+        if len.is_none() { return Err(AllocatorError::TooLargeDimensions); }
         let length = len.unwrap();
         let stride;
         let step;
@@ -684,7 +685,7 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         }
     } else {
         let len = nsamples.checked_mul(ainfo.channels as usize);
-        if len == None { return Err(AllocatorError::TooLargeDimensions); }
+        if len.is_none() { return Err(AllocatorError::TooLargeDimensions); }
         let length = ainfo.format.get_audio_size(len.unwrap() as u64);
         let data: Vec<u8> = vec![0; length];
         let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride: 0, step: 0 };
@@ -957,6 +958,7 @@ impl NATimeInfo {
 
     /// Converts time in given scale into timestamp in given base.
     #[allow(clippy::collapsible_if)]
+    #[allow(clippy::collapsible_else_if)]
     pub fn time_to_ts(time: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
         let tb_num = u64::from(tb_num);
         let tb_den = u64::from(tb_den);
@@ -1032,20 +1034,15 @@ impl NATimeInfo {
 }
 
 /// Time information for specifying durations or seek positions.
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 pub enum NATimePoint {
     /// Time in milliseconds.
     Milliseconds(u64),
     /// Stream timestamp.
     PTS(u64),
     /// No time information present.
+    #[default]
     None,
-}
-
-impl Default for NATimePoint {
-    fn default() -> Self {
-        NATimePoint::None
-    }
 }
 
 impl fmt::Display for NATimePoint {
@@ -1149,7 +1146,7 @@ impl FromStr for NATimePoint {
                             let mut mval = 0;
                             let mut base = 0;
                             for ch in val.chars() {
-                                if ('0'..='9').contains(&ch) {
+                                if ch.is_ascii_digit() {
                                     mval = mval * 10 + u64::from((ch as u8) - b'0');
                                     base += 1;
                                     if base > 3 { break; }

@@ -316,7 +316,7 @@ impl BlockState {
                 self.clr2.swap(0, 1);
             }
         } else {
-            let (clrs, mask, dist) = quant2_16pix(&buf);
+            let (clrs, mask, dist) = quant2_16pix(buf);
             self.clr2 = clrs;
             self.clr2_flags = mask;
             self.clr2_dist = dist;
@@ -581,7 +581,7 @@ impl MSVideo1Encoder {
         let dst = cur_frm.get_data_mut().unwrap();
         let mut skip_run = 0;
         let bpainter = BlockPainter15::new();
-        for ((sstrip, rstrip), dstrip) in (&src[soff..]).chunks(sstride * 4).take(h / 4).zip((&rsrc[roff..]).chunks(rstride * 4)).zip((&mut dst[doff..]).chunks_mut(dstride * 4)) {
+        for ((sstrip, rstrip), dstrip) in src[soff..].chunks(sstride * 4).take(h / 4).zip(rsrc[roff..].chunks(rstride * 4)).zip(dst[doff..].chunks_mut(dstride * 4)) {
             for x in (0..w).step_by(4) {
                 let mut buf = [UnpackedPixel::default(); 16];
                 let mut refbuf = [UnpackedPixel::default(); 16];
@@ -662,7 +662,7 @@ impl MSVideo1Encoder {
         let doff = cur_frm.get_offset(0);
         let dst = cur_frm.get_data_mut().unwrap();
         let bpainter = BlockPainter15::new();
-        for (sstrip, dstrip) in (&src[soff..]).chunks(sstride * 4).take(h / 4).zip((&mut dst[doff..]).chunks_mut(dstride * 4)) {
+        for (sstrip, dstrip) in src[soff..].chunks(sstride * 4).take(h / 4).zip(dst[doff..].chunks_mut(dstride * 4)) {
             for x in (0..w).step_by(4) {
                 let mut buf = [UnpackedPixel::default(); 16];
                 Self::get_block(&sstrip[x..], sstride, &mut buf);
@@ -701,7 +701,7 @@ impl MSVideo1Encoder {
         let dst = cur_frm.get_data_mut().unwrap();
         let mut skip_run = 0;
         let bpainter = BlockPainterPal::new(ls);
-        for ((sstrip, rstrip), dstrip) in (&src[soff..]).chunks(sstride * 4).take(h / 4).zip((&rsrc[roff..]).chunks(rstride * 4)).zip((&mut dst[doff..]).chunks_mut(dstride * 4)) {
+        for ((sstrip, rstrip), dstrip) in src[soff..].chunks(sstride * 4).take(h / 4).zip(rsrc[roff..].chunks(rstride * 4)).zip(dst[doff..].chunks_mut(dstride * 4)) {
             for x in (0..w).step_by(4) {
                 let mut buf = [UnpackedPixel::default(); 16];
                 let mut refbuf = [UnpackedPixel::default(); 16];
@@ -782,7 +782,7 @@ impl MSVideo1Encoder {
         let doff = cur_frm.get_offset(0);
         let dst = cur_frm.get_data_mut().unwrap();
         let bpainter = BlockPainterPal::new(ls);
-        for (sstrip, dstrip) in (&src[soff..]).chunks(sstride * 4).take(h / 4).zip((&mut dst[doff..]).chunks_mut(dstride * 4)) {
+        for (sstrip, dstrip) in src[soff..].chunks(sstride * 4).take(h / 4).zip(dst[doff..].chunks_mut(dstride * 4)) {
             for x in (0..w).step_by(4) {
                 let mut buf = [UnpackedPixel::default(); 16];
                 Self::get_block8(&sstrip[x..], sstride, &mut buf, pal);
@@ -932,7 +932,7 @@ impl NAEncoder for MSVideo1Encoder {
             for (cur_pal, new_pal) in self.pal.iter_mut().zip(pal.chunks_exact(3)) {
                 let (cur_clr, luma) = cur_pal.split_at_mut(3);
                 let new_clr = [u16::from(new_pal[0]), u16::from(new_pal[1]), u16::from(new_pal[2])];
-                if cur_clr != &new_clr {
+                if cur_clr != new_clr {
                     pal_changed = true;
                     cur_clr.copy_from_slice(&new_clr);
                     luma[0] = rgb2y(cur_clr[0], cur_clr[1], cur_clr[2]);

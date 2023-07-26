@@ -61,7 +61,7 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                     validate!(abits == 8 || abits == 16);
                     self.bps = (channels as usize) * abits / 8;
                     let bsize    = read_u16le(&buf[32..])? as usize;
-                    let ahdr = NAAudioInfo::new(arate, channels as u8, if abits == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, bsize);
+                    let ahdr = NAAudioInfo::new(arate, channels, if abits == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, bsize);
                     let ainfo = NACodecInfo::new("pcm", NACodecTypeInfo::Audio(ahdr), None);
                     self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, arate, 2));
                 }

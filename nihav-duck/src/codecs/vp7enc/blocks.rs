@@ -270,7 +270,7 @@ impl SrcBlock {
     }
     pub fn apply_ipred_luma(&self, mode: PredMode, ipred: &IPredContext, dst: &mut Residue) {
         let mut tmp = [0; 256];
-        (&mut tmp).ipred16(16, mode, ipred);
+        tmp.ipred16(16, mode, ipred);
         dst.set_luma_from_diff(&self.luma, &tmp);
     }
     pub fn fill_ipred_luma(&mut self, mode: PredMode, ipred: &IPredContext) {

@@ -486,8 +486,7 @@ println!("stream {} codec {} / {}", i, info.get_name(), dec_name);
 
         }
     }
-    'tail_loop: for dentry in decs.iter_mut() {
-        if let Some((_, ref mut dec)) = dentry {
+    'tail_loop: for (_, ref mut dec) in decs.iter_mut().flatten() {
             loop {
                 match dec.get_frame() {
                     (Ok(frm), id) => {
@@ -507,7 +506,6 @@ println!("stream {} codec {} / {}", i, info.get_name(), dec_name);
                     break;
                 }
             }
-        }
     }
     if let ExpectedTestResult::MD5(ref ref_hash) = test {
         md5.finish();

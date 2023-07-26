@@ -96,7 +96,6 @@ impl IMAADPCMEncoder {
                     nw.write(nib)?;
                 }
             }
-            drop(nw);
         } else {
             self.nodes.reserve(self.block_len);
             self.nibs.resize(self.channels, Vec::new());
@@ -164,7 +163,6 @@ impl IMAADPCMEncoder {
                     nw.write(self.nibs[ch][i])?;
                 }
             }
-            drop(nw);
         }
 
         self.samples.drain(..self.block_len * self.channels);

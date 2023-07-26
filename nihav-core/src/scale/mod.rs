@@ -187,7 +187,7 @@ fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
                 let dst = &mut ddata[doff..];
                 let copy_size = sstride.min(dstride);
                 for (dline, sline) in dst.chunks_exact_mut(dstride).take(h).zip(src.chunks_exact(sstride)) {
-                    (&mut dline[..copy_size]).copy_from_slice(&sline[..copy_size]);
+                    dline[..copy_size].copy_from_slice(&sline[..copy_size]);
                 }
             }
         }
@@ -220,7 +220,7 @@ fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
                 let dst = &mut ddata[doff..];
                 let copy_size = sstride.min(dstride);
                 for (dline, sline) in dst.chunks_exact_mut(dstride).take(h).zip(src.chunks_exact(sstride)) {
-                    (&mut dline[..copy_size]).copy_from_slice(&sline[..copy_size]);
+                    dline[..copy_size].copy_from_slice(&sline[..copy_size]);
                 }
             }
         }
@@ -363,8 +363,8 @@ fn swap_plane<T:Copy>(data: &mut [T], stride: usize, h: usize, line0: &mut [T], 
     for _ in 0..h/2 {
         line0.copy_from_slice(&data[doff0..][..stride]);
         line1.copy_from_slice(&data[doff1..][..stride]);
-        (&mut data[doff1..][..stride]).copy_from_slice(line0);
-        (&mut data[doff0..][..stride]).copy_from_slice(line1);
+        data[doff1..][..stride].copy_from_slice(line0);
+        data[doff0..][..stride].copy_from_slice(line1);
         doff0 += stride;
         doff1 -= stride;
     }

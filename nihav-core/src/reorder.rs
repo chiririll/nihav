@@ -226,6 +226,7 @@ impl MTFrameReorderer {
     }
     /// Gets the next frame to be displayed (or `None` if that is not possible).
     #[allow(clippy::collapsible_if)]
+    #[allow(clippy::collapsible_else_if)]
     pub fn get_frame(&mut self) -> Option<NAFrameRef> {
         // check if we have consequent timestamps that we can output
         if !self.frames.is_empty() {
@@ -255,7 +256,7 @@ impl MTFrameReorderer {
                         }
                         let end = self.ids.iter().position(|&id| id == kf_id).unwrap();
                         for ref_id in self.ids[..end].iter() {
-                            if self.frames.iter().position(|(id, _)| id == ref_id).is_none() {
+                            if !self.frames.iter().any(|(id, _)| id == ref_id) {
                                 return None;
                             }
                         }

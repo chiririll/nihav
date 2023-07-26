@@ -1051,7 +1051,7 @@ impl NADecoder for Smush1Decoder {
                                 self.pic.fpal[i] = self.pic.fpal[i].wrapping_add(self.pic.pdelta[i]);
                                 self.pic.pal[i] = (self.pic.fpal[i] >> 7) as u8;
                             }
-                                          br.read_skip((size as usize) - 4)?;
+                                          br.read_skip(size - 4)?;
                         },
                         2 => {
                             validate!(size == 0x904);

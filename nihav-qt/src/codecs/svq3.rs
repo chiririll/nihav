@@ -261,7 +261,7 @@ fn decode_alt_slice(br: &mut BitReader, blk: &mut [i16; 16], mut idx: usize, end
                 SVQ3_RUNLEVEL_ALT[val as usize]
             } else {
                 let run = (val & 0x7) as usize;
-                (run, ((val >> 3) as i16) + RUN_ADD_ALT[(run as usize).min(RUN_ADD_ALT.len() - 1)])
+                (run, ((val >> 3) as i16) + RUN_ADD_ALT[run.min(RUN_ADD_ALT.len() - 1)])
             };
         idx += run;
         validate!(idx < end);
@@ -289,7 +289,7 @@ fn decode_block(br: &mut BitReader, blk: &mut [i16; 16], start: usize, alt: bool
                     SVQ3_RUNLEVEL[val as usize]
                 } else {
                     let run = (val & 0xF) as usize;
-                    (run, ((val >> 4) as i16) + RUN_ADD[(run as usize).min(RUN_ADD.len() - 1)])
+                    (run, ((val >> 4) as i16) + RUN_ADD[run.min(RUN_ADD.len() - 1)])
                 };
             idx += run;
             validate!(idx < blk.len());
@@ -674,7 +674,7 @@ unimplemented!();
             } else {
                 MCMode::Pixel
             };
-        let (bw, bh) = SVQ3_PART_SIZES[mb_type as usize];
+        let (bw, bh) = SVQ3_PART_SIZES[mb_type];
         let bw = (bw >> 2) as usize;
         let bh = (bh >> 2) as usize;
 
@@ -1167,9 +1167,7 @@ impl NADecoder for SVQ3Decoder {
             }
             let ret = self.decode_slice(&mut br, &hdr, &mut dframe);
             std::mem::swap(&mut sbuf, &mut self.slice_buf);
-            if let Err(err) = ret {
-                return Err(err);
-            }
+            ret?;
             slice_prepared = false;
             off += slice_len;
         }

@@ -40,9 +40,9 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let mut guid = [0; 16];
                                           self.src.read_buf(&mut guid)?;
-        let version = match &guid {
-            &IVF_GUID_0 => 0,
-            &IVF_GUID_1 => 1,
+        let version = match guid {
+            IVF_GUID_0 => 0,
+            IVF_GUID_1 => 1,
             _ => return Err(DemuxerError::InvalidData),
         };
         let flags                       = self.src.read_u32le()?;
@@ -85,7 +85,7 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
         let fcc                         = self.src.read_tag()?;
                                           self.src.read_skip(20)?;
 
-        let mut vhdr = NAVideoInfo::new(width, height.abs() as usize, height < 0, YUV420_FORMAT);
+        let mut vhdr = NAVideoInfo::new(width, height.unsigned_abs() as usize, height < 0, YUV420_FORMAT);
         vhdr.bits = (planes as u8) * (bitcount as u8);
         let cname = match &fcc {
                 b"IV31" | b"IV32" => "indeo3",
@@ -243,6 +243,7 @@ const DEMUXER_OPTS: &[NAOptionDefinition] = &[
 
 impl<'a> NAOptionHandler for IVFDemuxer<'a> {
     fn get_supported_options(&self) -> &[NAOptionDefinition] { DEMUXER_OPTS }
+    #[allow(clippy::single_match)]
     fn set_options(&mut self, options: &[NAOption]) {
        for option in options.iter() {
             for opt_def in DEMUXER_OPTS.iter() {
@@ -259,6 +260,7 @@ impl<'a> NAOptionHandler for IVFDemuxer<'a> {
             }
         }
     }
+    #[allow(clippy::single_match)]
     fn query_option_value(&self, name: &str) -> Option<NAValue> {
         match name {
             PASSES => Some(NAValue::Int(i64::from(self.passes))),

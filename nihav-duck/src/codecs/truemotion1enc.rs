@@ -3,18 +3,13 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use super::truemotion1data::*;
 
-#[derive(Clone,Copy,PartialEq)]
+#[derive(Clone,Copy,PartialEq,Default)]
 enum BlockMode {
     FourByFour,
+    #[default]
     TwoByTwo,
     FourByTwo,
     TwoByFour,
-}
-
-impl Default for BlockMode {
-    fn default() -> Self {
-        BlockMode::TwoByTwo
-    }
 }
 
 impl FromStr for BlockMode {
@@ -41,17 +36,12 @@ impl ToString for BlockMode {
     }
 }
 
-#[derive(Clone,Copy,PartialEq)]
+#[derive(Clone,Copy,PartialEq,Default)]
 enum OptionMode {
     Off,
     On,
+    #[default]
     Auto,
-}
-
-impl Default for OptionMode {
-    fn default() -> Self {
-        OptionMode::Auto
-    }
 }
 
 impl FromStr for OptionMode {
@@ -518,7 +508,7 @@ impl TM1Encoder {
                     pair[1] = self.prev_frame[x * 2 + 1 + y * self.width];
                     hpred[0] = pair[0] - vpred[0];
                     hpred[1] = pair[1] - vpred[1];
-                    vpred.copy_from_slice(&pair);
+                    vpred.copy_from_slice(pair);
                     continue;
                 }
                 let pval = [vpred[0] + hpred[0], vpred[1] + hpred[1]];

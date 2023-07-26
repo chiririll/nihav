@@ -836,7 +836,7 @@ br.skip(skip_part as u32)?;
         unreachable!();
     }
 
-    fn decode_single_frame<'a>(&mut self, dec: &mut dyn IndeoXParser, br: &mut BitReader<'a>) -> DecoderResult<NABufferType> {
+    fn decode_single_frame(&mut self, dec: &mut dyn IndeoXParser, br: &mut BitReader) -> DecoderResult<NABufferType> {
         let pic_hdr = dec.decode_picture_header(br)?;
         self.ftype = pic_hdr.ftype;
         if pic_hdr.ftype.is_null() {
@@ -978,9 +978,8 @@ br.skip(skip_part as u32)?;
         Ok(buftype)
     }
 
-    pub fn decode_frame<'a>(&mut self, dec: &mut dyn IndeoXParser, br: &mut BitReader<'a>) -> DecoderResult<NABufferType> {
-        let res = self.decode_single_frame(dec, br);
-        if res.is_err() { return res; }
+    pub fn decode_frame(&mut self, dec: &mut dyn IndeoXParser, br: &mut BitReader) -> DecoderResult<NABufferType> {
+        let res = self.decode_single_frame(dec, br)?;
         if (self.ftype == IVIFrameType::Intra) && (br.left() > 16) {
             loop {
                 if br.left() < 8 { break; }
@@ -1003,11 +1002,11 @@ br.skip(skip_part as u32)?;
             }
         }
         if self.bref.is_some() && self.ftype == IVIFrameType::Inter {
-            let mut bref: Option<NABufferType> = Some(res.unwrap());
+            let mut bref: Option<NABufferType> = Some(res);
             mem::swap(&mut bref, &mut self.bref);
             return Ok(bref.unwrap());
         }
-        if let Ok(NABufferType::None) = res {
+        if let NABufferType::None = res {
             if self.bref.is_some() {
                 let mut bref: Option<NABufferType> = None;
                 mem::swap(&mut bref, &mut self.bref);
@@ -1015,7 +1014,7 @@ br.skip(skip_part as u32)?;
                 return Ok(bref.unwrap());
             }
         }
-        res
+        Ok(res)
     }
 
     pub fn flush(&mut self) {

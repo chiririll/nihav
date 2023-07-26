@@ -204,6 +204,7 @@ impl VP7Decoder {
 
         self.pcache.resize(self.mb_w);
     }
+    #[allow(clippy::field_reassign_with_default)]
     fn read_features(&mut self, bc: &mut BoolCoder) -> DecoderResult<()> {
         for (i, feat) in self.dstate.features.iter_mut().enumerate() {
             if bc.read_bool() {

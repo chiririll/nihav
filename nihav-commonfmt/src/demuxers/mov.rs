@@ -573,6 +573,7 @@ fn parse_audio_edata(br: &mut ByteReader, start_pos: u64, size: u64) -> DemuxerR
     }
 }
 
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
 fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
     const KNOWN_STSD_SIZE: u64 = 24;
     validate!(size >= KNOWN_STSD_SIZE);
@@ -625,12 +626,12 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                 match depth & 0x1F {
                     2 => {
                         let mut pal = [0; 1024];
-                        (&mut pal[..4 * 4]).copy_from_slice(&MOV_DEFAULT_PAL_2BIT);
+                        pal[..4 * 4].copy_from_slice(&MOV_DEFAULT_PAL_2BIT);
                         track.pal = Some(Arc::new(pal));
                     },
                     4 => {
                         let mut pal = [0; 1024];
-                        (&mut pal[..16 * 4]).copy_from_slice(&MOV_DEFAULT_PAL_4BIT);
+                        pal[..16 * 4].copy_from_slice(&MOV_DEFAULT_PAL_4BIT);
                         track.pal = Some(Arc::new(pal));
                     },
                     8 => {
@@ -1276,7 +1277,7 @@ impl Track {
         for kf_time in self.keyframes.iter() {
             let pts = tsearch.map_time(*kf_time - 1, &self.time_to_sample);
             let time = NATimeInfo::ts_to_time(pts, 1000, self.tb_num, self.tb_den);
-            seek_index.add_entry(self.track_no as u32, SeekEntry { time, pts: u64::from(*kf_time - 1), pos: 0 });
+            seek_index.add_entry(self.track_no, SeekEntry { time, pts: u64::from(*kf_time - 1), pos: 0 });
         }
     }
     fn calculate_chunk_size(&self, nsamp: usize) -> usize {
@@ -1409,6 +1410,7 @@ impl Track {
         }
     }
     #[allow(clippy::collapsible_if)]
+    #[allow(clippy::collapsible_else_if)]
     fn seek(&mut self, pts: u64, tpoint: NATimePoint) -> DemuxerResult<u64> {
         self.cur_sample = pts as usize;
         self.samples_left = 0;

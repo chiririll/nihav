@@ -12,8 +12,9 @@ pub enum BMode {
     Bi,
 }
 
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 pub enum MBType {
+    #[default]
     Intra4x4,
     Intra8x8,
     Intra16x16(u8, u8, u8),
@@ -106,16 +107,13 @@ impl MBType {
     }
 }
 
-impl Default for MBType {
-    fn default() -> Self { MBType::Intra4x4 }
-}
-
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 pub enum SubMBType {
     P8x8,
     P8x4,
     P4x8,
     P4x4,
+    #[default]
     Direct8x8,
     B8x8(BMode),
     B8x4(BMode),
@@ -159,12 +157,8 @@ impl SubMBType {
     }
 }
 
-impl Default for SubMBType {
-    fn default() -> Self { SubMBType::Direct8x8 }
-}
-
 #[repr(u8)]
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 pub enum CompactMBType {
     Intra4x4,
     Intra8x8,
@@ -185,6 +179,7 @@ pub enum CompactMBType {
     B8x8,
     BSkip,
 
+    #[default]
     None,
 }
 
@@ -215,10 +210,6 @@ impl CompactMBType {
     }
 }
 
-impl Default for CompactMBType {
-    fn default() -> Self { CompactMBType::None }
-}
-
 impl From<MBType> for CompactMBType {
     fn from(mbtype: MBType) -> Self {
         match mbtype {
@@ -243,7 +234,7 @@ impl From<MBType> for CompactMBType {
 }
 
 #[repr(u8)]
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 pub enum IntraPredMode {
     Vertical,
     Horizontal,
@@ -254,6 +245,7 @@ pub enum IntraPredMode {
     HorDown,
     VerLeft,
     HorUp,
+    #[default]
     None,
 }
 
@@ -266,10 +258,6 @@ impl IntraPredMode {
             -1
         }
     }
-}
-
-impl Default for IntraPredMode {
-    fn default() -> Self { IntraPredMode::None }
 }
 
 impl From<u8> for IntraPredMode {

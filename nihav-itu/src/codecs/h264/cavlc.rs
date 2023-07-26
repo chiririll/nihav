@@ -130,7 +130,7 @@ pub fn decode_mb_pred_cavlc(br: &mut BitReader, slice_hdr: &SliceHeader, mb_type
                         } else { new_mode };
                 }
                 mb_info.ipred[x + y * 4] = pred_mode.into();
-                sstate.get_cur_blk4(x + y * 4).ipred = (pred_mode as u8).into();
+                sstate.get_cur_blk4(x + y * 4).ipred = pred_mode.into();
             }
             mb_info.chroma_ipred                    = br.read_ue_lim(3)? as u8;
         },
@@ -154,10 +154,10 @@ pub fn decode_mb_pred_cavlc(br: &mut BitReader, slice_hdr: &SliceHeader, mb_type
                 mb_info.ipred[blk4 + 1] = pred_mode.into();
                 mb_info.ipred[blk4 + 4] = pred_mode.into();
                 mb_info.ipred[blk4 + 5] = pred_mode.into();
-                sstate.get_cur_blk4(blk4).ipred = (pred_mode as u8).into();
-                sstate.get_cur_blk4(blk4 + 1).ipred = (pred_mode as u8).into();
-                sstate.get_cur_blk4(blk4 + 4).ipred = (pred_mode as u8).into();
-                sstate.get_cur_blk4(blk4 + 5).ipred = (pred_mode as u8).into();
+                sstate.get_cur_blk4(blk4).ipred = pred_mode.into();
+                sstate.get_cur_blk4(blk4 + 1).ipred = pred_mode.into();
+                sstate.get_cur_blk4(blk4 + 4).ipred = pred_mode.into();
+                sstate.get_cur_blk4(blk4 + 5).ipred = pred_mode.into();
             }
             mb_info.chroma_ipred                    = br.read_ue_lim(3)? as u8;
         },

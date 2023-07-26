@@ -308,10 +308,10 @@ impl NADecoder for VMDVideoDecoder {
             let paloff = buf.get_offset(1);
             let data = buf.get_data_mut().unwrap();
             for (inrow, outrow) in self.framebuf.chunks(self.width).zip(data.chunks_mut(stride)) {
-                (&mut outrow[..self.width]).copy_from_slice(inrow);
+                outrow[..self.width].copy_from_slice(inrow);
             }
             if !self.is_24bit {
-                (&mut data[paloff..][..768]).copy_from_slice(&self.pal);
+                data[paloff..][..768].copy_from_slice(&self.pal);
             }
             videobuf = if !self.is_24bit { NABufferType::Video(buf) } else { NABufferType::VideoPacked(buf) };
         } else {

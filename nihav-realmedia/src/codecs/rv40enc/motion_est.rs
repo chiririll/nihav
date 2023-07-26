@@ -3,10 +3,11 @@ use nihav_codec_support::codecs::{MV, ZERO_MV};
 use std::str::FromStr;
 use super::dsp::{RefMBData, luma_mc, chroma_mc};
 
-#[derive(Clone,Copy,PartialEq)]
+#[derive(Clone,Copy,PartialEq,Default)]
 pub enum MVSearchMode {
     Dummy,
     Diamond,
+    #[default]
     Hexagon,
     UMH,
 }
@@ -23,10 +24,6 @@ impl MVSearchMode {
             MVSearchMode::UMH     => Box::new(UnevenHexSearch::new()),
         }
     }
-}
-
-impl Default for MVSearchMode {
-    fn default() -> Self { MVSearchMode::Hexagon }
 }
 
 impl std::fmt::Display for MVSearchMode {
@@ -878,7 +875,7 @@ impl FrameComplexityEstimate {
             hadamard!(diffs[i], diffs[i + 4], diffs[i + 8], diffs[i + 12],
                       diffs[i], diffs[i + 4], diffs[i + 8], diffs[i + 12]);
         }
-        diffs.iter().fold(0u32, |acc, x| acc + (x.abs() as u32))
+        diffs.iter().fold(0u32, |acc, x| acc + (x.unsigned_abs() as u32))
     }
     fn satd(src0: &[u8], src1: &[u8], stride: usize) -> u32 {
         let mut diffs = [0; 16];
@@ -894,7 +891,7 @@ impl FrameComplexityEstimate {
             hadamard!(diffs[i], diffs[i + 4], diffs[i + 8], diffs[i + 12],
                       diffs[i], diffs[i + 4], diffs[i + 8], diffs[i + 12]);
         }
-        diffs.iter().fold(0u32, |acc, x| acc + (x.abs() as u32))
+        diffs.iter().fold(0u32, |acc, x| acc + (x.unsigned_abs() as u32))
     }
     fn downscale(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>) {
         let dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();

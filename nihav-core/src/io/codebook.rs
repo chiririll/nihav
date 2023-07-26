@@ -271,7 +271,7 @@ fn build_esc_lut(table: &mut Vec<u32>,
 
     let cur_offset = bucket.offset;
     for (ckey, sec_bucket) in &mut escape_list {
-        let key = *ckey as u32;
+        let key = *ckey;
         let maxlen = min(sec_bucket.maxlen, MAX_LUT_BITS);
         let new_off = resize_table(table, maxlen)?;
         fill_lut(table, mode, cur_offset, key, maxlen,
@@ -366,7 +366,7 @@ impl<'a, S: Copy> CodebookReader<S> for BitReader<'a> {
         let mut idx = 0;
         let mut lut_bits = cb.lut_bits;
         while esc {
-            let lut_idx = (self.peek(lut_bits) as usize) + (idx as usize);
+            let lut_idx = (self.peek(lut_bits) as usize) + idx;
             if cb.table[lut_idx] == TABLE_FILL_VALUE { return Err(CodebookError::InvalidCode); }
             let bits = cb.table[lut_idx] & 0x7F;
             esc  = (cb.table[lut_idx] & 0x80) != 0;
@@ -375,7 +375,7 @@ impl<'a, S: Copy> CodebookReader<S> for BitReader<'a> {
             if (skip_bits as isize) > self.left() {
                 return Err(CodebookError::InvalidCode);
             }
-            self.skip(skip_bits as u32).unwrap();
+            self.skip(skip_bits).unwrap();
             lut_bits = bits as u8;
         }
         Ok(cb.syms[idx])

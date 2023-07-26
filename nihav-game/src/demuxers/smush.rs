@@ -531,7 +531,7 @@ impl<'a> DemuxCore<'a> for MCMPDemuxer<'a> {
         let hdr_size                    = self.src.read_u32be()?;
         validate!(cmp == 0 && size1 == hdr_size);
 
-        let size = (nframes - 1) as usize;
+        let size = nframes - 1;
         self.offsets = Vec::with_capacity(size);
         self.sizes   = Vec::with_capacity(size);
         self.samples = Vec::with_capacity(size);

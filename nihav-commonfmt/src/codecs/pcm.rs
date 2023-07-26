@@ -79,12 +79,12 @@ fn get_default_chmap(nch: u8) -> NAChannelMap {
 
 #[cfg(feature="decoder_pcm")]
 fn get_duration(ainfo: &NAAudioInfo, duration: Option<u64>, data_size: usize) -> u64 {
-    if duration == None {
+    if let Some(dur) = duration {
+        dur
+    } else {
         let size_bits = (data_size as u64) * 8;
         let blk_size = u64::from(ainfo.get_channels()) * u64::from(ainfo.get_format().get_bits());
         size_bits / blk_size
-    } else {
-        duration.unwrap()
     }
 }
 

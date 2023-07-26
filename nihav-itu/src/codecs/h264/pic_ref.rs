@@ -188,11 +188,9 @@ impl FrameRefs {
                 dst.push(pic.full_id);
             }
         }
-        for ltpic in self.long_term.iter() {
-            if let Some(ref pic) = ltpic {
-                if !dst.contains(&pic.full_id) {
-                    dst.push(pic.full_id);
-                }
+        for pic in self.long_term.iter().flatten() {
+            if !dst.contains(&pic.full_id) {
+                dst.push(pic.full_id);
             }
         }
     }

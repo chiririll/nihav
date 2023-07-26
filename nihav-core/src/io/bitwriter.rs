@@ -77,6 +77,7 @@ impl BitWriter {
     }
     /// Writes `bits` bits of `val` value to the output.
     #[allow(clippy::collapsible_if)]
+    #[allow(clippy::collapsible_else_if)]
     pub fn write(&mut self, val: u32, bits: u8) {
         if bits == 0 {
             return;

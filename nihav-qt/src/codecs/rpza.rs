@@ -25,7 +25,7 @@ impl RpzaDecoder {
     }
     fn put_block(dst: &mut [u16], dstride: usize, block: &[u16; 16]) {
         for (line, src) in dst.chunks_mut(dstride).take(4).zip(block.chunks(4)) {
-            (&mut line[..4]).copy_from_slice(src);
+            line[..4].copy_from_slice(src);
         }
     }
 }
