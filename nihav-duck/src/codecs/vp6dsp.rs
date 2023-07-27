@@ -52,6 +52,7 @@ macro_rules! mc_filter {
 }
 
 //#[allow(snake_case)]
+#[cfg(not(target_arch = "x86_64"))]
 pub fn mc_bilinear(dst: &mut [u8], dstride: usize, src: &[u8], mut soff: usize, sstride: usize, mx: u16, my: u16) {
     if my == 0 {
         for dline in dst.chunks_mut(dstride).take(8) {
@@ -80,6 +81,88 @@ pub fn mc_bilinear(dst: &mut [u8], dstride: usize, src: &[u8], mut soff: usize, 
                 tmp[i] = cur;
             }
             soff += sstride;
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+
+#[cfg(target_arch = "x86_64")]
+pub fn mc_bilinear(dst: &mut [u8], dstride: usize, src: &[u8], soff: usize, sstride: usize, mx: u16, my: u16) {
+    if my == 0 {
+        unsafe {
+            let mut sptr = src[soff..].as_ptr();
+            let mut dptr = dst.as_mut_ptr();
+            let bias = _mm_set1_epi16(4);
+            let a = _mm_set1_epi16((8 - mx) as i16);
+            let b = _mm_set1_epi16(     mx as i16);
+            let z = _mm_setzero_si128();
+            for _ in 0..8 {
+                let s0 = _mm_unpacklo_epi8(_mm_loadl_epi64(sptr as *const __m128i), z);
+                let s1 = _mm_unpacklo_epi8(_mm_loadl_epi64(sptr.add(1) as *const __m128i), z);
+                let s0 = _mm_mullo_epi16(s0, a);
+                let s1 = _mm_mullo_epi16(s1, b);
+                sptr = sptr.add(sstride);
+                let t = _mm_srai_epi16(_mm_add_epi16(_mm_add_epi16(s0, bias), s1), 3);
+                let t = _mm_packus_epi16(t, t);
+                _mm_storel_epi64(dptr as *mut __m128i, t);
+                dptr = dptr.add(dstride);
+            }
+        }
+    } else if mx == 0 {
+        unsafe {
+            let mut sptr = src[soff..].as_ptr();
+            let mut dptr = dst.as_mut_ptr();
+            let bias = _mm_set1_epi16(4);
+            let a = _mm_set1_epi16((8 - my) as i16);
+            let b = _mm_set1_epi16(     my as i16);
+            let z = _mm_setzero_si128();
+            let mut last = _mm_unpacklo_epi8(_mm_loadl_epi64(sptr as *const __m128i), z);
+            last = _mm_mullo_epi16(last, a);
+            sptr = sptr.add(sstride);
+            for _ in 0..8 {
+                let s = _mm_unpacklo_epi8(_mm_loadl_epi64(sptr as *const __m128i), z);
+                sptr = sptr.add(sstride);
+                let s1 = _mm_mullo_epi16(s, b);
+                let t = _mm_srai_epi16(_mm_add_epi16(_mm_add_epi16(last, bias), s1), 3);
+                last = _mm_mullo_epi16(s, a);
+                let t = _mm_packus_epi16(t, t);
+                _mm_storel_epi64(dptr as *mut __m128i, t);
+                dptr = dptr.add(dstride);
+            }
+        }
+    } else {
+        unsafe {
+            let mut sptr = src[soff..].as_ptr();
+            let mut dptr = dst.as_mut_ptr();
+            let bias = _mm_set1_epi16(4);
+            let a = _mm_set1_epi16((8 - mx) as i16);
+            let b = _mm_set1_epi16(     mx as i16);
+            let c = _mm_set1_epi16((8 - my) as i16);
+            let d = _mm_set1_epi16(     my as i16);
+            let z = _mm_setzero_si128();
+
+            let s0 = _mm_unpacklo_epi8(_mm_loadl_epi64(sptr as *const __m128i), z);
+            let s1 = _mm_unpacklo_epi8(_mm_loadl_epi64(sptr.add(1) as *const __m128i), z);
+            let s0 = _mm_mullo_epi16(s0, a);
+            let s1 = _mm_mullo_epi16(s1, b);
+            let t = _mm_srai_epi16(_mm_add_epi16(_mm_add_epi16(s0, bias), s1), 3);
+            let mut last = _mm_mullo_epi16(t, c);
+            sptr = sptr.add(sstride);
+            for _ in 0..8 {
+                let s0 = _mm_unpacklo_epi8(_mm_loadl_epi64(sptr as *const __m128i), z);
+                let s1 = _mm_unpacklo_epi8(_mm_loadl_epi64(sptr.add(1) as *const __m128i), z);
+                let s0 = _mm_mullo_epi16(s0, a);
+                let s1 = _mm_mullo_epi16(s1, b);
+                sptr = sptr.add(sstride);
+                let t = _mm_srai_epi16(_mm_add_epi16(_mm_add_epi16(s0, bias), s1), 3);
+                let t1 = _mm_add_epi16(_mm_add_epi16(last, bias), _mm_mullo_epi16(t, d));
+                last = _mm_mullo_epi16(t, c);
+                let out = _mm_srai_epi16(t1, 3);
+                _mm_storel_epi64(dptr as *mut __m128i, _mm_packus_epi16(out, out));
+                dptr = dptr.add(dstride);
+            }
         }
     }
 }
