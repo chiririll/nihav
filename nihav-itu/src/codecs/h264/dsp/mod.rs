@@ -1,5 +1,7 @@
 mod mc;
 pub use mc::H264MC;
+#[cfg(target_arch="x86_64")]
+use std::arch::asm;
 
 pub const CHROMA_QUANTS: [u8; 52] = [
      0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
@@ -963,32 +965,122 @@ fn check_filter(buf: &[u8], off: usize, step: usize, alpha: i16, beta: i16) -> b
     (p0 - q0).abs() < alpha && (p1 - p0).abs() < beta && (q1 - q0).abs() < beta
 }
 
+#[cfg(not(target_arch="x86_64"))]
+fn check_filter4(buf: &[u8], mut off: usize, step: usize, stride: usize, alpha: i16, beta: i16) -> [bool; 4] {
+    let mut flags = [false; 4];
+    for flag in flags.iter_mut() {
+        let p1 = i16::from(buf[off - step * 2]);
+        let p0 = i16::from(buf[off - step]);
+        let q0 = i16::from(buf[off]);
+        let q1 = i16::from(buf[off + step]);
+        *flag = (p0 - q0).abs() < alpha && (p1 - p0).abs() < beta && (q1 - q0).abs() < beta;
+        off += stride;
+    }
+    flags
+}
+
+#[cfg(target_arch="x86_64")]
+fn check_filter4(buf: &[u8], off: usize, step: usize, stride: usize, alpha: i16, beta: i16) -> [bool; 4] {
+    unsafe {
+        let mut flags = [false; 4];
+        let src = buf[off - step * 2..].as_ptr();
+        let load_stride = step.max(stride);
+        let fptr = flags.as_mut_ptr();
+        let tflag = u32::from(step == 1);
+        asm! {
+            // load block
+            "pxor       xmm4, xmm4",
+            "movd       xmm0, dword ptr [{src}]",
+            "lea        {tmp}, [{src} + {stride} * 2]",
+            "movd       xmm1, dword ptr [{src} + {stride}]",
+            "movd       xmm2, dword ptr [{tmp}]",
+            "movd       xmm3, dword ptr [{tmp} + {stride}]",
+            "punpcklbw  xmm0, xmm4",
+            "punpcklbw  xmm1, xmm4",
+            "punpcklbw  xmm2, xmm4",
+            "punpcklbw  xmm3, xmm4",
+
+            // transpose block if necessary so it's always processed by rows
+            "test       {tflag:e}, {tflag:e}",
+            "jz         1f",
+            "punpcklwd  xmm0, xmm1",
+            "movhlps    xmm4, xmm0",
+            "punpcklwd  xmm2, xmm3",
+            "movhlps    xmm1, xmm2",
+            "punpckldq  xmm0, xmm2",
+            "punpckldq  xmm4, xmm1",
+            "movhlps    xmm1, xmm0",
+            "movhlps    xmm3, xmm4",
+            "movaps     xmm2, xmm4",
+            "1:",
+
+            // calculate deltas and flags
+            "movd       xmm4, {alpha:r}",
+            "movd       xmm5, {beta:r}",
+            "psubw      xmm0, xmm1",
+            "psubw      xmm1, xmm2",
+            "psubw      xmm3, xmm2",
+            "pshuflw    xmm4, xmm4, 0",
+            "pshuflw    xmm5, xmm5, 0",
+            "pabsw      xmm0, xmm0", // |p1 - p0|
+            "pabsw      xmm1, xmm1", // |p0 - q0|
+            "pabsw      xmm2, xmm3", // |q1 - q0|
+            "movaps     xmm3, xmm5",
+            "pcmpgtw    xmm4, xmm1",
+            "pcmpgtw    xmm5, xmm0",
+            "pcmpgtw    xmm3, xmm2",
+            "pand       xmm4, xmm5",
+            "pand       xmm4, xmm3",
+            "packsswb   xmm4, xmm4",
+            "movd       [{flags}], xmm4",
+            tmp = out(reg) _,
+            src = in(reg) src,
+            stride = in(reg) load_stride,
+            alpha = in(reg) alpha,
+            beta = in(reg) beta,
+            flags = in(reg) fptr,
+            tflag = in(reg) tflag,
+            out("xmm0") _,
+            out("xmm1") _,
+            out("xmm2") _,
+            out("xmm3") _,
+            out("xmm4") _,
+            out("xmm5") _,
+        }
+        flags
+    }
+}
+
 pub fn loop_filter_lumaedge_v(dst: &mut [u8], mut off: usize, stride: usize, alpha: i16, beta: i16) {
-    for _ in 0..4 {
-        if check_filter(dst, off, 1, alpha, beta) {
+    let flags = check_filter4(dst, off, 1, stride, alpha, beta);
+    for &flag in flags.iter() {
+        if flag {
             loop_filter!(lumaedge; dst, off, 1, alpha, beta);
         }
         off += stride;
     }
 }
 pub fn loop_filter_lumaedge_h(dst: &mut [u8], off: usize, stride: usize, alpha: i16, beta: i16) {
-    for x in 0..4 {
-        if check_filter(dst, off + x, stride, alpha, beta) {
+    let flags = check_filter4(dst, off, stride, 1, alpha, beta);
+    for (x, &flag) in flags.iter().enumerate() {
+        if flag {
             loop_filter!(lumaedge; dst, off + x, stride, alpha, beta);
         }
     }
 }
 pub fn loop_filter_lumanormal_v(dst: &mut [u8], mut off: usize, stride: usize, alpha: i16, beta: i16, tc0: i16) {
-    for _ in 0..4 {
-        if check_filter(dst, off, 1, alpha, beta) {
+    let flags = check_filter4(dst, off, 1, stride, alpha, beta);
+    for &flag in flags.iter() {
+        if flag {
             loop_filter!(lumanormal; dst, off, 1, tc0, beta);
         }
         off += stride;
     }
 }
 pub fn loop_filter_lumanormal_h(dst: &mut [u8], off: usize, stride: usize, alpha: i16, beta: i16, tc0: i16) {
-    for x in 0..4 {
-        if check_filter(dst, off + x, stride, alpha, beta) {
+    let flags = check_filter4(dst, off, stride, 1, alpha, beta);
+    for (x, &flag) in flags.iter().enumerate() {
+        if flag {
             loop_filter!(lumanormal; dst, off + x, stride, tc0, beta);
         }
     }
