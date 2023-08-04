@@ -210,10 +210,8 @@ fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize,
         if !weight.is_weighted() {
             mc_dsp.do_mc(frm, buf, xpos, ypos, w, h, mv);
         } else {
-            let mut ytmp = [0; 16 * 16];
-            let mut utmp = [0; 16 * 16];
-            let mut vtmp = [0; 16 * 16];
-            mc_dsp.mc_blocks(&mut ytmp, &mut utmp, &mut vtmp, buf, xpos, ypos, w, h, mv);
+            let mut tmp = McBlock::new();
+            mc_dsp.mc_blocks(&mut tmp, buf, xpos, ypos, w, h, mv);
 
             let yoff = frm.offset[0] + xpos + ypos * frm.stride[0];
             let yw = if weight.luma_weighted {
@@ -227,7 +225,7 @@ fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize,
                     8 => 2,
                     _ => 3,
                 };
-            (mc_dsp.put_block_weighted[wmode])(&mut frm.data[yoff..], frm.stride[0], &ytmp, h, yw);
+            (mc_dsp.put_block_weighted[wmode])(&mut frm.data[yoff..], frm.stride[0], &tmp.y, h, yw);
 
             for chroma in 0..2 {
                 let cstride = frm.stride[chroma + 1];
@@ -237,7 +235,7 @@ fn do_p_mc(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, w: usize,
                     } else {
                         [1, 0, 0]
                     };
-                let csrc = if chroma == 0 { &utmp } else { &vtmp };
+                let csrc = if chroma == 0 { &tmp.u } else { &tmp.v };
                 (mc_dsp.put_block_weighted[wmode - 1])(&mut frm.data[coff..], cstride, csrc, h / 2, cw);
             }
         }
@@ -289,16 +287,12 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
             },
         };
     } else {
-        let mut ytmp0 = [0x80; 16 * 16];
-        let mut utmp0 = [0x80; 16 * 16];
-        let mut vtmp0 = [0x80; 16 * 16];
-        let mut ytmp1 = [0x80; 16 * 16];
-        let mut utmp1 = [0x80; 16 * 16];
-        let mut vtmp1 = [0x80; 16 * 16];
+        let mut tmp0 = McBlock::new();
+        let mut tmp1 = McBlock::new();
         match (mode, ref_pic0, ref_pic1) {
             (BMode::L0, Some(buf), _) | (BMode::L1, _, Some(buf)) => {
                 let (mv, weight) = if mode == BMode::L0 { (mv0, weight0) } else { (mv1, weight1) };
-                mc_dsp.mc_blocks(&mut ytmp0, &mut utmp0, &mut vtmp0, buf, xpos, ypos, w, h, mv);
+                mc_dsp.mc_blocks(&mut tmp0, buf, xpos, ypos, w, h, mv);
 
                 let yoff = frm.offset[0] + xpos + ypos * frm.stride[0];
                 let yw = if weight.luma_weighted {
@@ -312,7 +306,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
                         8 => 2,
                         _ => 3,
                     };
-                (mc_dsp.put_block_weighted[wmode])(&mut frm.data[yoff..], frm.stride[0], &ytmp0, h, yw);
+                (mc_dsp.put_block_weighted[wmode])(&mut frm.data[yoff..], frm.stride[0], &tmp0.y, h, yw);
 
                 for chroma in 0..2 {
                     let cstride = frm.stride[chroma + 1];
@@ -322,13 +316,13 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
                         } else {
                             [1, 0, 0]
                         };
-                    let csrc = if chroma == 0 { &utmp0 } else { &vtmp0 };
+                    let csrc = if chroma == 0 { &tmp0.u } else { &tmp0.v };
                     (mc_dsp.put_block_weighted[wmode - 1])(&mut frm.data[coff..], cstride, csrc, h / 2, cw);
                 }
             },
             (BMode::Bi, Some(buf0), Some(buf1)) => { // do both and avg
-                mc_dsp.mc_blocks(&mut ytmp0, &mut utmp0, &mut vtmp0, buf0, xpos, ypos, w, h, mv0);
-                mc_dsp.mc_blocks(&mut ytmp1, &mut utmp1, &mut vtmp1, buf1, xpos, ypos, w, h, mv1);
+                mc_dsp.mc_blocks(&mut tmp0, buf0, xpos, ypos, w, h, mv0);
+                mc_dsp.mc_blocks(&mut tmp1, buf1, xpos, ypos, w, h, mv1);
 
                 let yoff = frm.offset[0] + xpos + ypos * frm.stride[0];
                 let yw = match (weight0.luma_weighted, weight1.luma_weighted) {
@@ -343,7 +337,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
                         8 => 2,
                         _ => 3,
                     };
-                (mc_dsp.put_block_weighted2[wmode])(&mut frm.data[yoff..], frm.stride[0], &ytmp0, &ytmp1, h, yw);
+                (mc_dsp.put_block_weighted2[wmode])(&mut frm.data[yoff..], frm.stride[0], &tmp0.y, &tmp1.y, h, yw);
 
                 for chroma in 0..2 {
                     let cstride = frm.stride[chroma + 1];
@@ -358,8 +352,8 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
                             (false, true) => [1 << weight1.luma_shift, 0, cw1, co1, weight1.luma_shift as i8],
                             (false, false) => [1, 0, 1, 0, 0],
                         };
-                    let csrc0 = if chroma == 0 { &utmp0 } else { &vtmp0 };
-                    let csrc1 = if chroma == 0 { &utmp1 } else { &vtmp1 };
+                    let csrc0 = if chroma == 0 { &tmp0.u } else { &tmp0.v };
+                    let csrc1 = if chroma == 0 { &tmp1.u } else { &tmp1.v };
                     (mc_dsp.put_block_weighted2[wmode - 1])(&mut frm.data[coff..], cstride, csrc0, csrc1, h / 2, cw);
                 }
             },

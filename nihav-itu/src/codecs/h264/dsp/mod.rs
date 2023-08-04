@@ -1,5 +1,5 @@
 mod mc;
-pub use mc::H264MC;
+pub use mc::{H264MC, McBlock};
 #[cfg(target_arch="x86_64")]
 use std::arch::asm;
 

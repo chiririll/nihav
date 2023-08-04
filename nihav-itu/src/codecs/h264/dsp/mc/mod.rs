@@ -36,6 +36,22 @@ trait RegisterSIMD {
     fn register_simd(&mut self);
 }
 
+#[repr(align(16))]
+pub struct McBlock {
+    pub y:  [u8; 16 * 16],
+    pub u:  [u8; 16 * 16],
+    pub v:  [u8; 16 * 16],
+}
+
+impl McBlock {
+    pub fn new() -> Self {
+        unsafe {
+            let blk = std::mem::MaybeUninit::uninit();
+            blk.assume_init()
+        }
+    }
+}
+
 #[allow(clippy::type_complexity)]
 pub struct H264MC {
     avg_buf:    NAVideoBufferRef<u8>,
@@ -119,7 +135,7 @@ impl H264MC {
         }
     }
 
-    pub fn mc_blocks(&mut self, ydst: &mut [u8], udst: &mut [u8], vdst: &mut [u8], refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
+    pub fn mc_blocks(&mut self, dst: &mut McBlock, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
         let mode = ((mv.x & 3) + (mv.y & 3) * 4) as usize;
 
         let pre  = if mode != 0 { 2 } else { 0 };
@@ -141,14 +157,14 @@ impl H264MC {
             let edge = (pre + post) as usize;
             edge_emu(&refpic, sx - pre, sy - pre, w + edge, h + edge,
                      &mut ebuf, EBUF_STRIDE, 0, 0);
-            (H264_LUMA_INTERP[wmode][mode])(ydst, 16, &ebuf, EBUF_STRIDE, h);
+            (H264_LUMA_INTERP[wmode][mode])(&mut dst.y, 16, &ebuf, EBUF_STRIDE, h);
         } else {
             let sstride = refpic.get_stride(0);
             let soff    = refpic.get_offset(0);
             let sdta    = refpic.get_data();
             let sbuf: &[u8] = sdta.as_slice();
             let saddr = soff + ((sx - pre) as usize) + ((sy - pre) as usize) * sstride;
-            (H264_LUMA_INTERP[wmode][mode])(ydst, 16, &sbuf[saddr..], sstride, h);
+            (H264_LUMA_INTERP[wmode][mode])(&mut dst.y, 16, &sbuf[saddr..], sstride, h);
         }
 
         let (cw, ch) = (self.width >> 1, self.height >> 1);
@@ -174,8 +190,8 @@ impl H264MC {
                  &src[svoff + (src_x as usize) + (src_y as usize) * svstride..]],
                  [sustride, svstride])
             };
-        (self.chroma_interp[wmode])(udst, 16, csrc[0], cstride[0], dx, dy, cbh);
-        (self.chroma_interp[wmode])(vdst, 16, csrc[1], cstride[1], dx, dy, cbh);
+        (self.chroma_interp[wmode])(&mut dst.u, 16, csrc[0], cstride[0], dx, dy, cbh);
+        (self.chroma_interp[wmode])(&mut dst.v, 16, csrc[1], cstride[1], dx, dy, cbh);
     }
 
     pub fn do_mc_avg(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
