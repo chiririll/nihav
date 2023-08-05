@@ -1,12 +1,10 @@
-/* TODO:
-  * buffer pool for DSP avg frames
-*/
-
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 
 use super::*;
 use super::dispatch::*;
+
+const AVG_BUF_VINFO: NAVideoInfo = NAVideoInfo { width: 32, height: 32, flipped: false, format: YUV420_FORMAT, bits: 12 };
 
 pub struct FrameDecoder {
     pub slices:         Vec<(SliceHeader, usize, SliceRefs, Vec<u8>)>,
@@ -472,6 +470,7 @@ struct H264MTDecoder {
     deblock_skip:   bool,
     max_last_poc:   u32,
     poc_base:       u32,
+    avg_pool:       NAVideoBufferPool<u8>,
 }
 
 impl H264MTDecoder {
@@ -491,6 +490,7 @@ impl H264MTDecoder {
             deblock_skip:   false,
             max_last_poc:   0,
             poc_base:       0,
+            avg_pool:       NAVideoBufferPool::new(8),
         }
     }
     fn handle_nal(&mut self, src: Vec<u8>, supp: &mut NADecoderSupport, skip_decoding: bool, user_id: u32, time: NATimeInfo) -> DecoderResult<()> {
@@ -558,8 +558,13 @@ impl H264MTDecoder {
                     let height = sps.pic_height_in_mbs << 4;
                     let num_mbs = sps.pic_width_in_mbs * sps.pic_height_in_mbs;
 
-                    let avg_vi = NAVideoInfo { width: 32, height: 32, flipped: false, format: YUV420_FORMAT, bits: 12 };
-                    let avg_buf = alloc_video_buffer(avg_vi, 4).unwrap().get_vbuf().unwrap();
+                    let avg_buf = if let Some(buf) = self.avg_pool.get_free() {
+                            buf
+                        } else {
+                            let new_avg_buf = alloc_video_buffer(AVG_BUF_VINFO, 4).unwrap().get_vbuf().unwrap();
+                            self.avg_pool.add_frame(new_avg_buf.clone());
+                            new_avg_buf
+                        };
                     let mut mc_dsp = H264MC::new(avg_buf);
                     mc_dsp.set_dimensions(width, height);
 
@@ -788,6 +793,8 @@ impl NADecoderMT for H264MTDecoder {
             }
             supp.pool_u8.set_dec_bufs(num_bufs + nthreads);
             supp.pool_u8.prealloc_video(NAVideoInfo::new(width, height, false, fmt), 4)?;
+
+            self.avg_pool.prealloc_video(AVG_BUF_VINFO, 4)?;
 
             Ok(())
         } else {
