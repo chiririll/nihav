@@ -490,23 +490,67 @@ impl SliceState {
         let cur_intra     = self.get_cur_mb().mb_type.is_intra();
         let left_intra    = self.get_left_mb().mb_type.is_intra();
         let mut top_intra = self.get_top_mb().mb_type.is_intra();
-        for y in 0..4 {
+
+        let mut coded_cache  = [false; 25];
+        let mut mv_cache     = [[ZERO_MV; 2]; 25];
+        let mut ref_cache    = [[INVALID_REF; 2]; 25];
+
+        if self.mb_y != 0 || self.has_top {
+            for (x, (cc, mv)) in coded_cache[1..5].iter_mut().zip(mv_cache[1..5].iter_mut()).enumerate() {
+                let blk4 = self.get_top_blk4(x);
+                *cc = blk4.ncoded != 0;
+                *mv = blk4.mv;
+                if (x & 1) == 0 {
+                    let blk8 = self.get_top_blk8(x / 2);
+                    ref_cache[x + 1] = blk8.ref_idx;
+                } else {
+                    ref_cache[x + 1] = ref_cache[x];
+                }
+            }
+        }
+        for (y, (ccs, mvs)) in coded_cache[5..].chunks_exact_mut(5).zip(
+                mv_cache[5..].chunks_exact_mut(5)).enumerate() {
+            if self.has_left || self.mb_x != 0 {
+                let blk4 = self.get_left_blk4(y * 4);
+                ccs[0] = blk4.ncoded != 0;
+                mvs[0] = blk4.mv;
+                if (y & 1) == 0 {
+                    let blk8 = self.get_left_blk8(y);
+                    ref_cache[y * 5 + 5] = blk8.ref_idx;
+                } else {
+                    ref_cache[y * 5 + 5] = ref_cache[y * 5];
+                }
+            }
+            for (x, (cc, mv)) in ccs[1..].iter_mut().zip(mvs[1..].iter_mut()).enumerate() {
+                let blk4 = self.get_cur_blk4(x + y * 4);
+                *cc = blk4.ncoded != 0;
+                *mv = blk4.mv;
+                ref_cache[x + 1 + (y + 1) * 5] = if ((x & 1) == 0) && ((y & 1) == 0) {
+                        self.get_cur_blk8(x / 2 + y).ref_idx
+                    } else {
+                        ref_cache[(x & !1) + 1 + ((y & !1) + 1) * 5]
+                    };
+            }
+        }
+
+        for (y, (((top_ccs, cur_ccs), (top_mvs, cur_mvs)), (cur_refs, top_refs))) in
+                coded_cache.chunks_exact(5).take(4).zip(coded_cache[5..].chunks_exact(5)).zip(
+                    mv_cache.chunks_exact(5).zip(mv_cache[5..].chunks_exact(5))).zip(
+                ref_cache[5..].chunks_exact(5).zip(ref_cache.chunks_exact(5))).enumerate() {
             let can_do_top = y != 0 || (self.mb_y != 0 && (self.has_top || deblock_mode != 2));
             if can_do_top && (!tx8x8 || (y & 1) == 0) {
                 if is_s || cur_intra || top_intra {
                     let val = if y == 0 { 0x40 } else { 0x30 };
                     for el in self.deblock[y * 4..][..4].iter_mut() { *el |= val; }
                 } else {
-                    for x in 0..4 {
-                        let blk4 = x + y * 4;
-                        let blk8 = x / 2 + (y / 2) * 2;
-                        if self.get_cur_blk4(blk4).ncoded != 0 || self.get_top_blk4(blk4).ncoded != 0 {
+                    for (x, (((&cur_cc, &top_cc), (cur_mv, top_mv)), (&cur_ref, &top_ref))) in
+                            cur_ccs[1..].iter().zip(top_ccs[1..].iter()).zip(
+                                cur_mvs[1..].iter().zip(top_mvs[1..].iter())).zip(
+                            cur_refs[1..].iter().zip(
+                                top_refs[1..].iter())).take(4).enumerate() {
+                        if cur_cc || top_cc {
                             self.deblock[y * 4 + x] |= 0x20;
                         } else {
-                            let cur_mv = self.get_cur_blk4(blk4).mv;
-                            let top_mv = self.get_top_blk4(blk4).mv;
-                            let cur_ref = self.get_cur_blk8(blk8).ref_idx;
-                            let top_ref = if (y & 1) == 0 { self.get_top_blk8(blk8).ref_idx } else { cur_ref };
                             if mvdiff4(cur_mv[0], top_mv[0]) || mvdiff4(cur_mv[1], top_mv[1]) || !frefs.cmp_refs(cur_ref, top_ref) {
                                 self.deblock[y * 4 + x] |= 0x10;
                             }
@@ -515,24 +559,21 @@ impl SliceState {
                 }
             }
             let mut lleft_intra = left_intra;
-            for x in 0..4 {
+            for (x, (((&cur_cc, &left_cc), (cur_mv, left_mv)), (&cur_ref, &left_ref))) in
+                    cur_ccs[1..].iter().zip(cur_ccs.iter()).zip(
+                        cur_mvs[1..].iter().zip(cur_mvs.iter())).zip(
+                    cur_refs[1..].iter().zip(cur_refs.iter())).enumerate() {
                 let skip_8 = tx8x8 && (x & 1) != 0;
                 let can_do_left = x > 0 || self.has_left || (self.mb_x != 0 && deblock_mode != 2);
                 if !can_do_left {
                     continue;
                 }
-                let blk4 = x + y * 4;
-                let blk8 = x / 2 + (y / 2) * 2;
                 if skip_8 {
                 } else if is_s || cur_intra || lleft_intra {
                     self.deblock[y * 4 + x] |= if x == 0 { 4 } else { 3 };
-                } else if self.get_cur_blk4(blk4).ncoded != 0 || self.get_left_blk4(blk4).ncoded != 0 {
+                } else if cur_cc || left_cc {
                     self.deblock[y * 4 + x] |= 2;
                 } else {
-                    let cur_mv  = self.get_cur_blk4(blk4).mv;
-                    let left_mv = self.get_left_blk4(blk4).mv;
-                    let cur_ref  = self.get_cur_blk8(blk8).ref_idx;
-                    let left_ref = if (x & 1) == 0 { self.get_left_blk8(blk8).ref_idx } else { cur_ref };
                     if mvdiff4(cur_mv[0], left_mv[0]) || mvdiff4(cur_mv[1], left_mv[1]) || !frefs.cmp_refs(cur_ref, left_ref) {
                         self.deblock[y * 4 + x] |= 1;
                     }
