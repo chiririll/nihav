@@ -235,8 +235,10 @@ impl<'a> CABAC<'a> {
     pub fn decode_012(&mut self, start: usize) -> u8 {
         if !self.decode_bit(start) {
             0
+        } else if !self.decode_bit(start + 1) {
+            1
         } else {
-            self.decode_bit(start + 1) as u8 + 1
+            2
         }
     }
     fn refill(&mut self) {

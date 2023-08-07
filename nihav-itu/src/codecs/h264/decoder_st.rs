@@ -362,25 +362,29 @@ println!("PAFF?");
                 mb_info.coeffs[i][0] = mb_info.coeffs[24][i];
             }
         }
-        if !mb_info.transform_size_8x8 {
-            let quant_dc = !mb_info.mb_type.is_intra16x16();
-            for i in 0..16 {
-                if mb_info.coded[i] {
-                    if !tx_bypass {
-                        idct(&mut mb_info.coeffs[i], qp_y, quant_dc);
+        if !tx_bypass {
+            if !mb_info.transform_size_8x8 {
+                let quant_dc = !mb_info.mb_type.is_intra16x16();
+                for (coded, coeffs) in mb_info.coded[..16].iter_mut().zip(mb_info.coeffs[..16].iter_mut()) {
+                    if *coded {
+                        idct(coeffs, qp_y, quant_dc);
+                    } else if has_dc {
+                        idct_dc(coeffs, qp_y, quant_dc);
+                        *coded = true;
                     }
-                } else if has_dc {
-                    if !tx_bypass {
-                        idct_dc(&mut mb_info.coeffs[i], qp_y, quant_dc);
+                }
+            } else {
+                for i in 0..4 {
+                    if mb_info.coded[(i & 1) * 2 + (i & 2) * 4] {
+                        dequant8x8(&mut mb_info.coeffs8x8[i].coeffs, &pps.scaling_list_8x8[!mb_info.mb_type.is_intra() as usize]);
+                        idct8x8(&mut mb_info.coeffs8x8[i].coeffs, qp_y);
                     }
-                    mb_info.coded[i] = true;
                 }
             }
-        } else {
-            for i in 0..4 {
-                if mb_info.coded[(i & 1) * 2 + (i & 2) * 4] && !tx_bypass {
-                    dequant8x8(&mut mb_info.coeffs8x8[i].coeffs, &pps.scaling_list_8x8[!mb_info.mb_type.is_intra() as usize]);
-                    idct8x8(&mut mb_info.coeffs8x8[i].coeffs, qp_y);
+        } else if !mb_info.transform_size_8x8 {
+            for i in 0..16 {
+                if !mb_info.coded[i] && has_dc {
+                    mb_info.coded[i] = true;
                 }
             }
         }

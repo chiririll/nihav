@@ -130,7 +130,7 @@ pub fn idct_luma_dc(blk: &mut [i16; 16], qp: u8) {
     for i in 0..4 {
         transform!(luma_dc; blk[i], blk[i + 4], blk[i + 8], blk[i + 12]);
     }
-    for row in blk.chunks_mut(4) {
+    for row in blk.chunks_exact_mut(4) {
         transform!(luma_dc; row[0], row[1], row[2], row[3]);
     }
 }
@@ -148,7 +148,7 @@ pub fn idct(blk: &mut [i16; 16], qp: u8, quant_dc: bool) {
     for (el, &idx) in blk.iter_mut().zip(BLK_INDEX.iter()).skip(start) {
         *el = (*el * LEVEL_SCALE[idx][qidx]) << shift;
     }
-    for row in blk.chunks_mut(4) {
+    for row in blk.chunks_exact_mut(4) {
         transform!(row[0], row[1], row[2], row[3], 0);
     }
     for i in 0..4 {
@@ -228,7 +228,7 @@ pub fn idct8x8(blk: &mut [i16; 64], qp: u8) {
             *dst = i32::from(src).wrapping_mul(i32::from(qmat[idx])).wrapping_add(bias) >> shift;
         }
     }
-    for row in tmp.chunks_mut(8) {
+    for row in tmp.chunks_exact_mut(8) {
         transform!(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]);
     }
     for col in 0..8 {
@@ -242,7 +242,7 @@ pub fn idct8x8(blk: &mut [i16; 64], qp: u8) {
 
 pub fn add_coeffs(dst: &mut [u8], offset: usize, stride: usize, coeffs: &[i16]) {
     let out = &mut dst[offset..][..stride * 3 + 4];
-    for (line, src) in out.chunks_mut(stride).take(4).zip(coeffs.chunks(4)) {
+    for (line, src) in out.chunks_mut(stride).take(4).zip(coeffs.chunks_exact(4)) {
         for (dst, src) in line.iter_mut().take(4).zip(src.iter()) {
             *dst = (i32::from(*dst) + i32::from(*src)).max(0).min(255) as u8;
         }
@@ -251,7 +251,7 @@ pub fn add_coeffs(dst: &mut [u8], offset: usize, stride: usize, coeffs: &[i16]) 
 
 pub fn add_coeffs8(dst: &mut [u8], offset: usize, stride: usize, coeffs: &[i16; 64]) {
     let out = &mut dst[offset..];
-    for (line, src) in out.chunks_mut(stride).take(8).zip(coeffs.chunks(8)) {
+    for (line, src) in out.chunks_mut(stride).take(8).zip(coeffs.chunks_exact(8)) {
         for (dst, src) in line.iter_mut().take(8).zip(src.iter()) {
             *dst = (i32::from(*dst) + i32::from(*src)).max(0).min(255) as u8;
         }

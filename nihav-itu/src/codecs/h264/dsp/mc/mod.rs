@@ -273,7 +273,7 @@ fn put_block_weighted(dst: &mut [u8], stride: usize, src: &[u8], w: usize, h: us
     let wshift = wparams[2] as u8;
     let bias = (1 << wshift) >> 1;
 
-    for (drow, srow) in dst.chunks_mut(stride).zip(src.chunks(16)).take(h) {
+    for (drow, srow) in dst.chunks_mut(stride).zip(src.chunks_exact(16)).take(h) {
         for (dst, &src) in drow[..w].iter_mut().zip(srow.iter()) {
             *dst = clip_u8(((i16::from(src) * weight + bias) >> wshift) + offset);
         }
@@ -302,7 +302,7 @@ fn put_block_weighted2(dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], 
     let offset = (offset0 + offset1 + 1) >> 1;
     let bias = (1 << wshift) >> 1;
 
-    for (drow, (srow0, srow1)) in dst.chunks_mut(stride).zip(src0.chunks(16).zip(src1.chunks(16))).take(h) {
+    for (drow, (srow0, srow1)) in dst.chunks_mut(stride).zip(src0.chunks_exact(16).zip(src1.chunks_exact(16))).take(h) {
         for (dst, (&src0, &src1)) in drow[..w].iter_mut().zip(srow0.iter().zip(srow1.iter())) {
             *dst = clip_u8(((i16::from(src0) * weight0 + i16::from(src1) * weight1 + bias) >> wshift) + offset);
         }

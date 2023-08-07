@@ -551,7 +551,7 @@ impl SliceState {
                         if cur_cc || top_cc {
                             self.deblock[y * 4 + x] |= 0x20;
                         } else {
-                            if mvdiff4(cur_mv[0], top_mv[0]) || mvdiff4(cur_mv[1], top_mv[1]) || !frefs.cmp_refs(cur_ref, top_ref) {
+                            if mvdiff4(cur_mv, top_mv) || !frefs.cmp_refs(cur_ref, top_ref) {
                                 self.deblock[y * 4 + x] |= 0x10;
                             }
                         }
@@ -574,7 +574,7 @@ impl SliceState {
                 } else if cur_cc || left_cc {
                     self.deblock[y * 4 + x] |= 2;
                 } else {
-                    if mvdiff4(cur_mv[0], left_mv[0]) || mvdiff4(cur_mv[1], left_mv[1]) || !frefs.cmp_refs(cur_ref, left_ref) {
+                    if mvdiff4(cur_mv, left_mv) || !frefs.cmp_refs(cur_ref, left_ref) {
                         self.deblock[y * 4 + x] |= 1;
                     }
                 }
@@ -917,7 +917,27 @@ impl SliceState {
     }
 }
 
-fn mvdiff4(mv1: MV, mv2: MV) -> bool {
-    let mv = mv1 - mv2;
-    (mv.x.abs() >= 4) || (mv.y.abs() >= 4)
+#[cfg(not(target_arch="x86_64"))]
+fn mvdiff4(mv1: &[MV; 2], mv2: &[MV; 2]) -> bool {
+    let mvd0 = mv1[0] - mv2[0];
+    let mvd1 = mv1[1] - mv2[1];
+    (mvd0.x.abs() >= 4) || (mvd0.y.abs() >= 4) || (mvd1.x.abs() >= 4) || (mvd1.y.abs() >= 4)
+}
+
+#[cfg(target_arch="x86_64")]
+fn mvdiff4(mv1: &[MV; 2], mv2: &[MV; 2]) -> bool {
+    unsafe {
+        let mut flag = false;
+        let ptr = std::mem::transmute::<*const MV, *const u64>(mv1.as_ptr());
+        let mut m0 = *ptr;
+        let ptr = std::mem::transmute::<*const MV, *const u64>(mv2.as_ptr());
+        let mut m1 = *ptr;
+        for _ in 0..4 {
+            let tmp = m0.wrapping_sub(m1) as u16;
+            flag |= tmp.wrapping_add(3) > 6;
+            m0 >>= 16;
+            m1 >>= 16;
+        }
+        flag
+    }
 }

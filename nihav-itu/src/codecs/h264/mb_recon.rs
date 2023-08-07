@@ -364,7 +364,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u8>, mode: BMode, xpos: usize, ypos: usi
     }
 }
 
-fn do_b_mc_4x4bi(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, mv: [MV; 2], ref_pic0: Option<NAVideoBufferRef<u8>>, weight0: &WeightInfo, ref_pic1: Option<NAVideoBufferRef<u8>>, weight1: &WeightInfo, mc_dsp: &mut H264MC) {
+fn do_b_mc_4x4bi(frm: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize, mv: &[MV; 2], ref_pic0: Option<NAVideoBufferRef<u8>>, weight0: &WeightInfo, ref_pic1: Option<NAVideoBufferRef<u8>>, weight1: &WeightInfo, mc_dsp: &mut H264MC) {
     if !weight0.is_weighted() || !weight1.is_weighted() {
         match (ref_pic0, ref_pic1) {
             (Some(buf0), Some(buf1)) => {
@@ -585,11 +585,11 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
                 do_b_mc(frm, BMode::Bi, xpos, ypos, 16, 16, mv[0], rpic0, &weight0, mv[1], rpic1, &weight1, mc_dsp);
             } else {
                 for blk4 in 0..16 {
-                    let mv = sstate.get_cur_blk4(blk4).mv;
                     let ref_idx = sstate.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx;
                     let rpic0 = frame_refs.select_ref_pic(0, ref_idx[0].index());
                     let rpic1 = frame_refs.select_ref_pic(1, ref_idx[1].index());
                     let (weight0, weight1) = get_weights(slice_hdr, frame_refs, BMode::Bi, weight_mode, ref_idx[0], ref_idx[1]);
+                    let mv = &sstate.get_cur_blk4(blk4).mv;
                     do_b_mc_4x4bi(frm, xpos + (blk4 & 3) * 4, ypos + (blk4 >> 2) * 4, mv, rpic0, &weight0, rpic1, &weight1, mc_dsp);
                 }
             }
@@ -607,11 +607,11 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
                 match subtype {
                     SubMBType::Direct8x8 => {
                         for blk in 0..4 {
-                            let mv = sstate.get_cur_blk4(bx / 4 + (by / 4) * 4).mv;
                             let ref_idx = sstate.get_cur_blk8(bx / 8 + (by / 8) * 2).ref_idx;
                             let rpic0 = frame_refs.select_ref_pic(0, ref_idx[0].index());
                             let rpic1 = frame_refs.select_ref_pic(1, ref_idx[1].index());
                             let (weight0, weight1) = get_weights(slice_hdr, frame_refs, BMode::Bi, weight_mode, ref_idx[0], ref_idx[1]);
+                            let mv = &sstate.get_cur_blk4(bx / 4 + (by / 4) * 4).mv;
                             do_b_mc_4x4bi(frm, xpos + bx, ypos + by, mv, rpic0, &weight0, rpic1, &weight1, mc_dsp);
                             bx += 4;
                             if blk == 1 {
