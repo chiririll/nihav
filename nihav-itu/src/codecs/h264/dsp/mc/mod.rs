@@ -1,6 +1,6 @@
 use nihav_core::frame::*;
 use nihav_codec_support::codecs::MV;
-use nihav_codec_support::codecs::blockdsp::*;
+use super::super::SimpleFrame;
 
 macro_rules! module_selector {
     ($( ($cond:meta, $module:ident) ),*) => {
@@ -81,7 +81,7 @@ impl H264MC {
         self.width  = width;
         self.height = height;
     }
-    pub fn do_mc(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
+    pub fn do_mc(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: &SimpleFrame, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
         let mut ebuf = [0u8; 22 * 22];
         let mvx = mv.x >> 2;
         let mvy = mv.y >> 2;
@@ -89,16 +89,16 @@ impl H264MC {
         let pre  = if mode != 0 { 2isize } else { 0 };
         let post = if mode != 0 { 3isize } else { 0 };
         let (yw, yh) = (self.width, self.height);
-        let src = refpic.get_data();
-        let systride = refpic.get_stride(0);
+        let src = refpic.data;
+        let systride = refpic.stride[0];
         let src_x = (xpos as isize) + (mvx as isize);
         let src_y = (ypos as isize) + (mvy as isize);
         let (ysrc, ystride) = if (src_x - pre < 0) || (src_x + (w as isize) + post > (yw as isize)) || (src_y - pre < 0) || (src_y + (h as isize) + post > (yh as isize)) {
                 let add = (pre + post) as usize;
-                edge_emu(&refpic, src_x - pre, src_y - pre, w + add, h + add, &mut ebuf, 22, 0, 0);
+                edge_emu_sf(refpic, src_x - pre, src_y - pre, yw, yh, w + add, h + add, &mut ebuf, 22, 0);
                 (&ebuf[..], 22)
             } else {
-                (&src[refpic.get_offset(0) + ((src_x - pre) as usize) + ((src_y - pre) as usize) * systride..], systride)
+                (&src[refpic.offset[0] + ((src_x - pre) as usize) + ((src_y - pre) as usize) * systride..], systride)
             };
         let wmode = match w {
                 4 => 0,
@@ -114,15 +114,17 @@ impl H264MC {
         let dy = (mv.y & 7) as u16;
         let src_x = ((xpos >> 1) as isize) + (mvx as isize);
         let src_y = ((ypos >> 1) as isize) + (mvy as isize);
-        let suoff = refpic.get_offset(1);
-        let svoff = refpic.get_offset(2);
-        let sustride = refpic.get_stride(1);
-        let svstride = refpic.get_stride(2);
+        let suoff = refpic.offset[1];
+        let svoff = refpic.offset[2];
+        let sustride = refpic.stride[1];
+        let svstride = refpic.stride[2];
         let cbw = w / 2;
         let cbh = h / 2;
         let (csrc, cstride) = if (src_x < 0) || (src_x + (cbw as isize) + 1 > (cw as isize)) || (src_y < 0) || (src_y + (cbh as isize) + 1 > (ch as isize)) {
-                edge_emu(&refpic, src_x, src_y, cbw+1, cbh+1, &mut ebuf,      18, 1, 4);
-                edge_emu(&refpic, src_x, src_y, cbw+1, cbh+1, &mut ebuf[9..], 18, 2, 4);
+                let aw = (cw + 7) & !7;
+                let ah = (ch + 7) & !7;
+                edge_emu_sf(refpic, src_x, src_y, aw, ah, cbw+1, cbh+1, &mut ebuf,      18, 1);
+                edge_emu_sf(refpic, src_x, src_y, aw, ah, cbw+1, cbh+1, &mut ebuf[9..], 18, 2);
                 ([&ebuf, &ebuf[9..]], [18, 18])
             } else {
                 ([&src[suoff + (src_x as usize) + (src_y as usize) * sustride..],
@@ -135,7 +137,7 @@ impl H264MC {
         }
     }
 
-    pub fn mc_blocks(&mut self, dst: &mut McBlock, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
+    pub fn mc_blocks(&mut self, dst: &mut McBlock, refpic: &SimpleFrame, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
         let mode = ((mv.x & 3) + (mv.y & 3) * 4) as usize;
 
         let pre  = if mode != 0 { 2 } else { 0 };
@@ -155,14 +157,13 @@ impl H264MC {
         if (sx - pre < 0) || (sx + (w as isize) + post > (width as isize)) ||
            (sy - pre < 0) || (sy + (h as isize) + post > (height as isize)) {
             let edge = (pre + post) as usize;
-            edge_emu(&refpic, sx - pre, sy - pre, w + edge, h + edge,
-                     &mut ebuf, EBUF_STRIDE, 0, 0);
+            edge_emu_sf(refpic, sx - pre, sy - pre, width, height, w + edge, h + edge,
+                     &mut ebuf, EBUF_STRIDE, 0);
             (H264_LUMA_INTERP[wmode][mode])(&mut dst.y, 16, &ebuf, EBUF_STRIDE, h);
         } else {
-            let sstride = refpic.get_stride(0);
-            let soff    = refpic.get_offset(0);
-            let sdta    = refpic.get_data();
-            let sbuf: &[u8] = sdta.as_slice();
+            let sstride = refpic.stride[0];
+            let soff    = refpic.offset[0];
+            let sbuf    = refpic.data;
             let saddr = soff + ((sx - pre) as usize) + ((sy - pre) as usize) * sstride;
             (H264_LUMA_INTERP[wmode][mode])(&mut dst.y, 16, &sbuf[saddr..], sstride, h);
         }
@@ -174,16 +175,18 @@ impl H264MC {
         let dy = (mv.y & 7) as u16;
         let src_x = ((xpos >> 1) as isize) + (mvx as isize);
         let src_y = ((ypos >> 1) as isize) + (mvy as isize);
-        let suoff = refpic.get_offset(1);
-        let svoff = refpic.get_offset(2);
-        let sustride = refpic.get_stride(1);
-        let svstride = refpic.get_stride(2);
-        let src = refpic.get_data();
+        let suoff = refpic.offset[1];
+        let svoff = refpic.offset[2];
+        let sustride = refpic.stride[1];
+        let svstride = refpic.stride[2];
+        let src = refpic.data;
         let cbw = w / 2;
         let cbh = h / 2;
         let (csrc, cstride) = if (src_x < 0) || (src_x + (cbw as isize) + 1 > (cw as isize)) || (src_y < 0) || (src_y + (cbh as isize) + 1 > (ch as isize)) {
-                edge_emu(&refpic, src_x, src_y, cbw+1, cbh+1, &mut ebuf,      18, 1, 4);
-                edge_emu(&refpic, src_x, src_y, cbw+1, cbh+1, &mut ebuf[9..], 18, 2, 4);
+                let aw = (cw + 7) & !7;
+                let ah = (ch + 7) & !7;
+                edge_emu_sf(refpic, src_x, src_y, aw, ah, cbw+1, cbh+1, &mut ebuf,      18, 1);
+                edge_emu_sf(refpic, src_x, src_y, aw, ah, cbw+1, cbh+1, &mut ebuf[9..], 18, 2);
                 ([&ebuf, &ebuf[9..]], [18, 18])
             } else {
                 ([&src[suoff + (src_x as usize) + (src_y as usize) * sustride..],
@@ -194,7 +197,7 @@ impl H264MC {
         (self.chroma_interp[wmode])(&mut dst.v, 16, csrc[1], cstride[1], dx, dy, cbh);
     }
 
-    pub fn do_mc_avg(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
+    pub fn do_mc_avg(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: &SimpleFrame, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
         let mut abuf = self.avg_buf.clone();
         let mut afrm = NASimpleVideoFrame::from_video_buf(&mut abuf).unwrap();
         let amv = MV { x: mv.x + (xpos as i16) * 4, y: mv.y + (ypos as i16) * 4 };
@@ -229,6 +232,27 @@ impl H264MC {
                     *el = 128;
                 }
             }
+        }
+    }
+}
+
+fn edge_emu_sf(src: &SimpleFrame, xpos: isize, ypos: isize, w: usize, h: usize, bw: usize, bh: usize, dst: &mut [u8], dstride: usize, comp: usize) {
+    let stride = src.stride[comp];
+    let offs   = src.offset[comp];
+    let framebuf = src.data;
+
+    for y in 0..bh {
+        let srcy;
+        if (y as isize) + ypos < 0 { srcy = 0; }
+        else if (y as isize) + ypos >= (h as isize) { srcy = h - 1; }
+        else { srcy = ((y as isize) + ypos) as usize; }
+
+        for x in 0..bw {
+            let srcx;
+            if (x as isize) + xpos < 0 { srcx = 0; }
+            else if (x as isize) + xpos >= (w as isize) { srcx = w - 1; }
+            else { srcx = ((x as isize) + xpos) as usize; }
+            dst[x + y * dstride] = framebuf[offs + srcx + srcy * stride];
         }
     }
 }

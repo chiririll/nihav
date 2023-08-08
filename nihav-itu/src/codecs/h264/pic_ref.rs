@@ -56,6 +56,7 @@ pub struct SliceRefs {
     pub cur_id:     u32,
 }
 
+#[allow(dead_code)]
 impl SliceRefs {
     pub fn get_ref_id(&self, list_id: u8, ref_id: usize) -> Option<u32> {
         let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
@@ -90,6 +91,139 @@ impl SliceRefs {
                 if (pic.full_id as u16) == ref0_id {
                     r0_idx = i as u8;
                     long = pic.long_term.is_some();
+                    break;
+                }
+            }
+        }
+        (PicRef::new(r0_idx), long)
+    }
+    pub fn map_refs(&self, ref_idx: [PicRef; 2]) -> [u16; 2] {
+        let r0 = ref_idx[0].index();
+        let r1 = ref_idx[1].index();
+        let ref0 = if r0 < self.ref_list0.len() {
+                if let Some(ref pic) = self.ref_list0[r0] {
+                    pic.full_id as u16
+                } else {
+                    MISSING_POC
+                }
+            } else {
+                MISSING_POC
+            };
+        let ref1 = if r1 < self.ref_list1.len() {
+                if let Some(ref pic) = self.ref_list1[r1] {
+                    pic.full_id as u16
+                } else {
+                    MISSING_POC
+                }
+            } else {
+                MISSING_POC
+            };
+        [ref0, ref1]
+    }
+    pub fn cmp_refs(&self, ref1: [PicRef; 2], ref2: [PicRef; 2]) -> bool {
+        if ref1 != ref2 {
+            self.cmp_ref(ref1[0], ref2[0], 0) && self.cmp_ref(ref1[1], ref2[1], 1)
+        } else {
+            true
+        }
+    }
+    fn cmp_ref(&self, ref1: PicRef, ref2: PicRef, list: u8) -> bool {
+        if ref1 == ref2 {
+            true
+        } else {
+            let idx0 = ref1.index();
+            let idx1 = ref2.index();
+            if idx0 == idx1 {
+                return true;
+            }
+            let src = if list == 0 { &self.ref_list0 } else { &self.ref_list1 };
+            if idx0 >= src.len() || idx1 >= src.len() {
+//panic!("wrong refs");
+                return false;
+            }
+            if let (Some(ref pic0), Some(ref pic1)) = (&src[idx0], &src[idx1]) {
+                pic0.full_id == pic1.full_id
+            } else {
+//panic!("missing pics");
+                false
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct SimplePictureInfo<'a> {
+    pub full_id:    u32,
+    pub buf:        SimpleFrame<'a>,
+    pub long_term:  bool,
+    pub mv_info:    &'a FrameMV,
+}
+
+#[derive(Clone)]
+pub struct SimplifiedSliceRefs<'a> {
+    pub ref_list0:  Vec<Option<SimplePictureInfo<'a>>>,
+    pub ref_list1:  Vec<Option<SimplePictureInfo<'a>>>,
+    pub cur_id:     u32,
+}
+
+impl<'a> SimplifiedSliceRefs<'a> {
+    pub fn new(srefs: &'a SliceRefs) -> Self {
+        let mut ref_list0 = Vec::with_capacity(srefs.ref_list0.len());
+        let mut ref_list1 = Vec::with_capacity(srefs.ref_list1.len());
+        for entry in srefs.ref_list0.iter() {
+            ref_list0.push(entry.as_ref().map(|pic| SimplePictureInfo {
+                        full_id:    pic.full_id,
+                        buf:        SimpleFrame::new(&pic.buf),
+                        long_term:  pic.long_term.is_some(),
+                        mv_info:    &pic.mv_info,
+                    }));
+        }
+        for entry in srefs.ref_list1.iter() {
+            ref_list1.push(entry.as_ref().map(|pic| SimplePictureInfo {
+                        full_id:    pic.full_id,
+                        buf:        SimpleFrame::new(&pic.buf),
+                        long_term:  pic.long_term.is_some(),
+                        mv_info:    &pic.mv_info,
+                    }));
+        }
+        Self {
+            cur_id: srefs.cur_id,
+            ref_list0, ref_list1
+        }
+    }
+    pub fn get_ref_id(&self, list_id: u8, ref_id: usize) -> Option<u32> {
+        let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
+        if ref_list.len() > ref_id {
+            ref_list[ref_id].as_ref().map(|pic| pic.full_id)
+        } else {
+            None
+        }
+    }
+    pub fn select_ref_pic(&self, list_id: u8, ref_id: usize) -> Option<&SimpleFrame> {
+        let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
+        if ref_list.len() > ref_id {
+            ref_list[ref_id].as_ref().map(|pic| &pic.buf)
+        } else {
+            None
+        }
+    }
+    pub fn get_colocated_info(&self, mb_x: usize, mb_y: usize) -> (FrameMBInfo, u16, bool) {
+        if let Some(ref ref_pic) = &self.ref_list1[0] {
+            let mv_info = ref_pic.mv_info;
+            let mb = mv_info.mbs[mb_x + mb_y * mv_info.mb_stride];
+            (mb, ref_pic.full_id as u16, ref_pic.long_term)
+        } else {
+            (FrameMBInfo::default(), 0, false)
+        }
+    }
+    pub fn map_ref0(&self, ref0_id: u16) -> (PicRef, bool) {
+        let mut r0_idx = 0;
+        let mut long = false;
+        for (i, rpic0) in self.ref_list0.iter().enumerate() {
+            if let Some(ref pic) = rpic0 {
+                if (pic.full_id as u16) == ref0_id {
+                    r0_idx = i as u8;
+                    long = pic.long_term;
                     break;
                 }
             }

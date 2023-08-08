@@ -277,7 +277,7 @@ println!("PAFF?");
 
         Ok(())
     }
-    fn pred_mv(sstate: &mut SliceState, frame_refs: &SliceRefs, mb_info: &mut CurrentMBInfo, cur_id: u16, temporal_mv: bool, direct_8x8: bool) {
+    fn pred_mv(sstate: &mut SliceState, frame_refs: &SimplifiedSliceRefs, mb_info: &mut CurrentMBInfo, cur_id: u16, temporal_mv: bool, direct_8x8: bool) {
         let mb_type = mb_info.mb_type;
         if !mb_type.is_4x4() {
             let (pw, ph) = mb_type.size();
@@ -337,7 +337,7 @@ println!("PAFF?");
         }
     }
     #[allow(clippy::cognitive_complexity)]
-    fn handle_macroblock(&mut self, slice_hdr: &SliceHeader, mb_info: &mut CurrentMBInfo) {
+    fn handle_macroblock(&mut self, slice_hdr: &SliceHeader, mb_info: &mut CurrentMBInfo, slice_refs: &SimplifiedSliceRefs) {
         let pps = &self.pps[self.cur_pps];
 
         let qp_y = mb_info.qp_y;
@@ -408,7 +408,7 @@ println!("PAFF?");
             self.sstate.reset_mb_mv();
         }
         if !mb_info.mb_type.is_intra() {
-            Self::pred_mv(&mut self.sstate, &self.frame_refs.cur_refs, mb_info, self.cur_id, self.temporal_mv, self.sps[self.cur_sps].direct_8x8_inference);
+            Self::pred_mv(&mut self.sstate, slice_refs, mb_info, self.cur_id, self.temporal_mv, self.sps[self.cur_sps].direct_8x8_inference);
         }
         if !pps.constrained_intra_pred && mb_info.mb_type != MBType::Intra4x4 && mb_info.mb_type != MBType::Intra8x8 {
             self.sstate.fill_ipred(IntraPredMode::DC);
@@ -426,7 +426,7 @@ println!("PAFF?");
                     } else {
                         0
                     };
-                recon_mb(&mut frm, slice_hdr, mb_info, &mut self.sstate, &self.frame_refs.cur_refs, &mut self.mc_dsp, weight_mode);
+                recon_mb(&mut frm, slice_hdr, mb_info, &mut self.sstate, slice_refs, &mut self.mc_dsp, weight_mode);
             } else {
                 for (dline, src) in frm.data[frm.offset[0] + xpos + ypos * frm.stride[0]..].chunks_mut(frm.stride[0]).take(16).zip(self.ipcm_buf.chunks(16)) {
                     dline[..16].copy_from_slice(src);
@@ -460,13 +460,13 @@ _ => {},
                 mb.mv[blk4] = self.sstate.get_cur_blk4(blk4).mv;
             }
             for blk8 in 0..4 {
-                mb.ref_poc[blk8] = self.frame_refs.cur_refs.map_refs(self.sstate.get_cur_blk8(blk8).ref_idx);
+                mb.ref_poc[blk8] = slice_refs.map_refs(self.sstate.get_cur_blk8(blk8).ref_idx);
                 mb.ref_idx[blk8] = self.sstate.get_cur_blk8(blk8).ref_idx;
             }
             mv_info.mbs[mb_pos] = mb;
         }
         if !self.deblock_skip && self.deblock_mode != 1 {
-            self.sstate.fill_deblock(&self.frame_refs.cur_refs, self.deblock_mode, self.is_s);
+            self.sstate.fill_deblock(slice_refs, self.deblock_mode, self.is_s);
             if let Some(ref mut pic) = self.cur_pic {
                 let mut frm = NASimpleVideoFrame::from_video_buf(&mut pic.buf).unwrap();
                 loop_filter_mb(&mut frm, &self.sstate, self.lf_alpha, self.lf_beta);
@@ -489,6 +489,10 @@ _ => {},
         let mut mb_idx = slice_hdr.first_mb_in_slice;
         let mut mb_info = CurrentMBInfo { qp_y: slice_hdr.slice_qp, ..Default::default() };
         let skip_type = if slice_hdr.slice_type.is_p() { MBType::PSkip } else { MBType::BSkip };
+
+        let slice_refs = self.frame_refs.cur_refs.clone();
+        let sslice_refs = SimplifiedSliceRefs::new(&slice_refs);
+
         while br.tell() < full_size && mb_idx < self.num_mbs {
             mb_info.coded = [false; 25];
             mb_info.ref_l0 = [ZERO_REF; 4];
@@ -504,7 +508,7 @@ _ => {},
                 validate!(mb_idx + mb_skip_run <= self.num_mbs);
                 mb_info.mb_type = skip_type;
                 for _ in 0..mb_skip_run {
-                    self.handle_macroblock(slice_hdr, &mut mb_info);
+                    self.handle_macroblock(slice_hdr, &mut mb_info, &sslice_refs);
                     mb_idx += 1;
                 }
                 if mb_idx == self.num_mbs || br.tell() >= full_size {
@@ -570,7 +574,7 @@ _ => {},
                         decode_residual_cavlc(br, &mut self.sstate, &mut mb_info, &self.cavlc_cb)?;
                     }
                 }
-                self.handle_macroblock(slice_hdr, &mut mb_info);
+                self.handle_macroblock(slice_hdr, &mut mb_info, &sslice_refs);
             }
             mb_idx += 1;
         }
@@ -586,6 +590,9 @@ _ => {},
         let mut last_qp_diff = false;
 
         let mut mb_info = CurrentMBInfo { qp_y: slice_hdr.slice_qp, ..Default::default() };
+
+        let slice_refs = self.frame_refs.cur_refs.clone();
+        let sslice_refs = SimplifiedSliceRefs::new(&slice_refs);
 
         while mb_idx < self.num_mbs {
             mb_info.coded = [false; 25];
@@ -675,7 +682,7 @@ _ => {},
                 mb_info.transform_size_8x8 = false;
                 last_qp_diff = false;
             }
-            self.handle_macroblock(slice_hdr, &mut mb_info);
+            self.handle_macroblock(slice_hdr, &mut mb_info, &sslice_refs);
             prev_mb_skipped = mb_skip;
             if !(self.is_mbaff && ((mb_idx & 1) == 0)) && cabac.decode_terminate() {
                 if let Some(ref mut pic) = self.cur_pic {

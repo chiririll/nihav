@@ -36,18 +36,20 @@ impl FrameDecoder {
         }
         validate!(full_size > 0);
 
+        let sslice_refs = SimplifiedSliceRefs::new(refs);
+
         let mut br = BitReader::new(&nal[hdr_size / 8..], BitReaderMode::BE);
         if !self.pps.entropy_coding_mode {
             br.skip((hdr_size & 7) as u32)?;
-            self.decode_slice_cavlc(&mut br, full_size - (hdr_size & !7), hdr, refs)
+            self.decode_slice_cavlc(&mut br, full_size - (hdr_size & !7), hdr, &sslice_refs)
         } else {
             let csrc = &nal[(hdr_size + 7) / 8..];
             validate!(csrc.len() >= 2);
             let mut cabac = CABAC::new(csrc, hdr.slice_type, hdr.slice_qp, hdr.cabac_init_idc as usize)?;
-            self.decode_slice_cabac(&mut cabac, hdr, refs)
+            self.decode_slice_cabac(&mut cabac, hdr, &sslice_refs)
         }
     }
-    fn decode_slice_cavlc(&mut self, br: &mut BitReader, full_size: usize, slice_hdr: &SliceHeader, refs: &SliceRefs) -> DecoderResult<usize> {
+    fn decode_slice_cavlc(&mut self, br: &mut BitReader, full_size: usize, slice_hdr: &SliceHeader, refs: &SimplifiedSliceRefs) -> DecoderResult<usize> {
         const INTRA_CBP: [u8; 48] = [
             47, 31, 15,  0, 23, 27, 29, 30,  7, 11, 13, 14, 39, 43, 45, 46,
             16,  3,  5, 10, 12, 19, 21, 26, 28, 35, 37, 42, 44,  1,  2,  4,
@@ -152,7 +154,7 @@ impl FrameDecoder {
         }
         Ok(mb_idx)
     }
-    fn decode_slice_cabac(&mut self, cabac: &mut CABAC, slice_hdr: &SliceHeader, refs: &SliceRefs) -> DecoderResult<usize> {
+    fn decode_slice_cabac(&mut self, cabac: &mut CABAC, slice_hdr: &SliceHeader, refs: &SimplifiedSliceRefs) -> DecoderResult<usize> {
         let mut mb_idx = slice_hdr.first_mb_in_slice;
         let mut prev_mb_skipped = false;
         let skip_type = if slice_hdr.slice_type.is_p() { MBType::PSkip } else { MBType::BSkip };
@@ -264,7 +266,7 @@ impl FrameDecoder {
         Err(DecoderError::InvalidData)
     }
     #[allow(clippy::cognitive_complexity)]
-    fn handle_macroblock(&mut self, slice_hdr: &SliceHeader, mb_info: &mut CurrentMBInfo, refs: &SliceRefs) -> DecoderResult<()> {
+    fn handle_macroblock(&mut self, slice_hdr: &SliceHeader, mb_info: &mut CurrentMBInfo, refs: &SimplifiedSliceRefs) -> DecoderResult<()> {
         let qp_y = mb_info.qp_y;
         let qpr = ((qp_y as i8) + self.pps.chroma_qp_index_offset).max(0).min(51) as usize;
         let qp_u = CHROMA_QUANTS[qpr];
@@ -394,7 +396,7 @@ impl FrameDecoder {
         Ok(())
     }
 
-    fn pred_mv(sstate: &mut SliceState, frame_refs: &SliceRefs, mb_info: &mut CurrentMBInfo, cur_id: u16, temporal_mv: bool, direct_8x8: bool) {
+    fn pred_mv(sstate: &mut SliceState, frame_refs: &SimplifiedSliceRefs, mb_info: &mut CurrentMBInfo, cur_id: u16, temporal_mv: bool, direct_8x8: bool) {
         let mb_type = mb_info.mb_type;
         if !mb_type.is_4x4() {
             let (pw, ph) = mb_type.size();
