@@ -199,7 +199,21 @@ impl H264MC {
 
     pub fn do_mc_avg(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: &SimpleFrame, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
         let mut abuf = self.avg_buf.clone();
-        let mut afrm = NASimpleVideoFrame::from_video_buf(&mut abuf).unwrap();
+        let stride_y = abuf.get_stride(0);
+        let stride_c = abuf.get_stride(1);
+        let off_y = abuf.get_offset(0);
+        let off_u = abuf.get_offset(1);
+        let off_v = abuf.get_offset(2);
+        let data = abuf.get_data_mut().unwrap();
+        let mut afrm = NASimpleVideoFrame {
+                width:      [64, 32, 32, 0],
+                height:     [64, 32, 32, 0],
+                flip:       false,
+                stride:     [stride_y, stride_c, stride_c, 0],
+                offset:     [off_y, off_u, off_v, 0],
+                components: 3,
+                data,
+            };
         let amv = MV { x: mv.x + (xpos as i16) * 4, y: mv.y + (ypos as i16) * 4 };
         self.do_mc(&mut afrm, refpic, 0, 0, w, h, amv);
         let wsize = match w {

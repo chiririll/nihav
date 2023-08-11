@@ -383,8 +383,9 @@ pub struct MBData {
 }
 
 pub fn blk4_to_blk8(blk4: usize) -> usize {
-    const MAP: [usize; 16] = [ 0, 0, 1, 1, 0, 0, 1, 1, 2, 2, 3, 3, 2, 2, 3, 3 ];
-    MAP[blk4 & 0xF]
+    /*const MAP: [usize; 16] = [ 0, 0, 1, 1, 0, 0, 1, 1, 2, 2, 3, 3, 2, 2, 3, 3 ];
+    MAP[blk4 & 0xF]*/
+    ((blk4 & 2) >> 1) | ((blk4 & 8) >> 2)
 }
 
 #[derive(Clone,Copy)]

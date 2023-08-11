@@ -135,7 +135,7 @@ pub fn idct_luma_dc(blk: &mut [i16; 16], qp: u8) {
     }
 }
 
-pub fn idct(blk: &mut [i16; 16], qp: u8, quant_dc: bool) {
+pub fn idct_skip_dc(blk: &mut [i16; 16], qp: u8) {
     const BLK_INDEX: [usize; 16] = [
         0, 2, 0, 2,
         2, 1, 2, 1,
@@ -144,8 +144,27 @@ pub fn idct(blk: &mut [i16; 16], qp: u8, quant_dc: bool) {
     ];
     let qidx = (qp % 6) as usize;
     let shift = qp / 6;
-    let start = if quant_dc { 0 } else { 1 };
-    for (el, &idx) in blk.iter_mut().zip(BLK_INDEX.iter()).skip(start) {
+    for (el, &idx) in blk.iter_mut().zip(BLK_INDEX.iter()).skip(1) {
+        *el = (*el * LEVEL_SCALE[idx][qidx]) << shift;
+    }
+    for row in blk.chunks_exact_mut(4) {
+        transform!(row[0], row[1], row[2], row[3], 0);
+    }
+    for i in 0..4 {
+        transform!(blk[i], blk[i + 4], blk[i + 8], blk[i + 12], 6);
+    }
+}
+
+pub fn idct(blk: &mut [i16; 16], qp: u8) {
+    const BLK_INDEX: [usize; 16] = [
+        0, 2, 0, 2,
+        2, 1, 2, 1,
+        0, 2, 0, 2,
+        2, 1, 2, 1
+    ];
+    let qidx = (qp % 6) as usize;
+    let shift = qp / 6;
+    for (el, &idx) in blk.iter_mut().zip(BLK_INDEX.iter()) {
         *el = (*el * LEVEL_SCALE[idx][qidx]) << shift;
     }
     for row in blk.chunks_exact_mut(4) {

@@ -39,17 +39,19 @@ impl FrameDecoder {
         let sslice_refs = SimplifiedSliceRefs::new(refs);
 
         let mut br = BitReader::new(&nal[hdr_size / 8..], BitReaderMode::BE);
+        let mut dst_pic = self.cur_pic.clone();
+        let mut dst_frm = NASimpleVideoFrame::from_video_buf(&mut dst_pic.buf).unwrap();
         if !self.pps.entropy_coding_mode {
             br.skip((hdr_size & 7) as u32)?;
-            self.decode_slice_cavlc(&mut br, full_size - (hdr_size & !7), hdr, &sslice_refs)
+            self.decode_slice_cavlc(&mut br, full_size - (hdr_size & !7), hdr, &sslice_refs, &mut dst_frm)
         } else {
             let csrc = &nal[(hdr_size + 7) / 8..];
             validate!(csrc.len() >= 2);
             let mut cabac = CABAC::new(csrc, hdr.slice_type, hdr.slice_qp, hdr.cabac_init_idc as usize)?;
-            self.decode_slice_cabac(&mut cabac, hdr, &sslice_refs)
+            self.decode_slice_cabac(&mut cabac, hdr, &sslice_refs, &mut dst_frm)
         }
     }
-    fn decode_slice_cavlc(&mut self, br: &mut BitReader, full_size: usize, slice_hdr: &SliceHeader, refs: &SimplifiedSliceRefs) -> DecoderResult<usize> {
+    fn decode_slice_cavlc(&mut self, br: &mut BitReader, full_size: usize, slice_hdr: &SliceHeader, refs: &SimplifiedSliceRefs, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<usize> {
         const INTRA_CBP: [u8; 48] = [
             47, 31, 15,  0, 23, 27, 29, 30,  7, 11, 13, 14, 39, 43, 45, 46,
             16,  3,  5, 10, 12, 19, 21, 26, 28, 35, 37, 42, 44,  1,  2,  4,
@@ -79,7 +81,7 @@ impl FrameDecoder {
                 validate!(mb_idx + mb_skip_run <= self.num_mbs);
                 mb_info.mb_type = skip_type;
                 for _ in 0..mb_skip_run {
-                    self.handle_macroblock(slice_hdr, &mut mb_info, refs)?;
+                    self.handle_macroblock(slice_hdr, &mut mb_info, refs, frm)?;
                     mb_idx += 1;
                 }
                 if mb_idx == self.num_mbs || br.tell() >= full_size {
@@ -145,7 +147,7 @@ impl FrameDecoder {
                         decode_residual_cavlc(br, &mut self.sstate, &mut mb_info, &self.cavlc_cb)?;
                     }
                 }
-                self.handle_macroblock(slice_hdr, &mut mb_info, refs)?;
+                self.handle_macroblock(slice_hdr, &mut mb_info, refs, frm)?;
             }
             mb_idx += 1;
             if let Ok(disp) = self.dispatch.read() {
@@ -154,7 +156,7 @@ impl FrameDecoder {
         }
         Ok(mb_idx)
     }
-    fn decode_slice_cabac(&mut self, cabac: &mut CABAC, slice_hdr: &SliceHeader, refs: &SimplifiedSliceRefs) -> DecoderResult<usize> {
+    fn decode_slice_cabac(&mut self, cabac: &mut CABAC, slice_hdr: &SliceHeader, refs: &SimplifiedSliceRefs, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<usize> {
         let mut mb_idx = slice_hdr.first_mb_in_slice;
         let mut prev_mb_skipped = false;
         let skip_type = if slice_hdr.slice_type.is_p() { MBType::PSkip } else { MBType::BSkip };
@@ -250,7 +252,7 @@ impl FrameDecoder {
                 mb_info.transform_size_8x8 = false;
                 last_qp_diff = false;
             }
-            self.handle_macroblock(slice_hdr, &mut mb_info, refs)?;
+            self.handle_macroblock(slice_hdr, &mut mb_info, refs, frm)?;
             prev_mb_skipped = mb_skip;
             if !(self.is_mbaff && ((mb_idx & 1) == 0)) && cabac.decode_terminate() {
                 if let Ok(disp) = self.dispatch.read() {
@@ -266,7 +268,7 @@ impl FrameDecoder {
         Err(DecoderError::InvalidData)
     }
     #[allow(clippy::cognitive_complexity)]
-    fn handle_macroblock(&mut self, slice_hdr: &SliceHeader, mb_info: &mut CurrentMBInfo, refs: &SimplifiedSliceRefs) -> DecoderResult<()> {
+    fn handle_macroblock(&mut self, slice_hdr: &SliceHeader, mb_info: &mut CurrentMBInfo, refs: &SimplifiedSliceRefs, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
         let qp_y = mb_info.qp_y;
         let qpr = ((qp_y as i8) + self.pps.chroma_qp_index_offset).max(0).min(51) as usize;
         let qp_u = CHROMA_QUANTS[qpr];
@@ -291,16 +293,31 @@ impl FrameDecoder {
         }
         if !mb_info.transform_size_8x8 {
             let quant_dc = !mb_info.mb_type.is_intra16x16();
-            for i in 0..16 {
-                if mb_info.coded[i] {
-                    if !tx_bypass {
-                        idct(&mut mb_info.coeffs[i], qp_y, quant_dc);
+            if quant_dc {
+                for i in 0..16 {
+                    if mb_info.coded[i] {
+                        if !tx_bypass {
+                            idct(&mut mb_info.coeffs[i], qp_y);
+                        }
+                    } else if has_dc {
+                        if !tx_bypass {
+                            idct_dc(&mut mb_info.coeffs[i], qp_y, quant_dc);
+                        }
+                        mb_info.coded[i] = true;
                     }
-                } else if has_dc {
-                    if !tx_bypass {
-                        idct_dc(&mut mb_info.coeffs[i], qp_y, quant_dc);
+                }
+            } else {
+                for i in 0..16 {
+                    if mb_info.coded[i] {
+                        if !tx_bypass {
+                            idct_skip_dc(&mut mb_info.coeffs[i], qp_y);
+                        }
+                    } else if has_dc {
+                        if !tx_bypass {
+                            idct_dc(&mut mb_info.coeffs[i], qp_y, quant_dc);
+                        }
+                        mb_info.coded[i] = true;
                     }
-                    mb_info.coded[i] = true;
                 }
             }
         } else {
@@ -320,7 +337,7 @@ impl FrameDecoder {
                 let blk_no = 16 + chroma * 4 + i;
                 mb_info.coeffs[blk_no][0] = mb_info.chroma_dc[chroma][i];
                 if mb_info.coded[blk_no] {
-                    idct(&mut mb_info.coeffs[blk_no], qp_c, false);
+                    idct_skip_dc(&mut mb_info.coeffs[blk_no], qp_c);
                 } else if mb_info.coeffs[blk_no][0] != 0 {
                     idct_dc(&mut mb_info.coeffs[blk_no], qp_c, false);
                     mb_info.coded[blk_no] = true;
@@ -347,7 +364,6 @@ impl FrameDecoder {
 
         let xpos = self.sstate.mb_x * 16;
         let ypos = self.sstate.mb_y * 16;
-        let mut frm = NASimpleVideoFrame::from_video_buf(&mut self.cur_pic.buf).unwrap();
         if mb_info.mb_type != MBType::PCM {
             let weight_mode = if self.pps.weighted_pred && slice_hdr.slice_type.is_p() {
                     1
@@ -356,7 +372,7 @@ impl FrameDecoder {
                 } else {
                     0
                 };
-            recon_mb_mt(&mut frm, slice_hdr, mb_info, &mut self.sstate, refs, &mut self.mc_dsp, weight_mode, &self.dispatch)?;
+            recon_mb_mt(frm, slice_hdr, mb_info, &mut self.sstate, refs, &mut self.mc_dsp, weight_mode, &self.dispatch)?;
         } else {
             for (dline, src) in frm.data[frm.offset[0] + xpos + ypos * frm.stride[0]..].chunks_mut(frm.stride[0]).take(16).zip(self.ipcm_buf.chunks(16)) {
                 dline[..16].copy_from_slice(src);
@@ -368,7 +384,7 @@ impl FrameDecoder {
                 dline[..8].copy_from_slice(src);
             }
         }
-        self.sstate.save_ipred_context(&frm);
+        self.sstate.save_ipred_context(frm);
 
         let mv_info = &mut self.cur_pic.mv_info;
         let mb_pos = self.sstate.mb_x + self.sstate.mb_y * mv_info.mb_stride;
