@@ -229,7 +229,7 @@ impl NADecoder for FSVDecoder {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, true, RGB24_FORMAT));
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, true, BGR24_FORMAT));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             Ok(())
@@ -417,3 +417,16 @@ const DEFAULT_PAL: [u8; 128 * 3] = [
     0x11, 0x11, 0x11, 0x22, 0x22, 0x22, 0x44, 0x44, 0x44, 0x55, 0x55, 0x55,
     0xAA, 0xAA, 0xAA, 0xBB, 0xBB, 0xBB, 0xDD, 0xDD, 0xDD, 0xEE, 0xEE, 0xEE
 ];
+
+const BGR24_FORMAT: NAPixelFormaton = NAPixelFormaton {
+        model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+        comp_info: [
+            Some(NAPixelChromaton{
+                h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 3 }),
+            Some(NAPixelChromaton{
+                h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 3 }),
+            Some(NAPixelChromaton{
+                h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 3 }),
+            None, None],
+        elem_size: 3, be: false, alpha: false, palette: false
+};
