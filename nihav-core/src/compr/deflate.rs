@@ -256,7 +256,7 @@ enum InflateState {
     End,
 }
 
-///! The decompressor for deflated streams (RFC 1951).
+/// The decompressor for deflated streams (RFC 1951).
 pub struct Inflate {
     br:             BitReaderState,
     fix_len_cb:     Codebook<u16>,
@@ -332,7 +332,7 @@ macro_rules! read_cb {
 }
 
 impl Inflate {
-    ///! Creates a new instance of `Inflate` struct.
+    /// Creates a new instance of `Inflate` struct.
     pub fn new() -> Self {
         let mut cr = FixedLenCodeReader {};
         let fix_len_cb = Codebook::new(&mut cr, CodebookMode::LSB).unwrap();
@@ -376,7 +376,7 @@ impl Inflate {
         self.full_pos += len;
         Ok(())
     }
-    ///! Sets custom history for decoding an update for already decoded data.
+    /// Sets custom history for decoding an update for already decoded data.
     pub fn set_dict(&mut self, dict: &[u8]) {
         let len = dict.len().min(self.buf.len());
         let start = dict.len() - len;
@@ -384,27 +384,27 @@ impl Inflate {
         self.bpos = len;
         self.full_pos = len;
     }
-    ///! Reports whether decoder has finished decoding the input.
+    /// Reports whether decoder has finished decoding the input.
     pub fn is_finished(&self) -> bool {
         matches!(self.state, InflateState::End)
     }
-    ///! Reports the current amount of bytes output into the destination buffer after the last run.
+    /// Reports the current amount of bytes output into the destination buffer after the last run.
     pub fn get_current_output_size(&self) -> usize { self.output_idx }
-    ///! Reports the total amount of bytes decoded so far.
+    /// Reports the total amount of bytes decoded so far.
     pub fn get_total_output_size(&self) -> usize { self.bpos }
-    ///! Tries to decompress input data and write it to the output buffer.
-    ///!
-    ///! Since the decompressor can work with arbitrary input and output chunks its return value may have several meanings:
-    ///! * `Ok(len)` means the stream has been fully decoded and then number of bytes output into the destination buffer is returned.
-    ///! * [`DecompressError::ShortData`] means the input stream has been fully read but more data is needed.
-    ///! * [`DecompressError::OutputFull`] means the output buffer is full and should be flushed. Then decoding should continue on the same input block with `continue_block` parameter set to `true`.
-    ///!
-    ///! [`DecompressError::ShortData`]: ../enum.DecompressError.html#variant.ShortData
-    ///! [`DecompressError::OutputFull`]: ../enum.DecompressError.html#variant.OutputFull
+    /// Tries to decompress input data and write it to the output buffer.
+    ///
+    /// Since the decompressor can work with arbitrary input and output chunks its return value may have several meanings:
+    /// * `Ok(len)` means the stream has been fully decoded and then number of bytes output into the destination buffer is returned.
+    /// * [`DecompressError::ShortData`] means the input stream has been fully read but more data is needed.
+    /// * [`DecompressError::OutputFull`] means the output buffer is full and should be flushed. Then decoding should continue on the same input block with `continue_block` parameter set to `true`.
+    ///
+    /// [`DecompressError::ShortData`]: ../enum.DecompressError.html#variant.ShortData
+    /// [`DecompressError::OutputFull`]: ../enum.DecompressError.html#variant.OutputFull
     pub fn decompress_data(&mut self, src: &[u8], dst: &mut [u8], continue_block: bool) -> DecompressResult<usize> {
         self.decompress_data_internal(src, dst, continue_block, false)
     }
-    ///! Tries to decompress whole input chunk to the output buffer.
+    /// Tries to decompress whole input chunk to the output buffer.
     pub fn decompress_block(&mut self, src: &[u8], dst: &mut [u8]) -> DecompressResult<usize> {
         self.decompress_data_internal(src, dst, false, true)
     }
@@ -782,7 +782,7 @@ impl Inflate {
             }
         }
     }
-    ///! Resets decoder state.
+    /// Resets decoder state.
     pub fn reset(&mut self) {
         self.bpos = 0;
         self.output_idx = 0;
@@ -791,7 +791,7 @@ impl Inflate {
     }
 
     #[allow(clippy::comparison_chain)]
-    ///! Decompresses input data into output returning the uncompressed data length.
+    /// Decompresses input data into output returning the uncompressed data length.
     pub fn uncompress(src: &[u8], dst: &mut [u8]) -> DecompressResult<usize> {
         let mut csrc = CurrentSource::new(src, BitReaderState::default());
         if src.len() > 2 {
@@ -1066,7 +1066,7 @@ impl GzipCRC32 {
     }
 }
 
-///! Decodes input data in gzip file format (RFC 1952) returning a vector containing decoded data.
+/// Decodes input data in gzip file format (RFC 1952) returning a vector containing decoded data.
 pub fn gzip_decode(br: &mut ByteReader, skip_crc: bool) -> DecompressResult<Vec<u8>> {
     const FLAG_HCRC:    u8 = 0x02;
     const FLAG_EXTRA:   u8 = 0x04;
@@ -1294,7 +1294,7 @@ fn add_codes(lens: &[u8], stats: &mut [u32], toks: &mut Vec<(u8, u8)>) {
     }
 }
 
-///! Deflate stream writer.
+/// Deflate stream writer.
 pub struct DeflateWriter {
     dst:    Vec<u8>,
     bits:   u8,
@@ -1302,7 +1302,7 @@ pub struct DeflateWriter {
 }
 
 impl DeflateWriter {
-    ///! Creates a new instance of `DeflateWriter` for a provided output.
+    /// Creates a new instance of `DeflateWriter` for a provided output.
     pub fn new(dst: Vec<u8>) -> Self {
         Self {
             dst,
@@ -1327,7 +1327,7 @@ impl DeflateWriter {
         self.bbuf |= u32::from(val) << self.bits;
         self.bits += len;
     }
-    ///! Finishes writing the stream and returns the output vector.
+    /// Finishes writing the stream and returns the output vector.
     pub fn end(mut self) -> Vec<u8> {
         self.flush();
         if self.bits > 0 {
@@ -1917,31 +1917,31 @@ impl LZParse for OptimalParser {
     }
 }
 
-///! Deflate compression mode.
+/// Deflate compression mode.
 #[derive(Clone,Copy,Debug,PartialEq,Default)]
 pub enum DeflateMode {
-    ///! No compression.
+    /// No compression.
     NoCompr,
-    ///! Fast compression.
+    /// Fast compression.
     Fast,
-    ///! Still fast but better compression.
+    /// Still fast but better compression.
     #[default]
     Better,
-    ///! Slow but the best compression.
+    /// Slow but the best compression.
     Best,
 }
 
 pub const DEFLATE_MODE_DESCRIPTION: &str = "Deflate compression level.";
-///! Deflate option for no compression.
+/// Deflate option for no compression.
 pub const DEFLATE_MODE_NONE: &str = "none";
-///! Deflate option for fast compression.
+/// Deflate option for fast compression.
 pub const DEFLATE_MODE_FAST: &str = "fast";
-///! Deflate option for better compression.
+/// Deflate option for better compression.
 pub const DEFLATE_MODE_BETTER: &str = "better";
-///! Deflate option for best compression.
+/// Deflate option for best compression.
 pub const DEFLATE_MODE_BEST: &str = "best";
 
-///! All possible option values for deflate compression.
+/// All possible option values for deflate compression.
 pub const DEFLATE_OPTION_VALUES: NAOptionDefinitionType = NAOptionDefinitionType::String(Some(&[DEFLATE_MODE_NONE, DEFLATE_MODE_FAST, DEFLATE_MODE_BETTER, DEFLATE_MODE_BEST]));
 
 impl std::str::FromStr for DeflateMode {
@@ -1978,7 +1978,7 @@ enum Mode {
 
 const MAX_BLOCK_SIZE: usize = 65535;
 
-///! Deflate stream compressor.
+/// Deflate stream compressor.
 pub struct Deflate {
     mode:       Mode,
     tokens:     Vec<Token>,
@@ -1991,7 +1991,7 @@ pub struct Deflate {
 }
 
 impl Deflate {
-    ///! Creates a new instance of `Deflate`.
+    /// Creates a new instance of `Deflate`.
     pub fn new(mode: DeflateMode) -> Self {
         let (mode, parser) = match mode {
             DeflateMode::NoCompr => (Mode::Copy,    Box::new(NoParser{}) as Box<dyn LZParse + Send>),
@@ -2009,7 +2009,7 @@ impl Deflate {
             zlib_mode:  false,
         }
     }
-    ///! Writes zlib stream header.
+    /// Writes zlib stream header.
     pub fn write_zlib_header(&mut self, wr: &mut DeflateWriter) {
         wr.write(8, 4);
         wr.write(7, 4);
@@ -2029,11 +2029,11 @@ impl Deflate {
         wr.write((self.sum1 >> 8)   as u16, 8);
         wr.write((self.sum1 & 0xFF) as u16, 8);
     }
-    ///! Queues data for compression.
-    ///!
-    ///! The data might be not actually compressed until [`compress_end`] is called.
-    ///!
-    ///! [`compress_end`]: ./struct.Deflate.html#method.compress_end
+    /// Queues data for compression.
+    ///
+    /// The data might be not actually compressed until [`compress_end`] is called.
+    ///
+    /// [`compress_end`]: ./struct.Deflate.html#method.compress_end
     pub fn compress(&mut self, src: &[u8], wr: &mut DeflateWriter) {
         let mut src = src;
         while !src.is_empty() {
@@ -2047,9 +2047,9 @@ impl Deflate {
             }
         }
     }
-    ///! Tells the encoder to finish data compression.
-    ///!
-    ///! Complete data will be output after this call.
+    /// Tells the encoder to finish data compression.
+    ///
+    /// Complete data will be output after this call.
     pub fn compress_end(&mut self, wr: &mut DeflateWriter) {
         if self.ssize > 0 {
             self.do_block(wr, true);
@@ -2062,7 +2062,7 @@ impl Deflate {
             self.write_zlib_footer(wr);
         }
     }
-    ///! Tells the encoder to compress the data it received and flush it.
+    /// Tells the encoder to compress the data it received and flush it.
     pub fn compress_flush(&mut self, wr: &mut DeflateWriter) {
         if self.ssize > 0 {
             self.do_block(wr, false);

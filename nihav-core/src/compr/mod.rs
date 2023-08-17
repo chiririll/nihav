@@ -55,8 +55,8 @@ impl From<CodebookError> for DecompressError {
     }
 }
 
-///! Copies requested amount of bytes from previous position in the same buffer.
-///! If source area overlaps with destination area already copied values should be used e.g. copying with offset 1 means essentially to repeat previous byte requested number of times.
+/// Copies requested amount of bytes from previous position in the same buffer.
+/// If source area overlaps with destination area already copied values should be used e.g. copying with offset 1 means essentially to repeat previous byte requested number of times.
 pub fn lz_copy(buf: &mut [u8], dst_pos: usize, offset: usize, len: usize) {
     if dst_pos < offset {
         panic!("Copy offset is before buffer start.");
