@@ -103,8 +103,14 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
                     bsize
                 };
             let mut buf = vec![0; bsize];
-            let size                    = self.src.read_buf_some(buf.as_mut_slice())?;
-            buf.truncate(size);
+            let mut tot_size = 0;
+            while let Ok(psize)         = self.src.read_buf_some(&mut buf[tot_size..]) {
+                tot_size += psize;
+                if tot_size == buf.len() {
+                    break;
+                }
+            }
+            buf.truncate(tot_size);
             Ok(NAPacket::new(stream, ts, true, buf))
         } else {
             self.src.read_packet(stream, ts, true, self.block_size)
