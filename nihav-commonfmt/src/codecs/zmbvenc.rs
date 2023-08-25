@@ -35,6 +35,7 @@ struct ZMBVEncoder {
     width:      usize,
     height:     usize,
     range:      usize,
+    full_me:    bool,
     sent_pal:   bool,
 }
 
@@ -135,6 +136,7 @@ impl ZMBVEncoder {
             width:      0,
             height:     0,
             range:      128,
+            full_me:    false,
             sent_pal:   false,
         }
     }
@@ -287,48 +289,7 @@ impl ZMBVEncoder {
             for x in (0..self.width).step_by(self.tile_w) {
                 let cur_w = (self.width - x).min(self.tile_w);
 
-                let mut best_dist = std::u32::MAX;
-                let mut best_x = x;
-                let mut best_y = y;
-
-                'search: for yoff in 0..self.range {
-                    let ypos = (y as isize) + to_signed(yoff);
-                    if ypos < 0 {
-                        continue;
-                    }
-                    let ypos = ypos as usize;
-                    if ypos + cur_h > self.height {
-                        break;
-                    }
-                    for xoff in 0..self.range {
-                        let xpos = (x as isize) + to_signed(xoff);
-                        if xpos < 0 {
-                            continue;
-                        }
-                        let xpos = xpos as usize;
-                        if xpos + cur_w > self.width {
-                            break;
-                        }
-
-                        let mut diff = 0;
-                        let roff = xpos * bpp + ypos * stride;
-                        for (line0, line1) in self.frm1[off..].chunks(stride).take(cur_h).zip(self.frm2[roff..].chunks(stride)) {
-                            for (&a, &b) in line0[..cur_w * bpp].iter().zip(line1[..cur_w * bpp].iter()) {
-                                diff += u32::from(a ^ b);
-                            }
-                        }
-
-                        if best_dist > diff {
-                            best_dist = diff;
-                            best_x = xpos;
-                            best_y = ypos;
-                            if diff == 0 {
-                                break 'search;
-                            }
-                        }
-                    }
-                }
-
+                let (best_x, best_y, best_dist) = self.motion_search(&self.frm1[off..], x, y, cur_w, cur_h, bpp);
                 let has_delta = best_dist != 0;
                 self.tmp_buf[mv_start] = (best_x.wrapping_sub(x) << 1) as u8;
                 if has_delta {
@@ -368,6 +329,93 @@ impl ZMBVEncoder {
         }
 
         Ok(())
+    }
+    fn calc_dist(&self, cur_frm: &[u8], xpos: usize, ypos: usize, cur_w: usize, cur_h: usize, bpp: usize) -> u32 {
+        let stride = self.width * bpp;
+        let mut diff = 0;
+        let roff = xpos * bpp + ypos * stride;
+        for (line0, line1) in cur_frm.chunks(stride).take(cur_h).zip(self.frm2[roff..].chunks(stride)) {
+            for (&a, &b) in line0[..cur_w * bpp].iter().zip(line1[..cur_w * bpp].iter()) {
+                diff += u32::from(a ^ b);
+            }
+        }
+        diff
+    }
+    fn motion_search(&self, cur_frm: &[u8], x: usize, y: usize, cur_w: usize, cur_h: usize, bpp: usize) -> (usize, usize, u32) {
+        let mut best_dist = self.calc_dist(cur_frm, x, y, cur_w, cur_h, bpp);
+        if best_dist == 0 {
+            return (x, y, 0);
+        }
+        let mut best_x = x;
+        let mut best_y = y;
+
+        if !self.full_me {
+            let mut cur_range = self.range.min(64);
+
+            while cur_range > 1 {
+                let x1 = best_x.saturating_sub(cur_range);
+                let x2 = (best_x + cur_range).min(self.width - cur_w);
+                let y1 = best_y.saturating_sub(cur_range);
+                let y2 = (best_y + cur_range).min(self.height - cur_h);
+                let points = [(best_x,  y1),
+                              (x2,      y1),
+                              (x2,      best_y),
+                              (x2,      y2),
+                              (best_x,  y2),
+                              (x1,      y2),
+                              (x1,      best_y),
+                              (x1,      y1)];
+
+                for &(pt_x, pt_y) in points.iter() {
+                    if ((x as isize) - (pt_x as isize)).abs() >= 64 {
+                        continue;
+                    }
+                    if ((y as isize) - (pt_y as isize)).abs() >= 64 {
+                        continue;
+                    }
+                    let dist = self.calc_dist(cur_frm, pt_x, pt_y, cur_w, cur_h, bpp);
+                    if dist < best_dist {
+                        best_dist = dist;
+                        best_x = pt_x;
+                        best_y = pt_y;
+                    }
+                }
+                cur_range = (cur_range + 1) >> 1;
+            }
+        } else {
+            for yoff in 0..self.range {
+                let ypos = (y as isize) + to_signed(yoff);
+                if ypos < 0 {
+                    continue;
+                }
+                let ypos = ypos as usize;
+                if ypos + cur_h > self.height {
+                    break;
+                }
+                for xoff in 0..self.range {
+                    let xpos = (x as isize) + to_signed(xoff);
+                    if xpos < 0 {
+                        continue;
+                    }
+                    let xpos = xpos as usize;
+                    if xpos + cur_w > self.width {
+                        break;
+                    }
+
+                    let diff = self.calc_dist(cur_frm, xpos, ypos, cur_w, cur_h, bpp);
+
+                    if best_dist > diff {
+                        best_dist = diff;
+                        best_x = xpos;
+                        best_y = ypos;
+                        if diff == 0 {
+                            return (best_x, best_y, 0);
+                        }
+                    }
+                }
+            }
+        }
+        (best_x, best_y, best_dist)
     }
 }
 
@@ -477,6 +525,9 @@ const ENCODER_OPTS: &[NAOptionDefinition] = &[
         name: "range", description: "Block search range (0-128)",
         opt_type: NAOptionDefinitionType::Int(Some(0), Some(128)) },
     NAOptionDefinition {
+        name: "full_me", description: "Brute force search",
+        opt_type: NAOptionDefinitionType::Bool },
+    NAOptionDefinition {
         name: "tile_width", description: "Block width (1-255)",
         opt_type: NAOptionDefinitionType::Int(Some(1), Some(255)) },
     NAOptionDefinition {
@@ -511,6 +562,11 @@ impl NAOptionHandler for ZMBVEncoder {
                                 self.range = intval as usize;
                             }
                         },
+                        "full_me" => {
+                            if let NAValue::Bool(bval) = option.value {
+                                self.full_me = bval;
+                            }
+                        },
                         "tile_width" => {
                             if let NAValue::Int(intval) = option.value {
                                 self.tile_w = intval as usize;
@@ -532,6 +588,7 @@ impl NAOptionHandler for ZMBVEncoder {
             "compr_level" => Some(NAValue::String(self.cmode.to_string())),
             KEYFRAME_OPTION => Some(NAValue::Int(i64::from(self.key_int))),
             "range"       => Some(NAValue::Int(self.range as i64)),
+            "full_me"     => Some(NAValue::Bool(self.full_me)),
             "tile_width"  => Some(NAValue::Int(self.tile_w as i64)),
             "tile_height" => Some(NAValue::Int(self.tile_h as i64)),
             _ => None,
@@ -594,6 +651,7 @@ mod test {
             };
         let enc_options = &[
                 NAOption { name: "range", value: NAValue::Int(16) },
+                NAOption { name: "full_me", value: NAValue::Bool(true) },
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
@@ -641,6 +699,7 @@ mod test {
             };
         let enc_options = &[
                 NAOption { name: "range", value: NAValue::Int(16) },
+                NAOption { name: "full_me", value: NAValue::Bool(true) },
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
@@ -688,6 +747,7 @@ mod test {
             };
         let enc_options = &[
                 NAOption { name: "range", value: NAValue::Int(16) },
+                NAOption { name: "full_me", value: NAValue::Bool(true) },
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
@@ -735,6 +795,7 @@ mod test {
             };
         let enc_options = &[
                 NAOption { name: "range", value: NAValue::Int(16) },
+                NAOption { name: "full_me", value: NAValue::Bool(true) },
             ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
