@@ -20,6 +20,9 @@ struct WAVDemuxer<'a> {
     is_pcm:         bool,
     avg_bytes:      u32,
     duration:       u64,
+
+    force_tb_num:   u32,
+    force_tb_den:   u32,
 }
 
 impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
@@ -86,10 +89,19 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
             };
         let ts = NATimeInfo::new(pts, None, None, 1, self.srate);
         if self.is_pcm {
-            let mut bsize = self.block_size;
-            while bsize < 256 {
-                bsize <<= 1;
-            }
+            let bsize = if self.force_tb_num != 0 && self.force_tb_den != 0 {
+                    let nbsize = u64::from(self.avg_bytes) * u64::from(self.force_tb_num) / u64::from(self.force_tb_den);
+                    let mut nbsize = nbsize as usize + self.block_size - 1;
+                    nbsize /= self.block_size;
+                    nbsize *= self.block_size;
+                    nbsize
+                } else {
+                    let mut bsize = self.block_size;
+                    while bsize < 256 {
+                        bsize <<= 1;
+                    }
+                    bsize
+                };
             let mut buf = vec![0; bsize];
             let size                    = self.src.read_buf_some(buf.as_mut_slice())?;
             buf.truncate(size);
@@ -119,10 +131,37 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
     fn get_duration(&self) -> u64 { self.duration }
 }
 
+const WAV_OPTIONS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: "force_tb_num", description: "force timebase numerator for PCM blocks",
+        opt_type: NAOptionDefinitionType::Int(Some(1), None) },
+    NAOptionDefinition {
+        name: "force_tb_den", description: "force timebase denominator for PCM blocks",
+        opt_type: NAOptionDefinitionType::Int(Some(1), None) },
+];
+
 impl<'a> NAOptionHandler for WAVDemuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { WAV_OPTIONS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            match (option.name, &option.value) {
+                ("force_tb_num", NAValue::Int(ref ival)) => {
+                    self.force_tb_num = *ival as u32;
+                },
+                ("force_tb_den", NAValue::Int(ref ival)) => {
+                    self.force_tb_den = *ival as u32;
+                },
+                _ => {},
+            };
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        match name {
+            "force_tb_num" => Some(NAValue::Int(i64::from(self.force_tb_num))),
+            "force_tb_den" => Some(NAValue::Int(i64::from(self.force_tb_den))),
+            _ => None,
+        }
+    }
 }
 
 impl<'a> WAVDemuxer<'a> {
@@ -136,6 +175,8 @@ impl<'a> WAVDemuxer<'a> {
             is_pcm:     false,
             avg_bytes:  0,
             duration:   0,
+            force_tb_num:   0,
+            force_tb_den:   0,
         }
     }
     fn parse_fmt(&mut self, strmgr: &mut StreamManager, csize: usize) -> DemuxerResult<()> {
