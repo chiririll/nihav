@@ -404,6 +404,11 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 32, cond: &CC::Str(b"DATA")}],
     },
     DetectConditions {
+        demux_name: "sga",
+        extensions: ".dtv,.avc",
+        conditions: &[],
+    },
+    DetectConditions {
         demux_name: "vmd",
         extensions: ".vmd",
         conditions: &[],
