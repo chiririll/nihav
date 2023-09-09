@@ -159,6 +159,30 @@ fn check_format(in_fmt: NAVideoInfo, ref_fmt: &ScaleInfo, just_convert: bool) ->
 fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
 {
     if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf(), pic_out.get_vbuf()) {
+        if sbuf.get_info().get_format().is_paletted() {
+            let same = sbuf.get_stride(0) == dbuf.get_stride(0) && sbuf.get_offset(1) == dbuf.get_offset(1);
+            if same {
+                let src = sbuf.get_data();
+                let dst = dbuf.get_data_mut().unwrap();
+                dst.copy_from_slice(src);
+            } else {
+                let (_, h) = sbuf.get_dimensions(0);
+                let soff = sbuf.get_offset(0);
+                let spoff = sbuf.get_offset(1);
+                let sstride = sbuf.get_stride(0);
+                let src = sbuf.get_data();
+                let doff = dbuf.get_offset(0);
+                let dpoff = dbuf.get_offset(1);
+                let dstride = dbuf.get_stride(0);
+                let dst = dbuf.get_data_mut().unwrap();
+                let copy_size = sstride.min(dstride);
+                for (dline, sline) in dst[doff..].chunks_exact_mut(dstride).take(h).zip(src[soff..].chunks_exact(sstride)) {
+                    dline[..copy_size].copy_from_slice(&sline[..copy_size]);
+                }
+                dst[dpoff..].copy_from_slice(&src[spoff..]);
+            }
+            return;
+        }
         let mut same = true;
         let num_components = sbuf.get_info().get_format().get_num_comp();
         for i in 0..num_components {
