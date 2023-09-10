@@ -223,6 +223,12 @@ const DETECTORS: &[DetectConditions] = &[
                                                                &CC::Str(b"ftyp")) }],
     },
     DetectConditions {
+        demux_name: "gif",
+        extensions: ".gif",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b"GIF87a"),
+                                                       &CC::Str(b"GIF89a")) }],
+    },
+    DetectConditions {
         demux_name: "mov",
         extensions: ".mov",
         conditions: &[CheckItem{offs:  0, cond: &CC::Str(b"\x00\x00\x00\x08wide") },

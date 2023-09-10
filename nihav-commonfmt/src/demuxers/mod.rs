@@ -14,6 +14,8 @@ macro_rules! validate {
 #[cfg(feature="demuxer_avi")]
 #[allow(clippy::cast_lossless)]
 mod avi;
+#[cfg(feature="demuxer_gif")]
+mod gif;
 #[cfg(feature="demuxer_mov")]
 #[allow(clippy::cast_lossless)]
 mod mov;
@@ -25,6 +27,8 @@ mod y4m;
 const DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_avi")]
     &avi::AVIDemuxerCreator {},
+#[cfg(feature="demuxer_gif")]
+    &gif::GIFDemuxerCreator {},
 #[cfg(feature="demuxer_mov")]
     &mov::MOVDemuxerCreator {},
 #[cfg(feature="demuxer_mov")]

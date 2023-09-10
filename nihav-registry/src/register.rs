@@ -287,6 +287,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio-ll;  "tta",          "True Audio codec"),
     desc!(audio-hyb; "wavpack",      "WavPack"),
 
+    desc!(video-ll; "gif",           "GIF"),
     desc!(video-im; "jpeg",          "JPEG"),
     desc!(video;    "h264",          "ITU H.264", CODEC_CAP_COMPLEX_REORDER | CODEC_CAP_HYBRID),
 
