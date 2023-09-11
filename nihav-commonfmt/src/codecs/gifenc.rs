@@ -2,6 +2,16 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_core::io::bitwriter::*;
 
+const GRAY_FORMAT: NAPixelFormaton = NAPixelFormaton {
+        model: ColorModel::YUV(YUVSubmodel::YUVJ),
+        components: 1,
+        comp_info: [Some(NAPixelChromaton{h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), None, None, None, None],
+        elem_size: 1,
+        be: true,
+        alpha: false,
+        palette: false,
+    };
+
 #[derive(Clone,Copy,Default,PartialEq)]
 enum CompressionLevel {
     None,
@@ -211,6 +221,7 @@ struct GIFEncoder {
     first:      bool,
     width:      usize,
     height:     usize,
+    grayscale:  bool,
     lzw:        LZWEncoder,
     p_trans:    bool,
     tr_idx:     Option<u8>,
@@ -228,6 +239,7 @@ impl GIFEncoder {
             first:      true,
             width:      0,
             height:     0,
+            grayscale:  false,
             lzw:        LZWEncoder::new(),
             p_trans:    false,
             tr_idx:     None,
@@ -259,7 +271,8 @@ impl NAEncoder for GIFEncoder {
             },
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {
-                let outinfo = NAVideoInfo::new(vinfo.width, vinfo.height, false, PAL8_FORMAT);
+                let format = if vinfo.format == GRAY_FORMAT { GRAY_FORMAT } else { PAL8_FORMAT };
+                let outinfo = NAVideoInfo::new(vinfo.width, vinfo.height, false, format);
                 let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Video(outinfo);
                 Ok(ofmt)
@@ -275,8 +288,12 @@ impl NAEncoder for GIFEncoder {
                 if vinfo.width > 65535 || vinfo.height > 65535 {
                     return Err(EncoderError::FormatError);
                 }
+                if vinfo.format != PAL8_FORMAT && vinfo.format != GRAY_FORMAT {
+                    return Err(EncoderError::FormatError);
+                }
                 self.width  = vinfo.width;
                 self.height = vinfo.height;
+                self.grayscale = vinfo.format == GRAY_FORMAT;
 
                 let edata = self.tr_idx.map(|val| vec![val]);
 
@@ -319,11 +336,19 @@ impl NAEncoder for GIFEncoder {
 
                 let cur_pal = &src[buf.get_offset(1)..][..768];
                 if self.first {
-                    self.pal.copy_from_slice(cur_pal);
+                    if !self.grayscale {
+                        self.pal.copy_from_slice(cur_pal);
+                    } else {
+                        for (i, pal) in self.pal.chunks_exact_mut(3).enumerate() {
+                            pal[0] = i as u8;
+                            pal[1] = i as u8;
+                            pal[2] = i as u8;
+                        }
+                    }
                 }
 
                 let mut pal_changed = false;
-                if !self.first {
+                if !self.first && !self.grayscale {
                     let mut used = [false; 256];
                     for &b in self.cur_frm.iter() {
                         used[usize::from(b)] = true;
@@ -459,13 +484,25 @@ impl NAEncoder for GIFEncoder {
         self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, self.first, dbuf));
         self.first = false;
 
-        if let NABufferType::Video(ref buf) = frm.get_buffer() {
-            let paloff = buf.get_offset(1);
-            let data = buf.get_data();
+        if !self.grayscale {
+            if let NABufferType::Video(ref buf) = frm.get_buffer() {
+                let paloff = buf.get_offset(1);
+                let data = buf.get_data();
+                let mut pal = [0; 1024];
+                let srcpal = &data[paloff..][..768];
+                for (dclr, sclr) in pal.chunks_exact_mut(4).zip(srcpal.chunks_exact(3)) {
+                    dclr[..3].copy_from_slice(sclr);
+                }
+                if let Some(ref mut pkt) = &mut self.pkt {
+                    pkt.side_data.push(NASideData::Palette(true, Arc::new(pal)));
+                }
+            }
+        } else {
             let mut pal = [0; 1024];
-            let srcpal = &data[paloff..][..768];
-            for (dclr, sclr) in pal.chunks_exact_mut(4).zip(srcpal.chunks_exact(3)) {
-                dclr[..3].copy_from_slice(sclr);
+            for (i, quad) in pal.chunks_exact_mut(4).enumerate() {
+                quad[0] = i as u8;
+                quad[1] = i as u8;
+                quad[2] = i as u8;
             }
             if let Some(ref mut pkt) = &mut self.pkt {
                 pkt.side_data.push(NASideData::Palette(true, Arc::new(pal)));
