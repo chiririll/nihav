@@ -134,7 +134,12 @@ impl LZWEncoder {
 
         match self.level {
             CompressionLevel::None => {
+                let sym_limit = 1 << (clr_bits + 1);
                 for &b in src.iter() {
+                    if self.dict.cur_size >= sym_limit {
+                        bw.write(u32::from(self.dict.clear_code), self.dict.bit_len);
+                        self.dict.reset();
+                    }
                     bw.write(u32::from(b), self.dict.bit_len);
                     self.dict.add(usize::from(b), 0);
                 }
@@ -636,7 +641,7 @@ mod test {
         let enc_options = &[
                 NAOption { name: "compr", value: NAValue::String("none".to_string()) },
             ];
-        test_gif_encoder_single("none.gif", enc_options, &[0x2767a289, 0xdef9ad30, 0xca4c289b, 0x1fd0ec19]);
+        test_gif_encoder_single("none.gif", enc_options, &[0x32900cff, 0xef979bb0, 0x2d0355e8, 0x424bddee]);
     }
     #[test]
     fn test_gif_single_fast() {
