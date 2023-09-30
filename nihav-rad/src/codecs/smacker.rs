@@ -94,6 +94,7 @@ const SMK_LAST_UNINIT: usize = 0xFFFFFFFF;
 impl SmackerTree16Builder {
     fn get_tree16(&mut self, br: &mut BitReader, tree: &mut SmackerTree16, depth: usize) -> DecoderResult<u32> {
         validate!(tree.tree.len() < self.nsyms);
+        validate!(depth <= 32);
         if !br.read_bool()? {
             let lo = br.read_tree8(&self.tree_lo)?;
             let hi = br.read_tree8(&self.tree_hi)?;
