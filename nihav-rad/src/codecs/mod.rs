@@ -15,6 +15,8 @@ mod smacker;
 mod binkaud;
 #[cfg(feature="decoder_binkvid")]
 mod binkvid;
+#[cfg(feature="decoder_binkvid")]
+mod binkviddata;
 #[cfg(feature="decoder_bink2")]
 mod bink2;
 
