@@ -2,16 +2,15 @@ use nihav_core::codecs::*;
 use nihav_codec_support::dsp::dct::*;
 use nihav_codec_support::dsp::fft::*;
 use nihav_core::io::bitreader::*;
-use std::f32::consts;
 use std::str::FromStr;
+
+use super::binkauddata::*;
 
 enum Transform {
     None,
     DCT(DCT),
     RDFT(RDFT),
 }
-
-const MAX_BANDS: usize = 25;
 
 struct BinkAudioDecoder {
     ainfo:      NAAudioInfo,
@@ -60,10 +59,6 @@ fn overlap(a: &[f32], b: &[f32], dst: &mut [f32], len: usize, step: usize) {
 
 impl BinkAudioDecoder {
     fn new(use_dct: bool) -> Self {
-        let mut quants: [f32; 96] = [0.0; 96];
-        for i in 0..quants.len() {
-            quants[i] = ((i as f32) * 0.0664 / consts::LOG10_E).exp();
-        }
         Self {
             ainfo:      NAAudioInfo::new(0, 1, SND_F32P_FORMAT, 0),
             chmap:      NAChannelMap::new(),
@@ -71,7 +66,7 @@ impl BinkAudioDecoder {
             transform:  Transform::None,
             version_b:  false,
             len:        0,
-            quants,
+            quants:     get_quants_table(),
             bands:      [MAX_BANDS + 1; 26],
             num_bands:  0,
             duration:   0,
@@ -169,15 +164,6 @@ impl BinkAudioDecoder {
     }
 }
 
-const CRITICAL_FREQS: [usize; MAX_BANDS] = [
-      100,   200,  300,  400,  510,  630,   770,   920,
-     1080,  1270, 1480, 1720, 2000, 2320,  2700,  3150,
-     3700,  4400, 5300, 6400, 7700, 9500, 12000, 15500,
-    24500
-];
-
-const RUN_TAB: [usize; 16] = [ 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 32, 64 ];
-
 impl NADecoder for BinkAudioDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
@@ -214,15 +200,7 @@ impl NADecoder for BinkAudioDecoder {
                     (2.0 / (self.len as f32)).sqrt() / 1024.0
                 };
             let s_srate = if single { srate } else { srate >> 1 } as usize;
-            self.num_bands = 1;
-            while self.num_bands < CRITICAL_FREQS.len() && CRITICAL_FREQS[self.num_bands - 1] < s_srate {
-                self.num_bands += 1;
-            }
-            self.bands[0] = 2;
-            for i in 1..self.num_bands {
-                self.bands[i] = (CRITICAL_FREQS[i - 1] * self.len / s_srate) & !1;
-            }
-            self.bands[self.num_bands] = self.len;
+            init_bands(s_srate, self.len, &mut self.num_bands, &mut self.bands);
             self.first_frm = true;
 
             Ok(())

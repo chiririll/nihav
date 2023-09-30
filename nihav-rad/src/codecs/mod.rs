@@ -13,6 +13,8 @@ macro_rules! validate {
 mod smacker;
 #[cfg(feature="decoder_binkaud")]
 mod binkaud;
+#[cfg(feature="decoder_binkaud")]
+mod binkauddata;
 #[cfg(feature="decoder_binkvid")]
 mod binkvid;
 #[cfg(any(feature="decoder_binkvid", feature="encoder_binkvid"))]
