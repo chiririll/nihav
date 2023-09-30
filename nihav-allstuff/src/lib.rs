@@ -77,6 +77,7 @@ pub fn nihav_register_all_encoders(re: &mut RegisteredEncoders) {
     duck_register_all_encoders(re);
     llaudio_register_all_encoders(re);
     ms_register_all_encoders(re);
+    rad_register_all_encoders(re);
     realmedia_register_all_encoders(re);
 }
 
@@ -85,6 +86,7 @@ pub fn nihav_register_all_muxers(rm: &mut RegisteredMuxers) {
     flash_register_all_muxers(rm);
     generic_register_all_muxers(rm);
     llaudio_register_all_muxers(rm);
+    rad_register_all_muxers(rm);
     realmedia_register_all_muxers(rm);
 }
 
