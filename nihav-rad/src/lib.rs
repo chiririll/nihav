@@ -26,3 +26,8 @@ pub use crate::codecs::rad_register_all_encoders;
 mod demuxers;
 #[cfg(feature="demuxers")]
 pub use crate::demuxers::rad_register_all_demuxers;
+
+#[cfg(feature="muxers")]
+mod muxers;
+#[cfg(feature="muxers")]
+pub use crate::muxers::rad_register_all_muxers;
