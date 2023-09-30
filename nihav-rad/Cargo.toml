@@ -11,8 +11,11 @@ path = "../nihav-core"
 path = "../nihav-codec-support"
 features = ["dct", "fft"]
 
+[dev-dependencies]
+nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["demuxer_y4m", "decoder_rawvideo"] }
+
 [features]
-default = ["all_decoders", "all_demuxers"]
+default = ["all_decoders", "all_demuxers", "all_encoders"]
 demuxers = []
 all_demuxers = ["demuxer_smk", "demuxer_bink"]
 demuxer_smk = ["demuxers"]
@@ -29,3 +32,8 @@ decoder_bink2 = ["decoders"]
 all_audio_decoders = ["decoder_smkaud", "decoder_binkaud"]
 decoder_binkaud = ["decoders"]
 decoder_smkaud = ["decoders"]
+
+encoders = []
+all_encoders = ["encoder_binkvid", "encoder_binkaud"]
+encoder_binkaud = ["encoders"]
+encoder_binkvid = ["encoders"]

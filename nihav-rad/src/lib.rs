@@ -17,6 +17,8 @@ extern crate nihav_codec_support;
 mod codecs;
 #[cfg(feature="decoders")]
 pub use crate::codecs::rad_register_all_decoders;
+#[cfg(feature="encoders")]
+pub use crate::codecs::rad_register_all_encoders;
 
 #[cfg(feature="demuxers")]
 #[allow(clippy::comparison_chain)]

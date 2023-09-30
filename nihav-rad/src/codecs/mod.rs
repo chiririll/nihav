@@ -15,7 +15,7 @@ mod smacker;
 mod binkaud;
 #[cfg(feature="decoder_binkvid")]
 mod binkvid;
-#[cfg(feature="decoder_binkvid")]
+#[cfg(any(feature="decoder_binkvid", feature="encoder_binkvid"))]
 mod binkviddata;
 #[cfg(feature="decoder_bink2")]
 mod bink2;
@@ -39,5 +39,22 @@ const RAD_CODECS: &[DecoderInfo] = &[
 pub fn rad_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in RAD_CODECS.iter() {
         rd.add_decoder(*decoder);
+    }
+}
+
+#[cfg(feature="encoder_binkvid")]
+mod binkvidenc;
+
+#[cfg(feature="encoders")]
+const ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_binkvid")]
+    EncoderInfo { name: "bink-video", get_encoder: binkvidenc::get_encoder },
+];
+
+/// Registers all available encoders provided by this crate.
+#[cfg(feature="encoders")]
+pub fn rad_register_all_encoders(re: &mut RegisteredEncoders) {
+    for encoder in ENCODERS.iter() {
+        re.add_encoder(*encoder);
     }
 }
