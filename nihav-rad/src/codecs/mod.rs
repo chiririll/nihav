@@ -13,7 +13,7 @@ macro_rules! validate {
 mod smacker;
 #[cfg(feature="decoder_binkaud")]
 mod binkaud;
-#[cfg(feature="decoder_binkaud")]
+#[cfg(any(feature="decoder_binkaud", feature="encoder_binkaud"))]
 mod binkauddata;
 #[cfg(feature="decoder_binkvid")]
 mod binkvid;
@@ -46,11 +46,17 @@ pub fn rad_register_all_decoders(rd: &mut RegisteredDecoders) {
 
 #[cfg(feature="encoder_binkvid")]
 mod binkvidenc;
+#[cfg(feature="encoder_binkaud")]
+mod binkaudenc;
 
 #[cfg(feature="encoders")]
 const ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_binkvid")]
     EncoderInfo { name: "bink-video", get_encoder: binkvidenc::get_encoder },
+#[cfg(feature="encoder_binkaud")]
+    EncoderInfo { name: "bink-audio-rdft", get_encoder: binkaudenc::get_encoder_rdft },
+//#[cfg(feature="encoder_binkvid")]
+//    EncoderInfo { name: "bink-audio-dct", get_encoder: binkaudenc::get_encoder_dct },
 ];
 
 /// Registers all available encoders provided by this crate.

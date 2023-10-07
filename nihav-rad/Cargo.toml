@@ -12,7 +12,7 @@ path = "../nihav-codec-support"
 features = ["dct", "fft"]
 
 [dev-dependencies]
-nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["demuxer_y4m", "decoder_rawvideo"] }
+nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["demuxer_wav", "demuxer_y4m", "decoder_pcm", "decoder_rawvideo"] }
 
 [features]
 default = ["all_decoders", "all_demuxers", "all_encoders", "all_muxers"]
