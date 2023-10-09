@@ -140,12 +140,13 @@ impl<'a> MuxCore<'a> for BinkMuxer<'a> {
             let mut flags = 0;
             if info.get_name() == "bink-audio-dct" {
                 flags |= 0x10;
+                flags |= 0x40;
+            }
+            if info.get_name() == "bink-audio-rdft" {
+                flags |= 0x80;
             }
             if ainfo.channels == 2 {
                 flags |= 0x20;
-            }
-            if flags == 0x30 { // seems to be common
-                flags = 0x70;
             }
                                 self.bw.write_byte(flags)?;
         }
