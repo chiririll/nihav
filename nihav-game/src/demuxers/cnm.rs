@@ -9,6 +9,8 @@ struct ArxelCinemaDemuxer<'a> {
     vpts:       u64,
     tb_num:     u32,
     tb_den:     u32,
+    is_ci2:     bool,
+    tdata:      Vec<u8>,
 }
 
 impl<'a> DemuxCore<'a> for ArxelCinemaDemuxer<'a> {
@@ -35,12 +37,12 @@ impl<'a> DemuxCore<'a> for ArxelCinemaDemuxer<'a> {
         let nframes                     = src.read_u32le()? as usize;
                                           src.read_u32le()?; //nframes again?
         let tab_size                    = src.read_u32le()? as usize;
-        validate!(tab_size == nframes * 8);
                                           src.read_skip(0x98)?;
 
         let vhdr = NAVideoInfo::new(width, height, true, RGB24_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
-        let vinfo = NACodecInfo::new("arxel-video", vci, None);
+        // use tab_size mismatch as the version marker
+        let vinfo = NACodecInfo::new("arxel-video", vci, Some(vec![(tab_size != nframes * 8) as u8]));
         if strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 100, tb_den, nframes as u64)).is_none() {
             return Err(DemuxerError::MemoryError);
         }
@@ -66,11 +68,23 @@ impl<'a> DemuxCore<'a> for ArxelCinemaDemuxer<'a> {
             }
         }
 
-        let tab_size = tab_size / 4;
-        self.offsets = Vec::with_capacity(tab_size);
-        for _ in 0..tab_size {
-            let offset                  = src.read_u32le()?;
-            self.offsets.push(offset);
+        if tab_size == nframes * 8 {
+            let tab_size = tab_size / 4;
+            self.offsets = Vec::with_capacity(tab_size);
+            for _ in 0..tab_size {
+                let offset                  = src.read_u32le()?;
+                self.offsets.push(offset);
+            }
+        } else {
+            validate!(nframes > 0);
+            let off0                    = src.read_u32le()?;
+            let off1                    = src.read_u32le()?;
+            if off0 == 0 && off1 == 0 {
+                self.is_ci2 = true;
+                                          src.read_skip((nframes - 1) * 8)?;
+            } else {
+                return Err(DemuxerError::InvalidData);
+            }
         }
         self.cur_frame = 0;
         self.vpts = 0;
@@ -80,16 +94,24 @@ impl<'a> DemuxCore<'a> for ArxelCinemaDemuxer<'a> {
     #[allow(unused_variables)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         loop {
-            if self.cur_frame >= self.offsets.len() { return Err(DemuxerError::EOF); }
-            let pos = u64::from(self.offsets[self.cur_frame]);
-            let stream_id = (self.cur_frame % (self.astreams.max(1) + 1)) as u32;
-            self.cur_frame += 1;
-            if pos == 0 {
-                continue;
-            }
-
+            let stream_id;
+            if !self.is_ci2 {
+                if self.cur_frame >= self.offsets.len() { return Err(DemuxerError::EOF); }
+                let pos = u64::from(self.offsets[self.cur_frame]);
+                stream_id = (self.cur_frame % (self.astreams.max(1) + 1)) as u32;
+                self.cur_frame += 1;
+                if pos == 0 {
+                    continue;
+                }
                                           self.src.seek(SeekFrom::Start(pos))?;
-            let ftype                   = self.src.read_byte()?;
+            } else {
+                stream_id = 1;
+            }
+            let ftype = match self.src.read_byte() {
+                    Ok(b) => b,
+                    Err(ByteIOError::EOF) if self.is_ci2 => return Err(DemuxerError::EOF),
+                    _ => return Err(DemuxerError::IOError),
+                };
             match ftype {
                 0x41 | 0x42 | 0x5A => {
                     let size            = self.src.read_u32le()? as usize;
@@ -103,7 +125,7 @@ impl<'a> DemuxCore<'a> for ArxelCinemaDemuxer<'a> {
                                           self.src.read_skip(size)?;
                     }
                 },
-                0x53 => {
+                0x53 if !self.is_ci2 => {
                     let size            = self.src.peek_u32le()? as usize;
                     if let Some(stream) = strmgr.get_stream_by_id(0) {
                         let ts = stream.make_ts(Some(self.vpts), None, None);
@@ -113,12 +135,39 @@ impl<'a> DemuxCore<'a> for ArxelCinemaDemuxer<'a> {
                         return Err(DemuxerError::MemoryError);
                     }
                 },
+                0x53 | 0x55 => {
+                    let size            = self.src.peek_u32le()? as usize;
+                    let mut data = Vec::new();
+                    std::mem::swap(&mut self.tdata, &mut data);
+                    data.push(ftype);
+                    let head_size = data.len();
+                    data.resize(head_size + size + 0x2F, 0);
+                                          self.src.read_buf(&mut data[head_size..])?;
+                    if let Some(stream) = strmgr.get_stream_by_id(0) {
+                        let ts = stream.make_ts(Some(self.vpts), None, None);
+                        self.vpts += 1;
+                        return Ok(NAPacket::new(stream, ts, ftype == 0x55, data));
+                    } else {
+                        return Err(DemuxerError::MemoryError);
+                    }
+                },
+                0x54 => {
+                    validate!(self.is_ci2);
+                    let size            = self.src.peek_u32le()? as usize;
+                    validate!(self.tdata.is_empty());
+                    self.tdata.resize(size + 9, 0);
+                    self.tdata[0] = 0x54;
+                                          self.src.read_buf(&mut self.tdata[1..])?;
+                },
                 _ => continue,
             };
         }
     }
 
     fn seek(&mut self, time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+        if self.is_ci2 {
+            return Err(DemuxerError::NotPossible);
+        }
         match time {
             NATimePoint::PTS(pts) => self.seek_to_frame(pts),
             NATimePoint::Milliseconds(ms) => {
@@ -148,6 +197,8 @@ impl<'a> ArxelCinemaDemuxer<'a> {
             vpts:       0,
             tb_num:     0,
             tb_den:     0,
+            is_ci2:     false,
+            tdata:      Vec::new(),
         }
     }
     fn seek_to_frame(&mut self, pts: u64) -> DemuxerResult<()> {
@@ -198,6 +249,26 @@ mod test {
     #[test]
     fn test_cnm_noaud_demux() {
         let mut file = File::open("assets/Game/tr_as_ro_d.cnm").unwrap();
+        let mut fr = FileReader::new_read(&mut file);
+        let mut br = ByteReader::new(&mut fr);
+        let mut dmx = ArxelCinemaDemuxer::new(&mut br);
+        let mut sm = StreamManager::new();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
+        loop {
+            let pktres = dmx.get_frame(&mut sm);
+            if let Err(e) = pktres {
+                if (e as i32) == (DemuxerError::EOF as i32) { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            println!("Got {}", pkt);
+        }
+    }
+    // sample from Faust: The Seven Games of the Soul game
+    #[test]
+    fn test_ci2_demux() {
+        let mut file = File::open("assets/Game/logo.CI2").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = ArxelCinemaDemuxer::new(&mut br);
