@@ -249,10 +249,9 @@ impl NADecoder for GIFDecoder {
                     .zip(self.dbuf.chunks_exact(width)) {
                 for (dst, &src) in dline[left..][..width].iter_mut().zip(sline.iter()) {
                     if src != tpix {
-                        *dst = tpix;
+                        *dst = src;
                     }
                 }
-                dline[left..][..width].copy_from_slice(sline);
             }
         } else {
             for (dline, sline) in self.frame.chunks_exact_mut(self.width).skip(top)
