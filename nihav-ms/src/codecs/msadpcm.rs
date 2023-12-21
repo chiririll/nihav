@@ -124,11 +124,11 @@ impl NADecoder for MSADPCMDecoder {
                 }
                 for ch in 0..channels {
                     let samp                    = br.read_u16le()? as i16;
-                    pred[ch].sample2            = i32::from(samp);
+                    pred[ch].sample1            = i32::from(samp);
                 }
                 for ch in 0..channels {
                     let samp                    = br.read_u16le()? as i16;
-                    pred[ch].sample1            = i32::from(samp);
+                    pred[ch].sample2            = i32::from(samp);
                 }
                 for ch in 0..channels {
                     dst[off[ch]]     = pred[ch].sample2 as i16;
@@ -433,7 +433,7 @@ mod test {
         ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "ms-adpcm", "assets/MS/dance.avi", None, &dmx_reg, &dec_reg,
-                      ExpectedTestResult::MD5([0xf5e3fc84, 0xbcabc11c, 0x33c6874e, 0xe05ecd14]));
+                      ExpectedTestResult::MD5([0xb1d6f12c, 0x86d2821b, 0x395f6827, 0xb6be93bf]));
     }
     #[cfg(feature="encoder_ms_adpcm")]
     #[test]
