@@ -262,9 +262,14 @@ impl NAResample {
 
         let src_fmt = src_info.get_format();
         let dst_fmt = self.dst_info.get_format();
-        let no_conversion = src_fmt == dst_fmt;
+        let mut no_conversion = src_fmt == dst_fmt;
 
-        if no_conversion && no_channel_needs {
+        // packed PCM needs to be processed
+        if no_conversion && matches!(src, NABufferType::AudioPacked(_)) && !src_fmt.is_packed() && ((src_fmt.bits % 8) == 0) {
+            no_conversion = false;
+        }
+
+        if no_conversion && no_channel_needs && !needs_resample {
             return Ok(src.clone());
         }
 
