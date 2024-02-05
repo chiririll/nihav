@@ -1481,7 +1481,9 @@ impl Track {
                         self.samples_left = csamp - self.cur_sample;
                         self.cur_chunk += 1;
                     }
-                } else if self.chunk_offsets.len() == self.chunk_sizes.len() {
+                } else if self.chunk_offsets.len() == self.chunk_sizes.len() && self.duration != 0 {
+                    let new_sample = (self.chunk_sizes.len() as u64 * exp_pts / u64::from(self.duration)) as usize;
+                    self.cur_sample = new_sample;
                     self.cur_chunk = self.cur_sample;
                 } else {
                     if !self.time_to_sample.is_empty() {
