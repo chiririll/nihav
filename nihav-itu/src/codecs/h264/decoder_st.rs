@@ -756,7 +756,10 @@ impl NADecoder for H264Decoder {
                     match profile {
                         100 | 110 | 122 | 144 => {
                             let b       = br.read_byte()?;
-                            validate!((b & 0xFC) == 0xFC);
+                            // some encoders put something different here
+                            if (b & 0xFC) != 0xFC {
+                                return Ok(());
+                            }
                             // b & 3 -> chroma format
                             let b       = br.read_byte()?;
                             validate!((b & 0xF8) == 0xF8);
