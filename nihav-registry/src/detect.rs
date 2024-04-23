@@ -251,6 +251,11 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"YUV4MPEG2 ") }],
     },
     DetectConditions {
+        demux_name: "armovie",
+        extensions: ".rpl",
+        conditions: &[CheckItem{offs:  0, cond: &CC::Str(b"ARMovie\n") }],
+    },
+    DetectConditions {
         demux_name: "flv",
         extensions: ".flv",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"FLV") },
