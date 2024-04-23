@@ -437,10 +437,12 @@ pub trait NAPacketiser {
     fn add_data(&mut self, src: &[u8]) -> bool;
     /// Tries to retrieve stream information from the data.
     ///
-    /// Returns [`NAStream`] reference on success (with stream ID set to `id`), [`ShortData`] when there is not enough data to parse the headers and other errors in case there was an error parsing the data.
+    /// Returns [`NAStream`] reference on success (with stream ID set to `id`), [`ShortData`] when there is not enough data to parse the headers, [`MissingReference`] when stream parsing is not possible without reference information provided by [`attach_stream`] and other errors in case there was an error parsing the data.
     ///
     /// [`NAStream`]: ../frame/struct.NAStream.html
     /// [`ShortData`]: ./enum.DecoderError.html#variant.ShortData
+    /// [`MissingReference`]: ./enum.DecoderError.html#variant.MissingReference
+    /// [`attach_stream`]: ./trait.NAPacketiser.html#tymethod.attach_stream
     fn parse_stream(&mut self, id: u32) -> DecoderResult<NAStreamRef>;
     /// Tries to discard junk data until the first possible packet header.
     ///
