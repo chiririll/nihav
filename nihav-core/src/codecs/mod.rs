@@ -427,6 +427,10 @@ impl RegisteredEncoders {
 
 /// Trait for packetisers (objects that form full packets from raw stream data).
 pub trait NAPacketiser {
+    /// Provides the reference stream from the demuxer to the packetiser.
+    ///
+    /// This may be useful in cases when packetiser cannot determine stream parameters by itself.
+    fn attach_stream(&mut self, stream: NAStreamRef);
     /// Queues new raw stream data for parsing.
     ///
     /// Returns false is the internal buffer grows too large.

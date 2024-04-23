@@ -552,6 +552,7 @@ impl FLACPacketiser {
 }
 
 impl NAPacketiser for FLACPacketiser {
+    fn attach_stream(&mut self, _stream: NAStreamRef) {}
     fn add_data(&mut self, src: &[u8]) -> bool {
         self.buf.extend_from_slice(src);
         self.buf.len() < 4096
