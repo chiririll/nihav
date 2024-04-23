@@ -349,6 +349,123 @@ println!("full hash {}", md5);
     }
 }
 
+/// Tests decoder for requested codec in provided file with raw streams.
+///
+/// This functions tries to decode a stream corresponding to `dec_name` codec in input file and validate the results against expected ones.
+///
+/// Since the function is intended for tests, it will panic instead of returning an error.
+///
+/// # Examples
+///
+/// Test FLAC decoder in test stream:
+/// ```no_run
+/// use nihav_codec_support::test::ExpectedTestResult;
+/// use nihav_codec_support::test::dec_video::test_decoding_raw;
+/// use nihav_core::codecs::RegisteredDecoders;
+/// use nihav_core::demuxers::RegisteredDemuxers;
+///
+/// let mut dmx_reg = RegisteredRawDemuxers::new();
+/// let mut pkt_reg = RegisteredPacketisers::new();
+/// let mut dec_reg = RegisteredDecoders::new();
+/// // ... register FLAC demuxer, packetiser and decoders ...
+/// test_decoding_raw("flac", "flac", "assets/test_file.flac", None, &dmx_reg, &pkt_reg, &dec_reg, ExpectedTestResult::MD5([0x00010203, 0x04050607, 0x08090a0b, 0x0c0d0e0f]));
+/// ```
+pub fn test_decoding_raw(demuxer: &str, dec_name: &str, filename: &str, limit: Option<u64>,
+                         dmx_reg: &RegisteredRawDemuxers, pkt_reg: &RegisteredPacketisers,
+                         dec_reg: &RegisteredDecoders, test: ExpectedTestResult) {
+    let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
+    let mut file = File::open(filename).unwrap();
+    let mut fr = FileReader::new_read(&mut file);
+    let mut br = ByteReader::new(&mut fr);
+    let mut dmx = create_raw_demuxer(dmx_f, &mut br).unwrap();
+
+    let mut decs: Vec<Option<(Box<dyn NAPacketiser>, Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
+    let mut found = false;
+    for i in 0..dmx.get_num_streams() {
+        let s = dmx.get_stream(i).unwrap();
+        let info = s.get_info();
+println!("stream {} codec {} / {}", i, info.get_name(), dec_name);
+        if !found && (info.get_name() == dec_name) {
+            let decfunc = dec_reg.find_decoder(info.get_name());
+            let pktfunc = pkt_reg.find_packetiser(info.get_name());
+            if let (Some(df), Some(pf)) = (decfunc, pktfunc) {
+                let mut pkt = (pf)();
+                pkt.attach_stream(s);
+                let mut dec = (df)();
+                let mut dsupp = Box::new(NADecoderSupport::new());
+                dec.init(&mut dsupp, info).unwrap();
+                decs.push(Some((pkt, dsupp, dec)));
+                found = true;
+            } else {
+                decs.push(None);
+            }
+        } else {
+            decs.push(None);
+        }
+    }
+
+    let mut md5 = MD5::new();
+    let mut frameiter = if let ExpectedTestResult::MD5Frames(ref vec) = test {
+            Some(vec.iter())
+        } else {
+            None
+        };
+    loop {
+        let datares = dmx.get_data();
+        if let Err(e) = datares {
+            if e == DemuxerError::EOF { break; }
+            panic!("error");
+        }
+        let data = datares.unwrap();
+        let streamno = data.get_stream().get_id() as usize;
+        if let Some((ref mut pktr, ref mut dsupp, ref mut dec)) = decs[streamno] {
+            pktr.add_data(&data.get_buffer());
+            while let Ok(Some(pkt)) = pktr.get_packet(data.get_stream()) {
+                if limit.is_some() && pkt.get_pts().is_some() && pkt.get_pts().unwrap() > limit.unwrap() {
+                    break;
+                }
+                let frm = dec.decode(dsupp, &pkt).unwrap();
+                match &test {
+                    ExpectedTestResult::Decodes => {},
+                    ExpectedTestResult::MD5(_) => { frame_checksum(&mut md5, frm); },
+                    ExpectedTestResult::MD5Frames(_) => {
+                        md5 = MD5::new();
+                        frame_checksum(&mut md5, frm);
+                        md5.finish();
+                        if let Some(ref mut iter) = frameiter {
+                            let ret = iter.next();
+                            if ret.is_none() { break; }
+                            let ref_hash = ret.unwrap();
+                            let mut hash = [0u32; 4];
+                            md5.get_hash(&mut hash);
+println!("frame pts {:?} hash {}", pkt.get_pts(), md5);
+                            assert_eq!(&hash, ref_hash);
+                        }
+                    },
+                    ExpectedTestResult::GenerateMD5Frames => {
+                        md5 = MD5::new();
+                        frame_checksum(&mut md5, frm);
+                        md5.finish();
+                        let mut hash = [0u32; 4];
+                        md5.get_hash(&mut hash);
+println!("frame pts {:?} hash [0x{:08x}, 0x{:08x}, 0x{:08x}, 0x{:08x}],", pkt.get_pts(), hash[0], hash[1], hash[2], hash[3]);
+                    },
+                };
+            }
+        }
+    }
+    if let ExpectedTestResult::MD5(ref ref_hash) = test {
+        md5.finish();
+        let mut hash = [0u32; 4];
+        md5.get_hash(&mut hash);
+println!("full hash {}", md5);
+        assert_eq!(&hash, ref_hash);
+    }
+    if let ExpectedTestResult::GenerateMD5Frames = test {
+        panic!("generated hashes");
+    }
+}
+
 const THREADS: usize = 3;
 
 fn check_frame(frm: NAFrameRef, test: &ExpectedTestResult, glbl_md5: &mut MD5, frameiter: &mut Option<std::slice::Iter<[u32; 4]>>, last_ts: &mut Option<u64>) -> bool {
