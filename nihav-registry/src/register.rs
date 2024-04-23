@@ -207,6 +207,18 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio;    "qdesign-music2",       "QDesign Music v2"),
     desc!(audio;    "qualcomm-purevoice",   "Qualcomm PureVoice"),
 
+    desc!(video;    "movinglines",          "Acorn Moving Lines"),
+    desc!(video;    "movingblocks",         "Acorn Moving Blocks"),
+    desc!(video;    "movingblockshq",       "Acorn Moving Blocks HQ"),
+    desc!(video;    "supermovingblocks",    "Acorn Super Moving Blocks"),
+    desc!(video;    "linepack",             "Henrik Pedersen's LinePack"),
+    desc!(video;    "movie16_3",            "Henrik Pedersen's Movie 16:3"),
+    desc!(video;    "escape100",            "Eidos Escape 100"),
+    desc!(video;    "escape102",            "Eidos Escape 102"),
+    desc!(video;    "escape122",            "Eidos Escape 122"),
+    desc!(video;    "escape124",            "Eidos Escape 124"),
+    desc!(video;    "escape130",            "Eidos Escape 130"),
+
     desc!(video;    "truemotion1",   "TrueMotion 1"),
     desc!(video-im; "truemotionrt",  "TrueMotion RT"),
     desc!(video;    "truemotion2",   "TrueMotion 2"),
