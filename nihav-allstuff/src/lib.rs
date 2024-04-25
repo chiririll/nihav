@@ -8,6 +8,7 @@ use nihav_core::demuxers::RegisteredRawDemuxers;
 use nihav_core::muxers::RegisteredMuxers;
 
 use nihav_commonfmt::*;
+use nihav_acorn::*;
 use nihav_duck::*;
 use nihav_flash::*;
 use nihav_game::*;
@@ -25,6 +26,7 @@ use nihav_vivo::*;
 /// Registers all known decoders.
 pub fn nihav_register_all_decoders(rd: &mut RegisteredDecoders) {
     generic_register_all_decoders(rd);
+    acorn_register_all_decoders(rd);
     duck_register_all_decoders(rd);
     flash_register_all_decoders(rd);
     game_register_all_decoders(rd);
@@ -47,6 +49,7 @@ pub fn nihav_register_all_mt_decoders(rd: &mut RegisteredMTDecoders) {
 
 /// Registers all known packetisers.
 pub fn nihav_register_all_packetisers(rp: &mut RegisteredPacketisers) {
+    acorn_register_all_packetisers(rp);
     llaudio_register_all_packetisers(rp);
     mpeg_register_all_packetisers(rp);
 }
@@ -66,6 +69,7 @@ pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
 
 /// Registers all known raw stream demuxers.
 pub fn nihav_register_all_raw_demuxers(rd: &mut RegisteredRawDemuxers) {
+    acorn_register_all_raw_demuxers(rd);
     llaudio_register_all_raw_demuxers(rd);
 }
 
