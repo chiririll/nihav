@@ -26,11 +26,17 @@ mod movinglines;
 #[cfg(feature="decoder_movingblocks")]
 mod movingblocks;
 
+#[cfg(feature="decoder_linepack")]
+mod linepack;
+
 const ACORN_CODECS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_movinglines")]
     DecoderInfo { name: "movinglines", get_decoder: movinglines::get_decoder },
 #[cfg(feature="decoder_movingblocks")]
     DecoderInfo { name: "movingblocks", get_decoder: movingblocks::get_decoder },
+
+#[cfg(feature="decoder_linepack")]
+    DecoderInfo { name: "linepack", get_decoder: linepack::get_decoder },
 ];
 
 /// Registers all available codecs provided by this crate.
@@ -45,6 +51,9 @@ const ACORN_PACKETISERS: &[PacketiserInfo] = &[
     PacketiserInfo { name: "movinglines", get_packetiser: movinglines::get_packetiser },
 #[cfg(feature="decoder_movingblocks")]
     PacketiserInfo { name: "movingblocks", get_packetiser: movingblocks::get_packetiser },
+
+#[cfg(feature="decoder_linepack")]
+    PacketiserInfo { name: "linepack", get_packetiser: linepack::get_packetiser },
 ];
 
 /// Registers all available packetisers provided by this crate.
