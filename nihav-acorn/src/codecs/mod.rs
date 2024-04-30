@@ -25,6 +25,8 @@ mod yuvtab;
 mod movinglines;
 #[cfg(feature="decoder_movingblocks")]
 mod movingblocks;
+#[cfg(feature="decoder_movingblockshq")]
+mod movingblockshq;
 
 #[cfg(feature="decoder_linepack")]
 mod linepack;
@@ -34,6 +36,8 @@ const ACORN_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "movinglines", get_decoder: movinglines::get_decoder },
 #[cfg(feature="decoder_movingblocks")]
     DecoderInfo { name: "movingblocks", get_decoder: movingblocks::get_decoder },
+#[cfg(feature="decoder_movingblockshq")]
+    DecoderInfo { name: "movingblockshq", get_decoder: movingblockshq::get_decoder },
 
 #[cfg(feature="decoder_linepack")]
     DecoderInfo { name: "linepack", get_decoder: linepack::get_decoder },
@@ -51,6 +55,8 @@ const ACORN_PACKETISERS: &[PacketiserInfo] = &[
     PacketiserInfo { name: "movinglines", get_packetiser: movinglines::get_packetiser },
 #[cfg(feature="decoder_movingblocks")]
     PacketiserInfo { name: "movingblocks", get_packetiser: movingblocks::get_packetiser },
+#[cfg(feature="decoder_movingblockshq")]
+    PacketiserInfo { name: "movingblockshq", get_packetiser: movingblockshq::get_packetiser },
 
 #[cfg(feature="decoder_linepack")]
     PacketiserInfo { name: "linepack", get_packetiser: linepack::get_packetiser },
