@@ -213,7 +213,6 @@ impl NAPacketiser for RawPacketiser {
                         5 => width * height,
                         _ => unimplemented!(),
                     };
-println!(" raw frame size {}", self.size);
             }
         }
         self.stream = Some(stream);
