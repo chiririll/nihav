@@ -27,11 +27,15 @@ mod movinglines;
 mod movingblocks;
 #[cfg(feature="decoder_movingblockshq")]
 mod movingblockshq;
+#[cfg(feature="decoder_rawvideo")]
+mod rawvideo;
 
 #[cfg(feature="decoder_linepack")]
 mod linepack;
 
 const ACORN_CODECS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_rawvideo")]
+    DecoderInfo { name: "arm_rawvideo", get_decoder: rawvideo::get_decoder },
 #[cfg(feature="decoder_movinglines")]
     DecoderInfo { name: "movinglines", get_decoder: movinglines::get_decoder },
 #[cfg(feature="decoder_movingblocks")]
@@ -51,6 +55,8 @@ pub fn acorn_register_all_decoders(rd: &mut RegisteredDecoders) {
 }
 
 const ACORN_PACKETISERS: &[PacketiserInfo] = &[
+#[cfg(feature="decoder_rawvideo")]
+    PacketiserInfo { name: "arm_rawvideo", get_packetiser: rawvideo::get_packetiser },
 #[cfg(feature="decoder_movinglines")]
     PacketiserInfo { name: "movinglines", get_packetiser: movinglines::get_packetiser },
 #[cfg(feature="decoder_movingblocks")]

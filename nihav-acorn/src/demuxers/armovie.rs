@@ -2,6 +2,9 @@ use nihav_core::demuxers::*;
 
 const VIDEO_CODECS: &[(i32, &str)] = &[
     (  1, "movinglines"),
+    (  2, "arm_rawvideo"),
+    (  3, "arm_rawvideo"),
+    (  5, "arm_rawvideo"),
     (  7, "movingblocks"),
     ( 17, "movingblockshq"),
     ( 19, "supermovingblocks"),
@@ -272,8 +275,11 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
             }
             let tb_den = tbase as u32;
 
+            let mut edata = vec![video_codec as u8, (video_codec >> 8) as u8];
+            edata.extend_from_slice(&vformat);
+
             let vci = NACodecTypeInfo::Video(NAVideoInfo::new(width, height, false, YUV420_FORMAT));
-            let vinfo = NACodecInfo::new(codec_name, vci, Some(vformat));
+            let vinfo = NACodecInfo::new(codec_name, vci, Some(edata));
             let ret = strmgr.add_stream(NAStream::new(StreamType::Video, stream_id, vinfo, tb_num, tb_den, (frm_per_chunk * num_chunks) as u64));
             if ret.is_some() {
                 stream_id += 1;
