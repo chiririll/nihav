@@ -208,6 +208,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio;    "qualcomm-purevoice",   "Qualcomm PureVoice"),
 
     desc!(video-ll; "arm_rawvideo",         "Acorn Replay Movie raw video formats"),
+    desc!(audio;    "arm_rawaudio",         "Acorn Replay Movie raw audio formats"),
     desc!(video;    "movinglines",          "Acorn Moving Lines"),
     desc!(video;    "movingblocks",         "Acorn Moving Blocks"),
     desc!(video;    "movingblockshq",       "Acorn Moving Blocks HQ"),

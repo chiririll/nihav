@@ -296,9 +296,10 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
             for ((&id, &sratestr), (&chan, &fmt)) in sound_ids.iter().zip(srates.iter())
                         .zip(channels.iter().zip(sndformats.iter())) {
                 let codec_id = parse_uint(id)?;
-                let codec_name = if codec_id == 1 { "pcm" } else { "unknown" };
+                let codec_name = if codec_id == 1 { "arm_rawaudio" } else { "unknown" };
                 let channels = parse_uint(chan)?;
                 validate!(channels > 0 && channels < 16);
+                let edata = fmt.to_owned();
                 let bits = parse_uint(fmt)?;
                 let mut srate = parse_uint(sratestr)?;
                 if srate > 0 && srate < 1000 { // probably in microseconds instead of Hertz
@@ -308,7 +309,7 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
                 let fmt = if bits == 8 { SND_U8_FORMAT } else { SND_S16_FORMAT };
 
                 let aci = NACodecTypeInfo::Audio(NAAudioInfo::new(srate, channels as u8, fmt, 0));
-                let ainfo = NACodecInfo::new(codec_name, aci, None);
+                let ainfo = NACodecInfo::new(codec_name, aci, Some(edata));
                 let ret = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_id, ainfo, 1, srate, 0));
                 if let Some(id) = ret {
                     self.audio_ids.push(id);
