@@ -244,7 +244,7 @@ impl NAPacketiser for LinePackPacketiser {
                         1 => ((val >> 6) & 0x3F) as usize, // motion size
                         2 => common_len, // run
                         3 => common_len, // raw
-                        4 => common_len & 0xFF, // four-colour pattern 
+                        4 => common_len & 0xFF, // four-colour pattern
                         5 => common_len * 2, // interleaved
                         _ => 0, // ???
                     };
