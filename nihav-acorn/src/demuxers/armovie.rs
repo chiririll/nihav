@@ -26,7 +26,7 @@ impl<'a> ReadString for ByteReader<'a> {
         let mut res = Vec::new();
         loop {
             let c = self.read_byte()?;
-            if c == b'\n' {
+            if c == b'\n' || c == 0 {
                 break;
             }
             res.push(c);
