@@ -218,7 +218,7 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
         let width = parse_int(&width)?;
         let height              = self.src.read_string()?;
         let height = parse_int(&height)?;
-        validate!((video_codec <= 0) ^ (width > 0 && height > 0));
+        validate!((video_codec <= 0) || (width > 0 && height > 0));
         let width  = width as usize;
         let height = height as usize;
         let vformat             = self.src.read_string()?;
