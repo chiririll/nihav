@@ -11,7 +11,7 @@ path = "../nihav-core"
 path = "../nihav-codec-support"
 
 [features]
-default = ["all_decoders", "all_demuxers"]
+default = ["all_decoders", "all_demuxers", "all_packetisers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 all_video_decoders = ["decoder_movinglines", "decoder_movingblocks", "decoder_movingblockshq", "decoder_linepack", "decoder_rawvideo"]
@@ -30,3 +30,9 @@ all_demuxers = ["demuxer_armovie"]
 demuxers = []
 
 demuxer_armovie = ["demuxers"]
+
+all_packetisers = ["packetiser_cinepak", "packetiser_msvideo1"]
+packetisers = []
+
+packetiser_cinepak = ["packetisers"]
+packetiser_msvideo1 = ["packetisers"]

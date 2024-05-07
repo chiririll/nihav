@@ -13,6 +13,9 @@ const VIDEO_CODECS: &[(i32, &str)] = &[
     (122, "escape122"),
     (124, "escape124"),
     (130, "escape130"),
+    (600, "msvideo1"),
+    (601, "msvideo1"),
+    (602, "cinepak"),
     (800, "linepack"),
     (802, "movie16_3"),
 ];
@@ -278,7 +281,13 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
             let mut edata = vec![video_codec as u8, (video_codec >> 8) as u8];
             edata.extend_from_slice(&vformat);
 
-            let vci = NACodecTypeInfo::Video(NAVideoInfo::new(width, height, false, YUV420_FORMAT));
+            let fmt = match video_codec {
+                    600 => PAL8_FORMAT,
+                    601 => RGB565_FORMAT,
+                    _ => YUV420_FORMAT,
+                };
+
+            let vci = NACodecTypeInfo::Video(NAVideoInfo::new(width, height, false, fmt));
             let vinfo = NACodecInfo::new(codec_name, vci, Some(edata));
             let ret = strmgr.add_stream(NAStream::new(StreamType::Video, stream_id, vinfo, tb_num, tb_den, (frm_per_chunk * num_chunks) as u64));
             if ret.is_some() {

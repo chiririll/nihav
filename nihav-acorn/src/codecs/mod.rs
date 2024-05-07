@@ -60,6 +60,9 @@ pub fn acorn_register_all_decoders(rd: &mut RegisteredDecoders) {
     }
 }
 
+#[cfg(any(feature="packetiser_cinepak", feature="packetiser_msvideo1"))]
+mod wss_packetisers;
+
 const ACORN_PACKETISERS: &[PacketiserInfo] = &[
 #[cfg(feature="decoder_rawvideo")]
     PacketiserInfo { name: "arm_rawvideo", get_packetiser: rawvideo::get_packetiser },
@@ -75,6 +78,11 @@ const ACORN_PACKETISERS: &[PacketiserInfo] = &[
 
 #[cfg(feature="decoder_rawaudio")]
     PacketiserInfo { name: "arm_rawaudio", get_packetiser: rawaudio::get_packetiser },
+
+#[cfg(feature="packetiser_cinepak")]
+    PacketiserInfo { name: "cinepak", get_packetiser: wss_packetisers::get_packetiser_cinepak },
+#[cfg(feature="packetiser_msvideo1")]
+    PacketiserInfo { name: "msvideo1", get_packetiser: wss_packetisers::get_packetiser_msvideo1 },
 ];
 
 /// Registers all available packetisers provided by this crate.
