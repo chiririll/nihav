@@ -330,6 +330,8 @@ impl ChannelPair {
                         self.ms_used[g][sfb]            = br.read_bool()?;
                     }
                 }
+            } else {
+                self.ms_used = [[false; MAX_SFBS]; MAX_WINDOWS];
             }
             self.ics[1].info = self.ics[0].info;
         }
