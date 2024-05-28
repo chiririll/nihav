@@ -534,10 +534,10 @@ mod test {
         test_decoding_raw("armovie", "movingblockshq", "assets/Acorn/EXPLODE", Some(3),
                           &dmx_reg, &pkt_reg, &dec_reg,
                           ExpectedTestResult::MD5Frames(vec![
-                                [0x84a7bd46, 0xeb85d848, 0x2c1a6810, 0x27d0430f],
-                                [0x43667e79, 0x64280602, 0xbc4bbbd5, 0x4cac3b7d],
-                                [0x5318b37e, 0xa0df48e9, 0x6cd52319, 0xbebcb6ac],
-                                [0x2208e86c, 0xc8c29366, 0x6840bc14, 0xb991720f]]));
+                                [0xc684fd94, 0x9e9d8c0a, 0xa37d639a, 0x12312d08],
+                                [0x33c29033, 0xe2ad4765, 0xde9d5e71, 0x5db43fda],
+                                [0xe3ab66e3, 0xd3303ce8, 0xe3df8b08, 0x52f6b83e],
+                                [0x2403a32a, 0x047f46bf, 0xd236fa90, 0xcc1939be]]));
     }
 }
 

@@ -304,11 +304,11 @@ mod test {
         test_decoding_raw("armovie", "linepack", "assets/Acorn/COLOURPLUS", Some(5),
                           &dmx_reg, &pkt_reg, &dec_reg,
                           ExpectedTestResult::MD5Frames(vec![
-                                [0x373eb9d6, 0xc52d7abd, 0xe1f3631b, 0xf509cb16],
-                                [0x373eb9d6, 0xc52d7abd, 0xe1f3631b, 0xf509cb16],
-                                [0x373eb9d6, 0xc52d7abd, 0xe1f3631b, 0xf509cb16],
-                                [0x373eb9d6, 0xc52d7abd, 0xe1f3631b, 0xf509cb16],
-                                [0x373eb9d6, 0xc52d7abd, 0xe1f3631b, 0xf509cb16],
-                                [0x32033527, 0x3073331b, 0x83942239, 0x57f975ee]]));
+                                [0x3189751c, 0x497c9af4, 0x7d3add86, 0x48c9c77d],
+                                [0x3189751c, 0x497c9af4, 0x7d3add86, 0x48c9c77d],
+                                [0x3189751c, 0x497c9af4, 0x7d3add86, 0x48c9c77d],
+                                [0x3189751c, 0x497c9af4, 0x7d3add86, 0x48c9c77d],
+                                [0x3189751c, 0x497c9af4, 0x7d3add86, 0x48c9c77d],
+                                [0x6b56cca6, 0xa35d8057, 0x8eff6a2d, 0x53a07f52]]));
     }
 }

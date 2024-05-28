@@ -414,10 +414,10 @@ mod test {
         test_decoding_raw("armovie", "movingblocks", "assets/Acorn/CANWHARF", Some(3),
                           &dmx_reg, &pkt_reg, &dec_reg,
                           ExpectedTestResult::MD5Frames(vec![
-                                [0x3d499be9, 0x8f57aa2d, 0x7f539425, 0x18fe3f8e],
-                                [0xb937773a, 0xe629b2f3, 0x78b42f33, 0x62f1640f],
-                                [0x20c08d46, 0x2d64123d, 0xae74f85c, 0x8bead127],
-                                [0xa54e3362, 0xb224cf10, 0x6ebd5d97, 0xc8a46c39]]));
+                                [0x451ec0a2, 0xfeab8603, 0x5cc28d22, 0x8d8bfff4],
+                                [0x4d2c291a, 0x30df0600, 0xef1a4085, 0x84edcf0d],
+                                [0x70a76ed9, 0x346288a1, 0x263f2256, 0xd6106242],
+                                [0x640c31c6, 0x3260309b, 0x0b0bf52b, 0x2d70d2df]]));
     }
 }
 

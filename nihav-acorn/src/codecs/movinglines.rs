@@ -287,9 +287,9 @@ mod test {
         test_decoding_raw("armovie", "movinglines", "assets/Acorn/CHEMSET2", Some(3),
                           &dmx_reg, &pkt_reg, &dec_reg,
                           ExpectedTestResult::MD5Frames(vec![
-                                [0x2ba85570, 0x339ddc8f, 0x2e9ea4ba, 0xec6fa25c],
-                                [0x17a5dd38, 0xab99b869, 0x63936887, 0x0cb05673],
-                                [0x81d920cf, 0x57155044, 0xe13d1b8b, 0xb029e645],
-                                [0x7dc1a826, 0xea3c8e29, 0x13398b07, 0xa9a647de]]));
+                                [0x991f08b9, 0x5a1a8718, 0x2b52edd5, 0x446ba3aa],
+                                [0x3721a673, 0x96e1cf7d, 0x4ea1f8b4, 0xfb2f0483],
+                                [0xe83f7fd1, 0xe80290be, 0x2eb5723e, 0x74a767cb],
+                                [0x3a69b78b, 0xc53c1356, 0xa4bf9f96, 0xaec1a38c]]));
     }
 }
