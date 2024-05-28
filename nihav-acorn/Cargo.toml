@@ -14,13 +14,14 @@ path = "../nihav-codec-support"
 default = ["all_decoders", "all_demuxers", "all_packetisers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
-all_video_decoders = ["decoder_movinglines", "decoder_movingblocks", "decoder_movingblockshq", "decoder_linepack", "decoder_rawvideo"]
+all_video_decoders = ["decoder_movinglines", "decoder_movingblocks", "decoder_movingblockshq", "decoder_supermovingblocks", "decoder_linepack", "decoder_rawvideo"]
 all_audio_decoders = ["decoder_rawaudio"]
 decoders = []
 
 decoder_movinglines = ["decoders"]
 decoder_movingblocks = ["decoders"]
 decoder_movingblockshq = ["decoders"]
+decoder_supermovingblocks = ["decoders"]
 decoder_linepack = ["decoders"]
 decoder_rawvideo = ["decoders"]
 

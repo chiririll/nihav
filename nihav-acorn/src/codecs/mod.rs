@@ -27,6 +27,8 @@ mod movinglines;
 mod movingblocks;
 #[cfg(feature="decoder_movingblockshq")]
 mod movingblockshq;
+#[cfg(feature="decoder_supermovingblocks")]
+mod supermovingblocks;
 #[cfg(feature="decoder_rawvideo")]
 mod rawvideo;
 
@@ -45,6 +47,8 @@ const ACORN_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "movingblocks", get_decoder: movingblocks::get_decoder },
 #[cfg(feature="decoder_movingblockshq")]
     DecoderInfo { name: "movingblockshq", get_decoder: movingblockshq::get_decoder },
+#[cfg(feature="decoder_supermovingblocks")]
+    DecoderInfo { name: "supermovingblocks", get_decoder: supermovingblocks::get_decoder },
 
 #[cfg(feature="decoder_linepack")]
     DecoderInfo { name: "linepack", get_decoder: linepack::get_decoder },
@@ -72,6 +76,8 @@ const ACORN_PACKETISERS: &[PacketiserInfo] = &[
     PacketiserInfo { name: "movingblocks", get_packetiser: movingblocks::get_packetiser },
 #[cfg(feature="decoder_movingblockshq")]
     PacketiserInfo { name: "movingblockshq", get_packetiser: movingblockshq::get_packetiser },
+#[cfg(feature="decoder_supermovingblocks")]
+    PacketiserInfo { name: "supermovingblocks", get_packetiser: supermovingblocks::get_packetiser },
 
 #[cfg(feature="decoder_linepack")]
     PacketiserInfo { name: "linepack", get_packetiser: linepack::get_packetiser },
