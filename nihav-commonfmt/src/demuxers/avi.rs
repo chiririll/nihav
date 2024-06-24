@@ -503,6 +503,7 @@ const CHUNKS: &[RIFFParser] = &[
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"indx")), parse: parse_indx },
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"JUNK")), parse: parse_junk },
     RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"odml")), parse: parse_odml },
+    RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"rec ")), parse: parse_rec },
 ];
 
 fn is_list_tag(tag: u32) -> bool {
@@ -528,6 +529,10 @@ fn parse_strl(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
 
 fn parse_odml(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
     dmx.odml = true;
+    Ok(0)
+}
+
+fn parse_rec(_dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
     Ok(0)
 }
 
