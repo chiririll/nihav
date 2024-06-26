@@ -700,7 +700,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
-        test_decoding("vmd", "vmd-video", "assets/Game/2832.VMD", Some(10), &dmx_reg, &dec_reg,
+        test_decoding("vmd", "vmd-video", "assets/Game/sierra/2832.VMD", Some(10), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0xd29e0214, 0xf38ad154, 0xccbd381f, 0x3de1109c],
                             [0x904074eb, 0x202b1d6f, 0xe3f68538, 0xf0db641c],
@@ -721,7 +721,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
-        test_decoding("vmd", "vmd-video", "assets/Game/HLP1000.VMD", Some(10), &dmx_reg, &dec_reg,
+        test_decoding("vmd", "vmd-video", "assets/Game/sierra/HLP1000.VMD", Some(10), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x03d77d51, 0x8670ae24, 0x86184cc8, 0x9c928700],
                             [0xf4796f1b, 0x0f75a120, 0x62056509, 0xc83f1a2c],
@@ -737,7 +737,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
-        test_decoding("vmd", "vmd-video", "assets/Game/02C.VMD", None, &dmx_reg, &dec_reg,
+        test_decoding("vmd", "vmd-video", "assets/Game/sierra/02C.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xb580782c, 0xd7fb98c0, 0xaf9b83cc, 0xaea0846b]));
     }
     #[test]
@@ -747,7 +747,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
-        test_decoding("vmd", "vmd-audio", "assets/Game/1491.VMD", None, &dmx_reg, &dec_reg,
+        test_decoding("vmd", "vmd-audio", "assets/Game/sierra/1491.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x75037601, 0xbc7b3976, 0x6e1c948b, 0xf05a3d6c]));
     }
     #[test]
@@ -757,7 +757,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
-        test_decoding("vmd", "vmd-audio", "assets/Game/2832.VMD", None, &dmx_reg, &dec_reg,
+        test_decoding("vmd", "vmd-audio", "assets/Game/sierra/2832.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x32dcdf0e, 0xee058684, 0x43ed5bf1, 0x2ff18b5a]));
     }
     #[test]
@@ -767,7 +767,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
-        test_decoding("vmd", "vmd-audio", "assets/Game/1000.VMD", None, &dmx_reg, &dec_reg,
+        test_decoding("vmd", "vmd-audio", "assets/Game/sierra/1000.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xc36215d3, 0x96530a80, 0x89f1fa8e, 0x49da302b]));
     }
     #[test]
@@ -777,7 +777,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_decoders(&mut dec_reg);
 
-        test_decoding("vmd", "vmd-audio", "assets/Game/HLP1000.VMD", None, &dmx_reg, &dec_reg,
+        test_decoding("vmd", "vmd-audio", "assets/Game/sierra/HLP1000.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x76a00405, 0xe4e5378d, 0x495b2a68, 0x4dffe042]));
     }
 }
