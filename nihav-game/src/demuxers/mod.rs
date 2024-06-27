@@ -24,6 +24,10 @@ mod hl_fmv;
 mod imax;
 #[cfg(feature="demuxer_q")]
 mod q;
+#[cfg(feature="demuxer_rbt")]
+mod rbt;
+#[cfg(feature="demuxer_seq")]
+mod seq;
 #[cfg(feature="demuxer_sga")]
 mod sga;
 #[cfg(feature="demuxer_siff")]
@@ -54,6 +58,10 @@ const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
     &imax::IMAXDemuxerCreator {},
 #[cfg(feature="demuxer_q")]
     &q::QDemuxerCreator {},
+#[cfg(feature="demuxer_rbt")]
+    &rbt::RobotDemuxerCreator {},
+#[cfg(feature="demuxer_seq")]
+    &seq::SequenceDemuxerCreator {},
 #[cfg(feature="demuxer_sga")]
     &sga::SGADemuxerCreator {},
 #[cfg(feature="demuxer_siff")]

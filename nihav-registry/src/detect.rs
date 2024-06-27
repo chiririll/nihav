@@ -420,6 +420,18 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[],
     },
     DetectConditions {
+        demux_name: "sierra-rbt",
+        extensions: ".rbt",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::Byte(0x16)) },
+                      CheckItem{offs: 2, cond: &CC::Str(b"SOL\0")},
+                      CheckItem{offs: 6, cond: &CC::In(Arg::U16LE(4), Arg::U16LE(6))}],
+    },
+    DetectConditions {
+        demux_name: "sierra-seq",
+        extensions: ".seq",
+        conditions: &[],
+    },
+    DetectConditions {
         demux_name: "vmd",
         extensions: ".vmd",
         conditions: &[],

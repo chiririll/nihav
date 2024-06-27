@@ -36,6 +36,10 @@ pub mod midivid;
 pub mod midivid3;
 #[cfg(feature="decoder_q")]
 pub mod q;
+#[cfg(feature="decoder_rbt")]
+pub mod rbt;
+#[cfg(feature="decoder_seq")]
+pub mod seq;
 #[cfg(feature="decoder_sga")]
 pub mod sga;
 #[cfg(any(feature="decoder_smush_video", feature="decoder_smush_audio"))]
@@ -80,6 +84,12 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "ipma2", get_decoder: ipma::get_decoder_v2 },
 #[cfg(feature="decoder_q")]
     DecoderInfo { name: "legend-q-video", get_decoder: q::get_decoder },
+#[cfg(feature="decoder_rbt")]
+    DecoderInfo { name: "rbt-video", get_decoder: rbt::get_decoder },
+#[cfg(feature="decoder_rbt")]
+    DecoderInfo { name: "rbt-audio", get_decoder: rbt::get_decoder_audio },
+#[cfg(feature="decoder_seq")]
+    DecoderInfo { name: "seq-video", get_decoder: seq::get_decoder },
 #[cfg(feature="decoder_sga")]
     DecoderInfo { name: "dp-sga", get_decoder: sga::get_decoder },
 #[cfg(feature="decoder_smush_video")]
