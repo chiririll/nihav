@@ -427,19 +427,25 @@ impl<'a> AVIDemuxer<'a> {
     fn parse_palette_change(&mut self, stream_no: usize, size: usize) -> DemuxerResult<()> {
         for pe in self.pal.iter_mut() {
             if pe.stream_no == stream_no {
-                let start_clr           = self.src.read_byte()? as usize;
-                let len                 = self.src.read_byte()? as usize;
-                let len = if len == 0 { 256 } else { len };
-                let _flags              = self.src.read_u16le()?;
-                validate!(start_clr + len <= 256);
-                validate!(len * 4 + 4 == size);
                 let mut newpal = *pe.pal;
-                for i in start_clr..(start_clr + len) {
-                    newpal[i * 4]       = self.src.read_byte()?;
-                    newpal[i * 4 + 1]   = self.src.read_byte()?;
-                    newpal[i * 4 + 2]   = self.src.read_byte()?;
-                    newpal[i * 4 + 3]   = 0;
+                let mut data_left = size;
+                while data_left > 0 {
+                    validate!(data_left >= 8);
+                    let start_clr       = self.src.read_byte()? as usize;
+                    let len             = self.src.read_byte()? as usize;
+                    let len = if len == 0 { 256 } else { len };
+                    let _flags          = self.src.read_u16le()?;
+                    validate!(start_clr + len <= 256);
+                    let change_size = len * 4 + 4;
+                    validate!(change_size <= data_left);
+                    for i in start_clr..(start_clr + len) {
+                        newpal[i * 4]       = self.src.read_byte()?;
+                        newpal[i * 4 + 1]   = self.src.read_byte()?;
+                        newpal[i * 4 + 2]   = self.src.read_byte()?;
+                        newpal[i * 4 + 3]   = 0;
                                           self.src.read_byte()?; // flags
+                    }
+                    data_left -= change_size;
                 }
                 pe.pal = Arc::new(newpal);
                 pe.changed = true;
