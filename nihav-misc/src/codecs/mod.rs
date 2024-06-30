@@ -12,9 +12,14 @@ macro_rules! validate {
 #[cfg(feature="decoder_mwv1")]
 mod mwv1;
 
+#[cfg(feature="decoder_pgvv")]
+mod pgvv;
+
 const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_mwv1")]
     DecoderInfo { name: "mwv1", get_decoder: mwv1::get_decoder },
+#[cfg(feature="decoder_pgvv")]
+    DecoderInfo { name: "pgvv", get_decoder: pgvv::get_decoder },
 ];
 
 /// Registers all available codecs provided by this crate.

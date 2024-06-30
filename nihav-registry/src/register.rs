@@ -309,6 +309,8 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "h264",          "ITU H.264", CODEC_CAP_COMPLEX_REORDER | CODEC_CAP_HYBRID),
 
     desc!(video-im; "mwv1",          "Aware MotionWavelets"),
+
+    desc!(video-im; "pgvv",          "Radius Studio Video"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
@@ -359,6 +361,7 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"MWV1", "mwv1"),
 
     (b"azpr", "apple-video"),
+    (b"PGVV", "pgvv"),
 ];
 
 static WAV_CODEC_REGISTER: &[(u16, &str)] = &[

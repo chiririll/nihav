@@ -19,7 +19,8 @@ decoders = []
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_mwv1"]
+all_video_decoders = ["decoder_mwv1", "decoder_pgvv"]
 decoder_mwv1 = ["decoders"]
+decoder_pgvv = ["decoders"]
 
 all_audio_decoders = []
