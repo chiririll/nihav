@@ -357,6 +357,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"VP70", "vp7"),
 
     (b"MWV1", "mwv1"),
+
+    (b"azpr", "apple-video"),
 ];
 
 static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
