@@ -180,7 +180,7 @@ impl NADecoder for BinkAudioDecoder {
                 self.version_b = false;
             }
             let mut frame_bits = if srate < 22050 { 9 } else if srate < 44100 { 10 } else { 11 };
-            if !self.use_dct && !self.version_b {
+            if !self.use_dct && !self.version_b && channels > 1 {
                 frame_bits += 1;
             }
             self.len = 1 << frame_bits;
@@ -291,7 +291,18 @@ mod test {
         test_decode_audio("bink", file, None, None/*Some("bink")*/, &dmx_reg, &dec_reg);
     }
     #[test]
-    fn test_bink_audio_rdft() {
+    fn test_bink_audio_rdft_mono() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        rad_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        rad_register_all_decoders(&mut dec_reg);
+
+        // sample from Star Trek: Armada demo
+        let file = "assets/RAD/F1DEM1.bik";
+        test_decode_audio("bink", file, None, None/*Some("bink")*/, &dmx_reg, &dec_reg);
+    }
+    #[test]
+    fn test_bink_audio_rdft_stereo() {
         let mut dmx_reg = RegisteredDemuxers::new();
         rad_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
