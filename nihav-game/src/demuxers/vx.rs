@@ -40,7 +40,7 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         let vinfo_off                   = src.read_u32le()? as u64;
         validate!(vinfo_off == 0 || vinfo_off >= 0x30);
         let num_vstreams                = src.read_u32le()? as usize;
-        if num_vstreams != 1 || num_audio_tracks > 1 {
+        if num_vstreams != 1 || num_audio_tracks > 2 {
             return Err(DemuxerError::NotImplemented);
         }
 
