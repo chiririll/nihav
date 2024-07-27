@@ -29,9 +29,10 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         let nframes                     = src.read_u32le()? as usize;
         let width                       = src.read_u32le()? as usize;
         let height                      = src.read_u32le()? as usize;
-        let _unk                        = src.read_u32le()? as usize;
         let fps                         = src.read_u32le()?;
-        validate!(fps > 0 && fps < 256);
+        validate!(fps > (1 << 16) && fps < (100 << 16));
+        let quant                       = src.read_u32le()?;
+        validate!(quant > 0 && quant < 256);
         let srate                       = src.read_u32le()?;
         let num_audio_tracks            = src.read_u32le()? as usize;
         let _max_frame_size             = src.read_u32le()? as usize;
@@ -46,9 +47,9 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
 
         let vhdr = NAVideoInfo::new(width, height, false, YUV420_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
-        let edata = vec![fps as u8, 0, 0, 0];
+        let edata = vec![quant as u8, 0, 0, 0];
         let vinfo = NACodecInfo::new("vxvideo", vci, Some(edata));
-        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps, nframes as u64)).unwrap();
+        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 65536, fps, nframes as u64)).unwrap();
 
         if num_audio_tracks != 0 {
             validate!(audio_off + ((num_audio_tracks * AUDIO_EXTRADATA_LEN) as u64) == vinfo_off);
