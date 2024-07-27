@@ -362,6 +362,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"azpr", "apple-video"),
     (b"PGVV", "pgvv"),
+
+    (b"VXS1", "vxvideo"),
 ];
 
 static WAV_CODEC_REGISTER: &[(u16, &str)] = &[

@@ -946,9 +946,9 @@ impl NADecoder for VXVideoDecoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        validate!(src.len() > 0);
+        validate!(src.len() > 4);
 
-        let mut br = BitReader::new(&src[0..], BitReaderMode::LE16MSB);
+        let mut br = BitReader::new(&src[4..], BitReaderMode::LE16MSB);
 
         self.y_ncoeffs = [0; NCSTRIDE * (256 / 4 + 1)];
         self.c_ncoeffs = [0; NCSTRIDE * (256 / 8 + 1)];

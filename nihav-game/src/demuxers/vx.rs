@@ -46,7 +46,7 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
 
         let vhdr = NAVideoInfo::new(width, height, false, YUV420_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
-        let edata = [fps as u8].to_vec();
+        let edata = vec![fps as u8, 0, 0, 0];
         let vinfo = NACodecInfo::new("vxvideo", vci, Some(edata));
         self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps, nframes as u64)).unwrap();
 
@@ -89,7 +89,10 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         validate!(size > 2);
         let _num_achunks            = self.src.read_u16le()?;
         let fsize = size - 2;
-        let pkt                     = self.src.read_packet(stream, ts, false, fsize)?;
+        let mut buf = vec![0; fsize + 4];
+        write_u32le(&mut buf, (fsize * 8) as u32)?;
+                                      self.src.read_buf(&mut buf[4..])?;
+        let pkt = NAPacket::new(stream, ts, false, buf);
         self.video_pos = self.src.tell();
         self.vno += 1;
         Ok(pkt)
