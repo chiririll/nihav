@@ -8,13 +8,14 @@ struct VXDemuxer<'a> {
     src:        &'a mut ByteReader<'a>,
     vid_id:     usize,
     aud_id:     usize,
+    fps:        u32,
     video_pos:  u64,
-    num_vid:    usize,
     vno:        u64,
     num_vfrm:   u64,
     num_aud:    usize,
     ano:        u64,
     num_afrm:   u64,
+    seektab:    Vec<(u32, u32)>,
 }
 
 impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
@@ -40,10 +41,7 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         validate!(audio_off == 0 || audio_off >= 0x30);
         let vinfo_off                   = src.read_u32le()? as u64;
         validate!(vinfo_off == 0 || vinfo_off >= 0x30);
-        let num_vstreams                = src.read_u32le()? as usize;
-        if num_vstreams != 1 || num_audio_tracks > 2 {
-            return Err(DemuxerError::NotImplemented);
-        }
+        let num_keypos                  = src.read_u32le()? as usize;
 
         let vhdr = NAVideoInfo::new(width, height, false, YUV420_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
@@ -64,16 +62,25 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
             self.num_aud = num_audio_tracks;
         }
 
-        if num_vstreams > 0 {
+        if num_keypos > 0 {
             src.seek(SeekFrom::Start(vinfo_off))?;
-            for _ in 0..num_vstreams {
-                let _smth               = src.read_u32le()?;
-                let offset              = src.read_u32le()? as u64;
-                self.video_pos = offset;
+            let mut last_frame  = src.read_u32le()?;
+            let mut last_offset = src.read_u32le()?;
+            validate!(last_frame == 0 && last_offset == 0x30);
+            self.seektab.clear();
+            self.seektab.push((last_frame, last_offset));
+            for _ in 1..num_keypos {
+                let frameno             = src.read_u32le()?;
+                let offset              = src.read_u32le()?;
+                validate!(frameno > last_frame && offset > last_offset);
+                self.seektab.push((frameno, offset));
+                last_frame = frameno;
+                last_offset = offset;
             }
         }
 
-        self.num_vid  = num_vstreams;
+        self.fps = fps;
+        self.video_pos = 0x30;
         self.vno = 0;
         self.num_vfrm = nframes as u64;
         Ok(())
@@ -99,8 +106,28 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         Ok(pkt)
     }
 
-    fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
-        Err(DemuxerError::NotPossible)
+    fn seek(&mut self, time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+        if self.seektab.len() < 2 {
+            Err(DemuxerError::NotPossible)
+        } else {
+            let fno = match time {
+                    NATimePoint::Milliseconds(ms) => {
+                        NATimeInfo::time_to_ts(ms, 1000, 65536, self.fps)
+                    },
+                    NATimePoint::PTS(ts) => ts,
+                    NATimePoint::None => return Err(DemuxerError::NotPossible)
+                };
+            if fno >= self.num_vfrm {
+                return Err(DemuxerError::SeekError);
+            }
+            let idx = match self.seektab.binary_search_by_key(&fno, |&(frm, _)| u64::from(frm)) {
+                    Ok(val) => val,
+                    Err(val) => val - 1,
+                };
+            self.vno       = u64::from(self.seektab[idx].0);
+            self.video_pos = u64::from(self.seektab[idx].1);
+            Ok(())
+        }
     }
 
     fn get_duration(&self) -> u64 { 0 }
@@ -117,14 +144,15 @@ impl<'a> VXDemuxer<'a> {
         Self {
             vid_id:     0,
             aud_id:     0,
+            fps:        0,
             video_pos:  0,
-            num_vid:    0,
             num_aud:    0,
             vno:        0,
             ano:        0,
             num_vfrm:   0,
             num_afrm:   0,
             src:        io,
+            seektab:    Vec::new(),
         }
     }
 }
