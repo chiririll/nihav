@@ -100,7 +100,9 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         let mut buf = vec![0; fsize + 4];
         write_u32le(&mut buf, (fsize * 8) as u32)?;
                                       self.src.read_buf(&mut buf[4..])?;
-        let pkt = NAPacket::new(stream, ts, false, buf);
+        let keyframe = self.vno == 0 ||
+                self.seektab.binary_search_by_key(&self.vno, |&(frm, _)| u64::from(frm)).is_ok();
+        let pkt = NAPacket::new(stream, ts, keyframe, buf);
         self.video_pos = self.src.tell();
         self.vno += 1;
         Ok(pkt)
