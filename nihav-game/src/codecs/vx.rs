@@ -998,6 +998,266 @@ pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(VXVideoDecoder::new())
 }
 
+fn parse_coeffs(br: &mut BitReader, codebooks: &Codebooks, ctx: u8) -> DecoderResult<u8> {
+    const MAX_LEVEL: [i32; 6] = [ 2, 5, 11, 23, 47, 0x8000 ];
+
+    let (ncoeffs, nones) = if ctx < 8 {
+            let sym                     = br.read_cb(&codebooks.nc_cb[NC_MAP[ctx as usize]])?;
+            if sym == 0 {
+                return Ok(0);
+            }
+            (sym >> 2, sym & 3)
+        } else {
+            let ncoeffs                 = (br.read(4)? + 1) as u8;
+            let nones                   = br.read(2)? as u8;
+            if ncoeffs < nones {
+                return Ok(0);
+            }
+            (ncoeffs, nones)
+        };
+    let mut num_zero = if ncoeffs == 16 { 0 } else {
+            br.read_cb(&codebooks.num_zero_cb[ncoeffs as usize - 1])?
+        };
+    validate!(ncoeffs + num_zero <= 16);
+    let mut level = 0usize;
+    let mut coef_left = ncoeffs;
+    let mut ones_left = nones;
+    while coef_left > 0 {
+        let _val = if ones_left > 0 {
+                ones_left -= 1;
+                if !br.read_bool()? { 1 } else { -1 }
+            } else {
+                let prefix              = br.read_unary()?;
+                let val = if prefix < 15 {
+                        (br.read(level as u8)? | (prefix << level)) as i32
+                    } else {
+                        (br.read(11)? + (15 << level)) as i32
+                    };
+                if val > MAX_LEVEL[level] {
+                    level += 1;
+                }
+                if !br.read_bool()? {
+                    val + 1
+                } else {
+                    -(val + 1)
+                }
+            };
+        coef_left -= 1;
+        if num_zero > 0 && coef_left > 0 {
+            let run = if num_zero < 7 {
+                    br.read_cb(&codebooks.zero_run_cb[num_zero as usize - 1])?
+                } else {
+                    if br.peek(3) != 0 {
+                        7 - (br.read(3)? as u8)
+                    } else {
+                        (br.read_unary()? as u8) + 4
+                    }
+                };
+            validate!(run <= num_zero);
+            num_zero -= run;
+        }
+    }
+    Ok(ncoeffs)
+}
+
+#[cfg(feature="demuxer_vx")]
+pub struct VXVideoParser {
+    width:      usize,
+    height:     usize,
+    ipred4x4:   [u8; 25],
+    y_ncoeffs:  [u8; NCSTRIDE * (256 / 4 + 1)],
+    c_ncoeffs:  [u8; NCSTRIDE * (256 / 8 + 1)],
+    codebooks:  Codebooks,
+}
+
+#[cfg(feature="demuxer_vx")]
+impl VXVideoParser {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            width, height,
+            ipred4x4:   [9; 25],
+            y_ncoeffs:  [0; NCSTRIDE * (256 / 4 + 1)],
+            c_ncoeffs:  [0; NCSTRIDE * (256 / 8 + 1)],
+            codebooks:  Codebooks::new(),
+        }
+    }
+    pub fn parse_frame(&mut self, src: &[u8]) -> DecoderResult<usize> {
+        let mut br = BitReader::new(src, BitReaderMode::LE16MSB);
+        self.y_ncoeffs = [0; NCSTRIDE * (256 / 4 + 1)];
+        self.c_ncoeffs = [0; NCSTRIDE * (256 / 8 + 1)];
+
+        for ypos in (0..self.height).step_by(16) {
+            for xpos in (0..self.width).step_by(16) {
+                self.parse_block(&mut br, xpos, ypos, 16, 16)?;
+            }
+        }
+
+        Ok(br.tell())
+    }
+    fn parse_mc(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+        let _dx                         = br.read_gammap_s()? as i8;
+        let _dy                         = br.read_gammap_s()? as i8;
+        Ok(())
+    }
+    fn parse_mc_bias(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+        let _mx                         = br.read_gammap_s()? as isize;
+        let _my                         = br.read_gammap_s()? as isize;
+        let _ydelta                     = br.read_gammap_s()? * 2;
+        let _udelta                     = br.read_gammap_s()? * 2;
+        let _vdelta                     = br.read_gammap_s()? * 2;
+        Ok(())
+    }
+    fn parse_plane_pred(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+        let _ydelta                     = br.read_gammap_s()? * 2;
+        let _udelta                     = br.read_gammap_s()? * 2;
+        let _vdelta                     = br.read_gammap_s()? * 2;
+        Ok(())
+    }
+    fn parse_intra_pred(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+        let _ymode                      = br.read_gammap()? as usize;
+        let _cmode                      = br.read_gammap()? as usize;
+        Ok(())
+    }
+    fn parse_intra_pred4x4(&mut self, br: &mut BitReader, w: usize, h: usize) -> DecoderResult<()> {
+        let mut idx = 6;
+        for _y in (0..h).step_by(4) {
+            for _x in (0..w).step_by(4) {
+                let mut mode = self.ipred4x4[idx - 5].min(self.ipred4x4[idx - 1]);
+                if mode == 9 {
+                    mode = 2;
+                }
+                if !br.read_bool()? {
+                    let mode1           = br.read(3)? as u8;
+                    mode = if mode1 >= mode { mode1 + 1 } else { mode1 };
+                }
+                self.ipred4x4[idx] = mode;
+                idx += 1;
+            }
+        }
+        let _cmode                      = br.read_gammap()? as usize;
+        Ok(())
+    }
+    fn parse_residue(&mut self, br: &mut BitReader, xpos: usize, ypos: usize, w: usize, h: usize) -> DecoderResult<()> {
+        const CBP: [u8; 32] = [
+            0x00, 0x08, 0x04, 0x02, 0x01, 0x1F, 0x0F, 0x0A,
+            0x05, 0x0C, 0x03, 0x10, 0x0E, 0x0D, 0x0B, 0x07,
+            0x09, 0x06, 0x1E, 0x1B, 0x1A, 0x1D, 0x17, 0x15,
+            0x18, 0x12, 0x11, 0x1C, 0x14, 0x13, 0x16, 0x19
+        ];
+
+        let mut yidx = (xpos / 4 + 1) + NCSTRIDE * (ypos / 4 + 1);
+        let mut cidx = (xpos / 8 + 1) + NCSTRIDE * (ypos / 8 + 1);
+        for _y in (0..h).step_by(8) {
+            for x in (0..w).step_by(8) {
+                let idx                 = br.read_gammap()? as usize;
+                validate!(idx < CBP.len());
+                let cbp = CBP[idx];
+                for bno in 0..4 {
+                    let cur_yidx = yidx + x / 4 + (bno & 1) + (bno / 2) * NCSTRIDE;
+                    if (cbp & (1 << bno)) != 0 {
+                        let ctx = avg(self.y_ncoeffs[cur_yidx - 1], self.y_ncoeffs[cur_yidx - NCSTRIDE]);
+                        self.y_ncoeffs[cur_yidx] = parse_coeffs(br, &self.codebooks, ctx)?;
+                    } else {
+                        self.y_ncoeffs[cur_yidx] = 0;
+                    }
+                }
+                if (cbp & 0x10) != 0 {
+                    let ctx = avg(self.c_ncoeffs[cidx + x / 8 - 1], self.c_ncoeffs[cidx + x / 8 - NCSTRIDE]);
+                    let unc = parse_coeffs(br, &self.codebooks, ctx)?;
+                    let vnc = parse_coeffs(br, &self.codebooks, ctx)?;
+                    self.c_ncoeffs[cidx + x / 8] = avg(unc, vnc);
+                } else {
+                    self.c_ncoeffs[cidx + x / 8] = 0;
+                }
+            }
+            yidx += NCSTRIDE * 2;
+            cidx += NCSTRIDE;
+        }
+        Ok(())
+    }
+    fn parse_block(&mut self, br: &mut BitReader, xpos: usize, ypos: usize, w: usize, h: usize) -> DecoderResult<()> {
+        let mode                        = br.read_gammap()?;
+        let min_dim = w.min(h);
+        let large_block = min_dim >= 8;
+        if mode >= 16 && !large_block {
+            return Err(DecoderError::InvalidData);
+        }
+        match mode {
+            0 if w > 2 => {
+                let hw = w / 2;
+                self.parse_block(br, xpos,      ypos, hw, h)?;
+                self.parse_block(br, xpos + hw, ypos, hw, h)?;
+            },
+            1 => {},
+            2 if h > 2 => {
+                let hh = h / 2;
+                self.parse_block(br, xpos, ypos,      w, hh)?;
+                self.parse_block(br, xpos, ypos + hh, w, hh)?;
+            },
+            3 => { self.parse_mc_bias(br)?; },
+            4 | 5 | 6 => {
+                self.parse_mc(br)?;
+            },
+            7 => { self.parse_plane_pred(br)?; },
+            8 if large_block => {
+                let hw = w / 2;
+                self.parse_block(br, xpos,      ypos, hw, h)?;
+                self.parse_block(br, xpos + hw, ypos, hw, h)?;
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            9 => {},
+            10 if large_block => {
+                self.parse_mc_bias(br)?;
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            11 => {
+                if min_dim >= 4 {
+                    self.parse_intra_pred(br)?;
+                }
+            },
+            12 if large_block => {
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            13 if large_block => {
+                let hh = h / 2;
+                self.parse_block(br, xpos, ypos,      w, hh)?;
+                self.parse_block(br, xpos, ypos + hh, w, hh)?;
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            14 => {},
+            15 => {
+                if min_dim >= 4 {
+                    self.parse_intra_pred4x4(br, w, h)?;
+                }
+            },
+            16 | 17 | 18 => {
+                self.parse_mc(br)?;
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            19 => {
+                self.parse_intra_pred4x4(br, w, h)?;
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            20 => {
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            21 => {
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            22 => {
+                self.parse_intra_pred(br)?;
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            23 => {
+                self.parse_plane_pred(br)?;
+                self.parse_residue(br, xpos, ypos, w, h)?;
+            },
+            _ => return Err(DecoderError::InvalidData),
+        };
+        Ok(())
+    }
+}
+
 
 struct AudioState {
     lpc0_idx:   usize,

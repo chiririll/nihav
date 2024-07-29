@@ -2,6 +2,9 @@ use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 use std::io::SeekFrom;
 
+#[cfg(feature="decoder_vx")]
+use super::super::codecs::vx::VXVideoParser;
+
 const AUDIO_EXTRADATA_LEN: usize = 3124;
 
 struct VXDemuxer<'a> {
@@ -16,6 +19,10 @@ struct VXDemuxer<'a> {
     ano:        u64,
     num_afrm:   u64,
     seektab:    Vec<(u32, u32)>,
+    #[cfg(feature="decoder_vx")]
+    parser:     Option<VXVideoParser>,
+    parse:      bool,
+    apkt:       Option<NAPacket>,
 }
 
 impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
@@ -49,17 +56,19 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         let vinfo = NACodecInfo::new("vxvideo", vci, Some(edata));
         self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 65536, fps, nframes as u64)).unwrap();
 
-        if num_audio_tracks != 0 {
+        if num_audio_tracks != 0 && self.parse {
             validate!(audio_off + ((num_audio_tracks * AUDIO_EXTRADATA_LEN) as u64) == vinfo_off);
             src.seek(SeekFrom::Start(audio_off))?;
-            let mut edata = vec![0u8; AUDIO_EXTRADATA_LEN];
+            let mut edata = vec![0u8; AUDIO_EXTRADATA_LEN * num_audio_tracks];
                                           src.read_buf(edata.as_mut_slice())?;
-            let ahdr = NAAudioInfo::new(srate, 1, SND_S16P_FORMAT, 1);
+            let ahdr = NAAudioInfo::new(srate, num_audio_tracks as u8, SND_S16P_FORMAT, 1);
             let ainfo = NACodecInfo::new("vxaudio", NACodecTypeInfo::Audio(ahdr), Some(edata));
-            self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate, 0)).unwrap();
+            self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 128, srate, 0)).unwrap();
             self.num_afrm = nframes as u64;
             self.ano = 0;
             self.num_aud = num_audio_tracks;
+        } else {
+            self.aud_id = self.vid_id + 1;
         }
 
         if num_keypos > 0 {
@@ -79,6 +88,16 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
             }
         }
 
+        #[cfg(not(feature="decoder_vx"))]
+        if self.parse == true {
+            println!("Frame parsing is not enabled in this build");
+        }
+
+        #[cfg(feature="decoder_vx")]
+        if self.parse {
+            self.parser = Some(VXVideoParser::new(width, height));
+        }
+
         self.fps = fps;
         self.video_pos = 0x30;
         self.vno = 0;
@@ -86,7 +105,13 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
+        if self.apkt.is_some() {
+            let mut ret = None;
+            std::mem::swap(&mut self.apkt, &mut ret);
+            return Ok(ret.unwrap());
+        }
         if self.vno >= self.num_vfrm { return Err(DemuxerError::EOF); }
         self.src.seek(SeekFrom::Start(self.video_pos))?;
         let stream = strmgr.get_stream(self.vid_id);
@@ -95,11 +120,33 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         let ts = stream.make_ts(Some(self.vno), None, None);
         let size                    = self.src.read_u16le()? as usize;
         validate!(size > 2);
-        let _num_achunks            = self.src.read_u16le()?;
+        let num_achunks             = self.src.read_u16le()?;
         let fsize = size - 2;
         let mut buf = vec![0; fsize + 4];
         write_u32le(&mut buf, (fsize * 8) as u32)?;
                                       self.src.read_buf(&mut buf[4..])?;
+        #[cfg(feature="decoder_vx")]
+        if self.num_aud > 0 {
+            if let Some(ref mut parser) = self.parser {
+                if let Ok(nbits) = parser.parse_frame(&buf[4..]) {
+                    write_u32le(&mut buf, nbits as u32)?;
+                    let vpart_size = 4 + ((nbits + 15) & !15) / 8;
+
+                    if let Some(astream) = strmgr.get_stream(self.aud_id) {
+                        let mut audio = vec![0; buf.len() - vpart_size + 2];
+                        write_u16le(&mut audio, num_achunks)?;
+                        audio[2..].copy_from_slice(&buf[vpart_size..]);
+                        let ts_audio = astream.make_ts(Some(self.ano), None, None);
+                        self.apkt = Some(NAPacket::new(astream, ts_audio, true, audio));
+                        self.ano += u64::from(num_achunks);
+                    }
+
+                    buf.truncate(vpart_size);
+                } else {
+                    println!("failed to parse video frame size, corrupted frame?");
+                }
+            }
+        }
         let keyframe = self.vno == 0 ||
                 self.seektab.binary_search_by_key(&self.vno, |&(frm, _)| u64::from(frm)).is_ok();
         let pkt = NAPacket::new(stream, ts, keyframe, buf);
@@ -135,10 +182,33 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
     fn get_duration(&self) -> u64 { 0 }
 }
 
+const PARSE_FRAMES_OPT: &str = "parse_frames";
+const DEMUXER_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: PARSE_FRAMES_OPT,
+        description: "parse frames to split them into video and audio parts",
+        opt_type: NAOptionDefinitionType::Bool },
+];
+
 impl<'a> NAOptionHandler for VXDemuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { DEMUXER_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            for opt_def in DEMUXER_OPTS.iter() {
+                if opt_def.check(option).is_ok() {
+                    if let (PARSE_FRAMES_OPT, NAValue::Bool(ref bval)) = (option.name, &option.value) {
+                        self.parse = *bval;
+                    }
+                }
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        match name {
+            PARSE_FRAMES_OPT => Some(NAValue::Bool(self.parse)),
+            _ => None,
+        }
+    }
 }
 
 impl<'a> VXDemuxer<'a> {
@@ -155,6 +225,10 @@ impl<'a> VXDemuxer<'a> {
             num_afrm:   0,
             src:        io,
             seektab:    Vec::new(),
+            #[cfg(feature="decoder_vx")]
+            parser:     None,
+            parse:      true,
+            apkt:       None,
         }
     }
 }
