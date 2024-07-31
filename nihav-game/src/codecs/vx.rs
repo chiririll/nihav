@@ -1265,7 +1265,13 @@ struct AudioState {
     lpc2_idx:   usize,
     scale:      i32,
     frame_mode: usize,
+    lpc_coeffs: [i32; 8],
     cur_filt:   [i32; 8],
+    prev_filt:  [i32; 8],
+
+    pulse_buf:  [i32; 128],
+    pulse_hist: [i32; 256],
+    lpc_hist:   [i32; 8],
 
     lpc0_cb:    [[i16; 8]; 64],
     lpc1_cb:    [[i16; 8]; 64],
@@ -1283,7 +1289,13 @@ impl AudioState {
             lpc2_idx:   0,
             scale:      0,
             frame_mode: 0,
+            lpc_coeffs: [0; 8],
             cur_filt:   [0; 8],
+            prev_filt:  [0; 8],
+
+            pulse_buf:  [0; 128],
+            pulse_hist: [0; 256],
+            lpc_hist:   [0; 8],
 
             lpc0_cb:    [[0; 8]; 64],
             lpc1_cb:    [[0; 8]; 64],
@@ -1318,7 +1330,7 @@ impl AudioState {
         self.base_scale                 = br.read_u32le()? as i32;
         Ok(())
     }
-    fn unpack_data(&mut self, br: &mut ByteReader, val: u16, dst: &mut [i32]) -> DecoderResult<()> {
+    fn unpack_data(&mut self, br: &mut ByteReader, val: u16) -> DecoderResult<()> {
         self.lpc0_idx = (val & 0x3F) as usize;
         self.scale = (self.decays[((val >> 6) & 7) as usize] * self.scale) >> 13;
         let val1                        = br.read_u16le()?;
@@ -1332,16 +1344,16 @@ impl AudioState {
                 let val                 = br.read_u16le()?;
                 for i in 0..5 {
                     let add = i32::from((val >> (13 - i * 3)) & 7);
-                    dst[idx] += self.scale * (add * 2 - 7);
+                    self.pulse_buf[idx] += self.scale * (add * 2 - 7);
                     idx += 3;
                 }
                 tail = tail * 2 + (val & 1);
             }
             let add = i32::from((tail >> 5) & 7);
-            dst[idx] += self.scale * (add * 2 - 7);
+            self.pulse_buf[idx] += self.scale * (add * 2 - 7);
             idx += 3;
             let add = i32::from((tail >> 2) & 7);
-            dst[idx] += self.scale * (add * 2 - 7);
+            self.pulse_buf[idx] += self.scale * (add * 2 - 7);
         } else {
             let (len, step) = match self.frame_mode {
                     1 => (5, 3),
@@ -1349,40 +1361,114 @@ impl AudioState {
                     3 => (3, 5),
                     _ => unreachable!(),
                 };
-            idx += 128;
             for _ in 0..len {
                 let val                 = br.read_u16le()?;
                 for i in 0..8 {
                     let add = i32::from((val >> (14 - i * 2)) & 3);
-                    dst[idx] += self.scale * (add * 2 - 3);
+                    self.pulse_buf[idx] += self.scale * (add * 2 - 3);
                     idx += step;
                 }
             }
         }
         Ok(())
     }
-    fn update_intra(&mut self) {
-        self.cur_filt = self.base_filt;
+    fn update_lpc_coeffs(&mut self) {
         for i in 0..8 {
-            self.cur_filt[i] += i32::from(self.lpc0_cb[self.lpc0_idx][i]);
-            self.cur_filt[i] += i32::from(self.lpc1_cb[self.lpc1_idx][i]);
-            self.cur_filt[i] += i32::from(self.lpc2_cb[self.lpc2_idx][i]);
+            self.lpc_coeffs[i] += i32::from(self.lpc0_cb[self.lpc0_idx][i]);
+            self.lpc_coeffs[i] += i32::from(self.lpc1_cb[self.lpc1_idx][i]);
+            self.lpc_coeffs[i] += i32::from(self.lpc2_cb[self.lpc2_idx][i]);
+        }
+
+        let mut tmp = [0; 8];
+
+        self.cur_filt = self.lpc_coeffs;
+        for i in 0..4 {
+            self.cur_filt.swap(i, 7 - i);
+        }
+        for len in 1..8 {
+            let scale = self.cur_filt[len];
+            for (prod, &val) in tmp.iter_mut().zip(self.cur_filt.iter()).take(len) {
+                //*prod = (val * scale) >> 15;
+                *prod = val.wrapping_mul(scale) >> 15;
+            }
+            for (dst, &add) in self.cur_filt.iter_mut().zip(tmp[..len].iter()) {
+                *dst += add;
+            }
+        }
+
+        for el in self.cur_filt.iter_mut() {
+            *el = -(*el >> 1);
         }
     }
-    fn update_inter(&mut self) {
-        for i in 0..8 {
-            self.cur_filt[i] += i32::from(self.lpc0_cb[self.lpc0_idx][i]);
-            self.cur_filt[i] += i32::from(self.lpc1_cb[self.lpc1_idx][i]);
-            self.cur_filt[i] += i32::from(self.lpc2_cb[self.lpc2_idx][i]);
+    fn decode_intra(&mut self, br: &mut ByteReader, val: u16, out: &mut [i32; 128]) -> DecoderResult<()> {
+        self.scale = self.base_scale;
+        self.lpc_hist = [0; 8];
+
+        for el in self.pulse_buf.iter_mut() {
+            *el = 0;
         }
+        self.unpack_data(br, val)?;
+
+        self.lpc_coeffs = self.base_filt;
+        self.update_lpc_coeffs();
+
+        apply_lpc(out, &self.pulse_buf, &mut self.lpc_hist, &self.cur_filt);
+        Ok(())
+    }
+    fn decode_inter(&mut self, br: &mut ByteReader, val: u16, mode: u16, out: &mut [i32; 128]) -> DecoderResult<()> {
+        let (part0, part1) = self.pulse_hist.split_at_mut(128);
+        part0.copy_from_slice(part1);
+        part1.copy_from_slice(&self.pulse_buf);
+        self.prev_filt = self.cur_filt;
+
+        if mode == 0x7E {
+            for el in self.pulse_buf.iter_mut() {
+                *el = 0;
+            }
+        } else {
+            let src = &self.pulse_hist[127 - (mode as usize)..];
+            let (src_head, body) = src.split_at(7);
+            let (src_body, src_tail) = body.split_at(128 - 7 * 2);
+
+            let (dst_head, body) = self.pulse_buf.split_at_mut(7);
+            let (dst_body, dst_tail) = body.split_at_mut(128 - 7 * 2);
+
+            for (i, (dst, &src)) in dst_head.iter_mut().zip(src_head.iter()).enumerate() {
+                *dst = (src * ((i + 1) as i32)) >> 4;
+            }
+            for (dst, &src) in dst_body.iter_mut().zip(src_body.iter()) {
+                *dst = src >> 1;
+            }
+            for (i, (dst, &src)) in dst_tail.iter_mut().zip(src_tail.iter()).enumerate() {
+                *dst = (src * ((7 - i) as i32)) >> 4;
+            }
+        }
+
+        self.unpack_data(br, val)?;
+        self.update_lpc_coeffs();
+
+        let mut filters = [[0; 8]; 4];
+        filters[3] = self.cur_filt;
+        let prev_filter = &self.prev_filt;
+        for i in 0..8 {
+            filters[1][i] = (prev_filter[i] + filters[3][i]) >> 1;
+            filters[0][i] = (prev_filter[i] + filters[1][i]) >> 1;
+            filters[2][i] = (filters[1][i]  + filters[3][i]) >> 1;
+        }
+        for ((dst, src), filter) in out.chunks_exact_mut(32)
+                .zip(self.pulse_buf.chunks_exact(32)).zip(filters.iter()) {
+            apply_lpc(dst, src, &mut self.lpc_hist, filter);
+        }
+        Ok(())
     }
 }
 
-fn apply_lpc(dst: &mut [i32], src: &[i32], hist: &mut [i32], filt: &[i32; 8]) {
+fn apply_lpc(dst: &mut [i32], src: &[i32], hist: &mut [i32; 8], filt: &[i32; 8]) {
     for (hidx, (out, src)) in dst.iter_mut().zip(src.iter()).enumerate() {
         let mut sum = *src << 14;
         for i in 0..8 {
-            sum += hist[(hidx + i) & 7] * filt[i];
+            //sum += hist[(hidx + i) & 7] * filt[i];
+            sum = sum.wrapping_add(hist[(hidx + i) & 7].wrapping_mul(filt[i]));
         }
         let samp = sum >> 14;
         *out = samp;
@@ -1394,12 +1480,8 @@ struct VXAudioDecoder {
     ainfo:      NAAudioInfo,
     info:       Arc<NACodecInfo>,
     chmap:      NAChannelMap,
-    buf:        [i32; 256 * 2],
-    flip_buf:   bool,
-    state:      AudioState,
-    lpc_hist:   [i32; 8],
-    lpc_filt:   [i32; 8],
-    lpc_filt1:  [i32; 8],
+    state:      [AudioState; 2],
+    buf:        [i32; 128],
 }
 
 impl VXAudioDecoder {
@@ -1408,111 +1490,42 @@ impl VXAudioDecoder {
             ainfo:      NAAudioInfo::new(0, 1, SND_S16P_FORMAT, 0),
             info:       NACodecInfo::new_dummy(),
             chmap:      NAChannelMap::new(),
-            buf:        [0; 256 * 2],
-            flip_buf:   true,
-            state:      AudioState::new(),
-            lpc_hist:   [0; 8],
-            lpc_filt:   [0; 8],
-            lpc_filt1:  [0; 8],
+            state:      [AudioState::new(), AudioState::new()],
+            buf:        [0; 128],
         }
-    }
-    fn decode_inter(&mut self, br: &mut ByteReader, mode: u16, val: u16) -> DecoderResult<()> {
-        let (mut cur_buf, mut prev_buf) = self.buf.split_at_mut(256);
-        if self.flip_buf {
-            std::mem::swap(&mut cur_buf, &mut prev_buf);
-        }
-        cur_buf[0..128].copy_from_slice(&prev_buf[128..]);
-        if mode == 0x7E {
-            for el in cur_buf[128..].iter_mut() {
-                *el = 0;
-            }
-        } else {
-            let src = &prev_buf[127 - (mode as usize)..];
-            let dst = &mut cur_buf[128..];
-            for i in 0..7 {
-                dst[i] = (src[i] * ((i + 1) as i32)) >> 4;
-            }
-            for i in 7..121 {
-                dst[i] = src[i] >> 1;
-            }
-            for i in 121..128 {
-                dst[i] = (src[i] * ((128 - i) as i32)) >> 4;
-            }
-        }
-
-        self.state.unpack_data(br, val, prev_buf )?;
-        self.state.update_inter();
-
-        let (cfilt, pfilt) = if !self.flip_buf {
-                (&mut self.lpc_filt, &mut self.lpc_filt1)
-            } else {
-                (&mut self.lpc_filt1, &mut self.lpc_filt)
-            };
-        *cfilt = self.state.cur_filt;
-        let mut f0 = [0; 8];
-        let mut f1 = [0; 8];
-        let mut f2 = [0; 8];
-        for i in 0..8 {
-            f1[i] = (pfilt[i] + cfilt[i]) >> 1;
-            f0[i] = (pfilt[i] + f1   [i]) >> 1;
-            f2[i] = (f1   [i] + cfilt[i]) >> 1;
-        }
-        apply_lpc(&mut cur_buf[ 0..][..32], &prev_buf[128..],      &mut self.lpc_hist, &f0);
-        apply_lpc(&mut cur_buf[32..][..32], &prev_buf[128 + 32..], &mut self.lpc_hist, &f1);
-        apply_lpc(&mut cur_buf[64..][..32], &prev_buf[128 + 64..], &mut self.lpc_hist, &f2);
-        apply_lpc(&mut cur_buf[96..][..32], &prev_buf[128 + 96..], &mut self.lpc_hist, cfilt);
-        Ok(())
-    }
-    fn decode_intra(&mut self, br: &mut ByteReader, val: u16) -> DecoderResult<()> {
-        self.state.scale = self.state.base_scale;
-        self.lpc_hist = [0; 8];
-        self.flip_buf = true;
-
-        let (mut cur_buf, mut prev_buf) = self.buf.split_at_mut(256);
-        if self.flip_buf {
-            std::mem::swap(&mut cur_buf, &mut prev_buf);
-        }
-        for el in cur_buf[128..].iter_mut() {
-            *el = 0;
-        }
-        self.state.unpack_data(br, val, prev_buf)?;
-        self.state.update_intra();
-
-        self.lpc_filt = self.state.cur_filt;
-        apply_lpc(&mut cur_buf[..128], &prev_buf[128..], &mut self.lpc_hist, &self.lpc_filt);
-        Ok(())
     }
     fn output(&mut self, dst: &mut [i16]) {
-        let src = if self.flip_buf { &self.buf[256..][..128] } else { &self.buf[..128] };
-        for (src, dst) in src.iter().zip(dst.iter_mut()) {
-            *dst = (*src).max(-0x8000).min(0x7FFF) as i16;
+        for (dst, &src) in dst.iter_mut().zip(self.buf.iter()) {
+            *dst = src.max(-0x8000).min(0x7FFF) as i16;
         }
-        self.flip_buf = !self.flip_buf;
     }
 }
 
 impl NADecoder for VXAudioDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
+            if ainfo.channels != 1 && ainfo.channels != 2 {
+                return Err(DecoderError::NotImplemented);
+            }
             if let Some(edata) = info.get_extradata() {
-                validate!(edata.len() >= 3124);
+                validate!(edata.len() == usize::from(ainfo.channels) * 3124);
                 let mut mr = MemoryReader::new_read(edata.as_slice());
                 let mut br = ByteReader::new(&mut mr);
-                self.state.read_initial_params(&mut br)?;
+                for state in self.state.iter_mut().take(usize::from(ainfo.channels)) {
+                    state.read_initial_params(&mut br)?;
+                }
             } else {
                 return Err(DecoderError::InvalidData);
             }
-            self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), 1, SND_S16_FORMAT, 1);
+            self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.channels, SND_S16P_FORMAT, 128);
             self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo));
-            self.chmap = NAChannelMap::from_str("C").unwrap();
+            self.chmap = NAChannelMap::from_str(if ainfo.channels == 1 { "C" } else { "L,R" }).unwrap();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)
         }
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
-        const SUBFRAME_LEN: [usize; 4] = [20, 14, 12, 10];
-
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();
@@ -1520,37 +1533,49 @@ impl NADecoder for VXAudioDecoder {
 
             let mut mr = MemoryReader::new_read(&pktbuf);
             let mut br = ByteReader::new(&mut mr);
-            let mut nblocks = 0;
-            while br.left() > 4 {
-                                          br.read_skip(2)?;
-                let val                 = br.read_u16le()?;
-                nblocks += 1;
-                let sf_len = SUBFRAME_LEN[((val >> 12) & 3) as usize];
-                if br.left() <= sf_len as i64 {
-                    break;
-                }
-                                          br.read_skip(sf_len - 4)?;
-            }
+            let nblocks                 = br.read_u16le()? as usize;
+            validate!(nblocks > 0);
 
             let samples = 128 * nblocks;
             let abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
+            let stride = abuf.get_audio_stride();
             let mut adata = abuf.get_abuf_i16().unwrap();
             let dst = adata.get_data_mut().unwrap();
 
-            let mut mr = MemoryReader::new_read(&pktbuf);
-            let mut br = ByteReader::new(&mut mr);
-
-            let mut blk_no = 0usize;
-            while br.left() > 0 {
-                let val                 = br.read_u16le()?;
-                let mode = val >> 9;
-                if mode == 0x7F {
-                    self.decode_intra(&mut br, val)?;
-                } else {
-                    self.decode_inter(&mut br, val & 0x1FF, mode)?;
+            if self.ainfo.channels == 1 {
+                for blk in dst.chunks_exact_mut(128) {
+                    let val                 = br.read_u16le()?;
+                    if val == 0x00 { continue; }
+                    let mode = val >> 9;
+                    if mode == 0x7F {
+                        self.state[0].decode_intra(&mut br, val, &mut self.buf)?;
+                    } else {
+                        self.state[0].decode_inter(&mut br, val & 0x1FF, mode, &mut self.buf)?;
+                    }
+                    self.output(blk);
                 }
-                self.output(&mut dst[blk_no * 128..]);
-                blk_no += 1;
+            } else {
+                let (l, r) = dst.split_at_mut(stride);
+                for (lblk, rblk) in l.chunks_exact_mut(128).zip(r.chunks_exact_mut(128)) {
+                    let val                 = br.read_u16le()?;
+                    if val == 0x00 { continue; }
+                    let mode = val >> 9;
+                    if mode == 0x7F {
+                        self.state[0].decode_intra(&mut br, val, &mut self.buf)?;
+                    } else {
+                        self.state[0].decode_inter(&mut br, val & 0x1FF, mode, &mut self.buf)?;
+                    }
+                    self.output(lblk);
+                    let val                 = br.read_u16le()?;
+                    if val == 0x00 { continue; }
+                    let mode = val >> 9;
+                    if mode == 0x7F {
+                        self.state[1].decode_intra(&mut br, val, &mut self.buf)?;
+                    } else {
+                        self.state[1].decode_inter(&mut br, val & 0x1FF, mode, &mut self.buf)?;
+                    }
+                    self.output(rblk);
+                }
             }
 
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), abuf);
@@ -1626,6 +1651,17 @@ mod test {
                                 [0xb9623043, 0x1dab8a93, 0x22fd5f7a, 0x2c2a6633],
                                 [0xb3ac2652, 0xf474e49d, 0x7db51405, 0xcd1c13cc],
                                 [0x6a901339, 0xda88b2be, 0x6d943e18, 0xda9b5926]]));
+    }
+    #[test]
+    fn test_vx_audio() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        game_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        game_register_all_decoders(&mut dec_reg);
+
+        // sample from some game
+        test_decoding("vx", "vxaudio", "assets/Game/bioware.vx", Some(100), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0xf149848a, 0xd80054d2, 0x278535ff, 0x956ebed7]));
     }
 }
 
