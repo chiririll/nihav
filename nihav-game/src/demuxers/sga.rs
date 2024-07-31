@@ -341,7 +341,7 @@ impl<'a> NAOptionHandler for SGADemuxer<'a> {
         for option in options.iter() {
             for opt_def in DEMUXER_OPTS.iter() {
                 if opt_def.check(option).is_ok() {
-                    if let ("name", NAValue::Bool(ref bval)) = (option.name, &option.value) {
+                    if let ("ntsc", NAValue::Bool(ref bval)) = (option.name, &option.value) {
                         self.ntsc = *bval;
                     }
                 }
