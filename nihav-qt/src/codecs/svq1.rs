@@ -207,13 +207,9 @@ impl SVQ1Decoder {
                     validate!(stages <= 0);
                 }
                 let (w, h) = div.get_size();
-                let fill = if stages < 0 { 0 } else { br.read_cb(&self.intra_mean_cb)? } as u8;
-                for line in dst[off..].chunks_mut(dstride).take(h) {
-                    for el in line.iter_mut().take(w) {
-                        *el = fill;
-                    }
-                }
+                let fill = if stages < 0 { 0 } else { br.read_cb(&self.intra_mean_cb)? };
                 if stages > 0 {
+                    let mut blk = [fill; 256];
                     for stage in 0..(stages as usize) {
                         let idx         = br.read(4)? as usize;
                         let src: &[i8] = match div {
@@ -223,10 +219,21 @@ impl SVQ1Decoder {
                                 BlockDiv::Div4x2 => &SVQ_INTRA_CB_4X2[stage * 16 + idx],
                                 _ => unreachable!(),
                             };
-                        for (line, src) in dst[off..].chunks_mut(dstride).zip(src.chunks(w)) {
-                            for x in 0..w {
-                                line[x] = (i16::from(line[x]) + i16::from(src[x])).max(0).min(255) as u8;
+                        for (dst, src) in blk.chunks_exact_mut(w).zip(src.chunks_exact(w)) {
+                            for (diff, &src) in dst.iter_mut().zip(src.iter()) {
+                                *diff += i16::from(src);
                             }
+                        }
+                    }
+                    for (dline, sline) in dst[off..].chunks_mut(dstride).zip(blk.chunks_exact(w)).take(h) {
+                        for (dst, &src) in dline.iter_mut().zip(sline.iter()) {
+                            *dst = src.max(0).min(255) as u8;
+                        }
+                    }
+                } else {
+                    for line in dst[off..].chunks_mut(dstride).take(h) {
+                        for el in line.iter_mut().take(w) {
+                            *el = fill as u8;
                         }
                     }
                 }
@@ -255,27 +262,41 @@ impl SVQ1Decoder {
                 }
                 let (w, h) = div.get_size();
                 let fill = if stages < 0 { 0 } else { br.read_cb(&self.inter_mean_cb)? };
-                if fill != 0 {
-                    for line in dst[off..].chunks_mut(dstride).take(h) {
-                        for el in line.iter_mut().take(w) {
-                            *el = el.wrapping_add(fill as u8);
+                if fill != 0 || stages != 0 {
+                    let mut blk = [0; 256];
+
+                    for (dline, sline) in blk.chunks_exact_mut(w).zip(dst[off..].chunks(dstride)).take(h) {
+                        for (dst, &src) in dline.iter_mut().zip(sline.iter()) {
+                            *dst = i16::from(src);
                         }
                     }
-                }
-                if stages > 0 {
-                    for stage in 0..(stages as usize) {
-                        let idx         = br.read(4)? as usize;
-                        let src: &[i8] = match div {
-                                BlockDiv::Div8x8 => &SVQ_INTER_CB_8X8[stage * 16 + idx],
-                                BlockDiv::Div8x4 => &SVQ_INTER_CB_8X4[stage * 16 + idx],
-                                BlockDiv::Div4x4 => &SVQ_INTER_CB_4X4[stage * 16 + idx],
-                                BlockDiv::Div4x2 => &SVQ_INTER_CB_4X2[stage * 16 + idx],
-                                _ => unreachable!(),
-                            };
-                        for (line, src) in dst[off..].chunks_mut(dstride).zip(src.chunks(w)) {
-                            for x in 0..w {
-                                line[x] = line[x].wrapping_add(src[x] as u8);
+
+                    if fill != 0 {
+                        for el in blk.iter_mut().take(w * h) {
+                            *el += fill;
+                        }
+                    }
+                    if stages > 0 {
+                        for stage in 0..(stages as usize) {
+                            let idx         = br.read(4)? as usize;
+                            let src: &[i8] = match div {
+                                    BlockDiv::Div8x8 => &SVQ_INTER_CB_8X8[stage * 16 + idx],
+                                    BlockDiv::Div8x4 => &SVQ_INTER_CB_8X4[stage * 16 + idx],
+                                    BlockDiv::Div4x4 => &SVQ_INTER_CB_4X4[stage * 16 + idx],
+                                    BlockDiv::Div4x2 => &SVQ_INTER_CB_4X2[stage * 16 + idx],
+                                    _ => unreachable!(),
+                                };
+                            for (line, src) in blk.chunks_exact_mut(w).zip(src.chunks_exact(w)) {
+                                for (dst, &src) in line.iter_mut().zip(src.iter()) {
+                                    *dst += i16::from(src);
+                                }
                             }
+                        }
+                    }
+
+                    for (dline, sline) in dst[off..].chunks_mut(dstride).zip(blk.chunks_exact(w)).take(h) {
+                        for (dst, &src) in dline.iter_mut().zip(sline.iter()) {
+                            *dst = src.max(0).min(255) as u8;
                         }
                     }
                 }
