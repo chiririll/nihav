@@ -723,7 +723,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             if &fcc == b"raw " && sample_size == 8 {
                 soniton.signed = false;
             }
-            let block_align = 1;
+            let mut block_align = 1;
             match sver {
                 1 => {
                     let samples_per_packet  = br.read_u32be()?;
@@ -733,6 +733,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                     track.bsize = bytes_per_frame as usize;
                     track.frame_samples = samples_per_packet as usize;
                     track.tb_num = samples_per_packet;
+                    block_align = bytes_per_frame as usize;
                 },
                 2 => {
                                               br.read_u32be()?; // some size
