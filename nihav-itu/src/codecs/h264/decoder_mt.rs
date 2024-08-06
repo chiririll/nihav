@@ -489,6 +489,8 @@ struct H264MTDecoder {
     max_last_poc:   u32,
     poc_base:       u32,
     avg_pool:       NAVideoBufferPool<u8>,
+    disp_w:         usize,
+    disp_h:         usize,
 }
 
 impl H264MTDecoder {
@@ -509,6 +511,8 @@ impl H264MTDecoder {
             max_last_poc:   0,
             poc_base:       0,
             avg_pool:       NAVideoBufferPool::new(8),
+            disp_w:         0,
+            disp_h:         0,
         }
     }
     fn handle_nal(&mut self, src: Vec<u8>, supp: &mut NADecoderSupport, skip_decoding: bool, user_id: u32, time: NATimeInfo) -> DecoderResult<()> {
@@ -597,7 +601,12 @@ impl H264MTDecoder {
                     }
 
                     let cur_vinfo = supp.pool_u8.get_info();
-                    let tmp_vinfo = NAVideoInfo::new(width, height, false, YUV420_FORMAT);
+                    let (w, h) = if ((self.disp_w + 15) & !15) == width && ((self.disp_h + 15) & !15) == height {
+                            (self.disp_w, self.disp_h)
+                        } else {
+                            (width, height)
+                        };
+                    let tmp_vinfo = NAVideoInfo::new(w, h, false, YUV420_FORMAT);
                     if cur_vinfo != Some(tmp_vinfo) {
                         supp.pool_u8.reset();
                         supp.pool_u8.prealloc_video(tmp_vinfo, 4)?;
@@ -796,6 +805,8 @@ impl NADecoderMT for H264MTDecoder {
 
             let mut width  = vinfo.get_width();
             let mut height = vinfo.get_height();
+            self.disp_w = width;
+            self.disp_h = height;
 
             if (width == 0 || height == 0) && !self.sps.is_empty() {
                 width  = self.sps[0].pic_width_in_mbs  * 16;

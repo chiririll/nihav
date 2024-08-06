@@ -9,6 +9,8 @@ struct H264Decoder {
     info:       NACodecInfoRef,
     width:      usize,
     height:     usize,
+    disp_w:     usize,
+    disp_h:     usize,
     num_mbs:    usize,
     nal_len:    u8,
     sps:        Vec<Arc<SeqParameterSet>>,
@@ -51,6 +53,8 @@ impl H264Decoder {
             info:       NACodecInfoRef::default(),
             width:      0,
             height:     0,
+            disp_w:     0,
+            disp_h:     0,
             num_mbs:    0,
             nal_len:    0,
             sps:        Vec::with_capacity(1),
@@ -189,7 +193,12 @@ println!("PAFF?");
                     if ret.is_none() {
                         return Err(DecoderError::AllocError);
                     }
-                    let tmp_vinfo = NAVideoInfo::new(self.width, self.height, false, YUV420_FORMAT);
+                    let (w, h) = if ((self.disp_w + 15) & !15) == self.width && ((self.disp_h + 15) & !15) == self.height {
+                            (self.disp_w, self.disp_h)
+                        } else {
+                            (self.width, self.height)
+                        };
+                    let tmp_vinfo = NAVideoInfo::new(w, h, false, YUV420_FORMAT);
                     let mut buf = ret.unwrap();
                     if buf.get_info() != tmp_vinfo {
                         supp.pool_u8.reset();
@@ -783,6 +792,8 @@ impl NADecoder for H264Decoder {
 
             self.width  = vinfo.get_width();
             self.height = vinfo.get_height();
+            self.disp_w = self.width;
+            self.disp_h = self.height;
 
             if (self.width == 0 || self.height == 0) && !self.sps.is_empty() {
                 self.width  = self.sps[0].pic_width_in_mbs  * 16;
