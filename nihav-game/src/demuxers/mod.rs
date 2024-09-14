@@ -16,8 +16,6 @@ mod bmv;
 mod fst;
 #[cfg(feature="demuxer_gdv")]
 mod gdv;
-#[cfg(feature="demuxer_imax")]
-mod imax;
 #[cfg(feature="demuxer_q")]
 mod q;
 #[cfg(feature="demuxer_rbt")]
@@ -46,8 +44,6 @@ const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
     &fst::FSTDemuxerCreator {},
 #[cfg(feature="demuxer_gdv")]
     &gdv::GDVDemuxerCreator {},
-#[cfg(feature="demuxer_imax")]
-    &imax::IMAXDemuxerCreator {},
 #[cfg(feature="demuxer_q")]
     &q::QDemuxerCreator {},
 #[cfg(feature="demuxer_rbt")]
