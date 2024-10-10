@@ -363,7 +363,7 @@ impl<'a> AVIDemuxer<'a> {
             rest_size -= csz;
         }
         if !seek_idx.skip_index {
-            if !self.odml {
+            if !self.odml || self.odml_idx.is_empty() {
                 self.src.read_skip(self.movi_size)?;
                 while rest_size > 0 {
                     let ret = self.parse_chunk(strmgr, RIFFTag::Chunk(mktag!(b"idx1")), rest_size,0);
