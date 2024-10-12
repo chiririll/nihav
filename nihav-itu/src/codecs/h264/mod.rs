@@ -194,10 +194,10 @@ const DEBLOCK_SKIP_OPTION: &str = "skip_deblock";
 
 const DECODER_OPTIONS: &[NAOptionDefinition] = &[
     NAOptionDefinition {
-        name: FRAME_SKIP_OPTION, description: FRAME_SKIP_OPTION_DESC,
+        name: DEBLOCK_SKIP_OPTION, description: "Loop filter skipping mode",
         opt_type: NAOptionDefinitionType::Bool },
     NAOptionDefinition {
-        name: DEBLOCK_SKIP_OPTION, description: "Loop filter skipping mode",
+        name: FRAME_SKIP_OPTION, description: FRAME_SKIP_OPTION_DESC,
         opt_type: NAOptionDefinitionType::String(Some(&[
                 FRAME_SKIP_OPTION_VAL_NONE,
                 FRAME_SKIP_OPTION_VAL_KEYFRAME,
