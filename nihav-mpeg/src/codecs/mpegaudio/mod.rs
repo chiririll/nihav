@@ -133,8 +133,12 @@ fn apply_ms(ch0: &mut [f32], ch1: &mut [f32]) {
 
 impl NADecoder for MPADecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
-        if let NACodecTypeInfo::Audio(_ainfo) = info.get_properties() {
-            self.info = info.clone();
+        if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
+            let ainfo = NAAudioInfo::new(ainfo.get_sample_rate(),
+                                          ainfo.get_channels(),
+                                          SND_F32P_FORMAT,
+                                          if ainfo.get_sample_rate() >= 32000 { SAMPLES } else { SAMPLES / 2 });
+            self.info = info.replace_info(NACodecTypeInfo::Audio(ainfo));
             Ok(())
         } else {
             Err(DecoderError::InvalidData)
