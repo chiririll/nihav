@@ -9,6 +9,9 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
+#[cfg(feature="decoder_mpeg4asp")]
+mod mpeg4asp;
+
 #[cfg(feature="decoder_aac")]
 #[allow(clippy::comparison_chain)]
 #[allow(clippy::excessive_precision)]
@@ -20,6 +23,9 @@ mod aac;
 mod mpegaudio;
 
 const DECODERS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_mpeg4asp")]
+    DecoderInfo { name: "mpeg4asp", get_decoder: mpeg4asp::get_decoder },
+
 #[cfg(feature="decoder_aac")]
     DecoderInfo { name: "aac", get_decoder: aac::get_decoder },
 #[cfg(feature="decoder_mpa")]

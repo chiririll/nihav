@@ -307,6 +307,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video-ll; "gif",           "GIF"),
     desc!(video-im; "jpeg",          "JPEG"),
     desc!(video;    "h264",          "ITU H.264", CODEC_CAP_COMPLEX_REORDER | CODEC_CAP_HYBRID),
+    desc!(video-modern; "mpeg4asp",  "MPEG-4 ASP"),
 
     desc!(video-im; "mwv1",          "Aware MotionWavelets"),
 
@@ -364,6 +365,10 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"PGVV", "pgvv"),
 
     (b"VXS1", "vxvideo"),
+
+    (b"DX50", "mpeg4asp"),
+    (b"DIVX", "mpeg4asp"),
+    (b"XVID", "mpeg4asp"),
 ];
 
 static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
@@ -406,6 +411,7 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"VP30", "vp3"),
     (b"VP31", "vp3"),
 
+    (b"mp4v", "mpeg4asp"),
     (b"avc1", "h264"),
 ];
 
