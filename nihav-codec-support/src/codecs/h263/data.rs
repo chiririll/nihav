@@ -116,7 +116,7 @@ impl CodebookDescReader<u8> for H263ShortCodeReader {
 }
 
 #[derive(Clone,Copy)]
-pub struct H263RLSym { run: u8, level: i8 }
+pub struct H263RLSym { pub run: u8, pub level: i8 }
 impl H263RLSym {
     pub fn get_run(self)   -> u8 { self.run }
     pub fn is_last(self)   -> bool { self.level < 0 }
@@ -124,7 +124,7 @@ impl H263RLSym {
     pub fn get_level(self) -> i16 { if self.level < 0 { -self.level as i16 } else { self.level as i16 } }
 }
 
-pub struct H263RLCodeDesc { code: u8, bits: u8, sym: H263RLSym }
+pub struct H263RLCodeDesc { pub code: u8, pub bits: u8, pub sym: H263RLSym }
 
 macro_rules! rlcodes{
     ($(($c:expr, $b:expr, $r:expr, $l:expr)),*) => {
