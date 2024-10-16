@@ -22,6 +22,8 @@ pub mod futurevision;
 pub mod gremlinvideo;
 #[cfg(feature="decoder_ipma")]
 pub mod ipma;
+#[cfg(feature="decoder_kmvc")]
+pub mod kmvc;
 #[cfg(feature="decoder_lhst500f22")]
 pub mod lhst500f22;
 #[cfg(feature="decoder_midivid")]
@@ -70,6 +72,8 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "ipma", get_decoder: ipma::get_decoder },
 #[cfg(feature="decoder_ipma")]
     DecoderInfo { name: "ipma2", get_decoder: ipma::get_decoder_v2 },
+#[cfg(feature="decoder_kmvc")]
+    DecoderInfo { name: "kmvc", get_decoder: kmvc::get_decoder },
 #[cfg(feature="decoder_q")]
     DecoderInfo { name: "legend-q-video", get_decoder: q::get_decoder },
 #[cfg(feature="decoder_rbt")]

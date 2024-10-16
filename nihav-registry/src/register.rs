@@ -266,6 +266,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "hl-fmv-video",  "Highlander FMV video"),
     desc!(video-llp; "ipma",         "Imagination Pilots Matte Animation"),
     desc!(video-llp; "ipma2",        "Imagination Pilots Matte Animation v2"),
+    desc!(video;    "kmvc",          "Karl Morton's Video Codec"),
     desc!(video;    "legend-q-video", "Legend Entertainment Q video"),
     desc!(video;    "midivid",       "MidiVid"),
     desc!(video;    "midivid3",      "MidiVid 3"),
@@ -338,6 +339,7 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"Ipma", "ipma"),
     (b"Ip20", "ipma2"),
+    (b"KMVC", "kmvc"),
 
     (b"MVDV", "midivid"),
     (b"MV30", "midivid3"),
