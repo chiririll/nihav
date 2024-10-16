@@ -565,6 +565,11 @@ fn parse_strh(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
 
     dmx.src.read_skip(size - 0x38)?;
 
+    // padding streams should be ignored
+    if tag == mktag!(b"pads") {
+        return Ok(size);
+    }
+
     if !dmx.sstate.valid_state() || dmx.sstate.strm_no >= dmx.num_streams {
         return Err(InvalidData);
     }
