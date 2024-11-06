@@ -363,8 +363,8 @@ println!("full hash {}", md5);
 /// ```no_run
 /// use nihav_codec_support::test::ExpectedTestResult;
 /// use nihav_codec_support::test::dec_video::test_decoding_raw;
-/// use nihav_core::codecs::RegisteredDecoders;
-/// use nihav_core::demuxers::RegisteredDemuxers;
+/// use nihav_core::codecs::{RegisteredDecoders, RegisteredPacketisers};
+/// use nihav_core::demuxers::RegisteredRawDemuxers;
 ///
 /// let mut dmx_reg = RegisteredRawDemuxers::new();
 /// let mut pkt_reg = RegisteredPacketisers::new();
