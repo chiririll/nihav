@@ -253,11 +253,11 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
                     let mut closest_idx = *low_idx;
                     let mut closest_dist = std::u32::MAX;
                     let low_centr = self.clusters[*low_idx].centroid;
-                    for i in 0..dst.len() {//low_u.iter() {
-                        if i == *low_idx || used[i] {
+                    for (i, (&used, cluster)) in used.iter().zip(self.clusters.iter()).take(dst.len()).enumerate() {
+                        if i == *low_idx || used {
                             continue;
                         }
-                        let dist = self.clusters[i].centroid.dist(low_centr);
+                        let dist = cluster.centroid.dist(low_centr);
                         if closest_dist > dist {
                             closest_dist = dist;
                             closest_idx  = i;

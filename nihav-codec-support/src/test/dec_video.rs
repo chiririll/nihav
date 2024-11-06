@@ -13,6 +13,8 @@ pub use super::ExpectedTestResult;
 
 const OUTPUT_PREFIX: &str = "assets/test_out/";
 
+type PossibleDecoder = Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>;
+
 /*fn open_wav_out(pfx: &str, strno: usize) -> WavWriter {
     let name = format!("assets/{}out{:02}.wav", pfx, strno);
     let mut file = File::create(name).unwrap();
@@ -42,7 +44,7 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
+    let mut decs: Vec<PossibleDecoder> = Vec::new();
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();
@@ -98,7 +100,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
+    let mut decs: Vec<PossibleDecoder> = Vec::new();
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();
@@ -268,7 +270,7 @@ pub fn test_decoding(demuxer: &str, dec_name: &str, filename: &str, limit: Optio
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
+    let mut decs: Vec<PossibleDecoder> = Vec::new();
     let mut found = false;
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
@@ -654,7 +656,7 @@ pub fn test_decode_images(demuxer: &str, name: &str, video_pfx: &str, limit: Opt
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
+    let mut decs: Vec<PossibleDecoder> = Vec::new();
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();
