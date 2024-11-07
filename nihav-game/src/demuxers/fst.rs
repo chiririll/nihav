@@ -1,7 +1,6 @@
 use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 
-#[allow(dead_code)]
 struct FutureVisionVideoDemuxer<'a> {
     src:        &'a mut ByteReader<'a>,
     cur_frame:  usize,
@@ -14,7 +13,6 @@ struct FutureVisionVideoDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for FutureVisionVideoDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 
@@ -53,7 +51,6 @@ impl<'a> DemuxCore<'a> for FutureVisionVideoDemuxer<'a> {
         Ok(())
     }
 
-    #[allow(unused_variables)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if self.cur_frame >= self.vsize.len() { return Err(DemuxerError::EOF); }
         let (id, size, pts) = if self.vframe {
@@ -111,7 +108,6 @@ impl DemuxerCreator for FSTDemuxerCreator {
     fn get_name(&self) -> &'static str { "fst" }
 }
 
-#[allow(dead_code)]
 struct FutureVisionAudioDemuxer<'a> {
     src:        &'a mut ByteReader<'a>,
     a_id:       usize,
@@ -120,7 +116,6 @@ struct FutureVisionAudioDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for FutureVisionAudioDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 
@@ -140,7 +135,6 @@ impl<'a> DemuxCore<'a> for FutureVisionAudioDemuxer<'a> {
         Ok(())
     }
 
-    #[allow(unused_variables)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if self.src.tell() >= self.end { return Err(DemuxerError::EOF); }
         let size = (self.end - self.src.tell()).min(0x2000) as usize;

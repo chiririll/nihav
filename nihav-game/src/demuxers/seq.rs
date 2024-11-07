@@ -8,7 +8,6 @@ struct SequenceDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for SequenceDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 

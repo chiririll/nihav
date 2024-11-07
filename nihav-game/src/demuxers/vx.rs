@@ -26,8 +26,6 @@ struct VXDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
-    #[allow(unused_variables)]
-    #[allow(clippy::cast_lossless)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 
@@ -105,7 +103,6 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if self.apkt.is_some() {
             let mut ret = None;

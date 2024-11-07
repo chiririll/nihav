@@ -31,7 +31,6 @@ struct VMDDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 
@@ -68,7 +67,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
                                                 src.read_u16le()?
             } else { 0 };
         if is_ext_audio {
-            validate!(ext_audio_id >= 3 && ext_audio_id <= 6);
+            validate!((3..=6).contains(&ext_audio_id));
             self.is_lhaud = true;
         }
         let srate = u32::from(read_u16le(&header[804..])?);
@@ -109,15 +108,15 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         let idx_off = u64::from(read_u32le(&header[812..])?);
                                                 src.seek(SeekFrom::Start(idx_off))?;
         let mut offs: Vec<u32> = Vec::with_capacity(nframes);
-        for i in 0..nframes {
+        for _ in 0..nframes {
             let _flags                          = src.read_u16le()?;
             let off                             = src.read_u32le()?;
             offs.push(off);
         }
         self.frames.reserve(nframes * fpb);
         let mut ats = adelay;
-        for i in 0..nframes {
-            let mut off = offs[i];
+        for (i, &offset) in offs.iter().enumerate() {
+            let mut off = offset;
             for _ in 0..fpb {
                 let chtype                      = src.read_byte()?;
                                                   src.read_skip(1)?;

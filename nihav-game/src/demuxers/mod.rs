@@ -25,6 +25,7 @@ mod seq;
 #[cfg(feature="demuxer_sga")]
 mod sga;
 #[cfg(feature="demuxer_siff")]
+#[allow(clippy::upper_case_acronyms)]
 mod siff;
 #[cfg(feature="demuxer_smush")]
 mod smush;

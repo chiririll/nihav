@@ -25,6 +25,7 @@ pub mod ipma;
 #[cfg(feature="decoder_kmvc")]
 pub mod kmvc;
 #[cfg(feature="decoder_lhst500f22")]
+#[allow(clippy::excessive_precision)]
 pub mod lhst500f22;
 #[cfg(feature="decoder_midivid")]
 pub mod midivid;
@@ -43,6 +44,7 @@ pub mod smush;
 #[cfg(feature="decoder_vmd")]
 pub mod vmd;
 #[cfg(feature="decoder_vx")]
+#[allow(clippy::collapsible_else_if)]
 #[allow(clippy::erasing_op)]
 #[allow(clippy::identity_op)]
 pub mod vx;

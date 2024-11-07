@@ -11,10 +11,7 @@ struct BMVDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
-        let src = &mut self.src;
-
         let vhdr = NAVideoInfo::new(640, 429, false, PAL8_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
         let vinfo = NACodecInfo::new("bmv-video", vci, None);
@@ -114,8 +111,6 @@ struct BMV3Demuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
-    #[allow(unused_variables)]
-    #[allow(clippy::cast_lossless)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 

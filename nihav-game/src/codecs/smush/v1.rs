@@ -272,8 +272,8 @@ self.height = (self.height + 7) & !7;
 fn do_mc(dst: &mut [u8], src: &[u8], stride: usize, xoff: isize, yoff: isize, w: usize, h: usize) {
     let mut pos = xoff + yoff * (stride as isize);
     for row in dst.chunks_mut(stride).take(4) {
-        for i in 0..4 {
-            row[i] = if pos >= 0 && (pos as usize) < w + (h - 1) * stride {
+        for el in row[..4].iter_mut() {
+            *el = if pos >= 0 && (pos as usize) < w + (h - 1) * stride {
                     src[pos as usize]
                 } else { 0 };
             pos += 1;
@@ -478,7 +478,6 @@ impl Smush1Decoder {
 
         Ok(())
     }
-    #[allow(clippy::verbose_bit_mask)]
     fn decode_2(&mut self, br: &mut ByteReader, x: i16, y: i16, _w: usize, _h: usize, len: usize) -> DecoderResult<()> {
 
         validate!((len & 3) == 0);

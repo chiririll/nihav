@@ -220,16 +220,15 @@ impl VMDVideoDecoder {
         let dpos = (frame_x - self.xoff) * bpp + (frame_y - self.yoff) * stride;
 
         let method                              = br.read_byte()?;
-        let is_intra;
-        if (method & 0x80) != 0 {
-            validate!(!self.buf.is_empty());
-            lz_unpack(br, &mut self.buf)?;
-            let mut mr = MemoryReader::new_read(&self.buf);
-            let mut buf_br = ByteReader::new(&mut mr);
-            is_intra = decode_frame_data(&mut buf_br, &mut self.framebuf, dpos, stride, w, h, method & 0x7F)?;
-        } else {
-            is_intra = decode_frame_data(br, &mut self.framebuf, dpos, stride, w, h, method & 0x7F)?;
-        }
+        let is_intra = if (method & 0x80) != 0 {
+                validate!(!self.buf.is_empty());
+                lz_unpack(br, &mut self.buf)?;
+                let mut mr = MemoryReader::new_read(&self.buf);
+                let mut buf_br = ByteReader::new(&mut mr);
+                decode_frame_data(&mut buf_br, &mut self.framebuf, dpos, stride, w, h, method & 0x7F)?
+            } else {
+                decode_frame_data(br, &mut self.framebuf, dpos, stride, w, h, method & 0x7F)?
+            };
         Ok(is_intra && frame_x == 0 && frame_y == 0 && w == self.width && h == self.height)
     }
 }

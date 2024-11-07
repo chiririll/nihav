@@ -7,7 +7,6 @@ enum GDVState {
     AudioRead,
 }
 
-#[allow(dead_code)]
 struct GremlinVideoDemuxer<'a> {
     src:        &'a mut ByteReader<'a>,
     frames:     u16,
@@ -15,7 +14,6 @@ struct GremlinVideoDemuxer<'a> {
     asize:      usize,
     apacked:    bool,
     state:      GDVState,
-    pktdta:     Vec<u8>,
     a_id:       Option<usize>,
     v_id:       Option<usize>,
 }
@@ -47,7 +45,6 @@ const GDV_SIZE_TABLE: &[GDVFixedSizes] = &[
 ];
 
 impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
         let magic = src.read_u32le()?;
@@ -101,7 +98,6 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
         Ok(())
     }
 
-    #[allow(unused_variables)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if self.cur_frame >= self.frames { return Err(DemuxerError::EOF); }
         match self.state {
@@ -120,11 +116,6 @@ impl<'a> NAOptionHandler for GremlinVideoDemuxer<'a> {
     fn set_options(&mut self, _options: &[NAOption]) { }
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
-/*impl<'a> Drop for GremlinVideoDemuxer<'a> {
-    #[allow(unused_variables)]
-    fn drop(&mut self) {
-    }
-}*/
 impl<'a> GremlinVideoDemuxer<'a> {
     fn new(io: &'a mut ByteReader<'a>) -> Self {
         GremlinVideoDemuxer {
@@ -133,7 +124,6 @@ impl<'a> GremlinVideoDemuxer<'a> {
             asize: 0,
             apacked: false,
             state: GDVState::NewFrame,
-pktdta: Vec::new(),
             src: io,
             a_id: None,
             v_id: None,

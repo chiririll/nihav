@@ -39,9 +39,9 @@ impl LHDecoder {
         }
     }
     fn unpack_bitalloc(&mut self, br: &mut BitReader) -> DecoderResult<()> {
-        for i in 0..3 {
-            for sb in 0..32 {
-                self.bitalloc[i][sb] = br.read(BITALLOC_INFO[sb])? as u8;
+        for bitalloc_row in self.bitalloc.iter_mut() {
+            for (ba, &bits) in bitalloc_row.iter_mut().zip(BITALLOC_INFO.iter()) {
+                *ba = br.read(bits)? as u8;
             }
         }
         Ok(())

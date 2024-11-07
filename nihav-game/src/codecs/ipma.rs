@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 
@@ -57,7 +58,6 @@ impl LZWState {
 
         Ok(tot_len)
     }
-    #[allow(clippy::comparison_chain)]
     fn decode(&mut self, br: &mut BitReader, dst: &mut [u8]) -> DecoderResult<()> {
         self.reset();
 
@@ -73,23 +73,25 @@ impl LZWState {
             if idx == 257 {
                 break;
             }
-            if idx < self.dict_pos {
-                let len = self.decode_idx(dst, pos, idx)?;
-                if lastidx != INVALID_POS {
-                    self.add(lastidx, dst[pos]);
-                }
-                pos += len;
-            } else if idx == self.dict_pos {
-                validate!(lastidx != INVALID_POS);
-                let len = self.decode_idx(dst, pos, lastidx)?;
-                let lastsym = dst[pos];
-                pos += len;
-                validate!(pos < dst.len());
-                dst[pos] = lastsym;
-                pos += 1;
-                self.add(lastidx, lastsym);
-            } else {
-                return Err(DecoderError::InvalidData);
+            match idx.cmp(&self.dict_pos) {
+                Ordering::Less => {
+                    let len = self.decode_idx(dst, pos, idx)?;
+                    if lastidx != INVALID_POS {
+                        self.add(lastidx, dst[pos]);
+                    }
+                    pos += len;
+                },
+                Ordering::Equal => {
+                    validate!(lastidx != INVALID_POS);
+                    let len = self.decode_idx(dst, pos, lastidx)?;
+                    let lastsym = dst[pos];
+                    pos += len;
+                    validate!(pos < dst.len());
+                    dst[pos] = lastsym;
+                    pos += 1;
+                    self.add(lastidx, lastsym);
+                },
+                Ordering::Greater => return Err(DecoderError::InvalidData),
             }
             lastidx = idx;
             if self.dict_pos == self.dict_lim && self.idx_bits < MAX_BITS {

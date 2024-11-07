@@ -143,14 +143,13 @@ impl NADecoder for MidividDecoder {
 
         let size = read_u32le(&src[0..])? as usize;
         validate!(size + 8 == src.len());
-        let data_ptr;
         validate!(src.len() > 12);
-        if read_u32le(&src[8..])? == 0 {
-            lz_decompress(&src[12..], self.lzbuf.as_mut_slice())?;
-            data_ptr = self.lzbuf.as_slice();
-        } else {
-            data_ptr = &src[12..];
-        }
+        let data_ptr = if read_u32le(&src[8..])? == 0 {
+                lz_decompress(&src[12..], self.lzbuf.as_mut_slice())?;
+                self.lzbuf.as_slice()
+            } else {
+                &src[12..]
+            };
 
         let mut buf;
         let bufret = self.hams.clone_ref();

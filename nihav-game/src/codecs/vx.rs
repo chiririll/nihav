@@ -146,13 +146,12 @@ fn pred_dc(buf: &mut [u8], mut pos: usize, x: usize, y: usize, w: usize, h: usiz
         pos += 256;
     }
 }
-fn pred_dc4x4(buf: &mut [u8], mut pos: usize, x: usize, y: usize) {
+fn pred_dc4x4(buf: &mut [u8], pos: usize, x: usize, y: usize) {
     if x == 0 && y == 0 {
-        for _ in 0..4 {
-            for x in 0..4 {
-                buf[x] = 0x80;
+        for line in buf[pos..].chunks_mut(256).take(4) {
+            for el in line[..4].iter_mut() {
+                *el = 0x80;
             }
-            pos += 256;
         }
         return;
     }
@@ -173,11 +172,10 @@ fn pred_dc4x4(buf: &mut [u8], mut pos: usize, x: usize, y: usize) {
         shift += 1;
     }
     let dc = (sum >> shift) as u8;
-    for _ in 0..4 {
-        for x in 0..4 {
-            buf[pos + x] = dc;
+    for line in buf[pos..].chunks_mut(256).take(4) {
+        for el in line[..4].iter_mut() {
+            *el = dc;
         }
-        pos += 256;
     }
 }
 
@@ -1415,6 +1413,7 @@ impl AudioState {
         apply_lpc(out, &self.pulse_buf, &mut self.lpc_hist, &self.cur_filt);
         Ok(())
     }
+    #[allow(clippy::needless_range_loop)]
     fn decode_inter(&mut self, br: &mut ByteReader, val: u16, mode: u16, out: &mut [i32; 128]) -> DecoderResult<()> {
         let (part0, part1) = self.pulse_hist.split_at_mut(128);
         part0.copy_from_slice(part1);

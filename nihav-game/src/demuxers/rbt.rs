@@ -3,7 +3,6 @@ use nihav_core::demuxers::*;
 
 const AFRAME_HDR_SIZE: usize = 16;
 
-#[allow(dead_code)]
 struct RobotDemuxer<'a> {
     src:        &'a mut ByteReader<'a>,
     version:    u16,
@@ -21,7 +20,6 @@ struct RobotDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for RobotDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let mut hdr = [0; 60];
                                           self.src.read_buf(&mut hdr)?;

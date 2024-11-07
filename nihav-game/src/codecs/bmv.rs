@@ -25,6 +25,7 @@ impl<'a> BMVReader<'a> {
         let pos = if fwd { 0 } else { src.len() - 1 };
         Self { src, pos, fwd, nibble: 0, saved: false }
     }
+    #[allow(clippy::collapsible_else_if)]
     fn advance(&mut self) {
         if self.fwd {
             if self.pos < self.src.len() - 1 { self.pos += 1; }
@@ -69,6 +70,7 @@ impl<'a> BMVWriter<'a> {
             self.pos == 0
         }
     }
+    #[allow(clippy::collapsible_else_if)]
     fn advance(&mut self) {
         if self.fwd {
             if self.pos < self.data.len() - 1 { self.pos += 1; }

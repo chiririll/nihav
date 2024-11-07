@@ -90,9 +90,9 @@ impl BMV3VideoDecoder {
             *el = i as u16;
         }
         let mut pixbuf = [[0u16; 256]; 7];
-        for i in 0..7 {
-            for j in 0..256 {
-                pixbuf[i][j] = ((i << 8) + j + 0xF8) as u16;
+        for (i, row) in pixbuf.iter_mut().enumerate() {
+            for (j, el) in row.iter_mut().enumerate() {
+                *el = ((i << 8) + j + 0xF8) as u16;
             }
         }
 
@@ -468,12 +468,11 @@ impl NADecoder for BMV3VideoDecoder {
         if (flags & BMV_PAL) != 0 {
             return Err(DecoderError::InvalidData);
         }
-        let off;
-        if ((flags & 1) == 0) && ((flags & BMV_SCROLL) != 0) {
-            off                                 = br.read_u16le()? as usize;
-        } else {
-            off = 0;
-        }
+        let off = if ((flags & 1) == 0) && ((flags & BMV_SCROLL) != 0) {
+                                                br.read_u16le()? as usize
+            } else {
+                0
+            };
         self.pos = off + self.stride;
         self.is_intra = (flags & BMV_INTRA) == BMV_INTRA;
 

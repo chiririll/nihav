@@ -19,8 +19,6 @@ impl<'a> EAMuxer<'a> {
 }
 
 impl<'a> MuxCore<'a> for EAMuxer<'a> {
-    #[allow(clippy::unreadable_literal)]
-    #[allow(clippy::cast_lossless)]
     fn create(&mut self, strmgr: &StreamManager) -> MuxerResult<()> {
         if strmgr.get_num_streams() == 0 {
             return Err(MuxerError::InvalidArgument);

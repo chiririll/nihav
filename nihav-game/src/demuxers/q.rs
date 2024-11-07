@@ -1,7 +1,6 @@
 use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 
-#[allow(dead_code)]
 struct QDemuxer<'a> {
     src:        &'a mut ByteReader<'a>,
     vpts:       u64,
@@ -15,7 +14,6 @@ struct QDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for QDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 
@@ -24,7 +22,7 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
         validate!(hdr[0] == 0x39);
         validate!(hdr[1] == 0x68);
         let version = hdr[2];
-        validate!(version >= 3 && version <= 7);
+        validate!((3..=7).contains(&version));
         let mut width  = read_u16le(&hdr[4..])? as usize;
         let mut height = read_u16le(&hdr[6..])? as usize;
         if version > 3 {
