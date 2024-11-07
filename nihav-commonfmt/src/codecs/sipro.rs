@@ -164,30 +164,25 @@ impl SiproDecoder {
                 newfilt[i] = 0.88 * filter[i] + 0.12 * self.lsf_hist[i] + SIPRO_MEAN_LSF_16K[i];
             }
         }
-        for i in 0..filter.len() {
-            self.lsf_hist[i] = filter[i];
-        }
+        self.lsf_hist[..filter.len()].copy_from_slice(&filter);
 
         let mut prev: f32 = 0.0;
-        for i in 0..newfilt.len() {
-            newfilt[i] = newfilt[i].max(prev + SIPRO_LSF_MIN_DIST/2.0);
-            prev = newfilt[i];
-            filter[i] = newfilt[i].cos();
+        for (filt, nf) in filter.iter_mut().zip(newfilt.iter_mut()) {
+            *nf = nf.max(prev + SIPRO_LSF_MIN_DIST/2.0);
+            prev = *nf;
+            *filt = nf.cos();
         }
 
-        for i in 0..lsp.len() {
-            lsp[i] = (filter[i] + self.lsp_hist[i]) * 0.5;
+        for (lsp, (&filter, &lsp_hist)) in lsp.iter_mut()
+                .zip(filter.iter().zip(self.lsp_hist.iter())) {
+            *lsp = (filter + lsp_hist) * 0.5;
         }
 
         lsp2lpc_16k(&mut self.sf_filter[0], &lsp);
         lsp2lpc_16k(&mut self.sf_filter[1], &filter);
-        for i in 0..filter.len() {
-            self.lsp_hist[i] = filter[i];
-        }
+        self.lsp_hist[..filter.len()].copy_from_slice(&filter);
 
-        for i in 0..16 {
-            self.synth[i] = self.synth_hist[i];
-        }
+        self.synth[..16].copy_from_slice(&self.synth_hist);
     }
     fn decode_lsf_lbr(&mut self) {
         let mut filter:  [f32; 10] = [0.0; 10];
@@ -209,17 +204,15 @@ impl SiproDecoder {
         }
 
         let mut prev: f32 = 0.0;
-        for i in 0..9 {
-            newfilt[i] = newfilt[i].max(prev + SIPRO_LSF_MIN_DIST);
-            prev = newfilt[i];
+        for nf in newfilt[..9].iter_mut() {
+            *nf = nf.max(prev + SIPRO_LSF_MIN_DIST);
+            prev = *nf;
         }
         newfilt[9] = newfilt[9].min(prev + SIPRO_LSF_MIN_DIST_LAST);
-        for i in 0..filter.len() {
-            self.lsf_hist[i] = filter[i];
-        }
+        self.lsf_hist[..filter.len()].copy_from_slice(&filter);
 
-        for i in 0..9 {
-            newfilt[i] = newfilt[i].cos();
+        for nf in newfilt[..9].iter_mut() {
+            *nf = nf.cos();
         }
         newfilt[9] *= 6.153848 / PI;
 
@@ -231,14 +224,13 @@ impl SiproDecoder {
             lsp2lpc_lbr(&mut self.sf_filter[sf], &filter);
             interp += 1.0 / (self.mode.subframes as f32);
         }
-        for i in 0..newfilt.len() {
-            self.lsp_hist[i] = newfilt[i];
-        }
+        self.lsp_hist[..newfilt.len()].copy_from_slice(&newfilt);
 
         for i in 0..10 {
             self.synth[i] = self.synth_hist[i];
         }
     }
+    #[allow(clippy::collapsible_else_if)]
     fn calc_pitch_16k(&mut self, sf: usize) {
         let idx = self.pitch_delay[sf];
         let pitch_idx = if sf == 0 {
@@ -362,7 +354,6 @@ impl SiproDecoder {
         }
         self.unpack_pulses_common();
     }
-    #[allow(clippy::cast_lossless)]
     fn unpack_pulses_common(&mut self) {
         for i in 0..48 {
             self.fix_vec[i] = 0.0;
@@ -401,8 +392,8 @@ impl SiproDecoder {
         self.energy_hist[0] = SIPRO_GAIN_DB_CB_16K[self.gc_index[sf]];
 
         let exc = &mut self.excitation[EXCITATION_OFFSET + sf * 80..][..80];
-        for i in 0..80 {
-            exc[i] = exc[i] * SIPRO_GAIN_PITCH_CB_16K[self.gp_index[sf]] + self.fix_vec[i] * gain;
+        for (exc_val, &fix_vec) in exc.iter_mut().zip(self.fix_vec.iter()) {
+            *exc_val = *exc_val * SIPRO_GAIN_PITCH_CB_16K[self.gp_index[sf]] + fix_vec * gain;
         }
     }
     fn update_gain_lbr(&mut self, sf: usize) {
@@ -416,10 +407,8 @@ impl SiproDecoder {
         }
         self.avg_energy /= 48.0;
 
-        let mut sum: f32 = -56.30899869919435856603;
-        for i in 0..4 {
-            sum += self.energy_hist[i] * SIPRO_GAIN_PRED[i];
-        }
+        let sum = self.energy_hist.iter().zip(SIPRO_GAIN_PRED.iter())
+                .fold(-56.30899869919435856603f32, |acc, (&a, &b)| acc + a * b);
         for i in 0..3 {
             self.energy_hist[i] = self.energy_hist[i + 1];
         }
@@ -427,8 +416,8 @@ impl SiproDecoder {
 
         let gain = (f64::from(gain1) * (f64::from(sum) * (10.0f64).ln() * 0.05).exp() / f64::from(self.avg_energy).sqrt()) as f32;
         let exc = &mut self.excitation[EXCITATION_OFFSET + sf * 48..][..48];
-        for i in 0..48 {
-            exc[i] = exc[i] * gain0 + self.fix_vec[i] * gain;
+        for (exc_val, &fix_vec) in exc.iter_mut().zip(self.fix_vec.iter()) {
+            *exc_val = *exc_val * gain0 + fix_vec * gain;
         }
 
         let pitch_gain = (0.5 * gain0 * gain0).min(0.4);
@@ -436,8 +425,8 @@ impl SiproDecoder {
 
         let gain = gain * self.gain_mem;
 
-        for i in 0..48 {
-            self.fix_vec[i] = exc[i] - gain * self.fix_vec[i];
+        for (fix_vec, &exc_val) in self.fix_vec.iter_mut().zip(exc.iter()) {
+            *fix_vec = exc_val - gain * *fix_vec;
         }
     }
     fn synth_subframe_16k(&mut self, sf: usize) {
@@ -452,14 +441,13 @@ impl SiproDecoder {
     fn postfilter_16k(&mut self) {
         let mut filt: [f32; 16] = [0.0; 16];
 
-        for i in 0..filt.len() {
-            filt[i] = self.postfilt_16k_filt_prev[i] * SIPRO_POW_0_5[i];
+        for (filt, (&prev, &pow)) in filt.iter_mut()
+                .zip(self.postfilt_16k_filt_prev.iter().zip(SIPRO_POW_0_5.iter())) {
+            *filt = prev * pow;
         }
 
         let mut tmp: [f32; 64] = [0.0; 64];
-        for i in 0..16 {
-            tmp[i] = self.postfilt_16k_preemph[i];
-        }
+        tmp[..16].copy_from_slice(&self.postfilt_16k_preemph[..16]);
         synth_filter(&mut tmp, 16, &self.postfilt_16k_filt, &self.synth[16..], 30, 16);
         for i in 0..16 {
             self.synth[i] = self.postfilt_16k_preemph[i];
@@ -491,13 +479,9 @@ impl SiproDecoder {
         }
 
         let mut tmp: [f32; 48 + 10] = [0.0; 48 + 10];
-        for i in 0..10 {
-            tmp[i] = self.postfilt_5k_mem1[i];
-        }
+        tmp[..10].copy_from_slice(&self.postfilt_5k_mem1[..10]);
         synth_filter(&mut tmp, 10, &d, &self.fix_vec, 48, 10);
-        for i in 0..10 {
-            self.postfilt_5k_mem1[i] = tmp[i + 48];
-        }
+        self.postfilt_5k_mem1[..10].copy_from_slice(&tmp[48..]);
 
         let tilt = tmp[48 + 10 - 1];
         for i in (10+1..48+10).rev() {
@@ -506,12 +490,8 @@ impl SiproDecoder {
         tmp[10] -= 0.4 * self.postfilt_5k_tilt;
         self.postfilt_5k_tilt = tilt;
 
-        for i in 0..10 {
-            tmp[i] = self.postfilt_5k_mem2[i];
-        }
-        for i in 0..10 {
-            self.postfilt_5k_mem2[i] = tmp[i + 48];
-        }
+        tmp[..10].copy_from_slice(&self.postfilt_5k_mem2[..10]);
+        self.postfilt_5k_mem2[..10].copy_from_slice(&tmp[48..]);
 
         for i in 0..48 { // almost but not exactly like synth_filter(fix_vec, 0, -n, tmp, 48, 10)
             self.fix_vec[i] = tmp[i + 10];
@@ -559,9 +539,7 @@ impl SiproDecoder {
             self.excitation[i] = self.excitation[80 * 2 + i];
         }
         self.postfilter_16k();
-        for i in 0..80 * 2 {
-            dst[i] = self.postfilt_16k_buf[i];
-        }
+        dst[..80 * 2].copy_from_slice(&self.postfilt_16k_buf[..80 * 2]);
     }
     fn output_lbr(&mut self, dst: &mut [f32]) {
         let out_size = self.mode.subframe_len * self.mode.subframes;
@@ -574,12 +552,12 @@ impl SiproDecoder {
         for i in 0..EXCITATION_OFFSET {
             self.excitation[i] = self.excitation[i + out_size];
         }
-        for i in 0..out_size {
-            let x = 0.939805806 * self.synth[i + 10] + 1.93307352 * self.iir_state[0] - 0.935891986 * self.iir_state[1];
+        for (sample, &synth) in dst[..out_size].iter_mut().zip(self.synth[10..].iter()) {
+            let x = 0.939805806 * synth + 1.93307352 * self.iir_state[0] - 0.935891986 * self.iir_state[1];
             let y = x - 1.99997 * self.iir_state[0] + self.iir_state[1];
             self.iir_state[1] = self.iir_state[0];
             self.iir_state[0] = x;
-            dst[i] = y;
+            *sample = y;
         }
     }
 }

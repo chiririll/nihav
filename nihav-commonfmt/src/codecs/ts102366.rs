@@ -574,6 +574,7 @@ impl ChannelData {
             if lastbin >= end { break; }
         }
     }
+    #[allow(clippy::too_many_arguments)]
     fn compute_mask(&mut self, mask: &mut [i32; MAX_BANDS], fscod: usize, sgain: u16, fdecay: u8, sdecay: u8,
                     dbknee: u16, cplfleak: u16, cplsleak: u16, shift: u8) {
         let fgain = i32::from(TS102366_FAST_GAIN[self.fgaincod]);

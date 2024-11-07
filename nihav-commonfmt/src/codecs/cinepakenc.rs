@@ -332,6 +332,7 @@ fn quant_fast(bins: &mut [Vec<YUVCode>; 4], entries: &[YUVCode], codebook: &mut 
     offset
 }
 
+#[allow(clippy::collapsible_else_if)]
 impl CinepakEncoder {
     fn new() -> Self {
         Self {

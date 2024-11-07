@@ -4,14 +4,8 @@ extern crate nihav_codec_support;
 extern crate nihav_registry;
 
 #[cfg(any(feature="decoders", feature="encoders"))]
-#[allow(clippy::needless_range_loop)]
 #[allow(clippy::single_match)]
-#[allow(clippy::unreadable_literal)]
-#[allow(clippy::too_many_arguments)]
-#[allow(clippy::excessive_precision)]
 #[allow(clippy::upper_case_acronyms)]
-#[allow(clippy::manual_range_contains)]
-#[allow(clippy::collapsible_else_if)]
 mod codecs;
 
 #[cfg(feature="decoders")]

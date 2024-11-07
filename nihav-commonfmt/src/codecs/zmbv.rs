@@ -167,7 +167,6 @@ const RGB24_0_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB
                                         elem_size: 4, be: false, alpha: false, palette: false };
 
 impl NADecoder for ZMBVDecoder {
-    #[allow(clippy::or_fun_call)]
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             self.pparms.width  = vinfo.get_width();

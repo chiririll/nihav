@@ -12,12 +12,10 @@ macro_rules! validate {
 }
 
 #[cfg(feature="demuxer_avi")]
-#[allow(clippy::cast_lossless)]
 mod avi;
 #[cfg(feature="demuxer_gif")]
 mod gif;
 #[cfg(feature="demuxer_mov")]
-#[allow(clippy::cast_lossless)]
 mod mov;
 #[cfg(feature="demuxer_wav")]
 mod wav;

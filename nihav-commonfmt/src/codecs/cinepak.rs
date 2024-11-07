@@ -69,14 +69,14 @@ impl CinepakDecoder {
         let cb_size = (size - 4) / cb_elem;
         validate!(size - 4 == cb_size * cb_elem);
         validate!(cb_size <= 256);
-        for i in 0..cb_size {
-                                          br.read_buf(&mut cb[i][..cb_elem])?;
+        for cb_entry in cb[..cb_size].iter_mut() {
+                                          br.read_buf(&mut cb_entry[..cb_elem])?;
             if !is_yuv {
-                cb[i][4] = 0x80;
-                cb[i][5] = 0x80;
+                cb_entry[4] = 0x80;
+                cb_entry[5] = 0x80;
             } else {
-                cb[i][4] ^= 0x80;
-                cb[i][5] ^= 0x80;
+                cb_entry[4] ^= 0x80;
+                cb_entry[5] ^= 0x80;
             }
         }
         Ok(())
@@ -105,6 +105,7 @@ impl CinepakDecoder {
         validate!(br.tell() == end);
         Ok(())
     }
+    #[allow(clippy::too_many_arguments)]
     fn decode_strip(&mut self, src: &[u8], sno: usize, is_intra: bool, is_intra_strip: bool, xoff: usize, yoff: usize, xend: usize, yend: usize, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
         let mut mr = MemoryReader::new_read(src);
         let mut br = ByteReader::new(&mut mr);

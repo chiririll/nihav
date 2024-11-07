@@ -158,7 +158,7 @@ impl PCMEncoder {
     }
 }
 
-#[allow(unused_macros)]
+#[cfg(feature="encoder_pcm")]
 macro_rules! write_buffer {
     ($abuf: expr, $dvec: expr, $write_be: ident, $write_le: ident, $dtype: tt) => {
         let info = $abuf.get_info();

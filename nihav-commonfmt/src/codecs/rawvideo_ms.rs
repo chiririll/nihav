@@ -38,9 +38,7 @@ impl NADecoder for RawDecoder {
                             match *sd {
                                 NASideData::Palette(_, ref pal) => {
                                     for (dst, src) in self.pal.chunks_mut(3).zip(pal.chunks(4)) {
-                                        dst[0] = src[0];
-                                        dst[1] = src[1];
-                                        dst[2] = src[2];
+                                        dst.copy_from_slice(&src[..3]);
                                     }
                                     break;
                                 },

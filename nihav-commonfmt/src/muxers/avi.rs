@@ -64,8 +64,6 @@ fn write_chunk_hdr(bw: &mut ByteWriter, stype: StreamType, str_no: u32) -> Muxer
 }
 
 impl<'a> MuxCore<'a> for AVIMuxer<'a> {
-    #[allow(clippy::unreadable_literal)]
-    #[allow(clippy::cast_lossless)]
     fn create(&mut self, strmgr: &StreamManager) -> MuxerResult<()> {
         if strmgr.get_num_streams() == 0 {
             return Err(MuxerError::InvalidArgument);

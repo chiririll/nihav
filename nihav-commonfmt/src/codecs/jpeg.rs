@@ -15,7 +15,6 @@ const W8: i32 =  181;
 const ROW_SHIFT: u8 = 8;
 const COL_SHIFT: u8 = 14;
 
-#[allow(clippy::erasing_op)]
 fn idct_row(row: &mut [i16]) {
     let in0 = ((i32::from(row[0])) << 11) + (1 << (ROW_SHIFT - 1));
     let in1 =  (i32::from(row[4])) << 11;
@@ -131,7 +130,6 @@ struct ComponentInfo {
 }
 
 #[derive(Debug,PartialEq)]
-#[allow(dead_code)]
 enum JPEGType {
     None,
     Baseline,
@@ -141,7 +139,7 @@ enum JPEGType {
     Differential,
     DiffProgressive,
     DiffLossless,
-    JPEGLS,
+    //JPEGLS,
 }
 
 struct JPEGDecoder {
@@ -237,7 +235,6 @@ impl JPEGDecoder {
         self.depth      = 0;
     }
 
-    #[allow(clippy::many_single_char_names)]
     fn parse_sof(&mut self, br: &mut ByteReader) -> DecoderResult<NABufferType> {
         validate!(self.width == 0);
 
@@ -380,6 +377,7 @@ impl JPEGDecoder {
                             put_block(&blocks[1], &mut frm.data[offs[i] + x * 8 + frm.stride[i] * 8..], frm.stride[i]);
                         },
                         0x22 => {
+                            #[allow(clippy::needless_range_loop)]
                             for j in 0..4 {
                                 put_block(&blocks[j], &mut frm.data[offs[i] + x * 16 + (j & 1) * 8 + (j >> 1) * 8 * frm.stride[i]..], frm.stride[i]);
                             }

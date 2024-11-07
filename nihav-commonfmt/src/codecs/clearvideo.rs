@@ -38,7 +38,6 @@ impl CodebookDescReader<u16> for CLVSym16CodeReader {
     fn len(&mut self) -> usize { self.bits.len() }
 }
 
-#[allow(dead_code)]
 struct LevelCodes {
     flags_cb:   Option<Codebook<u8>>,
     mv_cb:      Option<Codebook<u16>>,
@@ -532,7 +531,6 @@ impl WFrame {
     }
 }
 
-#[allow(dead_code)]
 struct ClearVideoDecoder {
     info:    NACodecInfoRef,
     dc_cb:   Codebook<i8>,
@@ -878,7 +876,6 @@ fn generate_weights(weights: &mut Vec<[Vec<u8>; 9]>, depth: u8) {
 }
 
 impl NADecoder for ClearVideoDecoder {
-    #[allow(clippy::or_fun_call)]
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let mut w = vinfo.get_width();

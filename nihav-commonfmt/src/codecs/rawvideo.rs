@@ -42,16 +42,16 @@ impl NADecoder for RawDecoder {
                         }
                     }
                     let mut off = 0;
-                    for i in 0..ncomp {
+                    for (comp_id, &comp_size) in sizes[..ncomp].iter().enumerate() {
                         for (cno, chr) in vinfo.format.comp_info[..ncomp].iter().enumerate() {
                             if let Some(chromaton) = chr {
                                 let comp_off = chromaton.comp_offs as usize;
                                 validate!(comp_off < ncomp);
-                                if comp_off != i {
+                                if comp_off != comp_id {
                                     continue;
                                 }
                                 offs[cno] = off;
-                                off += sizes[i];
+                                off += comp_size;
                             }
                         }
                     }

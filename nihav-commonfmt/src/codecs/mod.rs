@@ -12,10 +12,12 @@ macro_rules! validate {
 #[cfg(feature="decoder_cinepak")]
 mod cinepak;
 #[cfg(feature="decoder_clearvideo")]
+#[allow(clippy::too_many_arguments)]
 mod clearvideo;
 #[cfg(feature="decoder_gif")]
 mod gif;
 #[cfg(feature="decoder_jpeg")]
+#[allow(clippy::manual_range_contains)]
 mod jpeg;
 #[cfg(feature="decoder_rawvideo")]
 mod rawvideo;
@@ -25,18 +27,17 @@ mod rawvideo_ms;
 mod zmbv;
 
 #[cfg(feature="decoder_atrac3")]
+#[allow(clippy::excessive_precision)]
 #[allow(clippy::identity_op)]
-#[allow(clippy::useless_let_if_seq)]
 mod atrac3;
 #[cfg(any(feature="decoder_pcm",feature="encoder_pcm"))]
 mod pcm;
 #[cfg(feature="decoder_sipro")]
-#[allow(clippy::collapsible_if)]
-#[allow(clippy::collapsible_else_if)]
+#[allow(clippy::excessive_precision)]
 #[allow(clippy::identity_op)]
-#[allow(clippy::manual_memcpy)]
 mod sipro;
 #[cfg(feature="decoder_ts102366")]
+#[allow(clippy::needless_range_loop)]
 mod ts102366;
 
 #[cfg(feature="decoders")]

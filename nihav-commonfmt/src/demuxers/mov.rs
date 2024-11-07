@@ -1410,8 +1410,6 @@ impl Track {
             self.bsize
         }
     }
-    #[allow(clippy::collapsible_if)]
-    #[allow(clippy::collapsible_else_if)]
     fn seek(&mut self, pts: u64, tpoint: NATimePoint) -> DemuxerResult<u64> {
         self.cur_sample = pts as usize;
         self.samples_left = 0;
@@ -1439,14 +1437,12 @@ impl Track {
                             }
                             self.raw_apos = apos;
                             apos += (cur_samps / self.frame_samples) as u64;
-                            if apos > exp_pts {
-                                if cur_samps == self.frame_samples || apos > exp_pts + 1 {
-                                    if self.cur_chunk >= self.chunk_offsets.len() {
-                                        return Err(DemuxerError::SeekError);
-                                    }
-                                    self.last_offset = self.chunk_offsets[self.cur_chunk];
-                                    break;
+                            if apos > exp_pts && (cur_samps == self.frame_samples || apos > exp_pts + 1) {
+                                if self.cur_chunk >= self.chunk_offsets.len() {
+                                    return Err(DemuxerError::SeekError);
                                 }
+                                self.last_offset = self.chunk_offsets[self.cur_chunk];
+                                break;
                             }
                             self.cur_chunk += 1;
                         }

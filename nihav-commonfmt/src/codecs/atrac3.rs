@@ -98,8 +98,8 @@ impl Channel {
 
             for _ in 0..self.components {
                 let mut flags: [bool; 4] = [false; 4];
-                for band in 0..self.bands {
-                    flags[band]                         = br.read_bool()?;
+                for flag in flags[..self.bands].iter_mut() {
+                    *flag                               = br.read_bool()?;
                 }
                 let nvals                               = br.read(3)? as usize;
                 let quant                               = br.read(3)? as usize;
@@ -129,8 +129,8 @@ impl Channel {
         let mut scf:    [usize; 32] = [0; 32];
         self.subbands                                   = (br.read(5)? as usize) + 1;
         let mode0                                       = br.read_bool()?;
-        for i in 0..self.subbands {
-            quants[i]                                   = br.read(3)? as usize;
+        for quant in quants[..self.subbands].iter_mut() {
+            *quant                                      = br.read(3)? as usize;
         }
         for i in 0..self.subbands {
             if quants[i] == 0 { continue; }
@@ -260,22 +260,21 @@ struct DSP {
     tmp:            [f32; ATRAC3_FRAME_SIZE + 64],
 }
 
-#[allow(clippy::manual_memcpy)]
 impl DSP {
     fn new() -> Self {
         let mut gain_tab: [f32; 16] = [0.0; 16];
         let mut gain_tab2: [f32; 32] = [0.0; 32];
 
-        for i in 0..16 {
-            gain_tab[i] = 2.0f32.powf(4.0 - (i as f32));
+        for (i, el) in gain_tab.iter_mut().enumerate() {
+            *el = 2.0f32.powf(4.0 - (i as f32));
         }
-        for i in 0..32 {
-            gain_tab2[i] = 2.0f32.powf(((i as f32) - 15.0) * -0.125);
+        for (i, el) in gain_tab2.iter_mut().enumerate() {
+            *el = 2.0f32.powf(((i as f32) - 15.0) * -0.125);
         }
 
         let mut tmpw: [f32; 256] = [0.0; 256];
-        for i in 0..tmpw.len() {
-            tmpw[i] = (((((i as f32) + 0.5) / 256.0 - 0.5) * consts::PI).sin() + 1.0) * 0.5;
+        for (i, el) in tmpw.iter_mut().enumerate() {
+            *el = (((((i as f32) + 0.5) / 256.0 - 0.5) * consts::PI).sin() + 1.0) * 0.5;
         }
 
         let mut window: [f32; 512] = [0.0; 512];
@@ -294,8 +293,8 @@ impl DSP {
     fn synth_band(&mut self, src: &[f32]) {
         let dst = &mut self.tmp;
         self.imdct.imdct(src, dst);
-        for i in 0..512 {
-            dst[i] *= self.window[i];
+        for (sample, &win) in dst.iter_mut().zip(self.window.iter()) {
+            *sample *= win;
         }
     }
     fn apply_gains(&mut self, dst: &mut [f32], delay: &[f32], gain_data: &mut [GainData; 2], block_no: usize, band: usize) {
@@ -338,9 +337,7 @@ impl DSP {
         }
     }
     fn qmf_prepare(&mut self, src: &[f32], delay: &[f32], size: usize, swap: bool) {
-        for i in 0..46 {
-            self.tmp[i] = delay[i];
-        }
+        self.tmp[..46].copy_from_slice(&delay[..46]);
         let (s0, s1) = if !swap {
                 (&src[0..], &src[size/2..])
             } else {
@@ -369,16 +366,12 @@ impl DSP {
     fn do_qmf(&mut self, dst: &mut [f32], delay: &mut [f32], swap: bool) {
         self.qmf_prepare(dst, delay, 512, swap);
         self.qmf_synth(dst, 512);
-        for i in 0..46 {
-            delay[i] = self.tmp[512 + i];
-        }
+        delay[..46].copy_from_slice(&self.tmp[512..][..46]);
     }
     fn do_qmf_out(&mut self, dst: &mut [f32], src: &[f32], delay: &mut [f32]) {
         self.qmf_prepare(src, delay, 1024, false);
         self.qmf_synth(dst, 1024);
-        for i in 0..46 {
-            delay[i] = self.tmp[1024 + i];
-        }
+        delay[..46].copy_from_slice(&self.tmp[1024..][..46]);
     }
 }
 
@@ -418,8 +411,8 @@ impl CodebookDescReader<u8> for Atrac3CodebookReader {
 impl Atrac3Decoder {
     fn new() -> Self {
         let mut scalefactors: [f32; 64] = [0.0; 64];
-        for i in 0..scalefactors.len() {
-            scalefactors[i] = 2.0f32.powf(((i as f32) - 15.0) / 3.0);
+        for (i, scf) in scalefactors.iter_mut().enumerate() {
+            *scf = 2.0f32.powf(((i as f32) - 15.0) / 3.0);
         }
 
         let mut cb0 = Atrac3CodebookReader { codes: ATRAC3_HUFF_CODES[0], bits: ATRAC3_HUFF_BITS[0] };

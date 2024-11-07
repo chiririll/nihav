@@ -58,7 +58,6 @@ impl RIFFSegment {
     }
 }
 
-#[allow(dead_code)]
 struct AVIDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
     cur_frame:      Vec<u64>,
@@ -523,13 +522,11 @@ fn is_list_tag(tag: u32) -> bool {
     false
 }
 
-#[allow(unused_variables)]
-fn parse_hdrl(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
+fn parse_hdrl(_dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
     Ok(0)
 }
 
-#[allow(unused_variables)]
-fn parse_strl(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
+fn parse_strl(_dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
     Ok(0)
 }
 
@@ -542,11 +539,10 @@ fn parse_rec(_dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -
     Ok(0)
 }
 
-#[allow(unused_variables)]
-fn parse_strh(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
+fn parse_strh(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 0x38 { return Err(InvalidData); }
     let tag = dmx.src.read_u32be()?; //stream type
-    let fcc = dmx.src.read_u32be()?; //handler(fourcc)
+    let _fcc = dmx.src.read_u32be()?; //handler(fourcc)
     dmx.src.read_u32le()?; //flags
     dmx.src.read_skip(2)?; //priority
     dmx.src.read_skip(2)?; //language
@@ -558,10 +554,10 @@ fn parse_strh(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
     dmx.src.read_skip(4)?; //buf size
     dmx.src.read_skip(4)?; //quality
     dmx.src.read_skip(4)?; //sample size
-    let a = dmx.src.read_u16le()?;
-    let b = dmx.src.read_u16le()?;
-    let c = dmx.src.read_u16le()?;
-    let d = dmx.src.read_u16le()?;
+    let _a = dmx.src.read_u16le()?;
+    let _b = dmx.src.read_u16le()?;
+    let _c = dmx.src.read_u16le()?;
+    let _d = dmx.src.read_u16le()?;
 
     dmx.src.read_skip(size - 0x38)?;
 
@@ -594,7 +590,6 @@ fn parse_strf(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
     }
 }
 
-#[allow(unused_variables)]
 fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 40 { return Err(InvalidData); }
     let bi_size         = dmx.src.read_u32le()?;
@@ -605,12 +600,12 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
     let bitcount        = dmx.src.read_u16le()?;
     let mut compression: [u8; 4] = [0; 4];
                           dmx.src.read_buf(&mut compression)?;
-    let img_size        = dmx.src.read_u32le()?;
-    let xdpi            = dmx.src.read_u32le()?;
-    let ydpi            = dmx.src.read_u32le()?;
+    let _img_size       = dmx.src.read_u32le()?;
+    let _xdpi           = dmx.src.read_u32le()?;
+    let _ydpi           = dmx.src.read_u32le()?;
     let colors          = dmx.src.read_u32le()?;
     validate!(colors <= 256);
-    let imp_colors      = dmx.src.read_u32le()?;
+    let _imp_colors     = dmx.src.read_u32le()?;
 
     let flip = height < 0;
     let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
@@ -692,13 +687,12 @@ fn find_raw_yuv_fmt(compr: &[u8; 4], vhdr: &mut NAVideoInfo) -> bool {
     }
 }
 
-#[allow(unused_variables)]
 fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 16 { return Err(InvalidData); }
     let w_format_tag        = dmx.src.read_u16le()?;
     let channels            = dmx.src.read_u16le()?;
     let samplespersec       = dmx.src.read_u32le()?;
-    let avgbytespersec      = dmx.src.read_u32le()?;
+    let _avgbytespersec     = dmx.src.read_u32le()?;
     let block_align         = dmx.src.read_u16le()?;
     let bits_per_sample     = dmx.src.read_u16le()?;
 
@@ -732,22 +726,21 @@ fn parse_strf_xxxx(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
     Ok(size)
 }
 
-#[allow(unused_variables)]
-fn parse_avih(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
+fn parse_avih(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 0x38 { return Err(InvalidData); }
-    let timebase = dmx.src.read_u32le()?; //microsec per frame
+    let _timebase = dmx.src.read_u32le()?; //microsec per frame
     dmx.src.read_skip(4)?; //max frame size
     dmx.src.read_skip(4)?; //padding
     dmx.src.read_u32le()?; //flags
-    let frames = dmx.src.read_u32le()?; //frames
+    let _frames = dmx.src.read_u32le()?; //frames
     dmx.src.read_skip(4)?; //initial frames
     let streams = dmx.src.read_u32le()?; //streams
     if streams > 100 { return Err(InvalidData); }
     dmx.num_streams = streams as u8;
 
     dmx.src.read_skip(4)?; //buf size
-    let width = dmx.src.read_u32le()?; //width
-    let height = dmx.src.read_u32le()? as i32; //height
+    let _width = dmx.src.read_u32le()?; //width
+    let _height = dmx.src.read_u32le()? as i32; //height
     dmx.src.read_skip(16)?; //reserved
 
     dmx.cur_frame.resize(streams as usize, 0);
@@ -780,13 +773,11 @@ fn parse_indx(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) ->
     Ok(size)
 }
 
-#[allow(unused_variables)]
-fn parse_junk(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
+fn parse_junk(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     dmx.src.read_skip(size)?;
     Ok(size)
 }
 
-#[allow(clippy::verbose_bit_mask)]
 fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<usize> {
     validate!((size & 15) == 0);
     let mut tag = [0u8; 4];
