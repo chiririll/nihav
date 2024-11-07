@@ -9,13 +9,11 @@ use nihav_codec_support::codecs::h263::code::*;
 use nihav_codec_support::codecs::h263::decoder::*;
 use nihav_codec_support::codecs::h263::data::*;
 
-#[allow(dead_code)]
 struct Tables {
     intra_mcbpc_cb: Codebook<u8>,
     inter_mcbpc_cb: Codebook<u8>,
     cbpy_cb:        Codebook<u8>,
     rl_cb:          Codebook<H263RLSym>,
-    aic_rl_cb:      Codebook<H263RLSym>,
     mv_cb:          Codebook<u8>,
 }
 
@@ -276,8 +274,6 @@ impl SparkDecoder {
         let cbpy_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263RLCodeReader::new(H263_RL_CODES);
         let rl_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = H263RLCodeReader::new(H263_RL_CODES_AIC);
-        let aic_rl_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263ShortCodeReader::new(H263_MV);
         let mv_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let tables = Tables {
@@ -285,7 +281,6 @@ impl SparkDecoder {
             inter_mcbpc_cb,
             cbpy_cb,
             rl_cb,
-            aic_rl_cb,
             mv_cb,
         };
 

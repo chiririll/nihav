@@ -9,7 +9,6 @@ struct FSVShuffler {
     keyframe:  Option<NAVideoBufferRef<u8>>,
 }
 
-#[allow(dead_code)]
 impl FSVShuffler {
     fn new() -> Self { Self::default() }
     fn clear(&mut self) {
@@ -35,9 +34,9 @@ impl FSVShuffler {
     fn get_key_frame(&mut self) -> Option<NAVideoBufferRef<u8>> {
         self.keyframe.as_ref().cloned()
     }
-    fn get_last_frame(&mut self) -> Option<NAVideoBufferRef<u8>> {
+    /*fn get_last_frame(&mut self) -> Option<NAVideoBufferRef<u8>> {
         self.lastframe.as_ref().cloned()
-    }
+    }*/
 }
 
 
