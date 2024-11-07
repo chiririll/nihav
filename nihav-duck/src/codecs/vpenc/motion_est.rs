@@ -3,7 +3,6 @@ use nihav_codec_support::codecs::{MV, ZERO_MV};
 use std::str::FromStr;
 
 #[derive(Debug,Clone,Copy,PartialEq,Default)]
-#[allow(dead_code)]
 pub enum MVSearchMode {
     Full,
     SEA,
@@ -18,7 +17,6 @@ pub struct ParseError{}
 impl FromStr for MVSearchMode {
     type Err = ParseError;
 
-    #[allow(clippy::single_match)]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "full"  => Ok(MVSearchMode::Full),
@@ -43,6 +41,7 @@ impl std::fmt::Display for MVSearchMode {
     }
 }
 
+#[allow(clippy::wrong_self_convention)]
 trait FromPixels {
     fn from_pixels(self) -> Self;
 }

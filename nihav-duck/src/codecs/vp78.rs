@@ -71,6 +71,7 @@ impl PredMode {
 }
 
 #[derive(Clone,Copy,PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum DCTToken {
     Zero,
     One,
@@ -87,21 +88,20 @@ pub enum DCTToken {
 }
 
 pub fn expand_token(bc: &mut BoolCoder, token: DCTToken) -> i16 {
-    let cat;
-    match token {
-        DCTToken::Zero  => return 0,
-        DCTToken::One   => return if bc.read_bool() { -1 } else { 1 },
-        DCTToken::Two   => return if bc.read_bool() { -2 } else { 2 },
-        DCTToken::Three => return if bc.read_bool() { -3 } else { 3 },
-        DCTToken::Four  => return if bc.read_bool() { -4 } else { 4 },
-        DCTToken::Cat1  => cat = 0,
-        DCTToken::Cat2  => cat = 1,
-        DCTToken::Cat3  => cat = 2,
-        DCTToken::Cat4  => cat = 3,
-        DCTToken::Cat5  => cat = 4,
-        DCTToken::Cat6  => cat = 5,
-        _ => unreachable!(),
-    };
+    let cat = match token {
+            DCTToken::Zero  => return 0,
+            DCTToken::One   => return if bc.read_bool() { -1 } else { 1 },
+            DCTToken::Two   => return if bc.read_bool() { -2 } else { 2 },
+            DCTToken::Three => return if bc.read_bool() { -3 } else { 3 },
+            DCTToken::Four  => return if bc.read_bool() { -4 } else { 4 },
+            DCTToken::Cat1  => 0,
+            DCTToken::Cat2  => 1,
+            DCTToken::Cat3  => 2,
+            DCTToken::Cat4  => 3,
+            DCTToken::Cat5  => 4,
+            DCTToken::Cat6  => 5,
+            _ => unreachable!(),
+        };
     let mut add = 0i16;
     let add_probs = &VP56_COEF_ADD_PROBS[cat];
     for prob in add_probs.iter() {

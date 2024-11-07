@@ -174,6 +174,7 @@ struct TM1Decoder {
     lastframe:      FrameBuf,
 }
 
+#[allow(clippy::identity_op)]
 impl TM1Decoder {
     fn new() -> Self { Self::default() }
     fn set_delta_tables(&mut self, delta_set: usize, table_idx: usize, is_24bit: bool) {

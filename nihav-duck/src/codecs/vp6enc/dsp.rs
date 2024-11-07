@@ -87,6 +87,7 @@ impl MVSearchModeCreate for MVSearchMode {
 const MAX_DIST: u32 = std::u32::MAX;
 const DIST_THRESH: u32 = 256;
 
+#[allow(clippy::wrong_self_convention)]
 trait FromPixels {
     fn from_pixels(self) -> Self;
 }

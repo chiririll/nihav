@@ -239,12 +239,12 @@ impl VP7Decoder {
         Ok(())
     }
     fn read_dct_coef_prob_upd(&mut self, bc: &mut BoolCoder) -> DecoderResult<()> {
-        for i in 0..4 {
-            for j in 0..8 {
-                for k in 0..3 {
-                    for l in 0..11 {
-                        if bc.read_prob(DCT_UPDATE_PROBS[i][j][k][l]) {
-                            self.dstate.coef_probs[i][j][k][l]  = bc.read_byte();
+        for (probs, upd_probs) in self.dstate.coef_probs.iter_mut().zip(DCT_UPDATE_PROBS.iter()) {
+            for (probs, upd_probs) in probs.iter_mut().zip(upd_probs.iter()) {
+                for (probs, upd_probs) in probs.iter_mut().zip(upd_probs.iter()) {
+                    for (prob, &upd_prob) in probs.iter_mut().zip(upd_probs.iter()) {
+                        if bc.read_prob(upd_prob) {
+                            *prob = bc.read_byte();
                         }
                     }
                 }
@@ -253,10 +253,10 @@ impl VP7Decoder {
         Ok(())
     }
     fn read_mv_prob_upd(&mut self, bc: &mut BoolCoder) -> DecoderResult<()> {
-        for comp in 0..2 {
-            for i in 0..17 {
-                if bc.read_prob(MV_UPDATE_PROBS[comp][i]) {
-                    self.dstate.mv_probs[comp][i]   = bc.read_probability();
+        for (probs, upd_probs) in self.dstate.mv_probs.iter_mut().zip(MV_UPDATE_PROBS.iter()) {
+            for (prob, &upd_prob) in probs.iter_mut().zip(upd_probs.iter()) {
+                if bc.read_prob(upd_prob) {
+                    *prob = bc.read_probability();
                 }
             }
         }
@@ -313,42 +313,45 @@ impl VP7Decoder {
         }
         sbparams.scan = &self.scan;
         sbparams.qmat = &self.qmat[qmat_idx][0];
-        for i in 0..16 {
+        let (y_coeffs, c_coeffs) = self.coeffs.split_at_mut(16);
+        for (i, (coeffs, y_has_ac)) in y_coeffs.iter_mut().zip(has_ac.iter_mut()).enumerate() {
             let bx = i & 3;
             let by = i >> 2;
             let pred = &self.pcache.y_pred;
             let pidx = pred.xpos + mb_x * 4 + bx + by * pred.stride;
             let pctx = self.pcache.y_pred_left[by] + pred.data[pidx - pred.stride];
 
-            let has_nz = decode_subblock(bc, &mut self.coeffs[i], ytype, pctx, &sbparams);
+            let has_nz = decode_subblock(bc, coeffs, ytype, pctx, &sbparams);
             self.pcache.y_pred.data[pidx] = has_nz;
             self.pcache.y_pred_left[by]   = has_nz;
-            has_ac[i] = has_nz > 0;
+            *y_has_ac = has_nz > 0;
         }
         sbparams.qmat = &self.qmat[qmat_idx][1];
-        for i in 16..20 {
+        let (u_coeffs, v_coeffs) = c_coeffs.split_at_mut(4);
+        let (u_has_ac, v_has_ac) = has_ac[16..24].split_at_mut(4);
+        for (i, (coeffs, u_has_ac)) in u_coeffs.iter_mut().zip(u_has_ac.iter_mut()).enumerate() {
             let bx = i & 1;
             let by = (i >> 1) & 1;
             let pred = &self.pcache.u_pred;
             let pidx = pred.xpos + mb_x * 2 + bx + by * pred.stride;
             let pctx = self.pcache.u_pred_left[by] + pred.data[pidx - pred.stride];
 
-            let has_nz = decode_subblock(bc, &mut self.coeffs[i], 2, pctx, &sbparams);
+            let has_nz = decode_subblock(bc, coeffs, 2, pctx, &sbparams);
             self.pcache.u_pred.data[pidx] = has_nz;
             self.pcache.u_pred_left[by]   = has_nz;
-            has_ac[i] = has_nz > 0;
+            *u_has_ac = has_nz > 0;
         }
-        for i in 20..24 {
+        for (i, (coeffs, v_has_ac)) in v_coeffs.iter_mut().zip(v_has_ac.iter_mut()).enumerate() {
             let bx = i & 1;
             let by = (i >> 1) & 1;
             let pred = &self.pcache.v_pred;
             let pidx = pred.xpos + mb_x * 2 + bx + by * pred.stride;
             let pctx = self.pcache.v_pred_left[by] + pred.data[pidx - pred.stride];
 
-            let has_nz = decode_subblock(bc, &mut self.coeffs[i], 2, pctx, &sbparams);
+            let has_nz = decode_subblock(bc, coeffs, 2, pctx, &sbparams);
             self.pcache.v_pred.data[pidx] = has_nz;
             self.pcache.v_pred_left[by]   = has_nz;
-            has_ac[i] = has_nz > 0;
+            *v_has_ac = has_nz > 0;
         }
 
         if self.dstate.has_y2 {
@@ -378,11 +381,11 @@ impl VP7Decoder {
                 self.coeffs[i][0] = self.coeffs[24][i];
             }
         }
-        for i in 0..24 {
-            if has_ac[i] {
-                idct4x4(&mut self.coeffs[i]);
-            } else if self.coeffs[i][0] != 0 {
-                idct4x4_dc(&mut self.coeffs[i]);
+        for (&has_ac, coeffs) in has_ac.iter().zip(self.coeffs.iter_mut()).take(24) {
+            if has_ac {
+                idct4x4(coeffs);
+            } else if coeffs[0] != 0 {
+                idct4x4_dc(coeffs);
             }
         }
     }
@@ -474,6 +477,7 @@ impl VP7Decoder {
             }
             ct[idx] += weight;
         }
+        #[allow(clippy::collapsible_else_if)]
         let pred_mv = if ct[1] > ct[2] {
                 if ct[1] >= ct[0] { nearest_mv } else { ZERO_MV }
             } else {
@@ -529,6 +533,7 @@ impl VP7Decoder {
                     mvidx += self.mv_stride;
                 }
             },
+            #[allow(clippy::identity_op)]
             MVSplitMode::LeftRight => {
                 let left_mv  = self.get_split_mv(bc, mb_x, mb_y, 0, 0, pred_mv);
                 self.mvs[mvidx + 1] = left_mv;
@@ -672,7 +677,7 @@ impl VP7Decoder {
                         let oidx = x + y * 4 + 4;
                         for i in 0..4 {
                             for j in 0..4 {
-                                tmpblock[i * 8 + 0 + j] = self.coeffs[eidx][i * 4 + j];
+                                tmpblock[i * 8 +     j] = self.coeffs[eidx][i * 4 + j];
                                 tmpblock[i * 8 + 4 + j] = self.coeffs[oidx][i * 4 + j];
                             }
                         }
@@ -761,6 +766,7 @@ impl VP7Decoder {
         self.add_residue(dframe, mb_x, mb_y, is_normal, pitch_mode);
         Ok(())
     }
+    #[allow(clippy::collapsible_else_if)]
     fn recon_inter_mb(&mut self, dframe: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, use_last: bool) {
         let pitch = self.dstate.force_pitch.unwrap_or(0);
         let pitch_dmode = (pitch >> 3) & 3;
@@ -932,6 +938,7 @@ impl NADecoder for VP7Decoder {
         }
     }
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::collapsible_else_if)]
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 

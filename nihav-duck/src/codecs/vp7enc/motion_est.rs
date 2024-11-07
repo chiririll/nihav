@@ -25,6 +25,7 @@ const MAX_DIST: u32 = std::u32::MAX;
 const DIST_THRESH: u32 = 256;
 pub const LARGE_BLK8_DIST: u32 = 256;
 
+#[allow(clippy::wrong_self_convention)]
 trait FromPixels {
     fn from_pixels(self) -> Self;
 }
@@ -62,10 +63,10 @@ impl EliminationSearch {
             }
         }
         let mut chroma_avg = [0; 2];
-        for chroma in 0..1 {
+        for (chroma, avg_val) in chroma_avg.iter_mut().enumerate() {
             for row in self.msa[chroma + 1][chroma_off..].chunks(self.stride[1]).take(8).step_by(Self::BLOCK_SIZE) {
                 for &el in row.iter().take(8).step_by(Self::BLOCK_SIZE) {
-                    chroma_avg[chroma] += el;
+                    *avg_val += el;
                 }
             }
         }
@@ -433,7 +434,6 @@ pub struct MVEstimator {
 count: usize,
 }
 
-#[allow(dead_code)]
 impl MVEstimator {
     pub fn new(ref_frame: NAVideoBufferRef<u8>, mc_buf: NAVideoBufferRef<u8>, mv_range: i16) -> Self {
         Self {
@@ -451,13 +451,13 @@ count: 0,
         mc_block8x8(&mut dst.chroma[0], 0, 8, mb_x * 8, mb_y * 8, cur_mv.x, cur_mv.y, self.ref_frame.clone(), 1, tmp_blk);
         mc_block8x8(&mut dst.chroma[1], 0, 8, mb_x * 8, mb_y * 8, cur_mv.x, cur_mv.y, self.ref_frame.clone(), 2, tmp_blk);
     }
-    pub fn get_blk8(&mut self, dst: &mut [u8; 64], plane: usize, x: usize, y: usize, mut cur_mv: MV) {
+    /*pub fn get_blk8(&mut self, dst: &mut [u8; 64], plane: usize, x: usize, y: usize, mut cur_mv: MV) {
         if plane == 0 {
             cur_mv.x *= 2;
             cur_mv.y *= 2;
         }
         mc_block8x8(dst, 0, 8, x, y, cur_mv.x, cur_mv.y, self.ref_frame.clone(), plane, self.mc_buf.get_data_mut().unwrap());
-    }
+    }*/
     fn sad_blk8(&mut self, refblk: &[u8; 64], x: usize, y: usize, cur_mv: MV, _best_dist: u32) -> u32 {
         mc_block8x8(&mut self.blk8, 0, 8, x, y, cur_mv.x * 2, cur_mv.y * 2, self.ref_frame.clone(), 0, self.mc_buf.get_data_mut().unwrap());
 self.count += 1;

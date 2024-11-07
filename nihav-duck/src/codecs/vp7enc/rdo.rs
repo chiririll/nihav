@@ -127,13 +127,13 @@ impl BitRateControl {
             (false, _) => 800.0 - (fq - 8.0).ln() * 155.0,
         }
     }
-    #[allow(dead_code)]
     // todo use for refining maybe
-    pub fn predict_size(&self, is_intra: bool, q: usize) -> u32 {
+    /*pub fn predict_size(&self, is_intra: bool, q: usize) -> u32 {
         let min_size = if is_intra { 200 * 8 } else { 50 * 8 };
         let nits_per_mb = Self::pred_nits_per_mb(is_intra, q);
         ((nits_per_mb * (self.num_mb as f32) / 8.0) as u32).max(min_size)
-    }
+    }*/
+    #[allow(clippy::collapsible_else_if)]
     pub fn get_frame_quant(&self, is_intra: bool) -> usize {
         if let Some(q) = self.force_q {
             q

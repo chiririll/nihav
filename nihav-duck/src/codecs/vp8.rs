@@ -328,6 +328,7 @@ impl VP8Decoder {
         }
         Ok(())
     }
+    #[allow(clippy::collapsible_if)]
     fn mb_lf_adjustments(&mut self, bc: &mut BoolCoder) -> DecoderResult<()> {
         self.dstate.lf_delta                = bc.read_bool();
         if self.dstate.lf_delta {
@@ -374,12 +375,12 @@ impl VP8Decoder {
         Ok(())
     }
     fn read_dct_coef_prob_upd(&mut self, bc: &mut BoolCoder) -> DecoderResult<()> {
-        for i in 0..4 {
-            for j in 0..8 {
-                for k in 0..3 {
-                    for l in 0..11 {
-                        if bc.read_prob(DCT_UPDATE_PROBS[i][j][k][l]) {
-                            self.dstate.coef_probs[i][j][k][l]  = bc.read_byte();
+        for (probs, upd_probs) in self.dstate.coef_probs.iter_mut().zip(DCT_UPDATE_PROBS.iter()) {
+            for (probs, upd_probs) in probs.iter_mut().zip(upd_probs.iter()) {
+                for (probs, upd_probs) in probs.iter_mut().zip(upd_probs.iter()) {
+                    for (prob, &upd_prob) in probs.iter_mut().zip(upd_probs.iter()) {
+                        if bc.read_prob(upd_prob) {
+                            *prob = bc.read_byte();
                         }
                     }
                 }
@@ -392,10 +393,11 @@ impl VP8Decoder {
           [ 237, 246, 253, 253, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 250, 250, 252, 254, 254 ],
           [ 231, 243, 245, 253, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 251, 251, 254, 254, 254 ]
         ];
-        for comp in 0..2 {
-            for i in 0..19 {
-                if bc.read_prob(MV_UPDATE_PROBS[comp][i]) {
-                    self.dstate.mv_probs[comp][i]   = bc.read_probability();
+        for (prob_row, upd_row) in self.dstate.mv_probs.iter_mut()
+                .zip(MV_UPDATE_PROBS.iter()) {
+            for (prob, &upd_prob) in prob_row.iter_mut().zip(upd_row.iter()) {
+                if bc.read_prob(upd_prob) {
+                    *prob = bc.read_probability();
                 }
             }
         }
@@ -447,45 +449,48 @@ impl VP8Decoder {
             ytype = 3;
         }
         sbparams.qmat = &self.qmat[qmat_idx][0];
-        for i in 0..16 {
+        let (y_coeffs, c_coeffs) = self.coeffs.split_at_mut(16);
+        for (i, (coeffs, y_has_ac)) in y_coeffs.iter_mut().zip(has_ac.iter_mut()).enumerate() {
             let bx = i & 3;
             let by = i >> 2;
             let pred = &self.pcache.y_pred;
             let pidx = pred.xpos + mb_x * 4 + bx + by * pred.stride;
             let pctx = self.pcache.y_pred_left[by] + pred.data[pidx - pred.stride];
 
-            let has_nz = decode_subblock(bc, &mut self.coeffs[i], ytype, pctx, &sbparams);
+            let has_nz = decode_subblock(bc, coeffs, ytype, pctx, &sbparams);
             self.pcache.y_pred.data[pidx] = has_nz;
             self.pcache.y_pred_left[by]   = has_nz;
-            has_ac[i] = has_nz > 0;
-            coded |= has_ac[i] | (self.coeffs[i][0] != 0);
+            *y_has_ac = has_nz > 0;
+            coded |= *y_has_ac | (coeffs[0] != 0);
         }
         sbparams.qmat = &self.qmat[qmat_idx][1];
-        for i in 16..20 {
+        let (u_coeffs, v_coeffs) = c_coeffs.split_at_mut(4);
+        let (u_has_ac, v_has_ac) = has_ac[16..24].split_at_mut(4);
+        for (i, (coeffs, u_has_ac)) in u_coeffs.iter_mut().zip(u_has_ac.iter_mut()).enumerate() {
             let bx = i & 1;
             let by = (i >> 1) & 1;
             let pred = &self.pcache.u_pred;
             let pidx = pred.xpos + mb_x * 2 + bx + by * pred.stride;
             let pctx = self.pcache.u_pred_left[by] + pred.data[pidx - pred.stride];
 
-            let has_nz = decode_subblock(bc, &mut self.coeffs[i], 2, pctx, &sbparams);
+            let has_nz = decode_subblock(bc, coeffs, 2, pctx, &sbparams);
             self.pcache.u_pred.data[pidx] = has_nz;
             self.pcache.u_pred_left[by]   = has_nz;
-            has_ac[i] = has_nz > 0;
-            coded |= has_ac[i] | (self.coeffs[i][0] != 0);
+            *u_has_ac = has_nz > 0;
+            coded |= *u_has_ac | (coeffs[0] != 0);
         }
-        for i in 20..24 {
+        for (i, (coeffs, v_has_ac)) in v_coeffs.iter_mut().zip(v_has_ac.iter_mut()).enumerate() {
             let bx = i & 1;
             let by = (i >> 1) & 1;
             let pred = &self.pcache.v_pred;
             let pidx = pred.xpos + mb_x * 2 + bx + by * pred.stride;
             let pctx = self.pcache.v_pred_left[by] + pred.data[pidx - pred.stride];
 
-            let has_nz = decode_subblock(bc, &mut self.coeffs[i], 2, pctx, &sbparams);
+            let has_nz = decode_subblock(bc, coeffs, 2, pctx, &sbparams);
             self.pcache.v_pred.data[pidx] = has_nz;
             self.pcache.v_pred_left[by]   = has_nz;
-            has_ac[i] = has_nz > 0;
-            coded |= has_ac[i] | (self.coeffs[i][0] != 0);
+            *v_has_ac = has_nz > 0;
+            coded |= *v_has_ac | (coeffs[0] != 0);
         }
 
         if self.dstate.has_y2 {
@@ -499,11 +504,11 @@ impl VP8Decoder {
                 self.coeffs[i][0] = self.coeffs[24][i];
             }
         }
-        for i in 0..24 {
-            if has_ac[i] {
-                idct4x4(&mut self.coeffs[i]);
-            } else if self.coeffs[i][0] != 0 {
-                idct4x4_dc(&mut self.coeffs[i]);
+        for (&has_ac, coeffs) in has_ac.iter().zip(self.coeffs.iter_mut()).take(24) {
+            if has_ac {
+                idct4x4(coeffs);
+            } else if coeffs[0] != 0 {
+                idct4x4_dc(coeffs);
             }
         }
 
@@ -736,6 +741,7 @@ impl VP8Decoder {
             },
         }
     }
+    #[allow(clippy::identity_op)]
     fn do_split_mv(&mut self, bc: &mut BoolCoder, mb_x: usize, mb_y: usize, pred_mv: MV) -> DecoderResult<()> {
         let split_mode                  = bc.read_tree(MV_SPLIT_MODE_TREE, &MV_SPLIT_MODE_PROBS);
         let mut mvidx = mb_x * 4 + mb_y * 4 * self.mv_stride;
@@ -1144,6 +1150,7 @@ impl NADecoder for VP8Decoder {
         }
     }
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::collapsible_else_if)]
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 4);

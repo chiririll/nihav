@@ -102,6 +102,7 @@ impl VP56Parser for VP5BR {
         }
         Ok(())
     }
+    #[allow(clippy::needless_range_loop)]
     fn decode_coeff_models(&self, bc: &mut BoolCoder, models: &mut VP56Models, is_intra: bool) -> DecoderResult<()> {
         const COEF_PROBS: [[u8; 11]; 2] = [
             [ 146, 197, 181, 207, 232, 243, 238, 251, 244, 250, 249 ],
@@ -109,13 +110,14 @@ impl VP56Parser for VP5BR {
         ];
 
         let mut def_prob = [128u8; 11];
-        for plane in 0..2 {
-            for i in 0..11 {
-                if bc.read_prob(COEF_PROBS[plane][i]) {
-                    def_prob[i]                 = bc.read_probability();
-                    models.coeff_models[plane].dc_value_probs[i] = def_prob[i];
+        for (coef_mdl, coef_probs) in models.coeff_models.iter_mut().zip(COEF_PROBS.iter()) {
+            for ((dc_prob, def_prob), &coef_prob) in coef_mdl.dc_value_probs.iter_mut()
+                    .zip(def_prob.iter_mut()).zip(coef_probs.iter()) {
+                if bc.read_prob(coef_prob) {
+                    *def_prob                   = bc.read_probability();
+                    *dc_prob                    = *def_prob;
                 } else if is_intra {
-                    models.coeff_models[plane].dc_value_probs[i] = def_prob[i];
+                    *dc_prob                    = *def_prob;
                 }
             }
         }
@@ -133,8 +135,7 @@ impl VP56Parser for VP5BR {
                 }
             }
         }
-        for plane in 0..2 {
-            let mdl = &mut models.coeff_models[plane];
+        for mdl in models.coeff_models.iter_mut() {
             for i in 0..6 {
                 for j in 0..6 {
                     for k in 0..5 {

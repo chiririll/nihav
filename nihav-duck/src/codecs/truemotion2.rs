@@ -57,6 +57,7 @@ struct HuffDef {
 }
 
 impl HuffDef {
+    #[allow(clippy::identity_op)]
     fn read(&mut self, br: &mut BitReader, codes: &mut Vec<FullCodebookDesc<u8>>, prefix: u32, len: u8) -> DecoderResult<()> {
         validate!(len <= self.max_bits);
         if !br.read_bool()? {
@@ -224,6 +225,7 @@ struct DeltaState {
 }
 
 #[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 impl DeltaState {
     fn apply_y(&mut self, dst: &mut [u8], mut yoff: usize, ystride: usize, ydeltas: &[i32; 16], last: &mut [i32]) {
         for y in 0..4 {
@@ -336,7 +338,6 @@ struct TM2Decoder {
 
 impl TM2Decoder {
     fn new() -> Self { Self::default() }
-    #[allow(clippy::manual_memcpy)]
     fn decode_blocks(&mut self) -> DecoderResult<bool> {
         let ydst = &mut self.cur_frame.ydata;
         let udst = &mut self.cur_frame.udata;
@@ -369,8 +370,8 @@ impl TM2Decoder {
                         }
                         dstate.apply_c(udst, offs[1] + bx * 2, cstride, &cdeltas[0], 0, &mut lastu[bx*2+1..]);
                         dstate.apply_c(vdst, offs[1] + bx * 2, cstride, &cdeltas[1], 1, &mut lastv[bx*2+1..]);
-                        for i in 0..4*4 {
-                            ydeltas[i] = self.streams[TM2StreamType::LHigh as usize].get_token()?;
+                        for yd in ydeltas.iter_mut() {
+                            *yd = self.streams[TM2StreamType::LHigh as usize].get_token()?;
                         }
                         dstate.apply_y(ydst, offs[0] + bx * 4, ystride, &ydeltas, &mut lasty[bx*4+1..]);
                     },
@@ -382,8 +383,8 @@ impl TM2Decoder {
                         dstate.apply_c(udst, offs[1] + bx * 2, cstride, &cdeltas[0], 0, &mut lastu[bx*2+1..]);
                         dstate.interpolate_c(1, &mut lastv[bx*2..]);
                         dstate.apply_c(vdst, offs[1] + bx * 2, cstride, &cdeltas[1], 1, &mut lastv[bx*2+1..]);
-                        for i in 0..4*4 {
-                            ydeltas[i] = self.streams[TM2StreamType::LHigh as usize].get_token()?;
+                        for yd in ydeltas.iter_mut() {
+                            *yd = self.streams[TM2StreamType::LHigh as usize].get_token()?;
                         }
                         dstate.apply_y(ydst, offs[0] + bx * 4, ystride, &ydeltas, &mut lasty[bx*4+1..]);
                     },
@@ -444,27 +445,23 @@ impl TM2Decoder {
                     TM2BlockType::Still => {
                         is_intra = false;
 
-                        let mut coff = offs[1] + bx * 2;
-                        let usrc = &self.prev_frame.udata;
-                        let vsrc = &self.prev_frame.vdata;
-                        for _ in 0..2 {
-                            for x in 0..2 {
-                                udst[coff + x] = usrc[coff + x];
-                                vdst[coff + x] = vsrc[coff + x];
-                            }
-                            coff += cstride;
+                        let coff = offs[1] + bx * 2;
+                        for (dline, sline) in udst[coff..].chunks_mut(cstride)
+                                .zip(self.prev_frame.udata[coff..].chunks(cstride)).take(2) {
+                            dline[..2].copy_from_slice(&sline[..2]);
                         }
-                        dstate.recalc_c(udst, offs[1] + bx * 2, cstride, 0, &mut lastu[bx*2+1..]);
-                        dstate.recalc_c(vdst, offs[1] + bx * 2, cstride, 1, &mut lastv[bx*2+1..]);
-                        let mut yoff = offs[0] + bx * 4;
-                        let ysrc = &self.prev_frame.ydata;
-                        for _ in 0..4 {
-                            for x in 0..4 {
-                                ydst[yoff + x] = ysrc[yoff + x];
-                            }
-                            yoff += ystride;
+                        for (dline, sline) in vdst[coff..].chunks_mut(cstride)
+                                .zip(self.prev_frame.vdata[coff..].chunks(cstride)).take(2) {
+                            dline[..2].copy_from_slice(&sline[..2]);
                         }
-                        dstate.recalc_y(ydst, offs[0] + bx * 4, ystride, &mut lasty[bx*4+1..]);
+                        dstate.recalc_c(udst, coff, cstride, 0, &mut lastu[bx*2+1..]);
+                        dstate.recalc_c(vdst, coff, cstride, 1, &mut lastv[bx*2+1..]);
+                        let yoff = offs[0] + bx * 4;
+                        for (dline, sline) in ydst[yoff..].chunks_mut(ystride)
+                                .zip(self.prev_frame.ydata[yoff..].chunks(ystride)).take(4) {
+                            dline[..4].copy_from_slice(&sline[..4]);
+                        }
+                        dstate.recalc_y(ydst, yoff, ystride, &mut lasty[bx*4+1..]);
                     },
                     TM2BlockType::Motion => {
                         is_intra = false;
@@ -473,31 +470,25 @@ impl TM2Decoder {
                         let my = self.streams[TM2StreamType::Motion as usize].get_token()?;
                         let xpos = (((bx as i32) * 4) + mx).max(0).min((self.width  - 4) as i32) as usize;
                         let ypos = (((by as i32) * 4) + my).max(0).min((self.height - 4) as i32) as usize;
-                        let mut coff = offs[1] + bx * 2;
-                        let mut csoff = (xpos >> 1) + (ypos >> 1) * cstride;
-                        let usrc = &self.prev_frame.udata;
-                        let vsrc = &self.prev_frame.vdata;
-                        for _ in 0..2 {
-                            for x in 0..2 {
-                                udst[coff + x] = usrc[csoff + x];
-                                vdst[coff + x] = vsrc[csoff + x];
-                            }
-                            coff  += cstride;
-                            csoff += cstride;
+                        let coff = offs[1] + bx * 2;
+                        let csoff = (xpos >> 1) + (ypos >> 1) * cstride;
+                        for (dline, sline) in udst[coff..].chunks_mut(cstride)
+                                .zip(self.prev_frame.udata[csoff..].chunks(cstride)).take(2) {
+                            dline[..2].copy_from_slice(&sline[..2]);
                         }
-                        dstate.recalc_c(udst, offs[1] + bx * 2, cstride, 0, &mut lastu[bx*2+1..]);
-                        dstate.recalc_c(vdst, offs[1] + bx * 2, cstride, 1, &mut lastv[bx*2+1..]);
-                        let mut yoff = offs[0] + bx * 4;
-                        let mut ysoff = xpos + ypos * ystride;
-                        let ysrc = &self.prev_frame.ydata;
-                        for _ in 0..4 {
-                            for x in 0..4 {
-                                ydst[yoff + x] = ysrc[ysoff + x];
-                            }
-                            yoff  += ystride;
-                            ysoff += ystride;
+                        for (dline, sline) in vdst[coff..].chunks_mut(cstride)
+                                .zip(self.prev_frame.vdata[csoff..].chunks(cstride)).take(2) {
+                            dline[..2].copy_from_slice(&sline[..2]);
                         }
-                        dstate.recalc_y(ydst, offs[0] + bx * 4, ystride, &mut lasty[bx*4+1..]);
+                        dstate.recalc_c(udst, coff, cstride, 0, &mut lastu[bx*2+1..]);
+                        dstate.recalc_c(vdst, coff, cstride, 1, &mut lastv[bx*2+1..]);
+                        let yoff = offs[0] + bx * 4;
+                        let ysoff = xpos + ypos * ystride;
+                        for (dline, sline) in ydst[yoff..].chunks_mut(ystride)
+                                .zip(self.prev_frame.ydata[ysoff..].chunks(ystride)).take(4) {
+                            dline[..4].copy_from_slice(&sline[..4]);
+                        }
+                        dstate.recalc_y(ydst, yoff, ystride, &mut lasty[bx*4+1..]);
                     },
                 };
             }

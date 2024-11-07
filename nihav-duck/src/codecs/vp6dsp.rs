@@ -51,7 +51,6 @@ macro_rules! mc_filter {
     }
 }
 
-//#[allow(snake_case)]
 #[cfg(not(target_arch = "x86_64"))]
 pub fn mc_bilinear(dst: &mut [u8], dstride: usize, src: &[u8], mut soff: usize, sstride: usize, mx: u16, my: u16) {
     if my == 0 {
@@ -167,7 +166,6 @@ pub fn mc_bilinear(dst: &mut [u8], dstride: usize, src: &[u8], soff: usize, sstr
     }
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref)]
 pub fn mc_bicubic(dst: &mut [u8], dstride: usize, src: &[u8], mut soff: usize, sstride: usize, coeffs_w: &[i16; 4], coeffs_h: &[i16; 4]) {
     if coeffs_h[1] == 128 {
         for dline in dst.chunks_mut(dstride).take(8) {

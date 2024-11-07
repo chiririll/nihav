@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use nihav_core::frame::*;
 use nihav_codec_support::codecs::blockdsp::edge_emu;
 
@@ -72,6 +73,7 @@ pub fn add_coeffs16x1(dst: &mut [u8], off: usize, coeffs: &[i16; 16]) {
 
 pub trait IntraPred {
     const SIZE: usize;
+    #[allow(clippy::needless_late_init)]
     fn ipred_dc(dst: &mut [u8], mut off: usize, stride: usize, ipred: &IPredContext) {
         let dc;
         if !ipred.has_left && !ipred.has_top {
@@ -264,15 +266,14 @@ impl IPred4x4 {
             off += stride;
         }
     }
-    pub fn ipred_he(dst: &mut [u8], mut off: usize, stride: usize, ipred: &IPredContext) {
+    pub fn ipred_he(dst: &mut [u8], off: usize, stride: usize, ipred: &IPredContext) {
         let (p0, p1, p2, _) = load_pred4!(left; ipred);
         let p3 = ((u16::from(ipred.left[2]) + u16::from(ipred.left[3]) * 3 + 2) >> 2) as u8;
         let hor_pred = [p0, p1, p2, p3];
-        for m in 0..4 {
-            for n in 0..4 {
-                dst[off + n] = hor_pred[m];
+        for (dline, &pred) in dst[off..].chunks_mut(stride).zip(hor_pred.iter()) {
+            for el in dline[..4].iter_mut() {
+                *el = pred;
             }
-            off += stride;
         }
     }
     pub fn ipred_ld(dst: &mut [u8], mut off: usize, stride: usize, ipred: &IPredContext) {
@@ -494,10 +495,10 @@ pub fn mc_block_special(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize
     let ha = if plane == 0 { (h + 15) & !15 } else { (h + 7) & !7 } as isize;
     let mut start_x = (xpos as isize) + ((mvx >> 3) as isize) - (EDGE_PRE as isize);
     let mut end_x   = (xpos as isize) + ((mvx >> 3) as isize) + ((size + EDGE_POST) as isize);
-    if xstep < 0 {
-        start_x -= (size + EDGE_POST) as isize;
-    } else if xstep > 0 {
-        end_x += (size as isize) * xstep;
+    match xstep.cmp(&0) {
+        Ordering::Less => start_x -= (size + EDGE_POST) as isize,
+        Ordering::Greater => end_x += (size as isize) * xstep,
+        Ordering::Equal => {},
     }
     let mut start_y = (ypos as isize) + ((mvy >> 3) as isize) - (EDGE_PRE as isize) * ymul;
     let mut end_y   = (ypos as isize) + ((mvy >> 3) as isize) + ((size + EDGE_POST) as isize) * ymul;

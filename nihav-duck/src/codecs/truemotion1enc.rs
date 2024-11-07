@@ -882,6 +882,7 @@ panic!("end");
 }
 
 // fat deltas for 15-bit mode
+#[allow(clippy::identity_op)]
 #[allow(clippy::neg_multiply)]
 const DUCK_Y_DELTAS_5: [[i32; 8]; 4] = [
     [ 0,     -1 * 5,  1 * 5,  -3 * 5,  3 * 5,  -6 * 5,  6 * 5,  -6 * 5 ],
@@ -889,6 +890,7 @@ const DUCK_Y_DELTAS_5: [[i32; 8]; 4] = [
     [ 2 * 5, -3 * 5, 10 * 5, -10 * 5, 23 * 5, -23 * 5, 47 * 5, -47 * 5 ],
     [ 0,     -2 * 5,  2 * 5,  -8 * 5,  8 * 5, -18 * 5, 18 * 5, -40 * 5 ]
 ];
+#[allow(clippy::identity_op)]
 #[allow(clippy::neg_multiply)]
 const DUCK_C_DELTAS_5: [[i32; 8]; 4] = [
     [ 0, -1 * 5, 1 * 5,  -2 * 5,  3 * 5,  -4 * 5,  5 * 5,  -4 * 5 ],

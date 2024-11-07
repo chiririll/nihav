@@ -7,7 +7,6 @@ pub const TOKEN_LARGE: u8 = 5;
 pub const TOKEN_EOB: u8 = 42;
 
 #[derive(Clone,Copy,Debug,Default)]
-#[allow(dead_code)]
 pub struct VP56Header {
     pub is_intra:       bool,
     pub is_golden:      bool,
@@ -78,6 +77,7 @@ fn prob2weight(a: u8, b: u8) -> u8 {
     }
 }
 
+#[allow(clippy::identity_op)]
 impl VP6Huff {
     fn build_codes(&mut self, probs: &[u8; 11]) {
         let mut weights = [0u8; 12];
@@ -134,8 +134,8 @@ impl VP6Huff {
         for w in weights.iter().rev() {
             let weight = u16::from(*w);
             let mut pos = nlen;
-            for i in 0..nlen {
-                if nodes[i].weight > weight {
+            for (i, node) in nodes[..nlen].iter().enumerate() {
+                if node.weight > weight {
                     pos = i;
                     break;
                 }
@@ -470,6 +470,7 @@ impl VP56Decoder {
     pub fn flush(&mut self) {
         self.shuf.clear();
     }
+    #[allow(clippy::collapsible_else_if)]
     pub fn decode_frame(&mut self, supp: &mut NADecoderSupport, src: &[u8], br: &mut dyn VP56Parser) -> DecoderResult<(NABufferType, FrameType)> {
         let aoffset;
         let mut bc;
@@ -647,11 +648,11 @@ impl VP56Decoder {
         self.models.prob_xmitted.copy_from_slice(&DEFAULT_XMITTED_PROBS);
     }
     fn decode_mode_prob_models(&mut self, bc: &mut BoolCoder) -> DecoderResult<()> {
-        for ctx in 0..3 {
+        for (prob_xmitted, vq_modes) in self.models.prob_xmitted.iter_mut().zip(VP56_MODE_VQ.iter()) {
             if bc.read_prob(174) {
                 let idx                         = bc.read_bits(4) as usize;
-                for i in 0..20 {
-                    self.models.prob_xmitted[ctx][i ^ 1] = VP56_MODE_VQ[ctx][idx][i];
+                for (i, &vq_mode) in vq_modes[idx].iter().enumerate() {
+                    prob_xmitted[i ^ 1] = vq_mode;
                 }
             }
             if bc.read_prob(254) {
@@ -673,20 +674,19 @@ impl VP56Decoder {
                         validate!(diff < 256);
                         let diff = diff as u8;
                         if !sign {
-                            validate!(self.models.prob_xmitted[ctx][set ^ 1] <= 255 - diff);
-                            self.models.prob_xmitted[ctx][set ^ 1] += diff;
+                            validate!(prob_xmitted[set ^ 1] <= 255 - diff);
+                            prob_xmitted[set ^ 1] += diff;
                         } else {
-                            validate!(self.models.prob_xmitted[ctx][set ^ 1] >= diff);
-                            self.models.prob_xmitted[ctx][set ^ 1] -= diff;
+                            validate!(prob_xmitted[set ^ 1] >= diff);
+                            prob_xmitted[set ^ 1] -= diff;
                         }
                     }
                 }
             }
         }
-        for ctx in 0..3 {
-            let prob_xmitted = &self.models.prob_xmitted[ctx];
-            for mode in 0..10 {
-                let mdl = &mut self.models.mbtype_models[ctx][mode];
+        for (prob_xmitted, mbtype_models) in self.models.prob_xmitted.iter()
+                .zip(self.models.mbtype_models.iter_mut()) {
+            for (mode, mdl) in mbtype_models.iter_mut().enumerate() {
                 let mut cnt = [0u32; 10];
                 let mut total = 0;
                 for i in 0..10 {
@@ -787,6 +787,7 @@ impl VP56Decoder {
         Ok(self.last_mbt)
     }
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::collapsible_else_if)]
     fn decode_mb(&mut self, frm: &mut NASimpleVideoFrame<u8>, bc: &mut BoolCoder, cr: &mut CoeffReader, br: &mut dyn VP56Parser, hdr: &VP56Header, alpha: bool) -> DecoderResult<()> {
         const FOURMV_SUB_TYPE: [VPMBType; 4] = [ VPMBType::InterNoMV, VPMBType::InterMV, VPMBType::InterNearest, VPMBType::InterNear ];
 
@@ -835,21 +836,21 @@ impl VP56Decoder {
                     self.mb_info[mb_pos].mv = near_mv;
                 },
                 VPMBType::InterFourMV       => {
-                    for i in 0..4 {
-                        four_mbt[i]         = FOURMV_SUB_TYPE[bc.read_bits(2) as usize];
+                    for mbt in four_mbt.iter_mut() {
+                        *mbt                = FOURMV_SUB_TYPE[bc.read_bits(2) as usize];
                     }
-                    for i in 0..4 {
-                        match four_mbt[i] {
+                    for (&mbt, mv) in four_mbt.iter().zip(four_mv.iter_mut()) {
+                        match mbt {
                             VPMBType::InterNoMV => {},
                             VPMBType::InterMV   => {
                                 let diff_mv = self.decode_mv(bc, br);
-                                four_mv[i] = pred_mv + diff_mv;
+                                *mv = pred_mv + diff_mv;
                             },
                             VPMBType::InterNearest => {
-                                four_mv[i] = nearest_mv;
+                                *mv = nearest_mv;
                             },
                             VPMBType::InterNear => {
-                                four_mv[i] = near_mv;
+                                *mv = near_mv;
                             },
                             _ => unreachable!(),
                         };
@@ -962,6 +963,7 @@ impl VP56Decoder {
         }
         Ok(())
     }
+    #[allow(clippy::identity_op)]
     fn do_mc(&mut self, br: &dyn VP56Parser, frm: &mut NASimpleVideoFrame<u8>, mb_type: VPMBType, mv: MV, alpha: bool) {
         let x = self.fstate.mb_x * 16;
         let y = self.fstate.mb_y * 16;
@@ -988,10 +990,10 @@ impl VP56Decoder {
         let y = self.fstate.mb_y * 16;
         let plane = if !alpha { 0 } else { 3 };
         let src = self.shuf.get_last().unwrap();
-        for blk_no in 0..4 {
+        for (blk_no, &mv) in mvs.iter().enumerate() {
             br.mc_block(frm, self.mc_buf.clone(), src.clone(),
                         plane, x + (blk_no & 1) * 8, y + (blk_no & 2) * 4,
-                        mvs[blk_no], self.loop_thr);
+                        mv, self.loop_thr);
         }
         if !alpha {
             let x = self.fstate.mb_x * 8;

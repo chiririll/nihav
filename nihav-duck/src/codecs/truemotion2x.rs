@@ -275,9 +275,8 @@ impl TM2XDecoder {
         Ok(())
     }
 
-    #[allow(clippy::int_plus_one)]
-    #[allow(clippy::manual_memcpy)]
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::identity_op)]
     fn decode_frame(&mut self, src: &[u8]) -> DecoderResult<()> {
         let mut mr = MemoryReader::new_read(src);
         let mut br = ByteReader::new(&mut mr);
@@ -531,17 +530,16 @@ impl TM2XDecoder {
                                 upred = 0;
                                 vpred = 0;
                             },
+                            #[allow(clippy::int_plus_one)]
                             CPARAM_MV => {
                                 let src_x = (bx as i16) * 8 + self.blk_info[x].mv_x;
                                 let src_y = ((by * 8 + line) as i16) + self.blk_info[x].mv_y;
                                 validate!(src_x >= 0 && (src_x as usize) + 8 <= self.width);
                                 validate!(src_y >= 0 && (src_y as usize) + 1 <= self.height);
                                 let ref_off = (src_x as usize) + ((src_y + 1) as usize) * stride;
-                                for i in 0..8 {
-                                    ydata[cur_off + i] = self.ref_frame.ydata[ref_off + i];
-                                    udata[cur_off + i] = self.ref_frame.udata[ref_off + i];
-                                    vdata[cur_off + i] = self.ref_frame.vdata[ref_off + i];
-                                }
+                                ydata[cur_off..][..8].copy_from_slice(&self.ref_frame.ydata[ref_off..][..8]);
+                                udata[cur_off..][..8].copy_from_slice(&self.ref_frame.udata[ref_off..][..8]);
+                                vdata[cur_off..][..8].copy_from_slice(&self.ref_frame.vdata[ref_off..][..8]);
                                 ypred = ydata[cur_off + 7] - ydata[cur_off + 7 - stride];
                                 upred = udata[cur_off + 7] - udata[cur_off + 7 - stride];
                                 vpred = vdata[cur_off + 7] - vdata[cur_off + 7 - stride];

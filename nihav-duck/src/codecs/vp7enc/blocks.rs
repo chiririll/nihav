@@ -670,11 +670,10 @@ impl PredContext {
         self.dc_last_saved  = self.dc_last;
         self.dc_count_saved = self.dc_count;
     }
-    #[allow(dead_code)]
-    pub fn restore_dc_pred(&mut self) {
+    /*pub fn restore_dc_pred(&mut self) {
         self.dc_last  = self.dc_last_saved;
         self.dc_count = self.dc_count_saved;
-    }
+    }*/
     pub fn update_mb_row(&mut self) {
         self.left_y = [0x80; 16];
         self.left_u = [0x80; 16];
@@ -844,6 +843,7 @@ impl PredContext {
             }
             ct[idx] += weight;
         }
+        #[allow(clippy::collapsible_else_if)]
         let pred_mv = if ct[1] > ct[2] {
                 if ct[1] >= ct[0] { nearest_mv } else { ZERO_MV }
             } else {

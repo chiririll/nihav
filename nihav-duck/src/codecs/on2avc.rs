@@ -368,30 +368,20 @@ impl AVCDecoder {
                     self.imdct_short.imdct(ain, aout);
                 }
                 self.ew_buf = [0.0; 1152];
-                for i in 0..128 {
-                    self.ew_buf[i] = self.tmp[i];
-                }
+                self.ew_buf[..128].copy_from_slice(&self.tmp[..128]);
                 for w in 0..7 {
                     overlap(&mut self.ew_buf[(w + 1) * 128..][..128],
                             &self.tmp[(w + 1) * 256..][..128],
                             &self.tmp[w * 256 + 128..][..128],
                             AVC_WIN_SHORT);
                 }
-                for i in 0..128 {
-                    self.ew_buf[1024 + i] = self.tmp[7 * 256 + 128 + i];
-                }
-                for i in 0..SHORT_WIN_POINT0 {
-                    dst[i] = delay[i];
-                }
+                self.ew_buf[1024..][..128].copy_from_slice(&self.tmp[7 * 256 + 128..][..128]);
+                dst[..SHORT_WIN_POINT0].copy_from_slice(&delay[..SHORT_WIN_POINT0]);
                 overlap(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
                         &self.ew_buf[0..128],
                         &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
-                for i in SHORT_WIN_POINT1..COEFFS {
-                    dst[i] = self.ew_buf[i - SHORT_WIN_POINT1 + 128];
-                }
-                for i in 0..SHORT_WIN_POINT1 {
-                    delay[i] = self.ew_buf[SHORT_WIN_POINT1 + i];
-                }
+                dst[SHORT_WIN_POINT1..COEFFS].copy_from_slice(&self.ew_buf[128..][..COEFFS-SHORT_WIN_POINT1]);
+                delay[..SHORT_WIN_POINT1].copy_from_slice(&self.ew_buf[SHORT_WIN_POINT1..][..SHORT_WIN_POINT1]);
                 for i in COEFFS/2..COEFFS {
                     delay[i] = delay[COEFFS - 1 - i];
                 }
@@ -422,18 +412,12 @@ impl AVCDecoder {
             _ => unreachable!(),
         };
         if (self.cur_win == 2) || (self.cur_win >= 4) {
-            for i in 0..SHORT_WIN_POINT0 {
-                dst[i] = delay[i];
-            }
+            dst[..SHORT_WIN_POINT0].copy_from_slice(&delay[..SHORT_WIN_POINT0]);
             overlap_half(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
                          &self.ew_buf[0..64],
                          &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
-            for i in SHORT_WIN_POINT1..COEFFS {
-                dst[i] = self.ew_buf[i - SHORT_WIN_POINT1 + 64];
-            }
-            for i in 0..COEFFS/2 {
-                delay[i] = self.ew_buf[COEFFS/2 + i];
-            }
+            dst[SHORT_WIN_POINT1..COEFFS].copy_from_slice(&self.ew_buf[64..][..COEFFS-SHORT_WIN_POINT1]);
+            delay[..COEFFS/2].copy_from_slice(&self.ew_buf[COEFFS/2..COEFFS]);
             for i in COEFFS/2..COEFFS {
                 delay[i] = delay[COEFFS - 1 - i];
             }
@@ -521,6 +505,7 @@ fn zero_some(buf: &mut [FFTComplex], p0: usize, p1: usize)
     }
 }
 
+#[allow(clippy::identity_op)]
 fn merge_bands(src: &[FFTComplex], dst: &mut [FFTComplex], size: usize) {
     let step = if size == 512 { 2 } else { 4 };
     let (s01, s23) = src.split_at(size / 2);

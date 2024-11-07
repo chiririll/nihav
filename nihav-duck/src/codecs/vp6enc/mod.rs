@@ -5,10 +5,13 @@ use super::vpcommon::*;
 
 mod coder;
 use coder::*;
+#[allow(clippy::identity_op)]
+#[allow(clippy::needless_range_loop)]
 mod dsp;
 use dsp::MVSearchMode;
 mod huff;
 use huff::*;
+#[allow(clippy::needless_range_loop)]
 mod mb;
 use mb::*;
 mod models;
@@ -320,51 +323,47 @@ impl VP6Encoder {
     fn determine_coeff_runs_luma(&self, hstate: &mut HuffState, mb_pos: usize, blk: usize) {
         let mb = self.fenc.get_mb(mb_pos);
 
-        if !hstate.dc_zr_coded[0] {
-            if mb.coeffs[blk].no_dc() {
-                hstate.dc_zero_run[0] = 0;
-                let mut blk_no = (blk + 1) & 3;
-                let mut mb_no = mb_pos + ((blk + 1) >> 2);
-                let mut cmb = mb;
-                let mut last_mb_no = mb_pos;
-                while (hstate.dc_zero_run[0] < MAX_EOB_RUN) && (mb_no < self.mb_w * self.mb_h) {
-                    if mb_no != last_mb_no {
-                        cmb = self.fenc.get_mb(mb_no);
-                        last_mb_no = mb_no;
-                    }
-                    if !cmb.coeffs[blk_no].no_dc() {
-                        break;
-                    }
-                    hstate.dc_zero_run[0] += 1;
-                    blk_no += 1;
-                    if blk_no == 4 {
-                        blk_no = 0;
-                        mb_no += 1;
-                    }
+        if !hstate.dc_zr_coded[0] && mb.coeffs[blk].no_dc() {
+            hstate.dc_zero_run[0] = 0;
+            let mut blk_no = (blk + 1) & 3;
+            let mut mb_no = mb_pos + ((blk + 1) >> 2);
+            let mut cmb = mb;
+            let mut last_mb_no = mb_pos;
+            while (hstate.dc_zero_run[0] < MAX_EOB_RUN) && (mb_no < self.mb_w * self.mb_h) {
+                if mb_no != last_mb_no {
+                    cmb = self.fenc.get_mb(mb_no);
+                    last_mb_no = mb_no;
+                }
+                if !cmb.coeffs[blk_no].no_dc() {
+                    break;
+                }
+                hstate.dc_zero_run[0] += 1;
+                blk_no += 1;
+                if blk_no == 4 {
+                    blk_no = 0;
+                    mb_no += 1;
                 }
             }
         }
-        if !hstate.ac_zr_coded[0] {
-            if mb.coeffs[blk].no_ac() {
-                hstate.ac_zero_run[0] = 0;
-                let mut blk_no = (blk + 1) & 3;
-                let mut mb_no = mb_pos + ((blk + 1) >> 2);
-                let mut cmb = mb;
-                let mut last_mb_no = mb_pos;
-                while (hstate.ac_zero_run[0] < MAX_EOB_RUN) && (mb_no < self.mb_w * self.mb_h) {
-                    if mb_no != last_mb_no {
-                        cmb = self.fenc.get_mb(mb_no);
-                        last_mb_no = mb_no;
-                    }
-                    if !cmb.coeffs[blk_no].no_ac() {
-                        break;
-                    }
-                    hstate.ac_zero_run[0] += 1;
-                    blk_no += 1;
-                    if blk_no == 4 {
-                        blk_no = 0;
-                        mb_no += 1;
-                    }
+        if !hstate.ac_zr_coded[0] && mb.coeffs[blk].no_ac() {
+            hstate.ac_zero_run[0] = 0;
+            let mut blk_no = (blk + 1) & 3;
+            let mut mb_no = mb_pos + ((blk + 1) >> 2);
+            let mut cmb = mb;
+            let mut last_mb_no = mb_pos;
+            while (hstate.ac_zero_run[0] < MAX_EOB_RUN) && (mb_no < self.mb_w * self.mb_h) {
+                if mb_no != last_mb_no {
+                    cmb = self.fenc.get_mb(mb_no);
+                    last_mb_no = mb_no;
+                }
+                if !cmb.coeffs[blk_no].no_ac() {
+                    break;
+                }
+                hstate.ac_zero_run[0] += 1;
+                blk_no += 1;
+                if blk_no == 4 {
+                    blk_no = 0;
+                    mb_no += 1;
                 }
             }
         }
@@ -373,41 +372,37 @@ impl VP6Encoder {
         let mb = self.fenc.get_mb(mb_pos);
         let blk = plane + 3;
 
-        if !hstate.dc_zr_coded[1] {
-            if mb.coeffs[blk].no_dc() {
-                hstate.dc_zero_run[1] = 0;
-                let mut blk_no = if blk == 4 { 5 } else { 4 };
-                let mut mb_no = mb_pos + if blk == 4 { 0 } else { 1 };
-                while (hstate.dc_zero_run[1] < MAX_EOB_RUN) && (mb_no < self.mb_w * self.mb_h) {
-                    let mb = self.fenc.get_mb(mb_no);
-                    if !mb.coeffs[blk_no].no_dc() {
-                        break;
-                    }
-                    hstate.dc_zero_run[1] += 1;
-                    blk_no += 1;
-                    if blk_no == 6 {
-                        blk_no = 4;
-                        mb_no += 1;
-                    }
+        if !hstate.dc_zr_coded[1] && mb.coeffs[blk].no_dc() {
+            hstate.dc_zero_run[1] = 0;
+            let mut blk_no = if blk == 4 { 5 } else { 4 };
+            let mut mb_no = mb_pos + if blk == 4 { 0 } else { 1 };
+            while (hstate.dc_zero_run[1] < MAX_EOB_RUN) && (mb_no < self.mb_w * self.mb_h) {
+                let mb = self.fenc.get_mb(mb_no);
+                if !mb.coeffs[blk_no].no_dc() {
+                    break;
+                }
+                hstate.dc_zero_run[1] += 1;
+                blk_no += 1;
+                if blk_no == 6 {
+                    blk_no = 4;
+                    mb_no += 1;
                 }
             }
         }
-        if !hstate.ac_zr_coded[1] {
-            if mb.coeffs[blk].no_ac() {
-                hstate.ac_zero_run[1] = 0;
-                let mut blk_no = if blk == 4 { 5 } else { 4 };
-                let mut mb_no = mb_pos + if blk == 4 { 0 } else { 1 };
-                while (hstate.ac_zero_run[1] < MAX_EOB_RUN) && (mb_no < self.mb_w * self.mb_h) {
-                    let mb = self.fenc.get_mb(mb_no);
-                    if !mb.coeffs[blk_no].no_ac() {
-                        break;
-                    }
-                    hstate.ac_zero_run[1] += 1;
-                    blk_no += 1;
-                    if blk_no == 6 {
-                        blk_no = 4;
-                        mb_no += 1;
-                    }
+        if !hstate.ac_zr_coded[1] && mb.coeffs[blk].no_ac() {
+            hstate.ac_zero_run[1] = 0;
+            let mut blk_no = if blk == 4 { 5 } else { 4 };
+            let mut mb_no = mb_pos + if blk == 4 { 0 } else { 1 };
+            while (hstate.ac_zero_run[1] < MAX_EOB_RUN) && (mb_no < self.mb_w * self.mb_h) {
+                let mb = self.fenc.get_mb(mb_no);
+                if !mb.coeffs[blk_no].no_ac() {
+                    break;
+                }
+                hstate.ac_zero_run[1] += 1;
+                blk_no += 1;
+                if blk_no == 6 {
+                    blk_no = 4;
+                    mb_no += 1;
                 }
             }
         }

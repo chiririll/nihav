@@ -157,7 +157,6 @@ impl<'a, 'b> BoolEncoder<'a, 'b> {
 
 pub struct Estimator {}
 
-#[allow(dead_code)]
 impl Estimator {
     pub fn new() -> Self { Self{} }
     pub fn write_el<T: PartialEq>(&self, el: T, tree: &[TokenSeq<T>], probs: &mut [ProbCounter]) {

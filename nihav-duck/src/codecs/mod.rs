@@ -16,39 +16,30 @@ mod truemotion1data;
 #[cfg(feature="decoder_truemotionrt")]
 mod truemotionrt;
 #[cfg(feature="decoder_truemotion2")]
-#[allow(clippy::needless_range_loop)]
 mod truemotion2;
 #[cfg(feature="decoder_truemotion2x")]
 mod truemotion2x;
 #[cfg(any(feature="decoder_vp3", feature="decoder_vp4", feature="decoder_vp5", feature="decoder_vp6", feature="decoder_vp7"))]
 #[macro_use]
 #[allow(clippy::erasing_op)]
-#[allow(clippy::needless_range_loop)]
+#[allow(clippy::identity_op)]
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::useless_let_if_seq)]
 mod vpcommon;
 #[cfg(any(feature="decoder_vp3", feature="decoder_vp4"))]
-#[allow(clippy::needless_range_loop)]
 #[allow(clippy::too_many_arguments)]
 mod vp3;
 #[cfg(any(feature="decoder_vp5", feature="decoder_vp6"))]
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::useless_let_if_seq)]
 #[allow(clippy::too_many_arguments)]
 mod vp56;
 #[cfg(feature="decoder_vp5")]
-#[allow(clippy::needless_range_loop)]
 mod vp5;
 #[cfg(any(feature="decoder_vp6", feature="encoder_vp6"))]
 mod vp6data;
 #[cfg(any(feature="decoder_vp6", feature="encoder_vp6"))]
 mod vp6dsp;
 #[cfg(feature="decoder_vp6")]
-#[allow(clippy::needless_range_loop)]
 mod vp6;
 #[cfg(feature="decoder_vp7")]
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::useless_let_if_seq)]
 mod vp7;
 #[cfg(any(feature="decoder_vp7", feature="encoder_vp7"))]
 mod vp7data;
@@ -56,38 +47,32 @@ mod vp7data;
 mod vp78data;
 #[cfg(feature="decoder_vp7")]
 #[allow(clippy::erasing_op)]
-#[allow(clippy::needless_range_loop)]
+#[allow(clippy::identity_op)]
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::useless_let_if_seq)]
 mod vp7dsp;
 #[cfg(any(feature="decoder_vp7", feature="decoder_vp8", feature="encoder_vp7"))]
 #[allow(clippy::needless_range_loop)]
-#[allow(clippy::useless_let_if_seq)]
 mod vp78;
 #[cfg(any(feature="decoder_vp7", feature="decoder_vp8", feature="encoder_vp7"))]
 #[allow(clippy::erasing_op)]
-#[allow(clippy::needless_range_loop)]
+#[allow(clippy::identity_op)]
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::useless_let_if_seq)]
 mod vp78dsp;
 #[cfg(feature="decoder_vp8")]
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::useless_let_if_seq)]
 mod vp8;
 #[cfg(feature="decoder_vp8")]
 #[allow(clippy::erasing_op)]
-#[allow(clippy::needless_range_loop)]
+#[allow(clippy::identity_op)]
 #[allow(clippy::too_many_arguments)]
 mod vp8dsp;
 
 #[cfg(any(feature="decoder_dk3_adpcm", feature="decoder_dk4_adpcm"))]
 mod dkadpcm;
 #[cfg(feature="decoder_on2avc")]
-#[allow(clippy::manual_memcpy)]
-#[allow(clippy::needless_range_loop)]
 #[allow(clippy::too_many_arguments)]
 mod on2avc;
 #[cfg(feature="decoder_on2avc")]
+#[allow(clippy::excessive_precision)]
 mod on2avcdata;
 
 const DUCK_CODECS: &[DecoderInfo] = &[
@@ -141,10 +126,8 @@ mod truemotionrtenc;
 #[macro_use]
 mod vpenc;
 #[cfg(feature="encoder_vp6")]
-#[allow(clippy::needless_range_loop)]
 mod vp6enc;
 #[cfg(feature="encoder_vp7")]
-#[allow(clippy::needless_range_loop)]
 mod vp7enc;
 
 const DUCK_ENCODERS: &[EncoderInfo] = &[

@@ -390,6 +390,7 @@ pub fn encode_mv_models(bc: &mut BoolEncoder, models: &[VP56MVModel; 2], pmodels
     Ok(())
 }
 
+#[allow(clippy::needless_range_loop)]
 pub fn encode_coeff_models(bc: &mut BoolEncoder, models: &mut VP56Models, pmodels: &VP56Models, is_intra: bool, interlaced: bool) -> EncoderResult<()> {
     let mut def_prob = [128u8; 11];
     for plane in 0..2 {

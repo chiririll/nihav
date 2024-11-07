@@ -165,6 +165,7 @@ impl VP56Parser for VP6BR {
         }
         Ok(())
     }
+    #[allow(clippy::needless_range_loop)]
     fn decode_coeff_models(&self, bc: &mut BoolCoder, models: &mut VP56Models, is_intra: bool) -> DecoderResult<()> {
         let mut def_prob = [128u8; 11];
         for plane in 0..2 {
@@ -211,8 +212,7 @@ impl VP56Parser for VP6BR {
                 }
             }
         }
-        for plane in 0..2 {
-            let mdl = &mut models.coeff_models[plane];
+        for mdl in models.coeff_models.iter_mut() {
             for i in 0..3 {
                 for k in 0..5 {
                     mdl.dc_token_probs[0][i][k] = rescale_prob(mdl.dc_value_probs[k], &VP6_DC_WEIGHTS[k][i], 255);

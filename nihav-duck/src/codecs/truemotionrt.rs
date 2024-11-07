@@ -55,7 +55,7 @@ impl NADecoder for TMRTDecoder {
             hdr[i - 1] = src[i] ^ src[i + 1];
         }
         let dbits  = hdr[1];
-        validate!(dbits >= 2 && dbits <= 4);
+        validate!((2..=4).contains(&dbits));
         let hscale = hdr[3] != 0;
         let width  = (hdr[7] as usize) | ((hdr[8] as usize) << 8);
         let height = (hdr[5] as usize) | ((hdr[6] as usize) << 8);

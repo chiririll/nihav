@@ -307,16 +307,16 @@ fn vp30_read_coded_run1(br: &mut BitReader) -> DecoderResult<usize> {
     let sym = (VP30_CRUN1_LUT[idx] >> 4) as usize;
     let bits = VP30_CRUN1_LUT[idx] & 0xF;
                                                 br.skip(u32::from(bits))?;
-    if sym < 7 {
-        Ok(sym)
-    } else if sym == 7 {
-        Ok(7 + (br.read(3)? as usize))
-    } else {
-        let len                                 = br.read_code(UintCodeType::Unary012)?;
-        match len {
-            0 => Ok(15 + (br.read(5)? as usize)),
-            1 => Ok(47 + (br.read(8)? as usize)),
-            _ => Ok(303 + (br.read(16)? as usize)),
+    match sym {
+        0..=6 => Ok(sym),
+        7 => Ok(7 + (br.read(3)? as usize)),
+        _ => {
+            let len                             = br.read_code(UintCodeType::Unary012)?;
+            match len {
+                0 => Ok(15 + (br.read(5)? as usize)),
+                1 => Ok(47 + (br.read(8)? as usize)),
+                _ => Ok(303 + (br.read(16)? as usize)),
+            }
         }
     }
 }
@@ -723,17 +723,17 @@ impl VP34Decoder {
                 let nblks = *nblk as usize;
                 if *coded {
                     let mut cb = [false; 4];
-                    for j in 0..nblks {
+                    for cb in cb[..nblks].iter_mut() {
                         if run == 0 {
                             bit = !bit;
                             run = if bit { vp30_read_coded_run1(br)? } else { vp30_read_coded_run0(br)? };
                         }
                         run -= 1;
-                        cb[j] = bit;
+                        *cb = bit;
                     }
-                    for j in 0..nblks {
-                        let addr = self.blk_addr[cur_blk + j] >> 2;
-                        self.blocks[addr].coded = cb[j];
+                    for (&cb, &blk_addr) in cb.iter()
+                            .zip(self.blk_addr[cur_blk..].iter()).take(nblks) {
+                        self.blocks[blk_addr >> 2].coded = cb;
                     }
                 }
                 cur_blk += nblks;
@@ -975,6 +975,7 @@ impl VP34Decoder {
         }
         Ok(())
     }
+    #[allow(clippy::identity_op)]
     fn vp31_unpack_mv_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         let mut last_mv = ZERO_MV;
         let mut last2_mv = ZERO_MV;
@@ -1119,8 +1120,8 @@ impl VP34Decoder {
                                 }
                             }
                         }
-                        for i in 0..nblks {
-                            self.blocks[addrs[i]].coded = (pat & 8) != 0;
+                        for &addr in addrs[..nblks].iter() {
+                            self.blocks[addr].coded = (pat & 8) != 0;
                             pat <<= 1;
                             cur_blk += 1;
                         }
@@ -1464,9 +1465,9 @@ impl VP34Decoder {
         }
         if pp == 0 { return self.last_dc[ref_id as usize]; }
         let mut pred = 0i32;
-        for i in 0..4 {
+        for (i, (&pred_val, &dc_weight)) in preds.iter().zip(VP31_DC_WEIGHTS[pp].iter()).enumerate() {
             if (pp & (1 << i)) != 0 {
-                pred += preds[i] * i32::from(VP31_DC_WEIGHTS[pp][i]);
+                pred += pred_val * i32::from(dc_weight);
             }
         }
         pred /= i32::from(VP31_DC_WEIGHTS[pp][4]);
@@ -1477,6 +1478,7 @@ impl VP34Decoder {
         }
         pred as i16
     }
+    #[allow(clippy::identity_op)]
     fn vp40_predict_dc(&self, bx: usize, by: usize, bw: usize, bh: usize, blk_idx: usize, mask: usize, is_luma: bool) -> i16 {
         let mut preds = [0i32; 4];
         let mut pp: usize = 0;
@@ -1499,9 +1501,9 @@ impl VP34Decoder {
         if pp == 0 { return self.last_dc[ref_id as usize]; }
         let mut pred = 0i32;
         let mut npred = 0;
-        for i in 0..4 {
+        for (i, &pred_val) in preds.iter().enumerate() {
             if (pp & (1 << i)) != 0 {
-                pred += preds[i];
+                pred += pred_val;
                 npred += 1;
                 if npred == 2 {
                     return (pred / 2) as i16;
@@ -1569,6 +1571,7 @@ impl VP34Decoder {
         }
     }
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::collapsible_else_if)]
     fn output_blocks_inter(&mut self, frm: &mut NASimpleVideoFrame<u8>) {
         let mut blk_idx = 0;
         let bstride = self.mb_w * 2;
@@ -1586,17 +1589,17 @@ impl VP34Decoder {
                 mv_sum.y = (mv_sum.y + 2) >> 2;
 
                 let src = self.shuf.get_last().unwrap();
-                for i in 0..4 {
+                for (i, mv) in mvs.iter().enumerate() {
                     let xoff = (i &  1) * 8;
                     let yoff = (i >> 1) * 8;
 
-                    let mode = vp3_mv_mode(mvs[i].x, mvs[i].y);
+                    let mode = vp3_mv_mode(mv.x, mv.y);
                     if self.version != 4 {
                         copy_block(frm, src.clone(), 0, bx * 8 + xoff, by * 8 + yoff,
-                                   mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
+                                   mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
                     } else {
                         vp_copy_block(frm, src.clone(), 0, bx * 8 + xoff, by * 8 + yoff,
-                                      mvs[i].x >> 1, mvs[i].y >> 1, 0, 1, self.loop_str,
+                                      mv.x >> 1, mv.y >> 1, 0, 1, self.loop_str,
                                       mode, VP3_INTERP_FUNCS, self.mc_buf.clone());
                     }
                 }
@@ -1795,9 +1798,9 @@ impl VP34Decoder {
                     self.sb_mbs.push(nmbs);
 
                     let mut nblocks = 0;
-                    for blk_no in 0..16 {
-                        let bx = x * 4 + HILBERT_ORDER[blk_no][0];
-                        let by = y * 4 + HILBERT_ORDER[blk_no][1];
+                    for (blk_no, order) in HILBERT_ORDER.iter().enumerate() {
+                        let bx = x * 4 + order[0];
+                        let by = y * 4 + order[1];
                         if (bx >= blk_w) || (by >= blk_h) { continue; }
                         let idx = base_idx + bx + by * blk_w;
                         self.blk_addr.push(idx * 4 + plane);
@@ -1839,6 +1842,7 @@ impl NADecoder for VP34Decoder {
             Err(DecoderError::InvalidData)
         }
     }
+    #[allow(clippy::collapsible_else_if)]
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 0);

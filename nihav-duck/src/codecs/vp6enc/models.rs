@@ -55,6 +55,7 @@ fn prob2weight(a: u8, b: u8) -> u8 {
     }
 }
 
+#[allow(clippy::identity_op)]
 impl VP6Huff {
     pub fn build_codes(&mut self, probs: &[u8; 11]) {
         let mut weights = [0u8; 12];
@@ -111,8 +112,8 @@ impl VP6Huff {
         for w in weights.iter().rev() {
             let weight = u16::from(*w);
             let mut pos = nlen;
-            for i in 0..nlen {
-                if nodes[i].weight > weight {
+            for (i, node) in nodes[..nlen].iter().enumerate() {
+                if node.weight > weight {
                     pos = i;
                     break;
                 }

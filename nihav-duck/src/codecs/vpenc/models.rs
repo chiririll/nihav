@@ -54,7 +54,7 @@ impl ProbCounter {
             128
         }
     }
-    pub fn to_prob_worthy(&self, old_prob: u8) -> u8 {
+    pub fn to_prob_worthy(self, old_prob: u8) -> u8 {
         if self.total > 0 {
             let new_prob = self.to_prob();
             let new_bits = Self::est_bits(new_prob, self.zeroes, self.total);

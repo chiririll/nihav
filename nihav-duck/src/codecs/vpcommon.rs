@@ -18,7 +18,6 @@ pub const VP_YUVA420_FORMAT: NAPixelFormaton = NAPixelFormaton{
     };
 
 #[derive(Clone,Copy,Debug,PartialEq,Default)]
-#[allow(dead_code)]
 pub enum VPMBType {
     #[default]
     Intra,
@@ -36,7 +35,6 @@ pub enum VPMBType {
 pub const VP_REF_INTER: u8 = 1;
 pub const VP_REF_GOLDEN: u8 = 2;
 
-#[allow(dead_code)]
 impl VPMBType {
     pub fn is_intra(self) -> bool { self == VPMBType::Intra }
     pub fn get_ref_id(self) -> u8 {
@@ -88,7 +86,6 @@ pub const VP56_COEF_ADD_PROBS: [[u8; 12]; 6] = [
     [ 254, 254, 243, 230, 196, 177, 153, 140, 133, 130, 129, 128 ],
 ];
 
-#[allow(dead_code)]
 pub struct BoolCoder<'a> {
     pub src:    &'a [u8],
     pos:    usize,
@@ -97,7 +94,6 @@ pub struct BoolCoder<'a> {
     bits:   i32,
 }
 
-#[allow(dead_code)]
 impl<'a> BoolCoder<'a> {
     pub fn new(src: &'a [u8]) -> DecoderResult<Self> {
         if src.len() < 3 { return Err(DecoderError::ShortData); }
@@ -183,7 +179,6 @@ impl<'a> BoolCoder<'a> {
 }
 
 #[allow(dead_code)]
-#[allow(clippy::trivially_copy_pass_by_ref)]
 pub fn rescale_prob(prob: u8, weights: &[i16; 2], maxval: i32) -> u8 {
     (((i32::from(prob) * i32::from(weights[0]) + 128) >> 8) + i32::from(weights[1])).min(maxval).max(1) as u8
 }
@@ -263,8 +258,8 @@ pub fn vp_idct(coeffs: &mut [i16; 64]) {
 
 pub fn vp_idct_dc(coeffs: &mut [i16; 64]) {
     let dc = ((mul16(C4S4, mul16(C4S4, i32::from(coeffs[0]))) + 8) >> 4) as i16;
-    for i in 0..64 {
-        coeffs[i] = dc;
+    for coef in coeffs.iter_mut() {
+        *coef = dc;
     }
 }
 

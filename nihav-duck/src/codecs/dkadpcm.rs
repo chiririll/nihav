@@ -42,6 +42,7 @@ impl NADecoder for DuckADPCMDecoder {
             Err(DecoderError::InvalidData)
         }
     }
+    #[allow(clippy::identity_op)]
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {

@@ -21,7 +21,6 @@ enum EncodingState {
     JustEncode,
 }
 
-#[allow(dead_code)]
 struct VP7Encoder {
     stream:     Option<NAStreamRef>,
     pkt:        Option<NAPacket>,
