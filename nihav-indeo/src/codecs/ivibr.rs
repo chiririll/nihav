@@ -144,23 +144,22 @@ pub const IVI_BLK_CB: &[IVICodebook; 8] = &[
     IVICodebook { len:  9, bits: [ 3, 4, 4, 5, 5, 5, 6, 5, 5, 0, 0, 0, 0, 0, 0, 0 ], offs: [0; 16] }
 ];
 
-#[allow(unused_variables)]
 #[allow(clippy::many_single_char_names)]
 fn read_trans_band_header(br: &mut BitReader, w: usize, h: usize, dst: &mut [i16], dstride: usize) -> DecoderResult<()> {
-    let color_plane     = br.read(2)?;
-    let bit_depth       = br.read(3)?;
+    let _color_plane    = br.read(2)?;
+    let _bit_depth      = br.read(3)?;
     let dirty_rects     = br.read(8)? as usize;
-    for i in 0..dirty_rects {
-        let x = br.read(16)?;
-        let y = br.read(16)?;
-        let l = br.read(16)?;
-        let r = br.read(16)?;
+    for _ in 0..dirty_rects {
+        let _x = br.read(16)?;
+        let _y = br.read(16)?;
+        let _l = br.read(16)?;
+        let _r = br.read(16)?;
     }
     let has_trans_color = br.read_bool()?;
     if has_trans_color {
-        let r = br.read(8)?;
-        let g = br.read(8)?;
-        let b = br.read(8)?;
+        let _r = br.read(8)?;
+        let _g = br.read(8)?;
+        let _b = br.read(8)?;
     }
 
     br.skip(1)?;
@@ -187,7 +186,7 @@ let tile_end = tile_start + len * 8;
 
         let first_val = br.read_bool()?;
 
-        let mut dec_size = 0;
+        let mut _dec_size = 0;
         let mut x = 0;
         let mut y = 0;
         let mut fill = if !first_val { 255-128 } else { 0-128 };
@@ -195,7 +194,7 @@ let tile_end = tile_start + len * 8;
         while br.tell() < tile_end {
             let code = br.read_ivi_cb(&cb)? as usize;
             if code == 0 {
-                dec_size += 255;
+                _dec_size += 255;
                 for _ in 0..255 {
                     if (x < w) && (y < h) {
                         dst[x + y * dstride] = fill;
@@ -207,7 +206,7 @@ let tile_end = tile_start + len * 8;
                     }
                 }
             } else {
-                dec_size += code;
+                _dec_size += code;
                 for _ in 0..code {
                     if (x < w) && (y < h) {
                         dst[x + y * dstride] = fill;
@@ -228,7 +227,7 @@ let tile_end = tile_start + len * 8;
     Ok(())
 }
 
-#[allow(clippy::cast_lossless)]
+#[allow(clippy::collapsible_else_if)]
 fn decode_block8x8(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tables: &TxParams8x8, is_intra: bool, is_2d: bool, prev_dc: &mut i32, quant: u8, coeffs: &mut [i32; 64], transform: TrFunc) -> DecoderResult<()> {
     let mut idx: isize = -1;
     let quant_mat = if is_intra { tables.quant_intra } else { tables.quant_inter };
@@ -279,7 +278,8 @@ fn decode_block8x8(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
     (transform)(coeffs);
     Ok(())
 }
-#[allow(clippy::cast_lossless)]
+
+#[allow(clippy::collapsible_else_if)]
 fn decode_block4x4(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tables: &TxParams4x4, is_intra: bool, is_2d: bool, prev_dc: &mut i32, quant: u8, coeffs: &mut [i32; 64], transform: TrFunc) -> DecoderResult<()> {
     let mut idx: isize = -1;
     let quant_mat = if is_intra { tables.quant_intra } else { tables.quant_inter };
@@ -610,12 +610,9 @@ impl IVIDecoder {
                 validate!(tile_end <= br.tell() + (br.left() as usize));
                 {
                     let ref_tile: Option<&IVITile>;
-                    let mv_scale;
-                    if (plane_no == 0) && (band_no == 0) {
-                        mv_scale = 0;
-                    } else {
-                        mv_scale = (((self.bands[0].mb_size >> 3) as i8) - ((band.mb_size >> 3) as i8)) as u8;
-                    }
+                    let mv_scale = if (plane_no == 0) && (band_no == 0) { 0 } else {
+                            (((self.bands[0].mb_size >> 3) as i8) - ((band.mb_size >> 3) as i8)) as u8
+                        };
                     let (ref_tiles, cur_tiles) = self.tiles.split_at_mut(tile_no);
                     let tile = &mut cur_tiles[0];
                     if plane_no != 0 || band_no != 0 {
@@ -638,12 +635,9 @@ br.skip(skip_part as u32)?;
             } else {
                 {
                     let ref_tile: Option<&IVITile>;
-                    let mv_scale;
-                    if (plane_no == 0) && (band_no == 0) {
-                        mv_scale = 0;
-                    } else {
-                        mv_scale = (((self.bands[0].mb_size >> 3) as i8) - ((band.mb_size >> 3) as i8)) as u8;
-                    }
+                    let mv_scale = if (plane_no == 0) && (band_no == 0) { 0 } else {
+                            (((self.bands[0].mb_size >> 3) as i8) - ((band.mb_size >> 3) as i8)) as u8
+                        };
                     let (ref_tiles, cur_tiles) = self.tiles.split_at_mut(tile_no);
                     let tile = &mut cur_tiles[0];
                     if plane_no != 0 || band_no != 0 {
@@ -682,6 +676,7 @@ br.skip(skip_part as u32)?;
         br.align();
         Ok(())
     }
+    #[allow(clippy::collapsible_else_if)]
     fn decode_tile(&mut self, br: &mut BitReader, band: &BandHeader, tile_no: usize, tr: TrFunc, transform_dc: TrFuncDC) -> DecoderResult<()> {
         let mut mb_idx = 0;
         let mut prev_dc: i32 = 0;
@@ -708,12 +703,7 @@ br.skip(skip_part as u32)?;
                         let boff = (blk_no & 1) * band.blk_size + (blk_no >> 1) * band.blk_size * stride + mb_x * band.mb_size;
                         if !is_intra {
                             if mb.mtype != MBType::Bidir {
-                                let idx;
-                                if mb.mtype != MBType::Backward {
-                                    idx = self.prev_frame;
-                                } else {
-                                    idx = self.next_frame;
-                                }
+                                let idx = if mb.mtype != MBType::Backward { self.prev_frame } else { self.next_frame };
                                 let pf = &self.frames[idx];
                                 do_mc(&mut dst[dstidx + boff..], stride,
                                       &pf.plane_buf[band.plane_no], pf.plane_stride[band.plane_no],
@@ -763,12 +753,7 @@ br.skip(skip_part as u32)?;
                     let mut blk: [i32; 64] = [0; 64];
                     if !is_intra {
                         if mb.mtype != MBType::Bidir {
-                            let idx;
-                            if mb.mtype != MBType::Backward {
-                                idx = self.prev_frame;
-                            } else {
-                                idx = self.next_frame;
-                            }
+                            let idx = if mb.mtype != MBType::Backward { self.prev_frame } else { self.next_frame };
                             let pf = &self.frames[idx];
                             do_mc(&mut dst[dstidx + mb_x * band.blk_size..], stride,
                                   &pf.plane_buf[band.plane_no], pf.plane_stride[band.plane_no],
@@ -926,22 +911,22 @@ br.skip(skip_part as u32)?;
                 }
                 validate!((br.tell() & 31) == 0);
 
-                for plane in 0..3 {
-                    for band in 0..num_bands[plane] {
-                        if bands_decoded[plane][band] || br.left() == 0 {
+                for (plane, &nbands) in num_bands.iter().enumerate() {
+                    for (band, band_decoded) in bands_decoded[plane][..nbands].iter_mut().enumerate() {
+                        if *band_decoded || br.left() == 0 {
                             continue;
                         }
                         self.decode_band(&pic_hdr, dec, br, plane, band)?;
-                        bands_decoded[plane][band] = true;
+                        *band_decoded = true;
                         num_decoded += 1;
                     }
                 }
             }
 
             if let NABufferType::Video(ref mut vb) = buftype {
-                for plane in 0..3 {
+                for (plane, &nbands) in num_bands.iter().enumerate() {
                     let mut frame = self.frames[self.cur_frame].clone();
-                    if num_bands[plane] == 1 {
+                    if nbands == 1 {
                         frame.fill_plane(vb, plane);
                     } else {
                         let dplane = if (plane == 1) || (plane == 2) { plane ^ 3 } else { plane };

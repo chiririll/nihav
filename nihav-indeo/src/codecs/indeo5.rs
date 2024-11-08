@@ -61,23 +61,16 @@ fn skip_extension(br: &mut BitReader) -> DecoderResult<()> {
 }
 
 impl IndeoXParser for Indeo5Parser {
-#[allow(unused_variables)]
-#[allow(unused_assignments)]
     fn decode_picture_header(&mut self, br: &mut BitReader) -> DecoderResult<PictureHeader> {
         let sync                = br.read(5)?;
         validate!(sync == 0x1F);
         let ftype_idx           = br.read(3)?;
         validate!(ftype_idx < 5);
         let ftype               = INDEO5_FRAME_TYPE[ftype_idx as usize];
-        let fnum                = br.read(8)?;
+        let _fnum               = br.read(8)?;
         if ftype == IVIFrameType::Intra {
             let gop_flags       = br.read(8)?;
-            let hdr_size;
-            if (gop_flags & 0x01) != 0 {
-                hdr_size        = br.read(16)?;
-            } else {
-                hdr_size = 0;
-            }
+            let _hdr_size = if (gop_flags & 0x01) != 0 { br.read(16)? } else { 0 };
             if (gop_flags & 0x20) != 0 {
                 br.skip(32)?; // lock word
             }
@@ -143,18 +136,8 @@ impl IndeoXParser for Indeo5Parser {
             return Ok(PictureHeader::new_null(ftype));
         }
         let flags               = br.read(8)?;
-        let size;
-        if (flags & 0x01) != 0 {
-            size                = br.read(24)?;
-        } else {
-            size = 0;
-        }
-        let checksum;
-        if (flags & 0x10) != 0 {
-            checksum            = br.read(16)?;
-        } else {
-            checksum = 0;
-        }
+        let _size = if (flags & 0x01) != 0 { br.read(24)? } else { 0 };
+        let _checksum = if (flags & 0x10) != 0 { br.read(16)? } else { 0 };
         if (flags & 0x20) != 0 {
             skip_extension(br)?;
         }
@@ -166,8 +149,7 @@ impl IndeoXParser for Indeo5Parser {
         Ok(PictureHeader::new(ftype, self.width, self.height, self.tile_w, self.tile_h, false, self.luma_bands, self.chroma_bands, in_q))
     }
 
-#[allow(unused_variables)]
-    fn decode_band_header(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, plane_no: usize, band_no: usize) -> DecoderResult<BandHeader> {
+    fn decode_band_header(&mut self, br: &mut BitReader, _pic_hdr: &PictureHeader, plane_no: usize, band_no: usize) -> DecoderResult<BandHeader> {
         let band_flags      = br.read(8)?;
 
         if (band_flags & 0x01) != 0 {
@@ -191,18 +173,13 @@ impl IndeoXParser for Indeo5Parser {
         if (band_flags & 0x10) != 0 {
             num_corr = br.read(8)? as usize;
             validate!(num_corr*2 <= CORR_MAP_SIZE);
-            for i in 0..num_corr*2 {
-                corr_map[i] = br.read(8)? as u8;
+            for el in corr_map[..num_corr*2].iter_mut() {
+                *el = br.read(8)? as u8;
             }
         } else {
             num_corr = 0;
         }
-        let rvmap_idx;
-        if (band_flags & 0x40) != 0 {
-            rvmap_idx       = br.read(3)? as usize;
-        } else {
-            rvmap_idx = 8;
-        }
+        let rvmap_idx = if (band_flags & 0x40) != 0 { br.read(3)? as usize } else { 8 };
         let blk_cb = br.read_ivi_codebook_desc(false, (band_flags & 0x80) != 0)?;
         if br.read_bool()? {
             br.skip(16)?; // checksum
@@ -267,6 +244,7 @@ impl IndeoXParser for Indeo5Parser {
     }
 
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::collapsible_else_if)]
     fn decode_mb_info(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, band: &BandHeader, tile: &mut IVITile, ref_tile: Option<&IVITile>, mv_scale: u8) -> DecoderResult<()> {
         let mut mv_x = 0;
         let mut mv_y = 0;
@@ -389,6 +367,7 @@ impl IndeoXParser for Indeo5Parser {
         Ok(())
     }
 
+    #[allow(clippy::identity_op)]
     fn recombine_plane(&mut self, src: &[i16], sstride: usize, dst: &mut [u8], dstride: usize, w: usize, h: usize) {
         let mut idx0 = 0;
         let mut idx1 = w / 2;

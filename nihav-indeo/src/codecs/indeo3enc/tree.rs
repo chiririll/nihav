@@ -113,6 +113,7 @@ impl Indeo3Cell {
         cell2.h  = h2;
         (cell1, cell2)
     }
+    #[allow(clippy::collapsible_else_if)]
     fn split_v(&self, stripw: u8) -> (Self, Self) {
         let w1 = if self.w > stripw {
                 if self.w > stripw * 2 { stripw * 2 } else { stripw }

@@ -190,6 +190,7 @@ struct Indeo2Decoder {
     frmmgr:  HAMShuffler<u8>,
 }
 
+#[allow(clippy::identity_op)]
 impl Indeo2Decoder {
     fn new() -> Self {
         let dummy_info = NACodecInfo::new_dummy();

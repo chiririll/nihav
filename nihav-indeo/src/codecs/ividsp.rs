@@ -120,7 +120,7 @@ fn haar8x8_col(blk: &mut[i32; 64]) {
 }
 fn haar8x8_dc(blk: &mut[i32; 64], in0: i32) {
     let dc = in0 >> 3;
-    for i in 0..64 { blk[i] = dc; }
+    for el in blk.iter_mut() { *el = dc; }
 }
 
 fn haar4x4_2d(blk: &mut[i32; 64]) {
@@ -152,7 +152,7 @@ fn haar4x4_col(blk: &mut[i32; 64]) {
 }
 fn haar4x4_dc(blk: &mut[i32; 64], in0: i32) {
     let dc = in0 >> 3;
-    for i in 0..16 { blk[i] = dc; }
+    for el in blk[..16].iter_mut() { *el = dc; }
 }
 
 fn slant8x8_2d(blk: &mut[i32; 64]) {
@@ -174,7 +174,7 @@ fn slant8x8_2d(blk: &mut[i32; 64]) {
 }
 fn slant8x8_2d_dc(blk: &mut[i32; 64], in0: i32) {
     let dc = (in0 + 1) >> 1;
-    for i in 0..64 { blk[i] = dc; }
+    for el in blk.iter_mut() { *el = dc; }
 }
 fn slant8x8_row(blk: &mut[i32; 64]) {
     let pass = |x: i32| (x + 1) >> 1;
@@ -187,8 +187,8 @@ fn slant8x8_row(blk: &mut[i32; 64]) {
 fn slant8x8_row_dc(blk: &mut[i32; 64], in0: i32) {
     let dc = (in0 + 1) >> 1;
 
-    for i in 0..8  { blk[i] = dc; }
-    for i in 8..64 { blk[i] = 0; }
+    for el in blk[0..8].iter_mut() { *el = dc; }
+    for el in blk[8..].iter_mut()  { *el = 0; }
 }
 fn slant8x8_col(blk: &mut[i32; 64]) {
     let pass = |x: i32| (x + 1) >> 1;
@@ -221,7 +221,7 @@ fn slant4x4_2d(blk: &mut[i32; 64]) {
 }
 fn slant4x4_2d_dc(blk: &mut[i32; 64], in0: i32) {
     let dc = (in0 + 1) >> 1;
-    for i in 0..16 { blk[i] = dc; }
+    for el in blk[..16].iter_mut() { *el = dc; }
 }
 fn slant4x4_row(blk: &mut[i32; 64]) {
     let pass = |x: i32| (x + 1) >> 1;
@@ -234,8 +234,8 @@ fn slant4x4_row(blk: &mut[i32; 64]) {
 fn slant4x4_row_dc(blk: &mut[i32; 64], in0: i32) {
     let dc = (in0 + 1) >> 1;
 
-    for i in 0..4  { blk[i] = dc; }
-    for i in 4..16 { blk[i] = 0; }
+    for el in blk[0..4].iter_mut()  { *el = dc; }
+    for el in blk[4..16].iter_mut() { *el = 0; }
 }
 fn slant4x4_col(blk: &mut[i32; 64]) {
     let pass = |x: i32| (x + 1) >> 1;
@@ -253,19 +253,17 @@ fn slant4x4_col_dc(blk: &mut[i32; 64], in0: i32) {
     }
 }
 
-#[allow(unused_variables)]
-fn none8x8(blk: &mut[i32; 64]) {
+fn none8x8(_blk: &mut[i32; 64]) {
 }
 fn none8x8_dc(blk: &mut[i32; 64], dc: i32) {
-    for i in 1..8  { blk[i] = dc; }
-    for i in 8..64 { blk[i] = 0; }
+    for el in blk[1..8].iter_mut() { *el = dc; }
+    for el in blk[8..].iter_mut()  { *el = 0; }
 }
-#[allow(unused_variables)]
-fn none4x4(blk: &mut[i32; 64]) {
+fn none4x4(_blk: &mut[i32; 64]) {
 }
 fn none4x4_dc(blk: &mut[i32; 64], dc: i32) {
-    for i in 1..4  { blk[i] = dc; }
-    for i in 4..16 { blk[i] = 0; }
+    for el in blk[1..4].iter_mut()  { *el = dc; }
+    for el in blk[4..16].iter_mut() { *el = 0; }
 }
 
 pub fn ivi_get_transform8x8_funcs(ttype: IVITransformType) -> (TrFunc, TrFuncDC) {

@@ -295,6 +295,7 @@ impl Indeo3Cell {
         cell2.depth += 1;
         (cell1, cell2)
     }
+    #[allow(clippy::collapsible_else_if)]
     fn split_v(&self, stripw: u8) -> (Self, Self) {
         let w1 = if self.width > stripw {
                 if self.width > stripw * 2 { stripw * 2 } else { stripw }
@@ -899,6 +900,7 @@ impl NADecoder for Indeo3Decoder {
             Err(DecoderError::InvalidData)
         }
     }
+    #[allow(clippy::manual_range_contains)]
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         let mut mr = MemoryReader::new_read(&src);

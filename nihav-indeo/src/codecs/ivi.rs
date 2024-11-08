@@ -107,7 +107,6 @@ impl IVITransformType {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct TxParams4x4 {
     pub quant_intra:    &'static [u16; 16],
@@ -123,7 +122,6 @@ impl TxParams4x4 {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct TxParams8x8 {
     pub quant_intra:    &'static [u16; 64],
@@ -167,6 +165,7 @@ pub struct BandHeader {
 }
 
 impl BandHeader {
+    #[allow(clippy::identity_op)]
     pub fn new(plane_no: usize, band_no: usize, mb_size: usize, blk_size: usize, halfpel: bool, inherit_mv: bool, has_qdelta: bool, inherit_qd: bool, quant: u32, rvmap_idx: usize, num_corr: usize, corr_map: [u8; CORR_MAP_SIZE], blk_cb: IVICodebook, tr: IVITransformType, ttype: TxType) -> Self {
         let mut rvmap = IVI_RVMAPS[rvmap_idx].clone();
         for i in 0..num_corr {

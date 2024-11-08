@@ -23,16 +23,19 @@ mod indeo4;
 mod indeo5;
 
 #[cfg(any(feature="decoder_indeo4", feature="decoder_indeo5"))]
+#[allow(clippy::too_many_arguments)]
 mod ivi;
 #[cfg(any(feature="decoder_indeo4", feature="decoder_indeo5"))]
+#[allow(clippy::too_many_arguments)]
 mod ivibr;
 #[cfg(any(feature="decoder_indeo4", feature="decoder_indeo5"))]
 #[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
+#[allow(clippy::too_many_arguments)]
 mod ividsp;
 
 #[cfg(feature="decoder_imc")]
 #[allow(clippy::excessive_precision)]
-#[allow(clippy::unreadable_literal)]
 mod imc;
 
 const INDEO_CODECS: &[DecoderInfo] = &[

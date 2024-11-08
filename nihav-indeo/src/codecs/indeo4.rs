@@ -38,7 +38,6 @@ impl Indeo4Parser {
 }
 
 impl IndeoXParser for Indeo4Parser {
-#[allow(unused_variables,unused_assignments)]
     fn decode_picture_header(&mut self, br: &mut BitReader) -> DecoderResult<PictureHeader> {
         let sync                = br.read(18)?;
         validate!(sync == 0x3FFF8);
@@ -47,12 +46,7 @@ impl IndeoXParser for Indeo4Parser {
         let ftype               = INDEO4_FRAME_TYPE[ftype_idx as usize];
         let transparent         = br.read_bool()?;
         br.skip(1)?;
-        let data_size;
-        if br.read_bool()? {
-            data_size = br.read(24)? as usize;
-        } else {
-            data_size = 0;
-        }
+        let _data_size = if br.read_bool()? { br.read(24)? as usize } else { 0 };
         if ftype.is_null() {
             return Ok(PictureHeader::new_null(ftype));
         }
@@ -99,12 +93,7 @@ impl IndeoXParser for Indeo4Parser {
             _ => { return Err(DecoderError::InvalidData); }
         };
         let chroma_bands = if sc_idx == 2 { 4 } else { 1 };
-        let frame_no;
-        if br.read_bool()? {
-            frame_no = br.read(20)?;
-        } else {
-            frame_no = 0;
-        }
+        let _frame_no = if br.read_bool()? { br.read(20)? } else { 0 };
         if br.read_bool()? {
             br.skip(8)?; // decTimeEst
         }
@@ -112,14 +101,14 @@ impl IndeoXParser for Indeo4Parser {
         self.mb_cb              = br.read_ivi_codebook_desc(true,  desc_coded)?;
         let desc_coded          = br.read_bool()?;
         self.blk_cb             = br.read_ivi_codebook_desc(false, desc_coded)?;
-        let rvmap               = if br.read_bool()? { br.read(3)? as usize } else { 8 };
-        let in_imf              = br.read_bool()?;
+        let _rvmap              = if br.read_bool()? { br.read(3)? as usize } else { 8 };
+        let _in_imf             = br.read_bool()?;
         let in_q                = br.read_bool()?;
-        let glob_q              = br.read(5)? as u8;
+        let _glob_q             = br.read(5)? as u8;
         if br.read_bool()? {
             br.skip(3)?;
         }
-        let checksum            = if br.read_bool()? { br.read(16)? } else { 0 };
+        let _checksum           = if br.read_bool()? { br.read(16)? } else { 0 };
         if br.read_bool()? {
             br.skip(8)?; // pic hdr extension
         }
@@ -131,7 +120,7 @@ impl IndeoXParser for Indeo4Parser {
         Ok(PictureHeader::new(ftype, width, height, slice_w, slice_h, transparent, luma_bands, chroma_bands, in_q))
     }
 
-#[allow(unused_variables,unused_assignments)]
+    #[allow(clippy::manual_range_contains)]
     fn decode_band_header(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, plane: usize, band: usize) -> DecoderResult<BandHeader> {
         let plane_no        = br.read(2)? as usize;
         let band_no         = br.read(4)? as usize;
@@ -141,12 +130,7 @@ impl IndeoXParser for Indeo4Parser {
             br.align();
             return Ok(BandHeader::new_empty(plane_no, band_no));
         }
-        let hdr_size;
-        if br.read_bool()? {
-            hdr_size        = br.read(16)? as usize;
-        } else {
-            hdr_size = 32;
-        }
+        let _hdr_size = if br.read_bool()? { br.read(16)? as usize } else { 32 };
         let mv_mode         = br.read(2)?;
         validate!(mv_mode < 2);
         if br.read_bool()? {
@@ -196,25 +180,19 @@ impl IndeoXParser for Indeo4Parser {
             txtype = TxType::None;
         }
 
-        let blk_cb;
-        if br.read_bool()? {
-            blk_cb = br.read_ivi_codebook_desc(false, true)?;
-        } else {
-            blk_cb = self.blk_cb;
-        }
-        let rvmap_idx;
-        if br.read_bool()? {
-            rvmap_idx = br.read(3)? as usize;
-        } else {
-            rvmap_idx = 8;
-        }
+        let blk_cb = if br.read_bool()? {
+                br.read_ivi_codebook_desc(false, true)?
+            } else {
+                self.blk_cb
+            };
+        let rvmap_idx = if br.read_bool()? { br.read(3)? as usize } else { 8 };
         let num_corr;
         let mut corr_map: [u8; CORR_MAP_SIZE] = [0; CORR_MAP_SIZE];
         if br.read_bool()? {
             num_corr = br.read(8)? as usize;
             validate!(num_corr*2 <= CORR_MAP_SIZE);
-            for i in 0..num_corr*2 {
-                corr_map[i] = br.read(8)? as u8;
+            for el in corr_map[..num_corr*2].iter_mut() {
+                *el = br.read(8)? as u8;
             }
         } else {
             num_corr = 0;
@@ -241,17 +219,15 @@ impl IndeoXParser for Indeo4Parser {
                         } else {
                             return Err(DecoderError::MissingReference);
                         }
+                    } else if !pic_hdr.ftype.is_bidir() {
+                        mb.mtype = if br.read_bool()? { MBType::Inter } else { MBType::Intra };
                     } else {
-                        if !pic_hdr.ftype.is_bidir() {
-                            mb.mtype = if br.read_bool()? { MBType::Inter } else { MBType::Intra };
-                        } else {
-                            mb.mtype = match br.read(2)? {
-                                0 => { MBType::Intra },
-                                1 => { MBType::Inter },
-                                2 => { MBType::Backward },
-                                _ => { MBType::Bidir },
-                            };
-                        }
+                        mb.mtype = match br.read(2)? {
+                            0 => { MBType::Intra },
+                            1 => { MBType::Inter },
+                            2 => { MBType::Backward },
+                            _ => { MBType::Bidir },
+                        };
                     }
                     if band.mb_size == band.blk_size {
                         mb.cbp = br.read(1)? as u8;

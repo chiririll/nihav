@@ -10,13 +10,11 @@ use nihav_codec_support::codecs::h263::code::{H263_INTERP_FUNCS, H263_INTERP_AVG
 use nihav_codec_support::codecs::h263::decoder::*;
 use nihav_codec_support::codecs::h263::data::*;
 
-#[allow(dead_code)]
 struct Tables {
     intra_mcbpc_cb: Codebook<u8>,
     inter_mcbpc_cb: Codebook<u8>,
     cbpy_cb:        Codebook<u8>,
     rl_cb:          Codebook<H263RLSym>,
-    aic_rl_cb:      Codebook<H263RLSym>,
     mv_cb:          Codebook<u8>,
 }
 
@@ -52,7 +50,6 @@ const W8: i32 =  181;
 const ROW_SHIFT: u8 = 8;
 const COL_SHIFT: u8 = 14;
 
-#[allow(clippy::erasing_op)]
 fn idct_row(row: &mut [i16]) {
     let in0 = ((i32::from(row[0])) << 11) + (1 << (ROW_SHIFT - 1));
     let in1 =  (i32::from(row[4])) << 11;
@@ -100,6 +97,7 @@ fn idct_row(row: &mut [i16]) {
 }
 
 #[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 fn idct_col(blk: &mut [i16; 64], off: usize) {
     let in0 = ((i32::from(blk[off + 0*8])) << 8) + (1 << (COL_SHIFT - 1));
     let in1 =  (i32::from(blk[off + 4*8])) << 8;
@@ -152,6 +150,7 @@ const FILTER_STRENGTH: [u8; 32] = [
 ];
 
 #[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usize) {
     let stride = buf.get_stride(comp);
     let dptr = buf.get_data_mut().unwrap();
@@ -172,6 +171,7 @@ fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usiz
     }
 }
 
+#[allow(clippy::identity_op)]
 fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usize) {
     let stride = buf.get_stride(comp);
     let dptr = buf.get_data_mut().unwrap();
@@ -210,12 +210,12 @@ impl BlockDSP for I263BlockDSP {
     fn copy_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
         let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
 
-        for i in 0..4 {
+        for (i, mv) in mvs.iter().enumerate() {
             let xadd = (i & 1) * 8;
             let yadd = (i & 2) * 4;
-            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+            let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
 
-            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
         }
 
         let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
@@ -239,12 +239,12 @@ impl BlockDSP for I263BlockDSP {
     fn avg_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
         let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
 
-        for i in 0..4 {
+        for (i, mv) in mvs.iter().enumerate() {
             let xadd = (i & 1) * 8;
             let yadd = (i & 2) * 4;
-            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+            let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
 
-            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
         }
 
         let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
@@ -447,8 +447,6 @@ fn decode_b_info(br: &mut BitReader, is_pb: bool, is_ipb: bool, is_intra: bool) 
 
 impl<'a> BlockDecoder for Intel263BR<'a> {
 
-#[allow(unused_variables)]
-#[allow(clippy::unreadable_literal)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         let br = &mut self.br;
         let syncw = br.read(22)?;
@@ -504,14 +502,13 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         let cpm = br.read_bool()?;
         validate!(!cpm);
 
-        let pbinfo;
-        if self.is_pb {
-            let trb = br.read(3)?;
-            let dbquant = br.read(2)?;
-            pbinfo = Some(PBInfo::new(trb as u8, dbquant as u8, pbplus));
-        } else {
-            pbinfo = None;
-        }
+        let pbinfo = if self.is_pb {
+                let trb = br.read(3)?;
+                let dbquant = br.read(2)?;
+                Some(PBInfo::new(trb as u8, dbquant as u8, pbplus))
+            } else {
+                None
+            };
         while br.read_bool()? { // skip PEI
             br.read(8)?;
         }
@@ -526,13 +523,12 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         Ok(picinfo)
     }
 
-    #[allow(unused_variables)]
-    fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
+    fn decode_slice_header(&mut self, _info: &PicInfo) -> DecoderResult<SliceInfo> {
         let br = &mut self.br;
         let gbsc = br.read(17)?;
         validate!(gbsc == 1);
-        let gn = br.read(5)?;
-        let gfid = br.read(2)?;
+        let _gn = br.read(5)?;
+        let _gfid = br.read(2)?;
         let gquant = br.read(5)?;
 //println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
         let ret = SliceInfo::new_gob(0, self.gob_no, gquant as u8);
@@ -540,8 +536,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         Ok(ret)
     }
 
-    #[allow(unused_variables)]
-    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
+    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, _sstate: &SliceState) -> DecoderResult<BlockInfo> {
         let br = &mut self.br;
         let mut q = slice.get_quant();
         match info.get_mode() {
@@ -622,13 +617,11 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         }
     }
 
-    #[allow(unused_variables)]
-    fn decode_block_intra(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+    fn decode_block_intra(&mut self, _info: &BlockInfo, _sstate: &SliceState, quant: u8, _no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
         self.decode_block(quant, true, coded, blk)
     }
 
-    #[allow(unused_variables)]
-    fn decode_block_inter(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+    fn decode_block_inter(&mut self, _info: &BlockInfo, _sstate: &SliceState, quant: u8, _no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
         self.decode_block(quant, false, coded, blk)
     }
 
@@ -645,8 +638,6 @@ impl Intel263Decoder {
         let cbpy_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263RLCodeReader::new(H263_RL_CODES);
         let rl_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = H263RLCodeReader::new(H263_RL_CODES_AIC);
-        let aic_rl_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263ShortCodeReader::new(H263_MV);
         let mv_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let tables = Tables {
@@ -654,7 +645,6 @@ impl Intel263Decoder {
             inter_mcbpc_cb,
             cbpy_cb,
             rl_cb,
-            aic_rl_cb,
             mv_cb,
         };
 
