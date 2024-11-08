@@ -39,7 +39,6 @@ impl std::string::ToString for DoublingMode {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Clone,Copy,Debug,PartialEq)]
 enum BlockMode {
     Skip,

@@ -153,6 +153,7 @@ macro_rules! avg_tree {
 
 #[allow(clippy::erasing_op)]
 impl Bink2DSP {
+    #[allow(clippy::identity_op)]
     fn calc_dc(src: &[u8], stride: usize) -> i32 {
         let mut sums = [0u16; 8];
         for i in 0..8 {
@@ -180,16 +181,24 @@ impl Bink2DSP {
         {
             let dout = &mut dst[off..];
             for (row, (b0, b1)) in dout.chunks_mut(stride).zip(blk[0].chunks(8).zip(blk[1].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8(b0[i]); }
-                for i in 0..8 { row[i + 8] = clip8(b1[i]); }
+                for (dst, &c) in row[..8].iter_mut().zip(b0.iter()) {
+                    *dst = clip8(c);
+                }
+                for (dst, &c) in row[8..16].iter_mut().zip(b1.iter()) {
+                    *dst = clip8(c);
+                }
             }
         }
         off += stride * 8;
         {
             let dout = &mut dst[off..];
             for (row, (b2, b3)) in dout.chunks_mut(stride).zip(blk[2].chunks(8).zip(blk[3].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8(b2[i]); }
-                for i in 0..8 { row[i + 8] = clip8(b3[i]); }
+                for (dst, &c) in row[..8].iter_mut().zip(b2.iter()) {
+                    *dst = clip8(c);
+                }
+                for (dst, &c) in row[8..16].iter_mut().zip(b3.iter()) {
+                    *dst = clip8(c);
+                }
             }
         }
     }
@@ -201,16 +210,24 @@ impl Bink2DSP {
         {
             let dout = &mut dst[off..];
             for (row, (b0, b1)) in dout.chunks_mut(stride).zip(blk[0].chunks(8).zip(blk[1].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8((row[i + 0] as i32) + b0[i]); }
-                for i in 0..8 { row[i + 8] = clip8((row[i + 8] as i32) + b1[i]); }
+                for (dst, &add) in row[..8].iter_mut().zip(b0.iter()) {
+                    *dst = clip8(i32::from(*dst) + add);
+                }
+                for (dst, &add) in row[8..16].iter_mut().zip(b1.iter()) {
+                    *dst = clip8(i32::from(*dst) + add);
+                }
             }
         }
         off += stride * 8;
         {
             let dout = &mut dst[off..];
             for (row, (b2, b3)) in dout.chunks_mut(stride).zip(blk[2].chunks(8).zip(blk[3].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8((row[i + 0] as i32) + b2[i]); }
-                for i in 0..8 { row[i + 8] = clip8((row[i + 8] as i32) + b3[i]); }
+                for (dst, &add) in row[..8].iter_mut().zip(b2.iter()) {
+                    *dst = clip8(i32::from(*dst) + add);
+                }
+                for (dst, &add) in row[8..16].iter_mut().zip(b3.iter()) {
+                    *dst = clip8(i32::from(*dst) + add);
+                }
             }
         }
     }
@@ -222,16 +239,24 @@ impl Bink2DSP {
         {
             let dout = &mut dst[off..];
             for (row, (b0, b1)) in dout.chunks_mut(stride).zip(blk[0].chunks(8).zip(blk[1].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8((b0[i] as i32) - 512); }
-                for i in 0..8 { row[i + 8] = clip8((b1[i] as i32) - 512); }
+                for (dst, &c) in row[..8].iter_mut().zip(b0.iter()) {
+                    *dst = clip8((c as i32) - 512);
+                }
+                for (dst, &c) in row[8..16].iter_mut().zip(b1.iter()) {
+                    *dst = clip8((c as i32) - 512);
+                }
             }
         }
         off += stride * 8;
         {
             let dout = &mut dst[off..];
             for (row, (b2, b3)) in dout.chunks_mut(stride).zip(blk[2].chunks(8).zip(blk[3].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8((b2[i] as i32) - 512); }
-                for i in 0..8 { row[i + 8] = clip8((b3[i] as i32) - 512); }
+                for (dst, &c) in row[..8].iter_mut().zip(b2.iter()) {
+                    *dst = clip8((c as i32) - 512);
+                }
+                for (dst, &c) in row[8..16].iter_mut().zip(b3.iter()) {
+                    *dst = clip8((c as i32) - 512);
+                }
             }
         }
     }
@@ -243,16 +268,24 @@ impl Bink2DSP {
         {
             let dout = &mut dst[off..];
             for (row, (b0, b1)) in dout.chunks_mut(stride).zip(blk[0].chunks(8).zip(blk[1].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8((row[i + 0] as i32) + (b0[i] as i32) - 512); }
-                for i in 0..8 { row[i + 8] = clip8((row[i + 8] as i32) + (b1[i] as i32) - 512); }
+                for (dst, &add) in row[..8].iter_mut().zip(b0.iter()) {
+                    *dst = clip8(i32::from(*dst) + (add as i32) - 512);
+                }
+                for (dst, &add) in row[8..16].iter_mut().zip(b1.iter()) {
+                    *dst = clip8(i32::from(*dst) + (add as i32) - 512);
+                }
             }
         }
         off += stride * 8;
         {
             let dout = &mut dst[off..];
             for (row, (b2, b3)) in dout.chunks_mut(stride).zip(blk[2].chunks(8).zip(blk[3].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8((row[i + 0] as i32) + (b2[i] as i32) - 512); }
-                for i in 0..8 { row[i + 8] = clip8((row[i + 8] as i32) + (b3[i] as i32) - 512); }
+                for (dst, &add) in row[..8].iter_mut().zip(b2.iter()) {
+                    *dst = clip8(i32::from(*dst) + (add as i32) - 512);
+                }
+                for (dst, &add) in row[8..16].iter_mut().zip(b3.iter()) {
+                    *dst = clip8(i32::from(*dst) + (add as i32) - 512);
+                }
             }
         }
     }
@@ -284,8 +317,8 @@ impl Bink2DSP {
             },
             1 => {
                 for out in dst.chunks_mut(stride).take(16) {
-                    for i in 0..16 {
-                        out[i] = clip8(luma_filter!(ppix, poff + i, 1));
+                    for (i, el) in out[..16].iter_mut().enumerate() {
+                        *el = clip8(luma_filter!(ppix, poff + i, 1));
                     }
                     poff += pstride;
                 }
@@ -353,6 +386,7 @@ impl Bink2DSP {
     }
 }
 
+#[allow(clippy::collapsible_else_if)]
 fn mid_pred<T:PartialOrd>(a: T, b: T, c: T) -> T {
     if a < b {
         if b < c {
@@ -391,14 +425,12 @@ impl QuantInfo {
         let is_left = pos < 2;
         if is_top {
             if is_left { 16 } else { self.quants[self.qpos + pos - 2] }
+        } else if is_left {
+            self.quants[self.pqpos + pos]
         } else {
-            if is_left {
-                self.quants[self.pqpos + pos]
-            } else {
-                mid_pred(self.quants[self.pqpos + pos - 2],
-                         self.quants[self.pqpos + pos],
-                         self.quants[self.qpos + pos - 2])
-            }
+            mid_pred(self.quants[self.pqpos + pos - 2],
+                     self.quants[self.pqpos + pos],
+                     self.quants[self.qpos + pos - 2])
         }
     }
     fn set_quant(&mut self, pos: usize, q: u8) {
@@ -482,11 +514,14 @@ fn dc_pred(a: i32, b: i32, c: i32) -> i32 {
     (a.max(b).max(c)).min((a.min(b).min(c)).max(b - a + c))
 }
 
+#[allow(clippy::identity_op)]
 impl DCInfo for YDCInfo {
     fn decode_dcs(&mut self, br: &mut BitReader, q: u8) -> DecoderResult<bool> {
         decode_dcs(br, &mut self.dc_buf, q)
     }
     #[allow(non_snake_case)]
+    #[allow(clippy::collapsible_else_if)]
+    #[allow(clippy::needless_late_init)]
     fn predict(&mut self, bx: usize, is_top: bool, is_left: bool, min_dc: i32, max_dc: i32) {
         let a0; let a1; let a2; let a3; let a4; let a5; let a6; let a7;
         let a8; let a9; let aA; let aB; let aC; let aD; let aE; let aF;
@@ -603,29 +638,27 @@ impl DCInfo for YDCInfo {
     }
     #[allow(non_snake_case)]
     fn predict_inter(&mut self, min_dc: i32, max_dc: i32) {
-        let a0; let a1; let a2; let a3; let a4; let a5; let a6; let a7;
-        let a8; let a9; let aA; let aB; let aC; let aD; let aE; let aF;
         let dst = &mut self.dcs;
         let dcs = &self.dc_buf;
-        a0 = (dcs[ 0] + 0).max(min_dc).min(max_dc);
-        a1 = (dcs[ 1] + a0).max(min_dc).min(max_dc);
-        a2 = (dcs[ 2] + dc_pred2(a0, a1)).max(min_dc).min(max_dc);
-        a3 = (dcs[ 3] + dc_pred(a0, a1, a2)).max(min_dc).min(max_dc);
+        let a0 = (dcs[ 0] + 0).max(min_dc).min(max_dc);
+        let a1 = (dcs[ 1] + a0).max(min_dc).min(max_dc);
+        let a2 = (dcs[ 2] + dc_pred2(a0, a1)).max(min_dc).min(max_dc);
+        let a3 = (dcs[ 3] + dc_pred(a0, a1, a2)).max(min_dc).min(max_dc);
 
-        a4 = (dcs[ 4] + dc_pred2(a1, a3)).max(min_dc).min(max_dc);
-        a5 = (dcs[ 5] + a4).max(min_dc).min(max_dc);
-        a6 = (dcs[ 6] + dc_pred(a1, a3, a4)).max(min_dc).min(max_dc);
-        a7 = (dcs[ 7] + dc_pred(a4, a5, a6)).max(min_dc).min(max_dc);
+        let a4 = (dcs[ 4] + dc_pred2(a1, a3)).max(min_dc).min(max_dc);
+        let a5 = (dcs[ 5] + a4).max(min_dc).min(max_dc);
+        let a6 = (dcs[ 6] + dc_pred(a1, a3, a4)).max(min_dc).min(max_dc);
+        let a7 = (dcs[ 7] + dc_pred(a4, a5, a6)).max(min_dc).min(max_dc);
 
-        a8 = (dcs[ 8] + dc_pred2(a2, a3)).max(min_dc).min(max_dc);
-        a9 = (dcs[ 9] + dc_pred(a2, a3, a8)).max(min_dc).min(max_dc);
-        aA = (dcs[10] + dc_pred2(a8, a9)).max(min_dc).min(max_dc);
-        aB = (dcs[11] + dc_pred(a8, a9, aA)).max(min_dc).min(max_dc);
+        let a8 = (dcs[ 8] + dc_pred2(a2, a3)).max(min_dc).min(max_dc);
+        let a9 = (dcs[ 9] + dc_pred(a2, a3, a8)).max(min_dc).min(max_dc);
+        let aA = (dcs[10] + dc_pred2(a8, a9)).max(min_dc).min(max_dc);
+        let aB = (dcs[11] + dc_pred(a8, a9, aA)).max(min_dc).min(max_dc);
 
-        aC = (dcs[12] + dc_pred(a3, a6, a9)).max(min_dc).min(max_dc);
-        aD = (dcs[13] + dc_pred(a6, a7, aC)).max(min_dc).min(max_dc);
-        aE = (dcs[14] + dc_pred(a9, aB, aC)).max(min_dc).min(max_dc);
-        aF = (dcs[15] + dc_pred(aC, aD, aE)).max(min_dc).min(max_dc);
+        let aC = (dcs[12] + dc_pred(a3, a6, a9)).max(min_dc).min(max_dc);
+        let aD = (dcs[13] + dc_pred(a6, a7, aC)).max(min_dc).min(max_dc);
+        let aE = (dcs[14] + dc_pred(a9, aB, aC)).max(min_dc).min(max_dc);
+        let aF = (dcs[15] + dc_pred(aC, aD, aE)).max(min_dc).min(max_dc);
 
         dst[ 0] = a0;
         dst[ 1] = a1;
@@ -686,16 +719,15 @@ impl DCInfo for CDCInfo {
         new_dc[0] = a2;
         new_dc[1] = a3;
     }
+    #[allow(clippy::identity_op)]
     fn predict_inter(&mut self, min_dc: i32, max_dc: i32) {
         let dst = &mut self.dcs;
         let dcs = &self.dc_buf;
 
-        let a0; let a1; let a2; let a3;
-
-        a0 = (dcs[ 0] + 0).max(min_dc).min(max_dc);
-        a1 = (dcs[ 1] + a0).max(min_dc).min(max_dc);
-        a2 = (dcs[ 2] + dc_pred2(a0, a1)).max(min_dc).min(max_dc);
-        a3 = (dcs[ 3] + dc_pred(a0, a1, a2)).max(min_dc).min(max_dc);
+        let a0 = (dcs[ 0] + 0).max(min_dc).min(max_dc);
+        let a1 = (dcs[ 1] + a0).max(min_dc).min(max_dc);
+        let a2 = (dcs[ 2] + dc_pred2(a0, a1)).max(min_dc).min(max_dc);
+        let a3 = (dcs[ 3] + dc_pred(a0, a1, a2)).max(min_dc).min(max_dc);
 
         dst[0] = a0;
         dst[1] = a1;
@@ -732,6 +764,8 @@ struct MVInfo {
     prev_off:   usize,
 }
 
+#[allow(clippy::collapsible_else_if)]
+#[allow(clippy::identity_op)]
 impl MVInfo {
     fn resize(&mut self, bw: usize) {
         self.stride     = bw * 4;
@@ -846,12 +880,12 @@ impl MVInfo {
             }
             let mut mv_c: [i16; 4] = [0; 4];
             if bits > 0 {
-                for i in 0..4 {
-                    mv_c[i]                         = br.read(bits)? as i16;
+                for mv in mv_c.iter_mut() {
+                    *mv                             = br.read(bits)? as i16;
                 }
-                for i in 0..4 {
-                    if (mv_c[i] != 0) && br.read_bool()? {
-                        mv_c[i] = -mv_c[i];
+                for mv in mv_c.iter_mut() {
+                    if (*mv != 0) && br.read_bool()? {
+                        *mv = -*mv;
                     }
                 }
             }
@@ -1028,6 +1062,8 @@ impl Bink2Decoder {
     }
 
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::identity_op)]
+    #[allow(clippy::needless_range_loop)]
     fn decode_frame_new(&mut self, br: &mut BitReader, buf: &mut NAVideoBuffer<u8>, is_intra: bool) -> DecoderResult<()> {
         let (stride_y, stride_u, stride_v, stride_a) = (buf.get_stride(0), buf.get_stride(1), buf.get_stride(2), buf.get_stride(3));
         let (mut off_y, mut off_u, mut off_v, mut off_a) = (buf.get_offset(0), buf.get_offset(1), buf.get_offset(2), buf.get_offset(3));
@@ -1042,8 +1078,8 @@ impl Bink2Decoder {
 
         let frame_flags                         = br.read(32)?;
         let mut offsets: [u32; 7] = [0; 7];
-        for i in 0..self.num_slices-1 {
-            offsets[i]                          = br.read(32)?;
+        for offset in offsets[..self.num_slices-1].iter_mut() {
+            *offset                             = br.read(32)?;
         }
         let mut do_alpha = self.has_alpha;
         if (frame_flags & 0x80000) != 0 && self.has_alpha {
@@ -1144,33 +1180,31 @@ impl Bink2Decoder {
                     let btype;
                     if is_intra {
                         btype = 0;
+                    } else if (blk_state & 0x2000) != 0 {
+                        let val                     = br.read_code(UintCodeType::LimitedUnary(3, 1))?;
+                        match val {
+                            0 => {
+                                btype = btype_lru[0];
+                            },
+                            1 => {
+                                btype = btype_lru[1];
+                                btype_lru[1] = btype_lru[0];
+                                btype_lru[0] = btype;
+                            },
+                            2 => {
+                                btype = btype_lru[3];
+                                btype_lru[3] = btype_lru[2];
+                                btype_lru[2] = btype;
+                            },
+                            3 => {
+                                btype = btype_lru[2];
+                                btype_lru[2] = btype_lru[1];
+                                btype_lru[1] = btype;
+                            },
+                            _ => unreachable!(),
+                        };
                     } else {
-                        if (blk_state & 0x2000) != 0 {
-                            let val                 = br.read_code(UintCodeType::LimitedUnary(3, 1))?;
-                            match val {
-                                0 => {
-                                    btype = btype_lru[0];
-                                },
-                                1 => {
-                                    btype = btype_lru[1];
-                                    btype_lru[1] = btype_lru[0];
-                                    btype_lru[0] = btype;
-                                },
-                                2 => {
-                                    btype = btype_lru[3];
-                                    btype_lru[3] = btype_lru[2];
-                                    btype_lru[2] = btype;
-                                },
-                                3 => {
-                                    btype = btype_lru[2];
-                                    btype_lru[2] = btype_lru[1];
-                                    btype_lru[1] = btype;
-                                },
-                                _ => unreachable!(),
-                            };
-                        } else {
-                            btype                   = br.read(2)? as u8;
-                        }
+                        btype                       = br.read(2)? as u8;
                     }
                     if !is_intra {
                         let q = self.qinfo.pred_quant(bx * 2, is_top);
@@ -1455,12 +1489,11 @@ fn get_new_quant(br: &mut BitReader, prev_q: u8) -> DecoderResult<u8> {
         } else if code == 4 {
             code                                = (br.read(5)? as u8) + 5;
         }
-        let ret;
-        if !br.read_bool()? {
-            ret = prev_q.checked_add(code);
-        } else {
-            ret = prev_q.checked_sub(code);
-        }
+        let ret = if !br.read_bool()? {
+                prev_q.checked_add(code)
+            } else {
+                prev_q.checked_sub(code)
+            };
         validate!(ret.is_some());
         let val = ret.unwrap();
         validate!(val < (BINK2_QUANT_DC.len() as u8));
@@ -1514,6 +1547,7 @@ fn decode_chroma_inter(br: &mut BitReader, codes: &Bink2Codes, prev_cbp: u32, q:
     Ok(cbp)
 }
 
+#[allow(clippy::collapsible_if)]
 fn decode_cbp_luma(br: &mut BitReader, prev_cbp: u32, edge_state: u32) -> DecoderResult<u32> {
     let cnt = (prev_cbp as u16).count_ones() as usize;
     let (min_count, mask) = if cnt < 8 { (cnt, 0x0000) } else { (16 - cnt, 0xFFFF) };
@@ -1561,28 +1595,21 @@ trait ReadBink2Code {
 impl<'a> ReadBink2Code for BitReader<'a> {
     fn read_bink2_code_zero(&mut self) -> DecoderResult<i32> {
         let pfx = self.read_code(UintCodeType::LimitedUnary(12, 0))? as i32;
-        if pfx > 0 {
-            let val: i32;
-            if pfx >= 4 {
-                let add_bits                = self.read((pfx as u8) - 3)? as i32;
-                val = (1 << (pfx - 3)) + add_bits + 2;
-            } else {
-                val = pfx;
-            }
-            Ok(val)
+        if pfx < 4 {
+            Ok(pfx)
         } else {
-            Ok(0)
+            let add_bits                = self.read((pfx as u8) - 3)? as i32;
+            Ok((1 << (pfx - 3)) + add_bits + 2)
         }
     }
     fn read_bink2_code_nz(&mut self) -> DecoderResult<i32> {
         let pfx = self.read_code(UintCodeType::LimitedUnary(12, 0))? + 1;
-        let val: i32;
-        if pfx >= 4 {
-            let add_bits                = self.read((pfx as u8) - 3)? as i32;
-            val = (1 << (pfx - 3)) + add_bits + 2;
-        } else {
-            val = pfx as i32;
-        }
+        let val = if pfx >= 4 {
+                let add_bits            = self.read((pfx as u8) - 3)? as i32;
+                (1 << (pfx - 3)) + add_bits + 2
+            } else {
+                pfx as i32
+            };
         if self.read_bool()? {
             Ok(-val)
         } else {
@@ -1595,7 +1622,7 @@ fn decode_acs_4blocks(br: &mut BitReader, codes: &Bink2Codes, dst: &mut [[i32; 6
     let cb = if (cbp >> 16) != 0 { &codes.ac_cb1 } else { &codes.ac_cb2 };
     let qmat = &quant_mat[(q & 3) as usize];
     let shift = q >> 2;
-    for blk_no in 0..4 {
+    for (blk_no, block) in dst.iter_mut().enumerate() {
         if ((cbp >> blk_no) & 1) == 0 { continue; }
         let mut esc_len = 0;
         let mut idx = 1;
@@ -1604,19 +1631,18 @@ fn decode_acs_4blocks(br: &mut BitReader, codes: &Bink2Codes, dst: &mut [[i32; 6
                 esc_len -= 1;
             } else {
                 let sym                         = br.read_cb(cb)?;
-                let skip;
-                if sym == 11 {
-                    skip                        = br.read(6)? as usize;
-                } else {
-                    skip = BINK2_AC_RUNS[sym as usize];
-                }
+                let skip = if sym == 11 {
+                                                  br.read(6)? as usize
+                    } else {
+                        BINK2_AC_RUNS[sym as usize]
+                    };
                 idx += skip;
                 if idx > 63 { break; }
                 esc_len = if sym == 13 { 6 } else { 0 };
             }
             let level                           = br.read_bink2_code_nz()?;
             let pos = BINK2_ZIGZAG[idx];
-            dst[blk_no][pos] = (((level * qmat[pos]) << shift) + 0x40) >> 7;
+            block[pos] = (((level * qmat[pos]) << shift) + 0x40) >> 7;
             idx += 1;
         }
 // set blk info to (dc & 0x1FFF) | (intra ? 0x8000 : 0) | (((ncoded == 0) + (ncoded < 4) + (ncoded < 8)) << 13)
@@ -1686,12 +1712,11 @@ fn decode_quant_old(br: &mut BitReader, quant_cb: &Codebook<u8>, prev_quant: u8)
     if diff == 0 {
         Ok(prev_quant)
     } else {
-        let res;
-        if br.read_bool()? {
-            res = prev_quant.checked_sub(diff);
-        } else {
-            res = prev_quant.checked_add(diff);
-        }
+        let res = if br.read_bool()? {
+                prev_quant.checked_sub(diff)
+            } else {
+                prev_quant.checked_add(diff)
+            };
         validate!(res.is_some());
         let q = res.unwrap();
         validate!(q < 16);
@@ -1746,15 +1771,14 @@ fn decode_cbp_luma_old(br: &mut BitReader, prev_cbp: u32) -> DecoderResult<u32> 
 }
 
 fn decode_cbp_chroma_old(br: &mut BitReader, prev_cbp: u32) -> DecoderResult<u32> {
-    let low;
-    if !br.read_bool()? {
-        low                                     = br.read(4)?;
-    } else {
-        if br.read_bool()? {
-            return Ok(prev_cbp);
-        }
-        low = prev_cbp & 0xF;
-    }
+    let low = if !br.read_bool()? {
+                                                  br.read(4)?
+        } else {
+            if br.read_bool()? {
+                return Ok(prev_cbp);
+            }
+            prev_cbp & 0xF
+        };
     let mut high;
     if low.count_ones() == 0 {
         return Ok(low);
@@ -1818,7 +1842,7 @@ fn decode_dcs_old(br: &mut BitReader, dcs: &mut [i32], q: u8, read_bias: bool) -
 
 fn decode_acs_4blocks_old(br: &mut BitReader, codes: &Bink2Codes, dst: &mut [[f32; 64]; 4], quant_mat: &[f32; 64], q: u8, cbp: u32, scan: &[usize; 64]) -> DecoderResult<()> {
     let quant = BINK2_OLD_QUANTS[q as usize];
-    for blk_no in 0..4 {
+    for (blk_no, block) in dst.iter_mut().enumerate() {
         if ((cbp >> blk_no) & 1) == 0 { continue; }
         let val_cb = if ((cbp >> (16 + blk_no)) & 1) != 0 { &codes.val_cb2 } else { &codes.val_cb1 };
         let skip_cb = if ((cbp >> (16 + blk_no)) & 1) != 0 { &codes.skip_cb2 } else { &codes.skip_cb1 };
@@ -1838,7 +1862,7 @@ fn decode_acs_4blocks_old(br: &mut BitReader, codes: &Bink2Codes, dst: &mut [[f3
                     level = -level;
                 }
                 let pos = scan[idx];
-                dst[blk_no][pos] = (level as f32) * quant_mat[(pos & 7) * 8 + (pos >> 3)] * quant;
+                block[pos] = (level as f32) * quant_mat[(pos & 7) * 8 + (pos >> 3)] * quant;
             }
             idx += 1;
             if idx >= 64 { break; }
@@ -1846,12 +1870,11 @@ fn decode_acs_4blocks_old(br: &mut BitReader, codes: &Bink2Codes, dst: &mut [[f3
                 esc_len -= 1;
             } else {
                 let sym                         = br.read_cb(skip_cb)?;
-                let skip;
-                if sym == 11 {
-                    skip                        = br.read(6)? as usize;
-                } else {
-                    skip = BINK2_AC_RUNS[sym as usize];
-                }
+                let skip = if sym == 11 {
+                                                  br.read(6)? as usize
+                    } else {
+                        BINK2_AC_RUNS[sym as usize]
+                    };
                 idx += skip;
                 if idx > 63 { break; }
                 esc_len = if sym == 13 { 6 } else { 0 };
@@ -1903,9 +1926,8 @@ impl NADecoder for Bink2Decoder {
             }
             self.slice_h[self.num_slices - 1] = height_a >> 5;
 
-            let fmt;
             let aplane = if self.has_alpha { Some(NAPixelChromaton::new(0, 0, false, 8, 0, 3, 1)) } else { None };
-            fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
+            let fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
                                            Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
                                            Some(NAPixelChromaton::new(1, 1, false, 8, 0, 1, 1)),
                                            Some(NAPixelChromaton::new(1, 1, false, 8, 0, 2, 1)),

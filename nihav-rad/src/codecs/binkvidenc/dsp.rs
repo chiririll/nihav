@@ -275,6 +275,7 @@ impl DSP {
 
         best_dist
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn try_dct_inter(&mut self, ref_blk: &[u8; 64], cur_blk: &[u8; 64], tokens: &mut BlockTokens, tmp_tok: &mut BlockTokens, is_b: bool, rc: &RateControl, mut best_dist: u32) -> u32 {
         let mv_x = tokens.xoff[0];
         let mv_y = tokens.yoff[0];

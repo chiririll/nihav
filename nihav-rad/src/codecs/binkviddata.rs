@@ -11,23 +11,26 @@ impl QuantMats {
         let mut mod_mat: [f32; 64] = [0.0; 64];
         let base = consts::PI / 16.0;
 
-        for i in 0..64 { inv_scan[BINK_SCAN[i]] = i; }
+        for (i, &idx) in BINK_SCAN.iter().enumerate() { inv_scan[idx] = i; }
 
-        for j in 0..8 {
+        for (j, m_row) in mod_mat.chunks_exact_mut(8).enumerate() {
             let j_scale = if (j != 0) && (j != 4) { (base * (j as f32)).cos() * consts::SQRT_2 } else { 1.0 };
-            for i in 0..8 {
+            for (i, mm) in m_row.iter_mut().enumerate() {
                 let i_scale = if (i != 0) && (i != 4) { (base * (i as f32)).cos() * consts::SQRT_2 } else { 1.0 };
-                mod_mat[i + j * 8] = i_scale * j_scale;
+                *mm = i_scale * j_scale;
             }
         }
 
-        for q in 0..16 {
-            let (num, den) = BINKB_REF_QUANTS[q];
+        for ((iqmat, pqmat), &(num, den)) in self.intra_qmat.iter_mut()
+                .zip(self.inter_qmat.iter_mut()).zip(BINKB_REF_QUANTS.iter()) {
             let quant = (num as f32) * ((1 << 12) as f32) / (den as f32);
-            for c in 0..64 {
-                let idx = inv_scan[c];
-                self.intra_qmat[q][idx] = ((BINKB_REF_INTRA_Q[c] as f32) * mod_mat[c] * quant) as i32;
-                self.inter_qmat[q][idx] = ((BINKB_REF_INTER_Q[c] as f32) * mod_mat[c] * quant) as i32;
+            for (&refq, (&idx, &modm)) in BINKB_REF_INTRA_Q.iter()
+                    .zip(inv_scan.iter().zip(mod_mat.iter())) {
+                iqmat[idx] = ((refq as f32) * modm * quant) as i32;
+            }
+            for (&refq, (&idx, &modm)) in BINKB_REF_INTER_Q.iter()
+                    .zip(inv_scan.iter().zip(mod_mat.iter())) {
+                pqmat[idx] = ((refq as f32) * modm * quant) as i32;
             }
         }
     }

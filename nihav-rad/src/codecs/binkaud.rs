@@ -87,9 +87,9 @@ impl BinkAudioDecoder {
             self.coeffs[1] = read_bink_float(br)? * self.scale;
         }
         let mut quants: [f32; MAX_BANDS] = [0.0; MAX_BANDS];
-        for i in 0..self.num_bands {
+        for quant in quants[..self.num_bands].iter_mut() {
             let idx                             = br.read(8)? as usize;
-            quants[i] = self.quants[idx.min(self.quants.len() - 1)] * self.scale;
+            *quant = self.quants[idx.min(self.quants.len() - 1)] * self.scale;
         }
         let mut idx = 2;
         let mut band_idx = 0;
@@ -97,13 +97,11 @@ impl BinkAudioDecoder {
         while idx < self.len {
             let width = if self.version_b {
                     16
+                } else  if br.read_bool()? {
+                    let idx                     = br.read(4)? as usize;
+                    RUN_TAB[idx] * 8
                 } else {
-                    if br.read_bool()? {
-                        let idx                 = br.read(4)? as usize;
-                        RUN_TAB[idx] * 8
-                    } else {
-                        8
-                    }
+                    8
                 };
             let end = (idx + width).min(self.len);
             let bits                            = br.read(4)? as u8;
@@ -125,6 +123,7 @@ impl BinkAudioDecoder {
         }
         Ok(())
     }
+    #[allow(clippy::identity_op)]
     #[allow(clippy::transmute_ptr_to_ptr)]
     fn output(&mut self, dst: &mut [f32], off0: usize, off1: usize, chno: usize) {
         match self.transform {

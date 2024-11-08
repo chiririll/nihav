@@ -138,8 +138,8 @@ impl SmackerTree16 {
         tree_hi.decode(br)?;
 
         let mut esc: [u32; 3] = [0; 3];
-        for i in 0..esc.len() {
-            esc[i] = br.read(16)?;
+        for esc in esc.iter_mut() {
+            *esc = br.read(16)?;
         }
 
         let nsyms = (((size + 3) >> 2) + 4) as usize;
@@ -249,6 +249,7 @@ impl SmackerVideoDecoder {
         let by = blk_no / self.bw;
         bx * 4 + by * 4 * self.stride
     }
+    #[allow(clippy::identity_op)]
     fn decode_frame(&mut self, br: &mut BitReader) -> DecoderResult<bool> {
         let mut is_intra = true;
         let blocks = self.bw * self.bh;
@@ -282,12 +283,11 @@ impl SmackerVideoDecoder {
                         }
                     },
                 1 => { // full
-                        let mode;
-                        if !self.is_ver4 || !br.read_bool()? {
-                            mode = 0;
-                        } else {
-                            mode = 1 + br.read(1)?;
-                        }
+                        let mode = if !self.is_ver4 || !br.read_bool()? {
+                                0
+                            } else {
+                                1 + br.read(1)?
+                            };
                         for i in 0..run {
                             let mut doff = self.block_pos(block + i);
                             match mode {
@@ -511,7 +511,7 @@ impl NADecoder for SmackerAudioDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    #[allow(clippy::manual_memcpy)]
+    #[allow(clippy::identity_op)]
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
@@ -536,8 +536,8 @@ impl NADecoder for SmackerAudioDecoder {
                 samples = unp_size / 2 / nch;
                 let mask = if stereo { 1 } else { 0 };
                 let mut trees: [SmackerTree8; 4] = [SmackerTree8::new(), SmackerTree8::new(), SmackerTree8::new(), SmackerTree8::new()];
-                for i in 0..nch*2 {
-                    trees[i].decode(&mut br)?;
+                for tree in trees[..nch*2].iter_mut() {
+                    tree.decode(&mut br)?;
                 }
                 let mut pred: [i16; 2] = [0; 2];
                 for i in 0..nch {
@@ -549,16 +549,14 @@ impl NADecoder for SmackerAudioDecoder {
                 abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
                 let mut adata = abuf.get_abuf_i16().unwrap();
                 let dst = adata.get_data_mut().unwrap();
-                for ch in 0..nch {
-                    dst[ch] = pred[ch];
-                }
-                for i in nch..(unp_size >> 1) {
+                dst[..nch].copy_from_slice(&pred[..nch]);
+                for (i, out) in dst[nch..(unp_size >> 1)].iter_mut().enumerate() {
                     let idx = i & mask;
                     let lo                      = br.read_tree8(&trees[idx * 2 + 0])? as u16;
                     let hi                      = br.read_tree8(&trees[idx * 2 + 1])? as u16;
                     let diff = (lo | (hi << 8)) as i16;
                     pred[idx] = pred[idx].wrapping_add(diff);
-                    dst[i] = pred[idx];
+                    *out = pred[idx];
                 }
             } else {
                 samples = unp_size / nch;
@@ -572,21 +570,21 @@ impl NADecoder for SmackerAudioDecoder {
                     let pred0                   = br.read(8)? as u8;
                     let pred1                   = br.read(8)? as u8;
                     let mut pred: [u8; 2] = [ pred1, pred0 ];
-                    for ch in 0..2 { dst[ch] = pred[ch]; }
-                    for i in 2..unp_size {
+                    dst[..2].copy_from_slice(&pred);
+                    for (i, out) in dst[2..unp_size].iter_mut().enumerate() {
                         let diff = br.read_tree8(&trees[i & 1])?;
                         pred[i & 1] = pred[i & 1].wrapping_add(diff);
-                        dst[i] = pred[i & 1];
+                        *out = pred[i & 1];
                     }
                 } else {
                     let mut tree = SmackerTree8::new();
                     tree.decode(&mut br)?;
                     let mut pred                = br.read(8)? as u8;
                     dst[0] = pred;
-                    for i in 1..unp_size {
+                    for out in dst[1..unp_size].iter_mut() {
                         let diff = br.read_tree8(&tree)?;
                         pred = pred.wrapping_add(diff);
-                        dst[i] = pred;
+                        *out = pred;
                     }
                 }
             }

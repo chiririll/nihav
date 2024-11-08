@@ -21,6 +21,7 @@ fn check_mv(x: usize, y: usize, width: usize, height: usize, mv: MV) -> bool {
     ypos >= 0 && (ypos + 8 <= (height as isize))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn mv_search(src: &[u8], stride: usize, width: usize, height: usize,
              x: usize, y: usize, skip_diff: u32,
              ref_blk: &[u8; 64], tmp: &mut [u8; 64]) -> (MV, u32) {

@@ -20,6 +20,7 @@ mod binkvid;
 #[cfg(any(feature="decoder_binkvid", feature="encoder_binkvid"))]
 mod binkviddata;
 #[cfg(feature="decoder_bink2")]
+#[allow(clippy::too_many_arguments)]
 mod bink2;
 
 const RAD_CODECS: &[DecoderInfo] = &[

@@ -1,4 +1,5 @@
 use std::io::SeekFrom;
+use std::cmp::Ordering;
 use nihav_core::demuxers::*;
 
 const SMK_FLAG_LOOP_FRAME: u32 = 0x01;
@@ -89,13 +90,14 @@ struct SmackerVideoDemuxer<'a> {
 }*/
 
 fn get_pts_inc(val: i32) -> u64 {
-    if val > 0 { (val as u64) * 100 }
-    else if val < 0 { -val as u64 }
-    else { 1 }
+    match val.cmp(&0) {
+        Ordering::Greater => (val as u64) * 100,
+        Ordering::Less    => -val as u64,
+        Ordering::Equal   => 1,
+    }
 }
 
 impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
-    #[allow(clippy::unreadable_literal)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
         let mut magic: [u8; 4] = [0; 4];
@@ -166,7 +168,6 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
         Ok(())
     }
     #[allow(clippy::identity_op)]
-    #[allow(clippy::unreadable_literal)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if !self.queued_packets.is_empty() {
             let pkt = self.queued_packets.pop().unwrap();

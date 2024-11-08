@@ -17,16 +17,16 @@ pub fn init_bands(srate: usize, len: usize, num_bands: &mut usize, bands: &mut [
         *num_bands += 1;
     }
     bands[0] = 2;
-    for i in 1..*num_bands {
-        bands[i] = (CRITICAL_FREQS[i - 1] * len / srate) & !1;
+    for (band, &freq) in bands[1..*num_bands].iter_mut().zip(CRITICAL_FREQS.iter()) {
+        *band = (freq * len / srate) & !1;
     }
     bands[*num_bands] = len;
 }
 
 pub fn get_quants_table() -> [f32; 96] {
     let mut quants: [f32; 96] = [0.0; 96];
-    for i in 0..quants.len() {
-        quants[i] = ((i as f32) * 0.0664 / consts::LOG10_E).exp();
+    for (i, quant) in quants.iter_mut().enumerate() {
+        *quant = ((i as f32) * 0.0664 / consts::LOG10_E).exp();
     }
     quants
 }

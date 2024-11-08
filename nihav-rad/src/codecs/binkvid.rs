@@ -24,6 +24,7 @@ struct Tree {
 }
 
 impl Tree {
+    #[allow(clippy::collapsible_else_if)]
     fn read_desc(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         self.id                                 = br.read(4)? as usize;
         if self.id == 0 {
@@ -37,8 +38,8 @@ impl Tree {
                     present[self.syms[i] as usize] = true;
                 }
                 let mut idx = len + 1;
-                for i in 0..16 {
-                    if present[i] { continue; }
+                for (i, &present) in present.iter().enumerate() {
+                    if present { continue; }
                     self.syms[idx] = i as u8;
                     idx += 1;
                 }
@@ -476,6 +477,7 @@ fn calc_len(size: usize) -> u8 {
     (32 - ((size + 511) as u32).leading_zeros()) as u8
 }
 
+#[allow(clippy::too_many_arguments)]
 impl BinkDecoder {
     fn new() -> Self {
         Self::default()
@@ -561,25 +563,22 @@ impl BinkDecoder {
         Ok(())
     }
 
-    fn put_block(&self, block: &[u8; 64], dst: &mut [u8], mut off: usize, stride: usize, scaled: bool) {
+    fn put_block(&self, block: &[u8; 64], dst: &mut [u8], off: usize, stride: usize, scaled: bool) {
         if !scaled {
-            for src in block.chunks_exact(8) {
-                let out = &mut dst[off..][..8];
-                out.copy_from_slice(src);
-                off += stride;
+            for (src, dline) in block.chunks_exact(8).zip(dst[off..].chunks_mut(stride)) {
+                dline[..8].copy_from_slice(src);
             }
         } else {
-            for src in block.chunks_exact(8) {
-                for i in 0..8 {
-                    dst[off + i * 2 + 0] = src[i];
-                    dst[off + i * 2 + 1] = src[i];
+            for (src, dlines) in block.chunks_exact(8).zip(dst[off..].chunks_mut(stride * 2)) {
+                let (dline0, dline1) = dlines.split_at_mut(stride);
+                for (pair, &pix) in dline0.chunks_exact_mut(2).zip(src[..8].iter()) {
+                    pair[0] = pix;
+                    pair[1] = pix;
                 }
-                off += stride;
-                for i in 0..8 {
-                    dst[off + i * 2 + 0] = src[i];
-                    dst[off + i * 2 + 1] = src[i];
+                for (pair, &pix) in dline1.chunks_exact_mut(2).zip(src[..8].iter()) {
+                    pair[0] = pix;
+                    pair[1] = pix;
                 }
-                off += stride;
             }
         }
     }
@@ -1024,9 +1023,8 @@ fn read_residue(br: &mut BitReader, block: &mut [i32; 64], mut masks_count: usiz
 
     let mut mask                                = 1 << br.read(3)?;
     while mask > 0 {
-        for i in 0..nz_coef_count {
+        for &idx in nz_coef_idx[..nz_coef_count].iter() {
             if !br.read_bool()? { continue; }
-            let idx = nz_coef_idx[i];
             if block[idx] < 0 {
                 block[idx] -= mask;
             } else {
@@ -1127,19 +1125,18 @@ impl NADecoder for BinkDecoder {
             if self.has_alpha && self.is_gray { return Err(DecoderError::NotImplemented); }
 
             let aplane = if self.has_alpha { Some(NAPixelChromaton::new(0, 0, false, 8, 0, 3, 1)) } else { None };
-            let fmt;
-            if !self.is_gray {
-                fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
-                                           Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
-                                           Some(NAPixelChromaton::new(1, 1, false, 8, 0, 1, 1)),
-                                           Some(NAPixelChromaton::new(1, 1, false, 8, 0, 2, 1)),
-                                           aplane, None,
-                                           0, if self.has_alpha { 4 } else { 3 } );
-            } else {
-                fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
-                                           Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
-                                           None, None, None, None, 0, 1);
-            }
+            let fmt = if !self.is_gray {
+                    NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
+                                         Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
+                                         Some(NAPixelChromaton::new(1, 1, false, 8, 0, 1, 1)),
+                                         Some(NAPixelChromaton::new(1, 1, false, 8, 0, 2, 1)),
+                                         aplane, None,
+                                         0, if self.has_alpha { 4 } else { 3 } )
+                } else {
+                    NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
+                                         Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
+                                         None, None, None, None, 0, 1)
+                };
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
