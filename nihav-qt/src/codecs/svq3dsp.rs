@@ -1,6 +1,5 @@
 use nihav_codec_support::codecs::blockdsp::*;
 
-#[allow(dead_code)]
 #[derive(Debug,Clone,Copy)]
 pub enum PredType4x4 {
     Ver,
@@ -17,7 +16,6 @@ pub enum PredType4x4 {
     DC128,
 }
 
-#[allow(dead_code)]
 #[derive(Debug,Clone,Copy)]
 pub enum PredType8x8 {
     DC,

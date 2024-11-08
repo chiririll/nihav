@@ -24,19 +24,13 @@ mod svq1;
 mod svq1data;
 
 #[cfg(feature="decoder_svq3")]
-#[allow(clippy::collapsible_if)]
-#[allow(clippy::identity_op)]
-#[allow(clippy::needless_range_loop)]
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::verbose_bit_mask)]
 mod svq3;
 #[cfg(feature="decoder_svq3")]
-#[allow(clippy::collapsible_if)]
+#[allow(clippy::collapsible_else_if)]
 #[allow(clippy::erasing_op)]
 #[allow(clippy::identity_op)]
 #[allow(clippy::many_single_char_names)]
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::unreadable_literal)]
 mod svq3dsp;
 
 #[cfg(feature="decoder_alac")]
@@ -49,25 +43,17 @@ mod imaadpcm;
 mod mace;
 
 #[cfg(any(feature="decoder_qdm",feature="decoder_qdm2"))]
-#[allow(clippy::unreadable_literal)]
 mod qdmcommon;
 #[cfg(feature="decoder_qdm")]
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::unreadable_literal)]
 mod qdmc;
 #[cfg(feature="decoder_qdm2")]
-#[allow(clippy::needless_range_loop)]
 #[allow(clippy::excessive_precision)]
-#[allow(clippy::unreadable_literal)]
 mod qdm2fft;
 #[cfg(feature="decoder_qdm2")]
-#[allow(clippy::needless_range_loop)]
 #[allow(clippy::excessive_precision)]
-#[allow(clippy::unreadable_literal)]
 mod qdm2qmf;
 #[cfg(feature="decoder_qdm2")]
 #[allow(clippy::excessive_precision)]
-#[allow(clippy::unreadable_literal)]
 mod qdm2;
 
 const QT_CODECS: &[DecoderInfo] = &[

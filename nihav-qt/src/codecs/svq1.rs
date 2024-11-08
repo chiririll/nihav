@@ -130,17 +130,16 @@ struct SVQ1Decoder {
 }
 
 impl SVQ1Decoder {
-    #[allow(clippy::needless_range_loop)]
     fn new() -> Self {
         let mut intra_stages_cb = Vec::with_capacity(6);
-        for i in 0..6 {
-            let mut cbd = SVQ1DescReader { table: &SVQ_INTRA_STAGE_CODES[i], bias: -1 };
+        for table in SVQ_INTRA_STAGE_CODES.iter() {
+            let mut cbd = SVQ1DescReader { table, bias: -1 };
             let cb = Codebook::new(&mut cbd, CodebookMode::MSB).unwrap();
             intra_stages_cb.push(cb);
         }
         let mut inter_stages_cb = Vec::with_capacity(6);
-        for i in 0..6 {
-            let mut cbd = SVQ1DescReader { table: &SVQ_INTER_STAGE_CODES[i], bias: -1 };
+        for table in SVQ_INTER_STAGE_CODES.iter() {
+            let mut cbd = SVQ1DescReader { table, bias: -1 };
             let cb = Codebook::new(&mut cbd, CodebookMode::MSB).unwrap();
             inter_stages_cb.push(cb);
         }
@@ -392,7 +391,7 @@ impl NADecoder for SVQ1Decoder {
             Err(DecoderError::InvalidData)
         }
     }
-    #[allow(clippy::collapsible_if)]
+    #[allow(clippy::collapsible_else_if)]
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 2);

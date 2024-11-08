@@ -421,9 +421,9 @@ unimplemented!();
                 16 => {
                     if br.left() >= 10 {
                         if zero_coding {
-                            for i in 0..5 {
+                            for (i, dst) in samples[..5].iter_mut().enumerate() {
                                 if idx + i >= 128 { break; }
-                                samples[i] = if br.read_bool() {
+                                *dst = if br.read_bool() {
                                         let ix = (br.read(1) as usize) * 2;
                                         QUANT_1BIT[jstereo as usize][ix]
                                     } else { 0.0 };
@@ -431,9 +431,8 @@ unimplemented!();
                         } else {
                             let idx = br.read(8) as usize;
                             validate!(idx < self.tables.mod3.len());
-                            for i in 0..5 {
-                                let k = self.tables.mod3[idx][i] as usize;
-                                samples[i] = QUANT_1BIT[jstereo as usize][k];
+                            for (dst, &k) in samples.iter_mut().zip(self.tables.mod3[idx].iter()) {
+                                *dst = QUANT_1BIT[jstereo as usize][k as usize];
                             }
                         }
                     } else {
@@ -447,9 +446,8 @@ unimplemented!();
                     if br.left() >= 7 {
                         let idx         = br.read(7) as usize;
                         validate!(idx < self.tables.mod5.len());
-                        for i in 0..3 {
-                            let k = self.tables.mod5[idx][i] as usize;
-                            samples[i] = ((k as f32) - 2.0) * 0.5;
+                        for (dst, &k) in samples.iter_mut().zip(self.tables.mod5[idx].iter()) {
+                            *dst = ((k as f32) - 2.0) * 0.5;
                         }
                     } else {
                         for el in samples.iter_mut().take(3) {

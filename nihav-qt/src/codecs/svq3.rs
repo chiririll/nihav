@@ -316,12 +316,10 @@ fn decode_chroma_dc(br: &mut BitReader) -> DecoderResult<[i16; 4]> {
         if val == 0 { break; }
         let sign = (val & 1) == 0;
         let val = (val + 1) >> 1;
-        let (run, level) = if val < 3 {
-                (0, val as i16)
-            } else if val == 3 {
-                (1, 1)
-            } else {
-                ((val & 3) as usize, (((val + 9) >> 2) - (val & 3)) as i16)
+        let (run, level) = match val {
+                0..=2 => (0, val as i16),
+                3 => (1, 1),
+                _ => ((val & 3) as usize, (((val + 9) >> 2) - (val & 3)) as i16)
             };
         idx += run;
         validate!(idx < blk.len());
@@ -647,11 +645,11 @@ unimplemented!();
                     }
                 }
             }
-            for comp in 0..2 {
-                for i in 0..4 {
+            for (comp, cdcs) in cdcs.iter().enumerate() {
+                for (i, &c_dc) in cdcs.iter().enumerate() {
                     let blk_idx = 16 + comp * 4 + i;
-                    self.coeffs[blk_idx][0] = cdcs[comp][i];
-                    self.dc_only[blk_idx] = cdcs[comp][i] != 0;
+                    self.coeffs[blk_idx][0] = c_dc;
+                    self.dc_only[blk_idx] = c_dc != 0;
                     idct(&mut self.coeffs[blk_idx], SVQ3_CHROMA_QUANT[sstate.q as usize], true);
                 }
             }
@@ -659,6 +657,7 @@ unimplemented!();
 
         Ok(())
     }
+    #[allow(clippy::identity_op)]
     fn do_mc_p(&mut self, br: &mut BitReader, mb_type: usize, sstate: &mut SState, dframe: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
         if mb_type == 0 {
             self.mvi.fill(self.mb_x, self.mb_y, true, ZERO_MV);
@@ -885,11 +884,11 @@ unimplemented!();
                     }
                 }
             }
-            for comp in 0..2 {
-                for i in 0..4 {
+            for (comp, cdcs) in cdcs.iter().enumerate() {
+                for (i, &c_dc) in cdcs.iter().enumerate() {
                     let blk_idx = 16 + comp * 4 + i;
-                    self.coeffs[blk_idx][0] = cdcs[comp][i];
-                    self.dc_only[blk_idx] = cdcs[comp][i] != 0;
+                    self.coeffs[blk_idx][0] = c_dc;
+                    self.dc_only[blk_idx] = c_dc != 0;
                     idct(&mut self.coeffs[blk_idx], SVQ3_CHROMA_QUANT[sstate.q as usize], true);
                 }
             }
@@ -966,6 +965,7 @@ unimplemented!();
             }
         }
     }
+    #[allow(clippy::field_reassign_with_default)]
     fn decode_slice(&mut self, br: &mut BitReader, hdr: &SVQ3Header, dframe: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
         let mut mb_idx = self.mb_x + self.mb_y * self.mb_w;
         let mbs = self.mb_w * self.mb_h;
@@ -987,10 +987,8 @@ unimplemented!();
                 sstate.has_tr = false;
             }
 
-            if br.left() < 8 {
-                if (br.tell() & 7) == 0 && br.peek(8) == 0 {
-                    return Ok(());
-                }
+            if br.left() < 8 && (br.tell() & 7) == 0 && br.peek(8) == 0 {
+                return Ok(());
             }
             let mut mb_type             = br.read_code(UintCodeType::Gamma)? as usize;
             if hdr.ftype == FrameType::I {

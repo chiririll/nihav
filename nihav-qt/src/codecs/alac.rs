@@ -98,6 +98,7 @@ impl PredInfo {
         }
         Ok(())
     }
+    #[allow(clippy::comparison_chain)]
     fn lpc_pred(&mut self, samps: &mut [i32], bits: u8) {
         if self.mode == 15 || self.order == 31 {
             for i in 1..samps.len() {
@@ -153,7 +154,7 @@ impl ALACDecoder {
             kb:         0,
         }
     }
-    #[allow(clippy::collapsible_if)]
+    #[allow(clippy::collapsible_else_if)]
     fn decode_elem(&mut self, br: &mut BitReader, stereo: bool) -> DecoderResult<()> {
         let _element_instance           = br.read(4)?;
                                           br.skip(12)?;

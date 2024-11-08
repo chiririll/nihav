@@ -105,9 +105,10 @@ impl QdmcDecoder {
             let next = noise_bands[band + 2];
 
             let noise = &mut self.noise_tab[band];
-            for i in prev..cur {
-                noise[i] = ((i - prev) as f32) / ((cur - prev) as f32);
+            for (i, el) in noise[prev..cur].iter_mut().enumerate() {
+                *el = (i as f32) / ((cur - prev) as f32);
             }
+            #[allow(clippy::needless_range_loop)]
             for i in cur..next {
                 noise[i] = ((next - i) as f32) / ((next - cur) as f32);
             }
@@ -196,8 +197,8 @@ impl QdmcDecoder {
             let start = noise_bands[band];
             let end = noise_bands[band + 2].min(self.sf_len);
             let linscale = &self.noise_tab[band];
-            for i in start..end {
-                self.tmp[i] += scale * linscale[i];
+            for (el, &add) in self.tmp[start..end].iter_mut().zip(linscale[start..end].iter()) {
+                *el += scale * add;
             }
         }
 
@@ -210,14 +211,14 @@ impl QdmcDecoder {
         }
     }
     fn add_tones(&mut self, sf: usize, start_idx: &mut [usize; 5]) {
-        for group in 0..5 {
+        for (group, group_start) in start_idx.iter_mut().enumerate() {
             let group_bits = 4 - group;
             let group_size = (1 << (group_bits + 1)) - 1;
-            for tone in self.tones[group].iter().skip(start_idx[group]) {
+            for tone in self.tones[group].iter().skip(*group_start) {
                 if (tone.offset as usize) > sf {
                     break;
                 }
-                start_idx[group] += 1;
+                *group_start += 1;
 
                 let pos = (tone.freq >> group_bits) as usize;
                 let scale = SCALES[(tone.amp_idx & 0x3F) as usize] / 32768.0;

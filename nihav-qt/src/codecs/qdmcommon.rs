@@ -12,14 +12,13 @@ pub struct QdmBitReader<'a> {
 }
 
 #[allow(clippy::identity_op)]
-#[allow(dead_code)]
 impl<'a> QdmBitReader<'a> {
     pub fn new(src: &'a [u8]) -> Self {
         Self{ cache: 0, pos: 0, bits: 0, src }
     }
-    pub fn tell(&self) -> usize {
+    /*pub fn tell(&self) -> usize {
         self.pos * 8 - (self.bits as usize)
-    }
+    }*/
     pub fn left(&self) -> isize {
         ((self.src.len() as isize) - (self.pos as isize)) * 8 + (self.bits as isize)
     }
@@ -87,7 +86,6 @@ impl<'a> QdmBitReader<'a> {
 }
 
 impl<'a, S: Copy> CodebookReader<S> for QdmBitReader<'a> {
-    #[allow(unused_variables)]
     fn read_cb(&mut self, cb: &Codebook<S>) -> CodebookResult<S> {
         let mut esc = true;
         let mut idx = 0;

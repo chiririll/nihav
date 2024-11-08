@@ -31,19 +31,17 @@ struct RleDecoder {
     depth:      u8,
 }
 
-#[allow(clippy::needless_range_loop)]
 fn unpack_mono(src: u16, dst: &mut [u8; 16]) {
-    for i in 0..16 {
-        dst[i] = ((src >> (15 - i)) & 1) as u8;
+    for (i, el) in dst.iter_mut().enumerate() {
+        *el = ((src >> (15 - i)) & 1) as u8;
     }
 }
 
-#[allow(clippy::needless_range_loop)]
 fn unpack_pixels(src: u32, dst: &mut [u8; 16], depth: u8) {
     let depth = depth as usize;
     let mask = (1 << depth) - 1;
-    for i in 0..32 / depth {
-        dst[i] = ((src >> (32 - depth - i * depth)) & mask) as u8;
+    for (i, el) in dst[..32 / depth].iter_mut().enumerate() {
+        *el = ((src >> (32 - depth - i * depth)) & mask) as u8;
     }
 }
 
