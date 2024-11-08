@@ -108,12 +108,11 @@ impl TNSCoeffs {
             // convert to LPC coefficients
             let mut b: [f32; TNS_MAX_ORDER + 1] = [0.0; TNS_MAX_ORDER + 1];
             for m in 1..=self.order {
+                #[allow(clippy::needless_range_loop)]
                 for i in 1..m {
                     b[i] = self.coef[i - 1] + tmp[m - 1] * self.coef[m - i - 1];
                 }
-                for i in 1..m {
-                    self.coef[i - 1] = b[i];
-                }
+                self.coef[..m-1].copy_from_slice(&b[1..m]);
                 self.coef[m - 1] = tmp[m - 1];
             }
         }
@@ -153,20 +152,20 @@ impl TNSData {
         let mut state = [0.0f32; 64];
         let mut sidx = 32;
         if !self.coeffs[w][f].direction {
-            for m in start..end {
+            for coef in coeffs[start..end].iter_mut() {
                 for i in 0..order {
-                    coeffs[m] -= state[(sidx + i) & 63] * lpc[i];
+                    *coef -= state[(sidx + i) & 63] * lpc[i];
                 }
                 sidx = (sidx + 63) & 63;
-                state[sidx] = coeffs[m];
+                state[sidx] = *coef;
             }
         } else {
-            for m in (start..end).rev() {
+            for coef in coeffs[start..end].iter_mut().rev() {
                 for i in 0..order {
-                    coeffs[m] -= state[(sidx + i) & 63] * lpc[i];
+                    *coef -= state[(sidx + i) & 63] * lpc[i];
                 }
                 sidx = (sidx + 63) & 63;
-                state[sidx] = coeffs[m];
+                state[sidx] = *coef;
             }
         }
     }

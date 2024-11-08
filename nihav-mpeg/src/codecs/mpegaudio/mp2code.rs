@@ -27,18 +27,18 @@ fn read3samples(br: &mut BitReader, qbits: i8, scale: f32, band: usize, dst: &mu
         let samplecode                  = br.read(-qbits as u8)? as usize;
         match qbits {
             -5 => {
-                for i in 0..3 {
-                    dst[i][band] = unquant(GROUP3[samplecode][i], 3, scale);
+                for (i, &level) in GROUP3[samplecode].iter().enumerate() {
+                    dst[i][band] = unquant(level, 3, scale);
                 }
             },
             -7 => {
-                for i in 0..3 {
-                    dst[i][band] = unquant(GROUP5[samplecode][i], 5, scale);
+                for (i, &level) in GROUP5[samplecode].iter().enumerate() {
+                    dst[i][band] = unquant(level, 5, scale);
                 }
             },
             -10 => {
-                for i in 0..3 {
-                    dst[i][band] = unquant(GROUP9[samplecode][i], 9, scale);
+                for (i, &level) in GROUP9[samplecode].iter().enumerate() {
+                    dst[i][band] = unquant(level, 9, scale);
                 }
             },
             _ => unreachable!(),
@@ -159,10 +159,10 @@ impl MP2Data {
                 bound -= 1;
             }
 
-            for band in 0..sblimit {
-                self.alloc[0][band]     = br.read(ba_bits[band])? as u8;
+            for (band, &bits) in ba_bits[..sblimit].iter().enumerate() {
+                self.alloc[0][band]     = br.read(bits)? as u8;
                 if band < bound {
-                    self.alloc[1][band] = br.read(ba_bits[band])? as u8;
+                    self.alloc[1][band] = br.read(bits)? as u8;
                 } else {
                     self.alloc[1][band] = self.alloc[0][band];
                 }

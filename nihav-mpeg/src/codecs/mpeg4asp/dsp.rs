@@ -272,6 +272,7 @@ impl DSP {
     }
 }
 
+#[allow(clippy::needless_late_init)]
 pub fn dequant_intra_block(block: &mut [i16; 64], ac_scale: u8, qinfo: &QuantInfo) {
     if qinfo.quant_type {
         for (coef, &weight) in block.iter_mut().zip(qinfo.intra_mat.iter()).skip(1) {
@@ -297,6 +298,7 @@ pub fn dequant_intra_block(block: &mut [i16; 64], ac_scale: u8, qinfo: &QuantInf
     }
 }
 
+#[allow(clippy::needless_late_init)]
 pub fn dequant_inter(mb: &mut Macroblock, qinfo: &QuantInfo) {
     let ac_scale = mb.quant;
     let mut cbp = mb.cbp;

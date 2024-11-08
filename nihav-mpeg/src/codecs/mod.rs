@@ -13,10 +13,7 @@ macro_rules! validate {
 mod mpeg4asp;
 
 #[cfg(feature="decoder_aac")]
-#[allow(clippy::comparison_chain)]
 #[allow(clippy::excessive_precision)]
-#[allow(clippy::manual_memcpy)]
-#[allow(clippy::useless_let_if_seq)]
 mod aac;
 #[cfg(feature="decoder_mpa")]
 #[allow(clippy::excessive_precision)]

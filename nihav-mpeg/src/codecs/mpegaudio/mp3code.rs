@@ -234,6 +234,7 @@ pub struct MP3Data {
         tmp:            [f32; SAMPLES / 2],
 }
 
+#[allow(clippy::needless_range_loop)]
 impl MP3Data {
     pub fn new() -> Self {
         Self {
@@ -534,6 +535,7 @@ impl MP3Data {
         }
         Ok(())
     }
+    #[allow(clippy::manual_range_contains)]
     pub fn synth(&mut self, coeffs: &mut [[f32; SAMPLES]; 2], output: &mut [[[f32; 32]; 36]; 2], mode: u8, mode_ext: u8) {
         let channels = if mode == 3 { 1 } else { 2 };
         let granules = if self.mpeg1 { 2 } else { 1 };

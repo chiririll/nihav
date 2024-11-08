@@ -106,13 +106,12 @@ impl M4AInfo {
         }
     }
     fn read_object_type(br: &mut BitReader) -> DecoderResult<M4AType> {
-        let otypeidx;
-        if br.peek(5) == 31 {
+        let otypeidx = if br.peek(5) == 31 {
                                                           br.skip(5)?;
-            otypeidx                                    = (br.read(6)? as usize) + 32;
-        } else {
-            otypeidx                                    = br.read(5)? as usize;
-        }
+                                                          (br.read(6)? as usize) + 32
+            } else {
+                                                          br.read(5)? as usize
+            };
         if otypeidx >= M4A_TYPES.len() {
             Ok(M4AType::Unknown)
         } else {
@@ -146,12 +145,9 @@ impl M4AInfo {
         if (self.otype == M4AType::SBR) || (self.otype == M4AType::PS) {
             let ext_srate = Self::read_sampling_frequency(&mut br)?;
             self.otype = Self::read_object_type(&mut br)?;
-            let ext_chans;
-            if self.otype == M4AType::ER_BSAC {
-                ext_chans = Self::read_channel_config(&mut br)?;
-            } else {
-                ext_chans = 0;
-            }
+            let ext_chans = if self.otype == M4AType::ER_BSAC {
+                    Self::read_channel_config(&mut br)?
+                } else { 0 };
             self.sbr_ps_info = Some((ext_srate, ext_chans));
         }
 

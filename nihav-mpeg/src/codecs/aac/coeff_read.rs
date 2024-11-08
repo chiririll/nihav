@@ -69,24 +69,23 @@ fn decode_quads(br: &mut BitReader, cb: &Codebook<u16>, unsigned: bool, scale: f
     for out in dst.chunks_mut(4) {
         let cw                                          = br.read_cb(cb)? as usize;
         if unsigned {
-            for i in 0..4 {
-                let val = AAC_QUADS[cw][i];
+            for (&val, dst) in AAC_QUADS[cw].iter().zip(out.iter_mut()) {
                 if val != 0 {
-                    if br.read_bool()? {
-                        out[i] = -CBRT_TAB[val as usize] * scale;
-                    } else {
-                        out[i] =  CBRT_TAB[val as usize] * scale;
-                    }
+                    *dst = if br.read_bool()? {
+                            -CBRT_TAB[val as usize] * scale
+                        } else {
+                             CBRT_TAB[val as usize] * scale
+                        };
                 }
             }
         } else {
-            for i in 0..4 {
-                let val = AAC_QUADS[cw][i] - 1;
-                if val < 0 {
-                    out[i] = -CBRT_TAB[val.unsigned_abs() as usize] * scale;
-                } else {
-                    out[i] =  CBRT_TAB[val.unsigned_abs() as usize] * scale;
-                }
+            for (&qval, dst) in AAC_QUADS[cw].iter().zip(out.iter_mut()) {
+                let val = qval - 1;
+                *dst = if val < 0 {
+                        -CBRT_TAB[val.unsigned_abs() as usize] * scale
+                    } else {
+                         CBRT_TAB[val.unsigned_abs() as usize] * scale
+                    };
             }
         }
     }
@@ -157,7 +156,7 @@ pub fn decode_scale_factor_data(br: &mut BitReader, scales: &mut [[u8; MAX_SFBS]
                 if (sfb_cb[g][sfb] == INTENSITY_HCB) || (sfb_cb[g][sfb] == INTENSITY_HCB2) {
                     let diff                        = i16::from(br.read_cb(&codebooks.scale_cb)?);
                     scf_intensity += diff;
-                    validate!((scf_intensity >= INTENSITY_SCALE_MIN) && (scf_intensity < INTENSITY_SCALE_MIN + 256));
+                    validate!((INTENSITY_SCALE_MIN..INTENSITY_SCALE_MIN + 256).contains(&scf_intensity));
                     scales[g][sfb] = (scf_intensity - INTENSITY_SCALE_MIN) as u8;
                 } else if sfb_cb[g][sfb] == NOISE_HCB {
                     if noise_pcm_flag {
@@ -166,11 +165,11 @@ pub fn decode_scale_factor_data(br: &mut BitReader, scales: &mut [[u8; MAX_SFBS]
                     } else {
                         scf_noise                  += i16::from(br.read_cb(&codebooks.scale_cb)?);
                     }
-                    validate!((scf_noise >= NOISE_SCALE_MIN) && (scf_noise < NOISE_SCALE_MIN + 256));
+                    validate!((NOISE_SCALE_MIN..NOISE_SCALE_MIN + 256).contains(&scf_noise));
                     scales[g][sfb] = (scf_noise - NOISE_SCALE_MIN) as u8;
                 } else {
                     scf_normal                     += i16::from(br.read_cb(&codebooks.scale_cb)?);
-                    validate!((scf_normal >= 0) && (scf_normal < 255));
+                    validate!((0..255).contains(&scf_normal));
                     scales[g][sfb] = scf_normal as u8;
                 }
             }

@@ -348,6 +348,7 @@ fn generate_vdk(v_dk: &mut [usize], k0: usize, k1: usize, num_bands: usize) {
     }
 }
 
+#[allow(clippy::comparison_chain)]
 fn calculate_master_frequencies(f: &mut [usize; SBR_BANDS], k0: usize, k2: usize, hdr: &SBRHeader) -> usize {
     if hdr.freq_scale == 0 {
         let (dk, num_bands) = if !hdr.alter_scale {

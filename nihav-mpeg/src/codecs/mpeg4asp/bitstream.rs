@@ -488,6 +488,7 @@ pub struct FrameDecoder {
     cbs:                    Tables,
 }
 
+#[allow(clippy::needless_late_init)]
 impl FrameDecoder {
     pub fn new() -> Self {
         Self {
@@ -685,6 +686,8 @@ unimplemented!();
         self.slice_start = 0;
     }
 
+    #[allow(clippy::collapsible_if)]
+    #[allow(clippy::collapsible_else_if)]
     pub fn decode_mb(&mut self, src: &[u8], mb: &mut Macroblock, colo_not_coded: bool, mb_x: usize, pred: &mut PredState, qinfo: &QuantInfo) -> DecoderResult<()> {
         let mut br = BitReader::new(src, BitReaderMode::BE);
         br.skip(self.bitpos as u32)?;
@@ -831,7 +834,7 @@ unimplemented!();
         /* ignore alpha part for gray shape */
 
         let quant = self.quant as i8 + dquant;
-        validate!(quant >= 0 && quant < 64);
+        validate!((0..64).contains(&quant));
         let quant = quant as u8;
         mb.quant = quant;
 

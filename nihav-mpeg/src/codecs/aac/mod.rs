@@ -11,6 +11,7 @@ mod coeff_read;
 use coeff_read::*;
 mod info;
 use info::*;
+#[allow(clippy::needless_range_loop)]
 mod sbr;
 use sbr::{SBRHeader, SBRCodebooks, SBRState, SBRChannel, SBRDSP, sbr_read_sce, sbr_read_cpe};
 #[allow(clippy::excessive_precision)]
@@ -481,9 +482,7 @@ impl DSP {
                         self.ew_buf[w * 128 + i] += src[i] * short_win[i];
                     }
                 } else { // to be left-windowed
-                    for i in 0..128 {
-                        self.ew_buf[i] = src[i];
-                    }
+                    self.ew_buf[..128].copy_from_slice(&src[..128]);
                 }
                 for i in 0..128 {
                     self.ew_buf[w * 128 + i + 128] += src[i + 128] * short_win[127 - i];
@@ -505,55 +504,45 @@ impl DSP {
                     }
                 },
             EIGHT_SHORT_SEQUENCE => {
-                    for i in 0..SHORT_WIN_POINT0 {
-                        dst[i] = delay[i];
-                    }
+                    dst[..SHORT_WIN_POINT0].copy_from_slice(&delay[..SHORT_WIN_POINT0]);
                     for i in SHORT_WIN_POINT0..SHORT_WIN_POINT1 {
                         let j = i - SHORT_WIN_POINT0;
                         dst[i] = delay[i] + self.ew_buf[j] * left_short_win[j];
                     }
-                    for i in SHORT_WIN_POINT1..1024 {
-                        let j = i - SHORT_WIN_POINT0;
-                        dst[i] = self.ew_buf[j];
-                    }
+                    dst[SHORT_WIN_POINT1..1024].copy_from_slice(
+                        &self.ew_buf[SHORT_WIN_POINT1-SHORT_WIN_POINT0..1024-SHORT_WIN_POINT0]);
                 },
             LONG_STOP_SEQUENCE => {
-                    for i in 0..SHORT_WIN_POINT0 {
-                        dst[i] = delay[i];
-                    }
+                    dst[..SHORT_WIN_POINT0].copy_from_slice(&delay[..SHORT_WIN_POINT0]);
                     for i in SHORT_WIN_POINT0..SHORT_WIN_POINT1 {
                         dst[i] = delay[i] + self.tmp[i] * left_short_win[i - SHORT_WIN_POINT0];
                     }
-                    for i in SHORT_WIN_POINT1..1024 {
-                        dst[i] = self.tmp[i];
-                    }
+                    dst[SHORT_WIN_POINT1..1024].copy_from_slice(&self.tmp[SHORT_WIN_POINT1..1024]);
                 },
             _ => unreachable!(""),
         };
         // save delay
         match seq {
             ONLY_LONG_SEQUENCE | LONG_STOP_SEQUENCE => {
-                    for i in 0..1024 {
-                        delay[i] = self.tmp[i + 1024] * long_win[1023 - i];
+                    for (dst, (&src, &win)) in delay.iter_mut()
+                            .zip(self.tmp[1024..].iter().zip(long_win.iter().rev())) {
+                        *dst = src * win;
                     }
                 },
             EIGHT_SHORT_SEQUENCE => {
-                    for i in 0..SHORT_WIN_POINT1 { // last part is already windowed
-                        delay[i] = self.ew_buf[i + 512+64];
-                    }
-                    for i in SHORT_WIN_POINT1..1024 {
-                        delay[i] = 0.0;
+                    // last part is already windowed
+                    delay[..SHORT_WIN_POINT1].copy_from_slice(&self.ew_buf[512+64..][..SHORT_WIN_POINT1]);
+                    for el in delay[SHORT_WIN_POINT1..].iter_mut() {
+                        *el = 0.0;
                     }
                 },
             LONG_START_SEQUENCE   => {
-                    for i in 0..SHORT_WIN_POINT0 {
-                        delay[i] = self.tmp[i + 1024];
-                    }
+                    delay[..SHORT_WIN_POINT0].copy_from_slice(&self.tmp[1024..][..SHORT_WIN_POINT0]);
                     for i in SHORT_WIN_POINT0..SHORT_WIN_POINT1 {
                         delay[i] = self.tmp[i + 1024] * short_win[127 - (i - SHORT_WIN_POINT0)];
                     }
-                    for i in SHORT_WIN_POINT1..1024 {
-                        delay[i] = 0.0;
+                    for el in delay[SHORT_WIN_POINT1..].iter_mut() {
+                        *el = 0.0;
                     }
                 },
             _ => unreachable!(""),

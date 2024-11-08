@@ -225,6 +225,7 @@ fn read_invf(br: &mut BitReader, chan: &mut SBRChannel, state: &SBRState) -> Dec
     }
     Ok(())
 }
+#[allow(clippy::collapsible_else_if)]
 fn read_envelope(br: &mut BitReader, chan: &mut SBRChannel, coupled: bool, cbs: &SBRCodebooks, state: &SBRState) -> DecoderResult<()> {
     let (f_cb, t_cb) = if coupled {
             if chan.amp_res {
