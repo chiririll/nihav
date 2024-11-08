@@ -10,7 +10,6 @@ use nihav_codec_support::codecs::h263::code::*;
 use nihav_codec_support::codecs::h263::decoder::*;
 use nihav_codec_support::codecs::h263::data::*;
 
-#[allow(dead_code)]
 struct Tables {
     intra_mcbpc_cb: Codebook<u8>,
     inter_mcbpc_cb: Codebook<u8>,
@@ -401,8 +400,6 @@ fn decode_b_info(br: &mut BitReader, is_pb: bool, is_ipb: bool, is_intra: bool) 
 
 impl<'a> BlockDecoder for VivoBR<'a> {
 
-#[allow(unused_variables)]
-#[allow(clippy::unreadable_literal)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         let br = &mut self.br;
         let syncw = br.read(22)?;
@@ -456,14 +453,11 @@ impl<'a> BlockDecoder for VivoBR<'a> {
         let cpm = br.read_bool()?;
         validate!(!cpm);
 
-        let pbinfo;
-        if self.is_pb {
-            let trb = br.read(3)?;
-            let dbquant = br.read(2)?;
-            pbinfo = Some(PBInfo::new(trb as u8, dbquant as u8, pbplus));
-        } else {
-            pbinfo = None;
-        }
+        let pbinfo = if self.is_pb {
+                let trb = br.read(3)?;
+                let dbquant = br.read(2)?;
+                Some(PBInfo::new(trb as u8, dbquant as u8, pbplus))
+            } else { None };
         while br.read_bool()? { // skip PEI
             br.read(8)?;
         }
@@ -478,21 +472,19 @@ impl<'a> BlockDecoder for VivoBR<'a> {
         Ok(picinfo)
     }
 
-    #[allow(unused_variables)]
-    fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
+    fn decode_slice_header(&mut self, _info: &PicInfo) -> DecoderResult<SliceInfo> {
         let br = &mut self.br;
         let gbsc = br.read(17)?;
         validate!(gbsc == 1);
-        let gn = br.read(5)?;
-        let gfid = br.read(2)?;
+        let _gn = br.read(5)?;
+        let _gfid = br.read(2)?;
         let gquant = br.read(5)?;
         let ret = SliceInfo::new_gob(0, self.gob_no, gquant as u8);
         self.gob_no += 1;
         Ok(ret)
     }
 
-    #[allow(unused_variables)]
-    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
+    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, _sstate: &SliceState) -> DecoderResult<BlockInfo> {
         let br = &mut self.br;
         let mut q = slice.get_quant();
         match info.get_mode() {
@@ -596,13 +588,11 @@ impl<'a> BlockDecoder for VivoBR<'a> {
         }
     }
 
-    #[allow(unused_variables)]
     fn decode_block_intra(&mut self, info: &BlockInfo, _sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
         self.decode_block(quant, true, coded, blk, if no < 4 { 0 } else { no - 3 }, info.get_acpred())
     }
 
-    #[allow(unused_variables)]
-    fn decode_block_inter(&mut self, info: &BlockInfo, _sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+    fn decode_block_inter(&mut self, _info: &BlockInfo, _sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
         self.decode_block(quant, false, coded, blk, if no < 4 { 0 } else { no - 3 }, ACPredMode::None)
     }
 

@@ -404,9 +404,9 @@ impl G7231Decoder {
             for (i, subframe) in self.subframe.iter_mut().enumerate() {
                 subframe.gen_fcb_excitation(&mut self.excitation[exc_start..], self.is_6300, FCB_MAX_POS[i], if (i & 1) == 0 { 6 } else { 5 });
                 subframe.gen_acb_excitation(&mut acb_vector, &self.excitation[SUBFRAME_LEN * i..], self.is_6300);
-                for i in 0..SUBFRAME_LEN {
-                    let val = self.excitation[exc_start + i];
-                    self.excitation[exc_start + i] = val.saturating_add(val).saturating_add(acb_vector[i]);
+                for (exc, &acb) in self.excitation[exc_start..][..SUBFRAME_LEN].iter_mut()
+                        .zip(acb_vector.iter()) {
+                    *exc = exc.saturating_add(*exc).saturating_add(acb);
                 }
                 exc_start += SUBFRAME_LEN;
             }
@@ -538,7 +538,7 @@ impl G7231Decoder {
             subframe.acb_lag  = ADAPTIVE_LAG[i];
         }
 
-        let mut off = [0; 4];
+        let mut off = [0; SUBFRAMES];
         let mut signs = [[0; 11]; 2];
         for i in (0..4).step_by(2) {
             let t = self.cng_rnd.next_range(1 << 13);
@@ -552,11 +552,11 @@ impl G7231Decoder {
         let mut pos = [0; 11 * SUBFRAMES];
         let mut pidx = 0;
         let mut tmp = [0; SUBFRAME_LEN / 2];
-        for i in 0..SUBFRAMES {
+        for (i, &offset) in off.iter().enumerate() {
             let npulses = if (i & 1) == 0 { 6 } else { 5 };
             for j in 0..npulses {
                 let idx = self.cng_rnd.next_range(SUBFRAME_LEN / 2 - j);
-                pos[pidx] = tmp[idx] * 2 + off[i];
+                pos[pidx] = tmp[idx] * 2 + offset;
                 pidx += 1;
                 tmp[idx] = tmp[SUBFRAME_LEN / 2 - 1 - j];
             }
@@ -572,10 +572,7 @@ impl G7231Decoder {
             self.subframe[i + 1].gen_acb_excitation(&mut acb_vec, &buf[SUBFRAME_LEN..], self.is_6300);
             buf[SUBFRAME_LEN..][..SUBFRAME_LEN].copy_from_slice(&acb_vec);
 
-            let mut max = 0;
-            for j in 0..SUBFRAME_LEN*2 {
-                max |= i32::from(buf[j]).abs();
-            }
+            let max = buf[..SUBFRAME_LEN * 2].iter().fold(0i32, |acc, &a| acc | i32::from(a).abs());
             let shift = if max == 0 { 0 } else {
                     (-10 + (32 - max.min(0x7FFF).leading_zeros()) as i32).max(-2)
                 };
@@ -830,8 +827,8 @@ impl G7231Decoder {
     }
     fn gain_scale(pf_gain: &mut i32, buf: &mut [i16], energy: i32) {
         let mut den = 0i32;
-        for i in 0..SUBFRAME_LEN {
-            let val = i32::from(buf[i] >> 2);
+        for &samp in buf[..SUBFRAME_LEN].iter() {
+            let val = i32::from(samp >> 2);
             den = den.saturating_add(val * val).saturating_add(val * val);
         }
         let mut num = energy;
@@ -848,9 +845,9 @@ impl G7231Decoder {
             gain = 1 << 12;
         }
 
-        for i in 0..SUBFRAME_LEN {
+        for val in buf[..SUBFRAME_LEN].iter_mut() {
             *pf_gain = (15 * *pf_gain + gain + (1 << 3)) >> 4;
-            buf[i] = clip16((i32::from(buf[i]) * (*pf_gain + (*pf_gain >> 4)) + (1 << 10)) >> 11);
+            *val = clip16((i32::from(*val) * (*pf_gain + (*pf_gain >> 4)) + (1 << 10)) >> 11);
         }
     }
 }

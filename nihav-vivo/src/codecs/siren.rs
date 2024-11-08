@@ -92,8 +92,8 @@ impl SirenDecoder {
         generate_window(WindowType::Sine, 1.0 / 320.0 / 64.0, SAMPLES, true, &mut window);
 
         let mut quant_tab = [0.0; 64];
-        for i in 0..64 {
-            quant_tab[i] = 2.0f32.powf((((i as i32) - 24) as f32) / 2.0);
+        for (i, quant) in quant_tab.iter_mut().enumerate() {
+            *quant = 2.0f32.powf((((i as i32) - 24) as f32) / 2.0);
         }
 
         SirenDecoder {
@@ -185,9 +185,10 @@ impl SirenDecoder {
             } else {
                 let mut min_value = 99;
                 let mut max_idx = 0;
-                for reg in 0..NUM_REGIONS {
-                    if max_rate_cat[reg] == 0 { continue; }
-                    let val = offset - self.pow_index[reg] - 2 * (max_rate_cat[reg] as i32);
+                for (reg, (&max_rate, &pow_index)) in max_rate_cat.iter()
+                        .zip(self.pow_index.iter()).enumerate() {
+                    if max_rate == 0 { continue; }
+                    let val = offset - pow_index - 2 * (max_rate as i32);
                     if min_value > val {
                         min_value = val;
                         max_idx = reg;
