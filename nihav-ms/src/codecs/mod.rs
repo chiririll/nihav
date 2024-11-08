@@ -43,7 +43,6 @@ pub fn ms_register_all_decoders(rd: &mut RegisteredDecoders) {
 }
 
 #[cfg(feature="encoder_msvideo1")]
-#[allow(clippy::collapsible_else_if)]
 pub mod msvideo1enc;
 
 const MS_ENCODERS: &[EncoderInfo] = &[

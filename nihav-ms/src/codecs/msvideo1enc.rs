@@ -354,21 +354,21 @@ impl<'a> BlockPainterPal<'a> {
     fn find_index(&self, pix: UnpackedPixel) -> u8 { self.ls.search(pix) as u8 }
     fn put_fill(&self, bstate: &BlockState, dst: &mut [u8], dstride: usize) -> u8 {
         let fill_val = self.find_index(bstate.fill_val);
-        for line in dst.chunks_mut(dstride) {
-            for i in 0..4 {
-                line[i] = fill_val;
+        for line in dst.chunks_mut(dstride).take(4) {
+            for pix in line[..4].iter_mut() {
+                *pix = fill_val;
             }
         }
         fill_val
     }
     fn put_clr2(&self, bstate: &BlockState, dst: &mut [u8], dstride: usize) -> [u8; 2] {
         let clr2 = [self.find_index(bstate.clr2[0]), self.find_index(bstate.clr2[1])];
-        for j in 0..4 {
-            for i in 0..4 {
+        for (j, dline) in dst.chunks_mut(dstride).take(4).enumerate() {
+            for (i, pix) in dline[..4].iter_mut().enumerate() {
                 if (bstate.clr2_flags & (1 << (i + j * 4))) == 0 {
-                    dst[i + j * dstride] = clr2[0];
+                    *pix = clr2[0];
                 } else {
-                    dst[i + j * dstride] = clr2[1];
+                    *pix = clr2[1];
                 }
             }
         }
@@ -445,20 +445,20 @@ impl BlockPainter15 {
     fn put_fill(&self, bstate: &BlockState, dst: &mut [u16], dstride: usize) -> u16 {
         let fill_val = pack_rgb555(bstate.fill_val);
         for line in dst.chunks_mut(dstride) {
-            for i in 0..4 {
-                line[i] = fill_val;
+            for pix in line[..4].iter_mut() {
+                *pix = fill_val;
             }
         }
         fill_val
     }
     fn put_clr2(&self, bstate: &BlockState, dst: &mut [u16], dstride: usize) -> [u16; 2] {
         let clr2 = [pack_rgb555(bstate.clr2[0]), pack_rgb555(bstate.clr2[1])];
-        for j in 0..4 {
-            for i in 0..4 {
+        for (j, dline) in dst.chunks_mut(dstride).take(4).enumerate() {
+            for (i, pix) in dline[..4].iter_mut().enumerate() {
                 if (bstate.clr2_flags & (1 << (i + j * 4))) == 0 {
-                    dst[i + j * dstride] = clr2[0];
+                    *pix = clr2[0];
                 } else {
-                    dst[i + j * dstride] = clr2[1];
+                    *pix = clr2[1];
                 }
             }
         }
@@ -836,6 +836,7 @@ impl NAEncoder for MSVideo1Encoder {
         }
     }
     fn get_capabilities(&self) -> u64 { ENC_CAPS_SKIPFRAME }
+    #[allow(clippy::collapsible_else_if)]
     fn init(&mut self, stream_id: u32, encinfo: EncodeParameters) -> EncoderResult<NAStreamRef> {
         match encinfo.format {
             NACodecTypeInfo::None => Err(EncoderError::FormatError),

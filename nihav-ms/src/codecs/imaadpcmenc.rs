@@ -106,12 +106,12 @@ impl IMAADPCMEncoder {
             let mut state = [TrellisNode::default(); 16];
             for ch in 0..self.channels {
                 self.nodes.clear();
-                for i in 0..16 {
+                for (i, state) in state.iter_mut().enumerate() {
                     let step = (((self.first[ch].step + i) as isize) - 8).max(0).min(IMA_MAX_STEP as isize) as usize;
-                    state[i].state.predictor = self.first[ch].predictor;
-                    state[i].state.step = step;
-                    state[i].error = 0;
-                    state[i].nib = step as u8;
+                    state.state.predictor = self.first[ch].predictor;
+                    state.state.step = step;
+                    state.error = 0;
+                    state.nib = step as u8;
                 }
                 self.nodes.push(state);
                 let mut sidx = ch + step;

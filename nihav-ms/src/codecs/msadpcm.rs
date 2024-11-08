@@ -113,22 +113,22 @@ impl NADecoder for MSADPCMDecoder {
             for blk in pktbuf.chunks(self.block_len) {
                 let mut mr = MemoryReader::new_read(blk);
                 let mut br = ByteReader::new(&mut mr);
-                for ch in 0..channels {
+                for p in pred[..channels].iter_mut() {
                     let coef_idx                = br.read_byte()? as usize;
                     validate!(coef_idx < self.adapt_coeffs.len());
-                    pred[ch].coef1 = self.adapt_coeffs[coef_idx][0];
-                    pred[ch].coef2 = self.adapt_coeffs[coef_idx][1];
+                    p.coef1 = self.adapt_coeffs[coef_idx][0];
+                    p.coef2 = self.adapt_coeffs[coef_idx][1];
                 }
-                for ch in 0..channels {
-                    pred[ch].delta              = i32::from(br.read_u16le()?);
+                for p in pred[..channels].iter_mut() {
+                    p.delta                     = i32::from(br.read_u16le()?);
                 }
-                for ch in 0..channels {
+                for p in pred[..channels].iter_mut() {
                     let samp                    = br.read_u16le()? as i16;
-                    pred[ch].sample1            = i32::from(samp);
+                    p.sample1                   = i32::from(samp);
                 }
-                for ch in 0..channels {
+                for p in pred[..channels].iter_mut() {
                     let samp                    = br.read_u16le()? as i16;
-                    pred[ch].sample2            = i32::from(samp);
+                    p.sample2                   = i32::from(samp);
                 }
                 for ch in 0..channels {
                     dst[off[ch]]     = pred[ch].sample2 as i16;
@@ -212,16 +212,16 @@ impl MSADPCMEncoder {
         let mut bw = ByteWriter::new(&mut mw);
 
         let mut best_idx = [0usize; 2];
-        for ch in 0..self.channels {
+        for (ch, best_idx) in best_idx[..self.channels].iter_mut().enumerate() {
             let mut best_dist = std::i64::MAX;
             for i in 0..ADAPT_COEFFS.len() {
                 let dist = self.calc_dist(ch, i, len);
                 if dist < best_dist {
                     best_dist = dist;
-                    best_idx[ch] = i;
+                    *best_idx = i;
                 }
             }
-            bw.write_byte(best_idx[ch] as u8)?;
+            bw.write_byte(*best_idx as u8)?;
         }
         let mut dec = [Predictor::default(), Predictor::default()];
         for ch in 0..self.channels {
@@ -236,14 +236,14 @@ impl MSADPCMEncoder {
                 dec[ch].delta = 16;
             }
         }
-        for ch in 0..self.channels {
-            bw.write_u16le(dec[ch].delta as u16)?;
+        for d in dec[..self.channels].iter() {
+            bw.write_u16le(d.delta as u16)?;
         }
-        for ch in 0..self.channels {
-            bw.write_u16le(dec[ch].sample1 as u16)?;
+        for d in dec[..self.channels].iter() {
+            bw.write_u16le(d.sample1 as u16)?;
         }
-        for ch in 0..self.channels {
-            bw.write_u16le(dec[ch].sample2 as u16)?;
+        for d in dec[..self.channels].iter() {
+            bw.write_u16le(d.sample2 as u16)?;
         }
         if self.channels == 1 {
             for samps in self.samples.chunks(2).skip(1).take(len/2 - 1) {

@@ -200,7 +200,6 @@ impl NADecoder for RleDecoder {
         let mut mr = MemoryReader::new_read(src.as_slice());
         let mut br = ByteReader::new(&mut mr);
 
-        let ftype;
         let bufret = self.hams.clone_ref();
         let mut buf;
         if let Some(bbuf) = bufret {
@@ -212,11 +211,11 @@ impl NADecoder for RleDecoder {
             buf = self.hams.get_output_frame().unwrap();
         }
         let mut frm = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
-        if !self.is_4bit {
-            ftype = self.decode_8bit(&mut br, &mut frm)?;
-        } else {
-            ftype = self.decode_4bit(&mut br, &mut frm)?;
-        }
+        let ftype = if !self.is_4bit {
+                self.decode_8bit(&mut br, &mut frm)?
+            } else {
+                self.decode_4bit(&mut br, &mut frm)?
+            };
         let paloff = frm.offset[1];
         let dpal = &mut frm.data[paloff..];
         for sd in pkt.side_data.iter() {
