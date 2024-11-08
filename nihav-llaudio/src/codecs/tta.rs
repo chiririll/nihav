@@ -25,6 +25,7 @@ impl Filter {
         self.dl = [0; 8];
         self.predictor = 0;
     }
+    #[allow(clippy::comparison_chain)]
     fn hybrid_filt(&mut self, delta: i32) -> i32 {
         if self.error < 0 {
             for (qm, dx) in self.qm.iter_mut().zip(self.dx.iter()) {

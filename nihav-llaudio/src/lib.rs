@@ -3,12 +3,8 @@ extern crate nihav_core;
 extern crate nihav_codec_support;
 
 #[cfg(any(feature="decoders", feature="encoders"))]
-#[allow(clippy::comparison_chain)]
-#[allow(clippy::unreadable_literal)]
-#[allow(clippy::verbose_bit_mask)]
 mod codecs;
 #[cfg(feature="demuxers")]
-#[allow(clippy::unreadable_literal)]
 mod demuxers;
 #[cfg(feature="muxers")]
 mod muxers;

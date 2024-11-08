@@ -12,6 +12,7 @@ macro_rules! validate {
 #[cfg(feature="decoder_ape")]
 pub mod ape;
 #[cfg(feature="decoder_ape")]
+#[allow(clippy::comparison_chain)]
 mod apepred;
 #[cfg(feature="decoder_ape")]
 mod apereader;
