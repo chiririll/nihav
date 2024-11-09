@@ -600,7 +600,7 @@ impl Inflate {
                     }
                     let mut len_codes = [ShortCodebookDesc { code: 0, bits: 0 }; 19];
                     lengths_to_codes(&self.len_lengths, &mut len_codes)?;
-                    let mut cr = ShortCodebookDescReader::new(len_codes.to_vec());
+                    let mut cr = ShortCodebookDescReader::new(&len_codes);
                     let ret = Codebook::new(&mut cr, CodebookMode::LSB);
                     if ret.is_err() {
                         self.state = InflateState::End;
@@ -642,14 +642,14 @@ impl Inflate {
 
                         let mut lit_codes = [ShortCodebookDesc { code: 0, bits: 0 }; NUM_LITERALS];
                         lengths_to_codes(lit_lengths, &mut lit_codes)?;
-                        let mut cr = ShortCodebookDescReader::new(lit_codes.to_vec());
+                        let mut cr = ShortCodebookDescReader::new(&lit_codes);
                         let ret = Codebook::new(&mut cr, CodebookMode::LSB);
                         if ret.is_err() { return Err(DecompressError::InvalidHeader); }
                         self.dyn_lit_cb = Some(ret.unwrap());
 
                         let mut dist_codes = [ShortCodebookDesc { code: 0, bits: 0 }; NUM_DISTS];
                         lengths_to_codes(&dist_lengths[..self.hdist], &mut dist_codes)?;
-                        let mut cr = ShortCodebookDescReader::new(dist_codes.to_vec());
+                        let mut cr = ShortCodebookDescReader::new(&dist_codes);
                         let ret = Codebook::new(&mut cr, CodebookMode::LSB);
                         if ret.is_err() { return Err(DecompressError::InvalidHeader); }
                         self.dyn_dist_cb = Some(ret.unwrap());
@@ -895,7 +895,7 @@ impl Inflate {
                     }
                     let mut len_codes = [ShortCodebookDesc { code: 0, bits: 0 }; 19];
                     lengths_to_codes(&len_lengths, &mut len_codes)?;
-                    let mut cr = ShortCodebookDescReader::new(len_codes.to_vec());
+                    let mut cr = ShortCodebookDescReader::new(&len_codes);
                     let ret = Codebook::new(&mut cr, CodebookMode::LSB);
                     if ret.is_err() {
                         return Err(DecompressError::InvalidHeader);
@@ -937,14 +937,14 @@ impl Inflate {
 
                     let mut lit_codes = [ShortCodebookDesc { code: 0, bits: 0 }; NUM_LITERALS];
                     lengths_to_codes(lit_lengths, &mut lit_codes)?;
-                    let mut cr = ShortCodebookDescReader::new(lit_codes.to_vec());
+                    let mut cr = ShortCodebookDescReader::new(&lit_codes);
                     let ret = Codebook::new(&mut cr, CodebookMode::LSB);
                     if ret.is_err() { return Err(DecompressError::InvalidHeader); }
                     let dyn_lit_cb = ret.unwrap();
 
                     let mut dist_codes = [ShortCodebookDesc { code: 0, bits: 0 }; NUM_DISTS];
                     lengths_to_codes(&dist_lengths[..hdist], &mut dist_codes)?;
-                    let mut cr = ShortCodebookDescReader::new(dist_codes.to_vec());
+                    let mut cr = ShortCodebookDescReader::new(&dist_codes);
                     let ret = Codebook::new(&mut cr, CodebookMode::LSB);
                     if ret.is_err() { return Err(DecompressError::InvalidHeader); }
                     let dyn_dist_cb = ret.unwrap();

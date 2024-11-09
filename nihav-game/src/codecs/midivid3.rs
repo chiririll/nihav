@@ -66,7 +66,7 @@ struct Midivid3Decoder {
 
 impl Midivid3Decoder {
     fn new() -> Self {
-        let mut cr = ShortCodebookDescReader::new(vec![
+        let mut cr = ShortCodebookDescReader::new(&[
                     ShortCodebookDesc { code: 0b00,         bits: 2 },
                     ShortCodebookDesc { code: 0b01,         bits: 2 },
                     ShortCodebookDesc { code: 0b100,        bits: 3 },

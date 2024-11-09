@@ -10,11 +10,11 @@
 //! ```
 //! use nihav_core::io::codebook::{ShortCodebookDesc, ShortCodebookDescReader, Codebook, CodebookMode};
 //!
-//! let cb_desc: Vec<ShortCodebookDesc> = vec!(
+//! let cb_desc: &[ShortCodebookDesc] = &[
 //!             ShortCodebookDesc { code: 0b00,   bits: 2 },
 //!             ShortCodebookDesc { code: 0,      bits: 0 },
 //!             ShortCodebookDesc { code: 0b01,   bits: 2 },
-//!             ShortCodebookDesc { code: 0b1,    bits: 1 });
+//!             ShortCodebookDesc { code: 0b1,    bits: 1 }];
 //! let mut cr = ShortCodebookDescReader::new(cb_desc);
 //! let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
 //! ```
@@ -39,7 +39,7 @@
 //! # use nihav_core::io::codebook::{ShortCodebookDesc, ShortCodebookDescReader, CodebookDescReader, CodebookResult};
 //!
 //! # fn foo(br: &mut BitReader) -> CodebookResult<()> {
-//! # let mut cr = ShortCodebookDescReader::new(vec![ShortCodebookDesc { code: 0b00,   bits: 2 }]);
+//! # let mut cr = ShortCodebookDescReader::new(&[ShortCodebookDesc { code: 0b00,   bits: 2 }]);
 //! let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
 //! let value = br.read_cb(&cb)?;
 //! # Ok(())
@@ -381,38 +381,38 @@ impl<'a, S: Copy> CodebookReader<S> for BitReader<'a> {
     }
 }
 
-/// Codebook description that stores a list of codewords and their values.
-pub struct FullCodebookDescReader<S> {
-    data: Vec<FullCodebookDesc<S>>,
+/// Codebook description that stores a reference to the list of codewords and their values.
+pub struct FullCodebookDescReader<'a, S> {
+    data: &'a [FullCodebookDesc<S>],
 }
 
-impl<S> FullCodebookDescReader<S> {
+impl<'a, S> FullCodebookDescReader<'a, S> {
     /// Constructs a new `FullCodebookDescReader` instance.
-    pub fn new(data: Vec<FullCodebookDesc<S>>) -> Self {
+    pub fn new(data: &'a [FullCodebookDesc<S>]) -> Self {
         FullCodebookDescReader { data }
     }
 }
 
-impl<S: Copy> CodebookDescReader<S> for FullCodebookDescReader<S> {
+impl<'a, S: Copy> CodebookDescReader<S> for FullCodebookDescReader<'a, S> {
     fn bits(&mut self, idx: usize) -> u8  { self.data[idx].bits }
     fn code(&mut self, idx: usize) -> u32 { self.data[idx].code }
     fn sym (&mut self, idx: usize) -> S   { self.data[idx].sym  }
     fn len(&mut self) -> usize { self.data.len() }
 }
 
-/// Codebook description that stores a list of codewords and their value is equal to the index.
-pub struct ShortCodebookDescReader {
-    data: Vec<ShortCodebookDesc>,
+/// Codebook description that stores a reference to the list of codewords (their value is equal to the index).
+pub struct ShortCodebookDescReader<'a> {
+    data: &'a [ShortCodebookDesc],
 }
 
-impl ShortCodebookDescReader {
+impl<'a> ShortCodebookDescReader<'a> {
     /// Constructs a new `ShortCodebookDescReader` instance.
-    pub fn new(data: Vec<ShortCodebookDesc<>>) -> Self {
+    pub fn new(data: &'a [ShortCodebookDesc]) -> Self {
         ShortCodebookDescReader { data }
     }
 }
 
-impl CodebookDescReader<u32> for ShortCodebookDescReader {
+impl<'a> CodebookDescReader<u32> for ShortCodebookDescReader<'a> {
     fn bits(&mut self, idx: usize) -> u8  { self.data[idx].bits }
     fn code(&mut self, idx: usize) -> u32 { self.data[idx].code }
     fn sym (&mut self, idx: usize) -> u32 { idx as u32 }
@@ -448,12 +448,12 @@ mod test {
     #[test]
     fn test_cb() {
         const BITS: [u8; 2] = [0b01011011, 0b10111100];
-        let cb_desc: Vec<FullCodebookDesc<i8>> = vec!(
+        let cb_desc = &[
             FullCodebookDesc { code: 0b0,    bits: 1, sym:  16 },
             FullCodebookDesc { code: 0b10,   bits: 2, sym:  -3 },
             FullCodebookDesc { code: 0b110,  bits: 3, sym:  42 },
             FullCodebookDesc { code: 0b1110, bits: 4, sym: -42 }
-        );
+        ];
         let buf = &BITS;
         let mut br = BitReader::new(buf, BitReaderMode::BE);
         let mut cfr = FullCodebookDescReader::new(cb_desc);
@@ -469,7 +469,7 @@ mod test {
             assert_eq!(0, 1);
         }
 
-        let scb_desc: Vec<ShortCodebookDesc> = vec!(
+        let scb_desc = &[
             ShortCodebookDesc { code: 0b0,    bits: 1 },
             ShortCodebookDesc { code: 0,      bits: 0 },
             ShortCodebookDesc { code: 0b10,   bits: 2 },
@@ -483,7 +483,7 @@ mod test {
             ShortCodebookDesc { code: 0b1111011, bits: 7 },
             ShortCodebookDesc { code: 0b1111110, bits: 7 },
             ShortCodebookDesc { code: 0b11111111, bits: 8 }
-        );
+        ];
         let mut br2 = BitReader::new(buf, BitReaderMode::BE);
         let mut cfr = ShortCodebookDescReader::new(scb_desc);
         let cb = Codebook::new(&mut cfr, CodebookMode::MSB).unwrap();
@@ -497,7 +497,7 @@ mod test {
 
         const BITS_LE: [u8; 3] = [0b11101111, 0b01110010, 0b01];
         let buf = &BITS_LE;
-        let scble_desc: Vec<ShortCodebookDesc> = vec!(
+        let scble_desc = &[
             ShortCodebookDesc { code: 0b00,   bits: 2 },
             ShortCodebookDesc { code: 0,      bits: 0 },
             ShortCodebookDesc { code: 0b01,   bits: 2 },
@@ -510,7 +510,7 @@ mod test {
             ShortCodebookDesc { code: 0b0101111, bits: 7 },
             ShortCodebookDesc { code: 0b0111111, bits: 7 },
             ShortCodebookDesc { code: 0b1011101111, bits: 10 }
-        );
+        ];
         let mut brl = BitReader::new(buf, BitReaderMode::LE);
         let mut cfr = ShortCodebookDescReader::new(scble_desc);
         let cb = Codebook::new(&mut cfr, CodebookMode::LSB).unwrap();

@@ -184,7 +184,7 @@ impl TM2Stream {
         hdef.read(&mut br, &mut codes, 0, 0)?;
         htree.sym0 = codes[0].sym;
         if nelems > 1 {
-            let mut cr = FullCodebookDescReader::new(codes);
+            let mut cr = FullCodebookDescReader::new(&codes);
             htree.cb = Some(Codebook::new(&mut cr, CodebookMode::MSB)?);
         }
 
