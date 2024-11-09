@@ -1009,6 +1009,7 @@ impl<'a> RealMediaDemuxer<'a> {
         }
 
         let (id, size, ver) = read_chunk(self.src)?;
+        validate!(id == mktag!(b"PROP"));
         let prop_size = if ver == 0 { RMVB_PROP_SIZE } else { RMVB_PROP_SIZE + 4 };
         validate!(size >= prop_size);
         validate!((ver == 0) || (ver == 2));
