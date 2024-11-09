@@ -1,6 +1,7 @@
 use super::super::types::Block;
 use super::clip8;
 
+#[allow(clippy::wrong_self_convention)]
 pub trait BlockOps {
     fn from_diff(&mut self, new: &[u8], old: &[u8], stride: usize);
     fn add_to(&self, dst: &mut [u8], stride: usize);

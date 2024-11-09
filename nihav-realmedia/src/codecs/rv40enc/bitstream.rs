@@ -255,6 +255,7 @@ struct CBPSet {
 }
 
 impl CBPSet {
+    #[allow(clippy::identity_op)]
     fn new(intra: bool, set: usize, subset: usize) -> Self {
         if intra {
             let cbp_pat = RV34CodeReader::new(&RV34_INTRA_CBPPAT[set][subset]);

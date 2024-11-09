@@ -113,6 +113,7 @@ impl Filter {
     }
     fn is_none(&self) -> bool { self.params == FILTER_NONE }
     fn is_raw(&self)  -> bool { self.params == FILTER_RAW }
+    #[allow(clippy::comparison_chain)]
     fn read_coeffs(&mut self, br: &mut BitReader, cset: &CodebookSet) -> DecoderResult<()> {
         let coeff_cb = &cset.filter_coeffs_cb[self.bits as usize];
         let mut cmode: i32 = 0;
@@ -182,6 +183,7 @@ impl Channel {
     fn new() -> Self {
         Self { bias: 0, mode: 0, bits: 0, data: [0; 4096], filter: Filter::new() }
     }
+    #[allow(clippy::identity_op)]
     fn decode(&mut self, br: &mut BitReader, codebooks: &[CodebookSet; 3], length: usize) -> DecoderResult<()> {
         let cset = &codebooks[self.mode as usize];
         self.filter.params                              = br.read_cb(&cset.filter_params_cb).unwrap();
@@ -282,12 +284,11 @@ impl RALFDecoder {
         let length = read_block_length(&mut br).unwrap();
         validate!(length + self.sample_offset <= self.max_frame_size);
 
-        let dmode;
-        if self.channels > 1 {
-            dmode                                       = (br.read(2).unwrap() + 1) as u8;
-        } else {
-            dmode = 0;
-        }
+        let dmode = if self.channels > 1 {
+                                                          (br.read(2).unwrap() + 1) as u8
+            } else {
+                0
+            };
         self.ch_data[0].mode = dmode >> 2;
         self.ch_data[0].bits = 16;
         self.ch_data[1].mode = if dmode >= 2 { 2 } else { 0 };
@@ -431,12 +432,11 @@ impl NADecoder for RALFDecoder {
             let mut br = BitReader::new(&self.pkt_buf[2..][..table_bytes], BitReaderMode::BE);
             while br.tell() < table_bits {
                 let size                                = br.read(13 + self.channels).unwrap() as usize;
-                let pts;
-                if br.read_bool().unwrap() {
-                    pts                                 = br.read(9).unwrap() as u16;
-                } else {
-                    pts = 0;
-                }
+                let pts = if br.read_bool().unwrap() {
+                                                          br.read(9).unwrap() as u16
+                    } else {
+                        0
+                    };
                 self.blocks.push(Block{ size, _pts: pts });
             }
         }

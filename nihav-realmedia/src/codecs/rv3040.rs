@@ -51,7 +51,6 @@ impl RV34SliceHeader {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum MBType {
     MBIntra,
@@ -327,6 +326,7 @@ impl MVInfo {
         self.has_b.clear();
         self.has_b.resize(size >> 2, false);
     }
+    #[allow(clippy::identity_op)]
     fn fill(&mut self, mb_x: usize, mb_y: usize, fwd: bool, mv: MV) {
         let idx = mb_x * 2 + mb_y * 2 * self.w;
         if fwd {
@@ -362,6 +362,8 @@ impl MVInfo {
     pub fn pred_mb_mv(&self, mb_x: usize, mb_y: usize, fwd: bool, has_top: bool, has_left: bool, has_tr: bool, has_tl: bool) -> MV {
         self.pred_mv(mb_x * 2 + mb_y * 2 * self.w, fwd, has_top, has_left, has_tr, has_tl, true)
     }
+    #[allow(clippy::collapsible_else_if)]
+    #[allow(clippy::identity_op)]
     fn set_mb(&mut self, mb_x: usize, mb_y: usize, mbtype: MBType, ref_mvi: &Self, mvs: &[MV], sstate: &SState) {
         let mb_idx = mb_x + mb_y * (self.w >> 1);
         self.has_f[mb_idx] = mbtype.is_fwd();
@@ -418,12 +420,11 @@ impl MVInfo {
                         for x in 0..2 {
                             let has_left = (x > 0) || sstate.has_left;
                             let has_tr = if y > 0 { x == 0 } else if x == 0 { sstate.has_top } else { sstate.has_tr };
-                            let has_tl;
-                            if y == 0 {
-                                has_tl = if x == 0 { sstate.has_tl } else { sstate.has_top };
-                            } else {
-                                has_tl = if x == 0 { sstate.has_left } else { true };
-                            }
+                            let has_tl = if y == 0 {
+                                    if x == 0 { sstate.has_tl } else { sstate.has_top }
+                                } else {
+                                    if x == 0 { sstate.has_left } else { true }
+                                };
                             let pred_mv = self.pred_mv(idx8 + x, true, has_top, has_left, has_tr, has_tl, false);
                             let new_mv = mvs[x + y * 2] + pred_mv;
                             self.mv_f[idx8 + x] = new_mv;
@@ -482,7 +483,7 @@ impl MVInfo {
         let off = if vert { self.w } else { 1 };
         let diffx = self.mv_f[idx].x - self.mv_f[idx - off].x;
         let diffy = self.mv_f[idx].y - self.mv_f[idx - off].y;
-        (diffx < -3) || (diffx > 3) || (diffy < -3) || (diffy > 3)
+        (diffx.abs() > 3) || (diffy.abs() > 3)
     }
 }
 
@@ -537,18 +538,16 @@ fn decode_slice_header(br: &mut BitReader, bd: &mut dyn RV34BitstreamDecoder, sl
         if let Ok(nhdr) = bd.decode_slice_header(br, shdr.width, shdr.height) {
             validate!(nhdr.start > shdr.start);
             shdr.end = nhdr.start;
-        } else {
-            if slice_no + 2 < slice_offs.len() {
-                br.seek((slice_offs[slice_no + 2] * 8) as u32)?;
-                if let Ok(nhdr) = bd.decode_slice_header(br, shdr.width, shdr.height) {
-                    validate!(nhdr.start > shdr.start);
-                    shdr.end = nhdr.start;
-                } else {
-                    shdr.end = ((shdr.width + 15) >> 4) * ((shdr.height + 15) >> 4);
-                }
+        } else if slice_no + 2 < slice_offs.len() {
+            br.seek((slice_offs[slice_no + 2] * 8) as u32)?;
+            if let Ok(nhdr) = bd.decode_slice_header(br, shdr.width, shdr.height) {
+                validate!(nhdr.start > shdr.start);
+                shdr.end = nhdr.start;
             } else {
                 shdr.end = ((shdr.width + 15) >> 4) * ((shdr.height + 15) >> 4);
             }
+        } else {
+            shdr.end = ((shdr.width + 15) >> 4) * ((shdr.height + 15) >> 4);
         }
         br.seek(cur_pos)?;
     } else {
@@ -825,12 +824,11 @@ impl RV34Decoder {
             for y in 0..4 {
                 for x in 0..4 {
                     let mut coeffs: [i16; 16] = [0; 16];
-                    let has_ac;
-                    if (cur_cbp & 1) != 0 {
-                        has_ac = self.coderead.decode_block(br, &mut coeffs, luma_set, 0, q_ac, q_ac, q_ac)?;
-                    } else {
-                        has_ac = false;
-                    }
+                    let has_ac = if (cur_cbp & 1) != 0 {
+                            self.coderead.decode_block(br, &mut coeffs, luma_set, 0, q_ac, q_ac, q_ac)?
+                        } else {
+                            false
+                        };
                     if is_16 {
                         coeffs[0] = coeffs16[x + y * 4];
                     } else {
@@ -874,12 +872,11 @@ impl RV34Decoder {
             for y in 0..2 {
                 for x in 0..2 {
                     let mut coeffs: [i16; 16] = [0; 16];
-                    let has_ac;
-                    if (cur_cbp & 1) != 0 {
-                        has_ac = self.coderead.decode_block(br, &mut coeffs, chroma_set, 1, q_dc, q_ac, q_ac)?;
-                    } else {
-                        has_ac = false;
-                    }
+                    let has_ac = if (cur_cbp & 1) != 0 {
+                            self.coderead.decode_block(br, &mut coeffs, chroma_set, 1, q_dc, q_ac, q_ac)?
+                        } else {
+                            false
+                        };
                     if !is_16 {
                         let noright = (sstate.mb_x == sstate.mb_w - 1) && (x == 1);
                         let has_top = sstate.has_top || (y > 0);
@@ -996,12 +993,11 @@ impl RV34Decoder {
             for y in 0..4 {
                 for x in 0..4 {
                     let mut coeffs: [i16; 16] = [0; 16];
-                    let has_ac;
-                    if (cur_cbp & 1) != 0 {
-                        has_ac = self.coderead.decode_block(br, &mut coeffs, luma_set, 0, q_ac, q_ac, q_ac)?;
-                    } else {
-                        has_ac = false;
-                    }
+                    let has_ac = if (cur_cbp & 1) != 0 {
+                            self.coderead.decode_block(br, &mut coeffs, luma_set, 0, q_ac, q_ac, q_ac)?
+                        } else {
+                            false
+                        };
                     if is_16 {
                         coeffs[0] = coeffs16[x + y * 4];
                     }
@@ -1030,12 +1026,11 @@ impl RV34Decoder {
             for _ in 0..2 {
                 for x in 0..2 {
                     let mut coeffs: [i16; 16] = [0; 16];
-                    let has_ac;
-                    if (cur_cbp & 1) != 0 {
-                        has_ac = self.coderead.decode_block(br, &mut coeffs, chroma_set, 1, q_dc, q_ac, q_ac)?;
-                    } else {
-                        has_ac = false;
-                    }
+                    let has_ac = if (cur_cbp & 1) != 0 {
+                            self.coderead.decode_block(br, &mut coeffs, chroma_set, 1, q_dc, q_ac, q_ac)?
+                        } else {
+                            false
+                        };
                     if has_ac {
                         self.cdsp.transform(&mut coeffs);
                     } else {
@@ -1088,6 +1083,7 @@ impl RV34Decoder {
     }
 
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::collapsible_else_if)]
     pub fn parse_frame(&mut self, supp: &mut NADecoderSupport, src: &[u8], bd: &mut dyn RV34BitstreamDecoder) -> DecoderResult<(NABufferType, FrameType, u64)> {
         let mut slice_offs: Vec<usize> = Vec::new();
         parse_slice_offsets(src, &mut slice_offs)?;
@@ -1197,19 +1193,18 @@ impl RV34Decoder {
                         self.decode_mb_header_intra(bd, &mut br, is_i16, &mut imode, q, sstate.has_top, false)?
                     } else {
                         if skip_run == 0 {
-                            let mbtype;
-                            if self.is_rv30 {
-                                mbtype = MBType::Invalid;
-                            } else {
-                                let mut hist = MBHist::new(hdr0.ftype);
-                                if sstate.has_top  {
-                                    hist.add(mbinfo[mb_pos - mb_w].mbtype);
-                                    if sstate.has_tr   { hist.add(mbinfo[mb_pos - mb_w + 1].mbtype); }
-                                }
-                                if sstate.has_left { hist.add(mbinfo[mb_pos - 1].mbtype); }
-                                if sstate.has_tl   { hist.add(mbinfo[mb_pos - mb_w - 1].mbtype); }
-                                mbtype = hist.get_mbtype();
-                            }
+                            let mbtype = if self.is_rv30 {
+                                    MBType::Invalid
+                                } else {
+                                    let mut hist = MBHist::new(hdr0.ftype);
+                                    if sstate.has_top  {
+                                        hist.add(mbinfo[mb_pos - mb_w].mbtype);
+                                        if sstate.has_tr   { hist.add(mbinfo[mb_pos - mb_w + 1].mbtype); }
+                                    }
+                                    if sstate.has_left { hist.add(mbinfo[mb_pos - 1].mbtype); }
+                                    if sstate.has_tl   { hist.add(mbinfo[mb_pos - mb_w - 1].mbtype); }
+                                    hist.get_mbtype()
+                                };
                             self.decode_mb_header_inter(bd, &mut br, hdr0.ftype, mbtype, &mut imode, q, sstate.has_top)?
                         } else {
                             skip_run -= 1;
@@ -1218,8 +1213,8 @@ impl RV34Decoder {
                     };
                 if !mbh.mbtype.is_intra() {
                     let mut mvs: [MV; 4] = [ZERO_MV; 4];
-                    for i in 0..mbh.mbtype.get_num_mvs() {
-                        mvs[i] = decode_mv(&mut br)?;
+                    for mv in mvs[..mbh.mbtype.get_num_mvs()].iter_mut() {
+                        *mv = decode_mv(&mut br)?;
                     }
                     if !self.is_b {
                         self.mvi.set_mb(mb_x, mb_y, mbh.mbtype, &self.ref_mvi, &mvs, &sstate);

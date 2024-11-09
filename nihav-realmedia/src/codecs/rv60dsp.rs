@@ -660,6 +660,7 @@ pub struct IntraPredContext {
     pub has_ld: bool,
 }
 
+#[allow(clippy::needless_range_loop)]
 impl IntraPredContext {
     pub fn new() -> Self {
         Self {
@@ -781,8 +782,8 @@ impl IntraPredContext {
     fn filter_bilin32(dst: &mut [u8], v0: u8, v1: u8, size: usize) {
         let diff = (v1 as i16) - (v0 as i16);
         let mut sum = ((v0 as i16) << 5) + (1 << (5 - 1));
-        for i in 0..size {
-            dst[i] = (sum >> 5) as u8;
+        for el in dst[..size].iter_mut() {
+            *el = (sum >> 5) as u8;
             sum += diff;
         }
     }

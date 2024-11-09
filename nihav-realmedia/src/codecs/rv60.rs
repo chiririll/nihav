@@ -60,6 +60,8 @@ struct FrameHeader {
 
 const RV60_CUSTOM_MSG_LENS: [u32; 4] = [ 2, 4, 16, 32 ];
 impl FrameHeader {
+    #[allow(clippy::identity_op)]
+    #[allow(clippy::needless_late_init)]
     fn read(br: &mut BitReader) -> DecoderResult<Self> {
         let marker                                      = br.read(2)?;
         validate!(marker == 3);
@@ -107,8 +109,8 @@ impl FrameHeader {
         if br.read_bool()? {
             let custom_msg_hdr_len                      = br.read(2)? as usize;
             if custom_msg_hdr_len != 0 {
-                for i in 0..custom_msg_hdr_len {
-                                                          br.skip(RV60_CUSTOM_MSG_LENS[i] * 8)?;
+                for &msg_len in RV60_CUSTOM_MSG_LENS[..custom_msg_hdr_len].iter() {
+                                                          br.skip(msg_len * 8)?;
                 }
             }
         }
@@ -135,18 +137,15 @@ impl FrameHeader {
         sum += first_size;
         let mut lastsize = first_size;
         sizes.push(first_size);
-        for i in 1..nslices {
+        for &sign in signs[1..nslices].iter() {
             let diff                                    = br.read(nbits)? as isize;
-            let size;
-            if signs[i] {
-                let sum = (lastsize as isize).checked_add(diff);
-                validate!(sum.is_some());
-                size = sum.unwrap() as usize;
-            } else {
-                let sum = (lastsize as isize).checked_sub(diff);
-                validate!(sum.is_some());
-                size = sum.unwrap() as usize;
-            }
+            let newsize = if sign {
+                    (lastsize as isize).checked_add(diff)
+                } else {
+                    (lastsize as isize).checked_sub(diff)
+                };
+            validate!(newsize.is_some());
+            let size = newsize.unwrap() as usize;
             sizes.push(size);
             sum += size;
             lastsize = size;
@@ -411,16 +410,16 @@ struct CBHeader {
 }
 
 impl CBHeader {
+    #[allow(clippy::collapsible_else_if)]
     fn read(br: &mut BitReader, ftype: FrameType, two_f_refs: bool, size: usize) -> DecoderResult<Self> {
-        let cu_type;
         let pu_type;
         let mut imode: [IntraMode; 4] = [IntraMode::Index(0); 4];
         let mut mv: [MVInfo; 4] = [MVInfo::default(); 4];
-        if ftype == FrameType::I {
-            cu_type = CUType::Intra;
-        } else {
-            cu_type                                     = RV60_CU_TYPES[br.read(2)? as usize];
-        }
+        let cu_type = if ftype == FrameType::I {
+                CUType::Intra
+            } else {
+                RV60_CU_TYPES[br.read(2)? as usize]
+            };
         match cu_type {
             CUType::Intra   => {
                     if (size == 8) && br.read_bool()? {
@@ -429,8 +428,8 @@ impl CBHeader {
                         pu_type = PUType::Full;
                     }
                     if pu_type == PUType::Quarters {
-                        for i in 0..4 {
-                            imode[i] = CBHeader::read_intra_mode(br)?;
+                        for imode in imode.iter_mut() {
+                            *imode = CBHeader::read_intra_mode(br)?;
                         }
                     } else if size <= 32 {
                         imode[0] = CBHeader::read_intra_mode(br)?;
@@ -486,8 +485,8 @@ impl CBHeader {
     }
     fn read_mv_data(br: &mut BitReader, ftype: FrameType, two_f_refs: bool, size: usize, pu_type: PUType, mv: &mut [MVInfo; 4]) -> DecoderResult<()> {
         let mv_count = pu_type.get_num_mvs();
-        for i in 0..mv_count {
-            mv[i] = CBHeader::read_mv_info(br, ftype, two_f_refs, size, pu_type)?;
+        for mv in mv[..mv_count].iter_mut() {
+            *mv = CBHeader::read_mv_info(br, ftype, two_f_refs, size, pu_type)?;
         }
         Ok(())
     }
@@ -713,6 +712,8 @@ println!(" left {} bits", br.left());
         Ok(())
     }
     #[allow(clippy::cognitive_complexity)]
+    #[allow(clippy::collapsible_else_if)]
+    #[allow(clippy::identity_op)]
     fn decode_cb_tree(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, br: &mut BitReader, xpos: usize, ypos: usize, log_size: u8) -> DecoderResult<()> {
         if (xpos >= hdr.awidth) || (ypos >= hdr.aheight) { return Ok(()); }
 
@@ -830,12 +831,9 @@ println!(" left {} bits", br.left());
                 TransformType::T4X4 => {
                         let subset = if is_intra { 0 } else { 2 };
                         if size == 16 {
-                            let cbp16;
-                            if br.read_bool()? {
-                                cbp16 = rv6_decode_cbp16(br, &self.cbs, subset, self.sel_qp)?;
-                            } else {
-                                cbp16 = 0;
-                            }
+                            let cbp16 = if br.read_bool()? {
+                                    rv6_decode_cbp16(br, &self.cbs, subset, self.sel_qp)?
+                                } else { 0 };
                             if cbp16 != 0 {
                                 rv6_decode_cu_4x4in16x16(br, &self.cbs, is_intra, self.qp, self.sel_qp, &mut self.y_coeffs, &mut self.u_coeffs, &mut self.v_coeffs, cbp16)?;
                                 for y in 0..4 {
@@ -1132,6 +1130,7 @@ println!(" left {} bits", br.left());
             _ => unreachable!(),
         }
     }
+    #[allow(clippy::too_many_arguments)]
     fn populate_ipred(&mut self, hdr: &FrameHeader, src: &[u8], soff: usize, stride: usize, xoff: usize, yoff: usize, size: usize, is_luma: bool) {
         let src_off = if is_luma {
                 soff + self.xpos + xoff + (self.ypos + yoff) * stride
@@ -1365,6 +1364,7 @@ println!(" left {} bits", br.left());
             }
         }
     }
+    #[allow(clippy::collapsible_if)]
     fn derive_deblock_strength(&mut self, xpos: usize, ypos: usize, size4: usize) {
         let blk_pos = (xpos >> 2) + (ypos >> 2) * self.blk_stride;
         let mut dblk_pos = self.dblk.get_pos(xpos, ypos);

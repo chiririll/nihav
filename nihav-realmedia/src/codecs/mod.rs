@@ -10,13 +10,17 @@ macro_rules! validate {
 }
 
 #[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4"))]
+#[allow(clippy::too_many_arguments)]
 mod rv3040;
 #[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4", feature="encoder_realvideo4"))]
 #[allow(clippy::erasing_op)]
 mod rv34codes;
 #[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4"))]
+#[allow(clippy::collapsible_else_if)]
 #[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 #[allow(clippy::many_single_char_names)]
+#[allow(clippy::too_many_arguments)]
 mod rv34dsp;
 
 #[cfg(feature="decoder_realvideo1")]
@@ -26,29 +30,34 @@ pub mod rv20;
 #[cfg(feature="decoder_realvideo3")]
 pub mod rv30;
 #[cfg(feature="decoder_realvideo3")]
-#[allow(clippy::erasing_op)]
 #[allow(clippy::many_single_char_names)]
 #[allow(clippy::neg_multiply)]
+#[allow(clippy::too_many_arguments)]
 pub mod rv30dsp;
 #[cfg(feature="decoder_realvideo4")]
 pub mod rv40;
 #[cfg(any(feature="decoder_realvideo4", feature="encoder_realvideo4"))]
 pub mod rv40data;
 #[cfg(feature="decoder_realvideo4")]
+#[allow(clippy::eq_op)]
 #[allow(clippy::erasing_op)]
 #[allow(clippy::many_single_char_names)]
+#[allow(clippy::too_many_arguments)]
 pub mod rv40dsp;
 #[cfg(feature="decoder_realvideo6")]
 pub mod rv60;
 #[cfg(feature="decoder_realvideo6")]
+#[allow(clippy::identity_op)]
+#[allow(clippy::too_many_arguments)]
 pub mod rv60codes;
 #[cfg(feature="decoder_realvideo6")]
 #[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 #[allow(clippy::many_single_char_names)]
+#[allow(clippy::too_many_arguments)]
 pub mod rv60dsp;
 
 #[cfg(feature="decoder_realaudio144")]
-#[allow(clippy::manual_memcpy)]
 pub mod ra144;
 #[cfg(feature="decoder_realaudio288")]
 pub mod ra288;

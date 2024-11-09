@@ -9,6 +9,7 @@ fn clip8(a: i16) -> u8 {
     else { a as u8 }
 }
 
+#[allow(clippy::identity_op)]
 fn rv3_filter_h(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut sidx: usize, sstride: usize, bsize: usize, c1: i16, c2: i16) {
     for _ in 0..bsize {
         for x in 0..bsize {
@@ -19,6 +20,8 @@ fn rv3_filter_h(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut
     }
 }
 
+#[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 fn rv3_filter_v(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut sidx: usize, sstride: usize, bsize: usize, c1: i16, c2: i16) {
     for _ in 0..bsize {
         for x in 0..bsize {

@@ -80,6 +80,7 @@ impl RA144Decoder {
             rescale_rms(self.lpc_refl_rms[if copyold { 1 } else { 0 }], energy)
         }
     }
+    #[allow(clippy::needless_range_loop)]
     fn process_subblock(&mut self, br: &mut BitReader, lpc_coeffs: &[i16; LPC_ORDER], rms: u32) -> DecoderResult<()> {
         let cba_idx = br.read(7)? as usize;
         let gain    = br.read(8)? as usize;
@@ -91,9 +92,7 @@ impl RA144Decoder {
         if cba_idx != 0 {
             let len = cba_idx + BLOCKSIZE/2 - 1;
             let soff = BUFFERSIZE - len;
-            for i in 0..len.min(BLOCKSIZE) {
-                tmp_a[i] = self.adapt_cb[i + soff];
-            }
+            tmp_a[..len.min(BLOCKSIZE)].copy_from_slice(&self.adapt_cb[soff..][..len.min(BLOCKSIZE)]);
             for i in len..BLOCKSIZE {
                 tmp_a[i] = self.adapt_cb[i + soff - len];
             }
@@ -141,10 +140,8 @@ const CHMAP_MONO: [NAChannelType; 1] = [NAChannelType::C];
 
 fn celp_synth_filter(dst: &mut [i16], src: &[i16], filt: &[i16; LPC_ORDER]) -> bool { //1,0,0xfff
     for i in 0..BLOCKSIZE {
-        let mut sum = -0xFFF;
-        for j in 0..LPC_ORDER {
-            sum += (filt[j] as i32) * (dst[LPC_ORDER + i - j - 1] as i32);
-        }
+        let sum = filt.iter().zip(dst[i..].iter().rev())
+                .fold(-0xFFFi32, |acc, (&filt, &samp)| acc + (filt as i32) * (samp as i32));
         let sum1 = (-sum >> 12) + (src[BUFFERSIZE - BLOCKSIZE + i] as i32);
         if ((sum1 >> 16) != 0) && ((sum1 >> 16) != -1) { // overflow
             return true;
@@ -167,8 +164,8 @@ fn calc_rms(coeffs: &[i32; LPC_ORDER]) -> u32 {
     let mut res = 1 << 16;
     let mut shift = 10;
 
-    for i in 0..LPC_ORDER {
-        res = ((((1 << 24) - ((coeffs[i] * coeffs[i]) as u32)) >> 12) * res) >> 12;
+    for &coef in coeffs.iter() {
+        res = ((((1 << 24) - ((coef * coef) as u32)) >> 12) * res) >> 12;
         if res == 0 { return 0; }
         while res < (1 << 14) {
             res <<= 2;
@@ -179,10 +176,7 @@ fn calc_rms(coeffs: &[i32; LPC_ORDER]) -> u32 {
 }
 
 fn calc_irms(coeffs: &[i16; BLOCKSIZE]) -> u32 {
-    let mut sum = 0;
-    for i in 0..BLOCKSIZE {
-        sum += ((coeffs[i] as i32) * (coeffs[i] as i32)) as u32;
-    }
+    let sum = coeffs.iter().fold(0u32, |acc, &a| acc + (((a as i32) * (a as i32)) as u32));
     if sum != 0 {
         (1 << 29) / (fixp_sqrt(sum) >> 8)
     } else {
@@ -293,8 +287,8 @@ impl NADecoder for RA144Decoder {
             for (i, block) in output.chunks_mut(BLOCKSIZE).enumerate() {
 
                 self.process_subblock(&mut br, &block_coeffs[i], refl_rms[i])?;
-                for j in 0..BLOCKSIZE {
-                    block[j] = clip_out(self.audio[j + LPC_ORDER]) << 2;
+                for (dst, &src) in block.iter_mut().zip(self.audio[LPC_ORDER..].iter()) {
+                    *dst = clip_out(src) << 2;
                 }
             }
 

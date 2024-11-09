@@ -27,24 +27,24 @@ pub struct RV34CodeReader {
 
 impl RV34CodeReader {
     pub fn new(data: &'static [u8]) -> Self {
-        let len = data.len();
-        let mut lengths: Vec<u8> = Vec::with_capacity(len);
-        let mut codes: Vec<u32> = Vec::with_capacity(len);
-        let mut syms: Vec<u16> = Vec::with_capacity(len);
+        let data_len = data.len();
+        let mut lengths: Vec<u8> = Vec::with_capacity(data_len);
+        let mut codes: Vec<u32> = Vec::with_capacity(data_len);
+        let mut syms: Vec<u16> = Vec::with_capacity(data_len);
         let mut counts: [u32; 17] = [0; 17];
         let mut prefix: [u32; 17] = [0; 17];
-        for i in 0..len {
-            if data[i] > 0 {
-                counts[data[i] as usize] += 1;
+        for &len in data.iter() {
+            if len > 0 {
+                counts[len as usize] += 1;
             }
         }
         for i in 0..16 {
             prefix[i + 1] = (prefix[i] + counts[i]) << 1;
         }
-        for i in 0..len {
-            if data[i] == 0 { continue; }
-            lengths.push(data[i]);
-            let bits = data[i] as usize;
+        for (i, &len) in data.iter().enumerate() {
+            if len == 0 { continue; }
+            lengths.push(len);
+            let bits = len as usize;
             codes.push(prefix[bits]);
             prefix[bits] += 1;
             syms.push(i as u16);
@@ -109,6 +109,7 @@ impl CodebookDescReader<u8> for RV34CBPCodeReader {
 }
 
 impl CBPSet {
+    #[allow(clippy::identity_op)]
     fn new(intra: bool, set: usize, subset: usize) -> Self {
         if intra {
             let mut coderead = RV34CodeReader::new(&RV34_INTRA_CBPPAT[set][subset]);
@@ -227,6 +228,7 @@ fn decode_coeff(br: &mut BitReader, ccodes: &Codebook<u16>, val: u8, esc: u8, qu
     Ok(nval)
 }
 
+#[allow(clippy::identity_op)]
 fn decode_subblock3(br: &mut BitReader, ccodes: &Codebook<u16>, idx: usize, q2: u16, q3: u16, q4: u16, coeffs: &mut [i16]) -> DecoderResult<()> {
     let flags = RV34_MODULO_THREE_TABLE[idx];
     coeffs[0*4 + 0] = decode_coeff(br, ccodes, (flags >> 6) & 3, 3, q2)?;
@@ -240,6 +242,7 @@ fn decode_subblock1(br: &mut BitReader, ccodes: &Codebook<u16>, idx: usize, q2: 
     coeffs[0] = decode_coeff(br, ccodes, val, 3, q2)?;
     Ok(())
 }
+#[allow(clippy::identity_op)]
 fn decode_subblock(br: &mut BitReader, ccodes: &Codebook<u16>, idx: usize, invert: bool, q4: u16, coeffs: &mut [i16]) -> DecoderResult<()> {
     let flags = RV34_MODULO_THREE_TABLE[idx];
     coeffs[0*4 + 0] = decode_coeff(br, ccodes, (flags >> 6) & 3, 3, q4)?;
@@ -254,7 +257,6 @@ fn decode_subblock(br: &mut BitReader, ccodes: &Codebook<u16>, idx: usize, inver
     Ok(())
 }
 
-#[allow(dead_code)]
 pub struct RV34Codes {
     intra_set:  Vec<FullSet>,
     inter_set:  Vec<FullSet>,
@@ -303,10 +305,10 @@ impl RV34Codes {
 
         let ones = RV34_ONES_COUNT[pattern as usize];
 
-        for i in 0..4 {
+        for (i, &shift) in RV34_CBP_SHIFTS.iter().enumerate() {
             if ((pattern >> (3 - i)) & 1) != 0 {
                 let code = br.read_cb(&codeset.cbp[ones])? as u32;
-                cbp |= code << RV34_CBP_SHIFTS[i];
+                cbp |= code << shift;
             }
         }
 
@@ -318,6 +320,7 @@ impl RV34Codes {
 
         Ok(cbp)
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn decode_block(&mut self, br: &mut BitReader, coeffs: &mut [i16], idx0: usize, idx1: usize, q2: u16, q3: u16, q4: u16) -> DecoderResult<bool> {
         let codeset = if self.is_intra {
                 &self.intra_set[self.set_idx].cset

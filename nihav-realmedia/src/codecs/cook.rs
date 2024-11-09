@@ -98,8 +98,8 @@ impl CookDSP {
         let mut window: [f32; 1024] = [0.0; 1024];
         let factor = consts::PI / (2.0 * fsamples);
         let scale = (2.0 / fsamples).sqrt() / 32768.0;
-        for k in 0..samples {
-            window[k] = (factor * ((k as f32) + 0.5)).sin() * scale;
+        for (k, el) in window[..samples].iter_mut().enumerate() {
+            *el = (factor * ((k as f32) + 0.5)).sin() * scale;
         }
         let mut pow_tab: [f32; 128] = [0.0; 128];
         let mut hpow_tab: [f32; 128] = [0.0; 128];
@@ -213,7 +213,7 @@ impl CookChannelPair {
             self.js_bits    = 0;
             self.mode       = Mode::Mono;
         } else {
-            validate!((js_bits >= 2) && (js_bits <= 6));
+            validate!((2..=6).contains(&js_bits));
             self.js_bits    = js_bits as u8;
             self.mode       = Mode::JointStereo;
         }
@@ -254,9 +254,10 @@ impl CookChannelPair {
             if tbias1 + tbias2 > avail_bits * 2 {
                 let mut max = -999999;
                 let mut idx = total_subbands + 1;
-                for j in 0..total_subbands {
-                    if exp_index1[j] >= (NUM_CATEGORIES - 1) { continue; }
-                    let t = -2 * (exp_index1[j] as i32) - (self.qindex[j] as i32) + bias;
+                for (j, (&exp_idx, &q_idx)) in exp_index1.iter()
+                        .zip(self.qindex.iter()).enumerate().take(total_subbands) {
+                    if exp_idx >= (NUM_CATEGORIES - 1) { continue; }
+                    let t = -2 * (exp_idx as i32) - (q_idx as i32) + bias;
                     if t >= max {
                         max = t;
                         idx = j;
@@ -270,9 +271,10 @@ impl CookChannelPair {
             } else {
                 let mut min = 999999;
                 let mut idx = total_subbands + 1;
-                for j in 0..total_subbands {
-                    if exp_index2[j] == 0 { continue; }
-                    let t = -2 * (exp_index2[j] as i32) - (self.qindex[j] as i32) + bias;
+                for (j, (&exp_idx, &q_idx)) in exp_index2.iter()
+                        .zip(self.qindex.iter()).enumerate().take(total_subbands) {
+                    if exp_idx == 0 { continue; }
+                    let t = -2 * (exp_idx as i32) - (q_idx as i32) + bias;
                     if t < min {
                         min = t;
                         idx = j;
@@ -285,8 +287,8 @@ impl CookChannelPair {
                 exp_index2[idx] -= 1;
             }
         }
-        for i in 0..total_subbands {
-            self.category[i] = exp_index2[i] as u8;
+        for (cat, &exp_idx) in self.category.iter_mut().zip(exp_index2.iter()).take(total_subbands) {
+            *cat = exp_idx as u8;
         }
 
         for _ in 0..num_vectors {
@@ -312,12 +314,11 @@ impl CookChannelPair {
         let mut ipos = 0;
         for _ in 0..num_gains {
             let idx                                     = br.read(3)? as usize;
-            let val;
-            if br.read_bool()? {
-                val                                     = (br.read(4)? as i32) - 7;
-            } else {
-                val = -1;
-            }
+            let val = if br.read_bool()? {
+                                                          (br.read(4)? as i32) - 7
+                } else {
+                    -1
+                };
             validate!(idx >= ipos);
             while ipos <= idx {
                 self.prev_gains[channel][ipos] = val;
@@ -374,14 +375,13 @@ impl CookChannelPair {
                 unpack_band(&mut br, codebooks, &mut coef_index, &mut coef_sign, cat)?;
             }
             for i in 0..BAND_SIZE {
-                let val;
-                if coef_index[i] == 0 {
-                    let v = COOK_DITHER_TAB[cat];
-                    val = if !rnd.get_sign() { v } else { -v };
-                } else {
-                    let v = COOK_QUANT_CENTROID[cat][coef_index[i] as usize];
-                    val = if !coef_sign[i] { v } else { -v };
-                }
+                let val = if coef_index[i] == 0 {
+                        let v = COOK_DITHER_TAB[cat];
+                        if !rnd.get_sign() { v } else { -v }
+                    } else {
+                        let v = COOK_QUANT_CENTROID[cat][coef_index[i] as usize];
+                        if !coef_sign[i] { v } else { -v }
+                    };
                 self.block[channel][off + i] = val * dsp.hpow_tab[(self.qindex[sb] + 64) as usize];
             }
             off += BAND_SIZE;
@@ -389,6 +389,7 @@ impl CookChannelPair {
 
         Ok(())
     }
+    #[allow(clippy::needless_range_loop)]
     fn decode(&mut self, dsp: &mut CookDSP, rnd: &mut RND, codebooks: &Codebooks, src: &[u8], buf: &mut [u8], abuf: &mut NABufferType) -> DecoderResult<()> {
         if self.mode == Mode::Stereo {
             let mut schunk = src.chunks(src.len() / 2);

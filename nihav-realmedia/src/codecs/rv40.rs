@@ -107,6 +107,7 @@ impl RealVideo40BR {
             had_skip_run:   false,
         }
     }
+    #[allow(clippy::collapsible_else_if)]
     fn predict_b_mv_component(&self, sstate: &SState, mvi: &MVInfo, mbinfo: &[RV34MBInfo], mbtype: MBType, fwd: bool) -> MV {
         let mut pred_mvs: [MV; 3] = [ZERO_MV; 3];
         let mut mv_count: usize = 0;
@@ -196,6 +197,7 @@ impl RV34BitstreamDecoder for RealVideo40BR {
 
         Ok(RV34SliceHeader{ ftype, quant: q, deblock, pts, width: w, height: h, start, end: 0, set_idx })
     }
+    #[allow(clippy::identity_op)]
     fn decode_intra_pred(&mut self, br: &mut BitReader, types: &mut [i8], mut pos: usize, tstride: usize, has_top: bool) -> DecoderResult<()> {
         let start;
         if has_top {

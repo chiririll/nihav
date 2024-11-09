@@ -11,7 +11,6 @@ macro_rules! validate {
 
 #[cfg(feature="demuxer_real")]
 #[allow(clippy::identity_op)]
-#[allow(clippy::needless_range_loop)]
 mod realmedia;
 
 const RM_DEMUXERS: &[&dyn DemuxerCreator] = &[

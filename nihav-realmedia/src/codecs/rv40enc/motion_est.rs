@@ -53,6 +53,7 @@ impl FromStr for MVSearchMode {
 const MAX_DIST: u32 = std::u32::MAX;
 const DIST_THRESH: u32 = 256;
 
+#[allow(clippy::wrong_self_convention)]
 trait FromPixels {
     fn from_pixels(self) -> Self;
 }
@@ -305,6 +306,7 @@ impl<T:Copy+Default+PartialEq> UniqueSet<T> {
     }
 }
 
+#[allow(clippy::wrong_self_convention)]
 trait MVOps {
     fn scale(self, scale: i16) -> Self;
     fn is_in_range(self, range: i16) -> bool;

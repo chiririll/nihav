@@ -168,6 +168,7 @@ impl Intra4Pred {
         }
         (left, top)
     }
+    #[allow(clippy::collapsible_else_if)]
     #[allow(clippy::many_single_char_names)]
     pub fn apply(&self, ptype: PredType4x4, buf: &mut [u8], stride: usize) {
         match ptype {

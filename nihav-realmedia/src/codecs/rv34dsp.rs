@@ -18,7 +18,6 @@ pub enum PredType4x4 {
     VerLeftNoDown
 }
 
-#[allow(dead_code)]
 #[derive(Debug,Clone,Copy)]
 pub enum PredType8x8 {
     DC,
@@ -101,7 +100,7 @@ impl RV34CommonDSP {
     }
     pub fn transform_dc(&self, coeffs: &mut [i16]) {
         let val = (((coeffs[0] as i32) * 13 * 13 + 0x200) >> 10) as i16;
-        for i in 0..16 { coeffs[i] = val; }
+        for el in coeffs[..16].iter_mut() { *el = val; }
     }
     pub fn transform16(&self, coeffs: &mut [i16]) {
         let mut tmp: [i32; 16] = [0; 16];
@@ -120,7 +119,7 @@ impl RV34CommonDSP {
     }
     pub fn transform16_dc(&self, coeffs: &mut [i16]) {
         let val = (((coeffs[0] as i32) * 13 * 13 * 3) >> 11) as i16;
-        for i in 0..16 { coeffs[i] = val; }
+        for el in coeffs[..16].iter_mut() { *el = val; }
     }
     pub fn weight(&self, dst: &mut [u8], mut didx: usize, dstride: usize,
               src: &[u8], mut sidx: usize, sstride: usize, ratio1: u32, ratio2: u32,

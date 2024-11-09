@@ -290,13 +290,11 @@ pub fn rv6_decode_cbp8(br: &mut BitReader, cbs: &RV60Codebooks, subset: usize, q
 
 pub fn rv6_decode_cbp16(br: &mut BitReader, cbs: &RV60Codebooks, subset: usize, qp: u8) -> DecoderResult<u32> {
     let cb_set = RV60_QP_TO_IDX[qp as usize];
-    let cbp16;
     if subset == 0 {
-        cbp16 = decode_super_cbp(br, &cbs.cbp8_cb[cb_set])?;
+        decode_super_cbp(br, &cbs.cbp8_cb[cb_set])
     } else {
-        cbp16 = decode_super_cbp(br, &cbs.cbp16_cb[cb_set][(subset - 1) * 4..][..4])?;
+        decode_super_cbp(br, &cbs.cbp16_cb[cb_set][(subset - 1) * 4..][..4])
     }
-    Ok(cbp16)
 }
 
 pub fn rv6_decode_cu_8x8(br: &mut BitReader, cbs: &RV60Codebooks, is_intra: bool, qp: u8, sel_qp: u8, y_coeffs: &mut [i16; 16 * 16], u_coeffs: &mut [i16; 8 * 8], v_coeffs: &mut [i16; 8 * 8], ccbp: u32, mode4x4: bool) -> DecoderResult<()> {

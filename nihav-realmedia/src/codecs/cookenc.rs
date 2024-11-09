@@ -34,8 +34,8 @@ fn bitalloc(samples: usize, bits: usize, vector_bits: u8, total_subbands: usize,
     let mut bias: i32 = -32;
     for i in 0..6 {
         let mut sum = 0;
-        for j in 0..total_subbands {
-            let idx = ((32 >> i) + bias - (qindex[j] as i32)) / 2;
+        for &qidx in qindex[..total_subbands].iter() {
+            let idx = ((32 >> i) + bias - (qidx as i32)) / 2;
             sum += COOK_EXP_BITS[idx.clip_cat()];
         }
         if sum >= (avail_bits - 32) {

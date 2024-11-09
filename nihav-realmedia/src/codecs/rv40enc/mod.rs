@@ -8,12 +8,16 @@ use nihav_core::io::bitwriter::*;
 mod bitstream;
 use bitstream::*;
 
+#[allow(clippy::eq_op)]
+#[allow(clippy::identity_op)]
+#[allow(clippy::too_many_arguments)]
 mod dsp;
 use dsp::loop_filter_frame;
 
 mod estimator;
 use estimator::*;
 
+#[allow(clippy::too_many_arguments)]
 mod mb_coding;
 use mb_coding::*;
 

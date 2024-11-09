@@ -11,7 +11,6 @@ use nihav_codec_support::codecs::h263::decoder::*;
 use nihav_codec_support::codecs::h263::data::*;
 
 
-#[allow(dead_code)]
 struct Tables {
     intra_mcbpc_cb: Codebook<u8>,
     inter_mcbpc_cb: Codebook<u8>,
@@ -77,6 +76,7 @@ struct RV20SliceInfo {
 struct RV20BlockDSP {}
 
 impl RV20SliceInfo {
+    #[allow(clippy::too_many_arguments)]
     fn new(ftype: Type, seq: u32, qscale: u8, mb_x: usize, mb_y: usize, mb_pos: usize, w: usize, h: usize, loop_filter: bool) -> Self {
         RV20SliceInfo { ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h, loop_filter }
     }
@@ -145,12 +145,12 @@ impl BlockDSP for RV20BlockDSP {
     fn copy_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
         let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
 
-        for i in 0..4 {
+        for (i, mv) in mvs.iter().enumerate() {
             let xadd = (i & 1) * 8;
             let yadd = (i & 2) * 4;
-            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+            let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
 
-            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
         }
 
         let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
@@ -174,12 +174,12 @@ impl BlockDSP for RV20BlockDSP {
     fn avg_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
         let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
 
-        for i in 0..4 {
+        for (i, mv) in mvs.iter().enumerate() {
             let xadd = (i & 1) * 8;
             let yadd = (i & 2) * 4;
-            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+            let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
 
-            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
         }
 
         let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
@@ -197,9 +197,9 @@ impl BlockDSP for RV20BlockDSP {
 
 fn get_mb_pos_bits(mb_w: usize, mb_h: usize) -> u8 {
     let max_pos = mb_w * mb_h - 1;
-    for i in 0..H263_MBB.len() {
-        if max_pos <= H263_MBB[i].blocks {
-            return H263_MBB[i].bits;
+    for mbb in H263_MBB.iter() {
+        if max_pos <= mbb.blocks {
+            return mbb.bits;
         }
     }
     0
@@ -238,7 +238,7 @@ impl<'a> RealVideo20BR<'a> {
         }
     }
 
-#[allow(unused_variables)]
+    #[allow(clippy::too_many_arguments)]
     fn decode_block(&mut self, sstate: &SliceState, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize, acpred: ACPredMode) -> DecoderResult<()> {
         let br = &mut self.br;
         let mut idx = 0;
@@ -327,7 +327,6 @@ fn read_dquant(br: &mut BitReader, q: u8) -> DecoderResult<u8> {
 
 impl<'a> BlockDecoder for RealVideo20BR<'a> {
 
-#[allow(unused_variables)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         self.slice_no = 0;
         let shdr = self.read_slice_header()?;
@@ -348,8 +347,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
         Ok(picinfo)
     }
 
-    #[allow(unused_variables)]
-    fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
+    fn decode_slice_header(&mut self, _info: &PicInfo) -> DecoderResult<SliceInfo> {
         let shdr = self.read_slice_header()?;
         self.slice_no += 1;
         let mb_count;
@@ -482,8 +480,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
         self.decode_block(sstate, quant, true, coded, blk, if no < 4 { 0 } else { no - 3 }, info.get_acpred())
     }
 
-    #[allow(unused_variables)]
-    fn decode_block_inter(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+    fn decode_block_inter(&mut self, _info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
         self.decode_block(sstate, quant, false, coded, blk, if no < 4 { 0 } else { no - 3 }, ACPredMode::None)
     }
 
@@ -491,7 +488,6 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
 }
 
 impl<'a> RealVideo20BR<'a> {
-#[allow(unused_variables)]
     fn read_slice_header(&mut self) -> DecoderResult<RV20SliceInfo> {
         validate!(self.slice_no < self.num_slices);
 
@@ -509,12 +505,7 @@ impl<'a> RealVideo20BR<'a> {
         validate!(marker == 0);
         let qscale      = br.read(5)? as u8;
         validate!(qscale > 0);
-        let loop_filter;
-        if self.minor_ver >= 2 {
-            loop_filter = br.read_bool()?;
-        } else {
-            loop_filter = false;
-        }
+        let loop_filter = if self.minor_ver >= 2 { br.read_bool()? } else { false };
         let seq = if self.minor_ver <= 1 {
                 br.read(8)?  << 8
             } else {
@@ -602,7 +593,6 @@ impl RealVideo20Decoder {
 }
 
 impl NADecoder for RealVideo20Decoder {
-#[allow(unused_variables)]
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
@@ -618,7 +608,7 @@ impl NADecoder for RealVideo20Decoder {
             let ver = ((src[4] as u32) << 12) | ((src[5] as u32) << 4) | ((src[6] as u32) >> 4);
             let maj_ver = ver >> 16;
             let min_ver = (ver >> 8) & 0xFF;
-            let mic_ver = ver & 0xFF;
+            let _mic_ver = ver & 0xFF;
             validate!(maj_ver == 2);
             self.minor_ver = min_ver as u8;
             let rprb = src[1] & 7;

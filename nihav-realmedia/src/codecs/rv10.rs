@@ -9,13 +9,11 @@ use nihav_codec_support::codecs::h263::code::H263BlockDSP;
 use nihav_codec_support::codecs::h263::decoder::*;
 use nihav_codec_support::codecs::h263::data::*;
 
-#[allow(dead_code)]
 struct Tables {
     intra_mcbpc_cb: Codebook<u8>,
     inter_mcbpc_cb: Codebook<u8>,
     cbpy_cb:        Codebook<u8>,
     rl_cb:          Codebook<H263RLSym>,
-    aic_rl_cb:      Codebook<H263RLSym>,
     mv_cb:          Codebook<u8>,
     luma_dc_cb:     Codebook<u8>,
     chroma_dc_cb:   Codebook<u8>,
@@ -93,7 +91,7 @@ impl<'a> RealVideo10BR<'a> {
         }
     }
 
-#[allow(unused_variables)]
+    #[allow(clippy::collapsible_else_if)]
     fn decode_block(&mut self, sstate: &SliceState, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize) -> DecoderResult<()> {
         let br = &mut self.br;
         let mut idx = 0;
@@ -221,21 +219,19 @@ fn decode_mv(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<MV> {
 
 impl<'a> BlockDecoder for RealVideo10BR<'a> {
 
-#[allow(unused_variables)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         self.slice_no = 0;
         let shdr = self.read_slice_header()?;
         validate!((shdr.mb_x == 0) && (shdr.mb_y == 0));
 
-        let mb_end = shdr.mb_x + shdr.mb_y * self.mb_w + shdr.mb_c;
+        let _mb_end = shdr.mb_x + shdr.mb_y * self.mb_w + shdr.mb_c;
 
         let ftype = if !shdr.is_p { Type::I } else { Type::P };
         let picinfo = PicInfo::new(self.w, self.h, ftype, self.mvmode, false, false, shdr.qscale, 0, None, None);
         Ok(picinfo)
     }
 
-    #[allow(unused_variables)]
-    fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
+    fn decode_slice_header(&mut self, _info: &PicInfo) -> DecoderResult<SliceInfo> {
         let shdr = self.read_slice_header()?;
         self.slice_no += 1;
         let mb_end = shdr.mb_x + shdr.mb_y * self.mb_w + shdr.mb_c;
@@ -311,13 +307,11 @@ impl<'a> BlockDecoder for RealVideo10BR<'a> {
         }
     }
 
-    #[allow(unused_variables)]
-    fn decode_block_intra(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+    fn decode_block_intra(&mut self, _info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
         self.decode_block(sstate, quant, true, coded, blk, if no < 4 { 0 } else { no - 3 })
     }
 
-    #[allow(unused_variables)]
-    fn decode_block_inter(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+    fn decode_block_inter(&mut self, _info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
         self.decode_block(sstate, quant, false, coded, blk, if no < 4 { 0 } else { no - 3 })
     }
 
@@ -381,8 +375,6 @@ impl RealVideo10Decoder {
         let cbpy_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263RLCodeReader::new(H263_RL_CODES);
         let rl_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = H263RLCodeReader::new(H263_RL_CODES_AIC);
-        let aic_rl_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263ShortCodeReader::new(H263_MV);
         let mv_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = CodeReader::new(RV10_LUMA_DC_CODES,  RV10_LUMA_DC_BITS);
@@ -395,7 +387,6 @@ impl RealVideo10Decoder {
             inter_mcbpc_cb,
             cbpy_cb,
             rl_cb,
-            aic_rl_cb,
             mv_cb,
             luma_dc_cb,
             chroma_dc_cb,

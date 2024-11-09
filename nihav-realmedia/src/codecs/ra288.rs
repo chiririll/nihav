@@ -28,6 +28,7 @@ struct RA288Decoder {
 const BF_ORDER: usize = SP_LPC_ORDER + 1;
 const BF_WORK_SIZE: usize = SP_LPC_ORDER + 40 + 35;
 
+#[allow(clippy::too_many_arguments)]
 fn backfilter(hist: &mut [f32], rec: &mut [f32], filt: &mut [f32], win: &[f32], bw_tab: &[f32], start: usize, non_rec: usize, move_size: usize) {
     let mut temp: [f32; BF_ORDER] = [0.0; BF_ORDER];
     let order = filt.len();
@@ -125,16 +126,15 @@ impl RA288Decoder {
         for i in 0..SP_LPC_ORDER {
             self.speech_hist[SP_START + i] = self.speech_hist[75 + i];
         }
-        let mut sum: f32 = 32.0;
-        for i in 0..GAIN_LPC_ORDER {
-            sum -= self.gain_hist[GAIN_START + GAIN_LPC_ORDER - 1 - i] * self.gain_lpc[i];
-        }
-        sum = sum.max(0.0).min(60.0);
+        let sum = self.gain_hist[GAIN_START..].iter().rev()
+                .zip(self.gain_lpc.iter())
+                .fold(32.0f32, |acc, (&a, &b)| acc - a * b)
+                .max(0.0).min(60.0);
 
         let scale = (sum * 0.1151292546497).exp() * gain * (1.0 / ((1 << 23) as f32));
         let mut buf: [f32; BLOCKSIZE] = [0.0; BLOCKSIZE];
-        for i in 0..BLOCKSIZE {
-            buf[i] = (RA288_CODEBOOK[cb_idx][i] as f32) * scale;
+        for (dst, &cb) in buf.iter_mut().zip(RA288_CODEBOOK[cb_idx].iter()) {
+            *dst = (cb as f32) * scale;
         }
 
         let mut sum: f32 = 0.0;
@@ -183,9 +183,7 @@ impl NADecoder for RA288Decoder {
 
                 self.process_subblock(gain, cb);
 
-                for j in 0..BLOCKSIZE {
-                    block[j] = self.speech_hist[SP_START + SP_LPC_ORDER + j];
-                }
+                block.copy_from_slice(&self.speech_hist[SP_START + SP_LPC_ORDER..][..BLOCKSIZE]);
                 if (i & 7) == 3 {
                     backfilter(&mut self.speech_hist, &mut self.speech_rec, &mut self.speech_lpc, RA288_SPEECH_WINDOW, RA288_SPEECH_BW_TAB, 40, 35, SP_START);
                     backfilter(&mut self.gain_hist, &mut self.gain_rec, &mut self.gain_lpc, RA288_GAIN_WINDOW, RA288_GAIN_BW_TAB, 8, 20, GAIN_START);

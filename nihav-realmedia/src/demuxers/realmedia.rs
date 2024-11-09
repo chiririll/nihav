@@ -257,9 +257,9 @@ impl RMAudioStream {
 
 fn sipro_restore(buf: &mut [u8], factor: usize, fsize: usize) {
     let stride = factor * fsize * 2 / 96;
-    for i in 0..38 {
-        let mut sidx = (RM_SIPRO_SWAPS[i][0] as usize) * stride;
-        let mut didx = (RM_SIPRO_SWAPS[i][1] as usize) * stride;
+    for swap in RM_SIPRO_SWAPS.iter() {
+        let mut sidx = (swap[0] as usize) * stride;
+        let mut didx = (swap[1] as usize) * stride;
         for _ in 0..stride {
             let in0 = buf[sidx >> 1];
             let in1 = buf[didx >> 1];
@@ -537,28 +537,25 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
         streams.push(RMStreamType::Audio(astr));
         Ok(())
     }
-#[allow(unused_variables)]
     fn parse_video_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut ByteReader, edata_: &[u8], tag2: u32, duration: u32) -> DemuxerResult<()> {
         src.read_skip(4)?;
         let fcc         = src.read_u32be()?;
         let width       = src.read_u16be()? as usize;
         let height      = src.read_u16be()? as usize;
-        let bpp         = src.read_u16be()?;
-        let pad_w       = src.read_u16be()?;
-        let pad_h       = src.read_u16be()?;
-        let _fps;
-        if tag2 == mktag!('V', 'I', 'D', 'O') {
-            _fps        = src.read_u32be()?;
-        } else {
-            _fps = 0x10000;
-        }
-        let extradata: Option<Vec<u8>>;
-        if src.left() > 0 {
-            let eslice = &edata_[(src.tell() as usize)..];
-            extradata = Some(eslice.to_vec());
-        } else {
-            extradata = None;
-        }
+        let _bpp        = src.read_u16be()?;
+        let _pad_w      = src.read_u16be()?;
+        let _pad_h      = src.read_u16be()?;
+        let _fps = if tag2 == mktag!('V', 'I', 'D', 'O') {
+                          src.read_u32be()?
+            } else {
+                0x10000
+            };
+        let extradata = if src.left() > 0 {
+                let eslice = &edata_[(src.tell() as usize)..];
+                Some(eslice.to_vec())
+            } else {
+                None
+            };
         let cname = find_codec_name(RM_VIDEO_CODEC_REGISTER, fcc);
 
         let vhdr = NAVideoInfo::new(width, height, false, RGB24_FORMAT);
@@ -570,8 +567,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
         streams.push(RMStreamType::Video(vstr));
         Ok(())
     }
-#[allow(unused_variables)]
-    #[allow(clippy::question_mark)]
+    #[allow(clippy::too_many_arguments)]
     fn parse_packet_payload(src: &mut ByteReader, rmstream: &mut RMStreamType, stream: NAStreamRef, slice_buf: &mut Vec<u8>, queued_pkts: &mut Vec<NAPacket>, keyframe: bool, ts: u32, payload_size: usize) -> DemuxerResult<NAPacket> {
         match rmstream {
             RMStreamType::Video(ref mut vstr) => {
@@ -586,7 +582,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
                                 let packet_num = hdr1 & 0x7F;
                                 let (_, frame_size) = read_14or30(src)?;
                                 let (_, off)        = read_14or30(src)?;
-                                let seq_no = src.read_byte()?;
+                                let _seq_no = src.read_byte()?;
                                 let hdr_skip = (src.tell() - pos) as usize;
 
                                 let slice_size = payload_size - hdr_skip;
@@ -606,7 +602,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
                                 Ok(pkt)
                             },
                         1 => { // whole frame
-                                let seq_no = src.read_byte()?;
+                                let _seq_no = src.read_byte()?;
                                 read_video_buf(src, stream, ts, keyframe, payload_size - 2)
                             },
                         2 => { // last partial frame
@@ -616,7 +612,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
                                 let packet_num = hdr1 & 0x7F;
                                 let (_, frame_size) = read_14or30(src)?;
                                 let (_, tail_size)  = read_14or30(src)?;
-                                let seq_no = src.read_byte()?;
+                                let _seq_no = src.read_byte()?;
                                 slice_buf.resize(tail_size as usize, 0);
                                 src.read_buf(slice_buf.as_mut_slice())?;
                                 if packet_num == 1 && frame_size == tail_size {
@@ -626,9 +622,8 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
                                 }
 
                                 while src.tell() < pos + (payload_size as u64) {
-                                    let res = read_multiple_frame(src, stream.clone(), false, false);
-                                    if res.is_err() { break; }
-                                    queued_pkts.push(res.unwrap());
+                                    let pkt = read_multiple_frame(src, stream.clone(), false, false)?;
+                                    queued_pkts.push(pkt);
                                 }
                                 queued_pkts.reverse();
                                 let ts = stream.make_ts(Some(ts as u64), None, None);
@@ -636,15 +631,13 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
                                 Ok(pkt)
                         },
                     _ => { // multiple frames
-                                let res = read_multiple_frame(src, stream.clone(), keyframe, true);
-                                if res.is_err() { return res; }
+                                let pkt0 = read_multiple_frame(src, stream.clone(), keyframe, true)?;
                                 while src.tell() < pos + (payload_size as u64) {
-                                    let res = read_multiple_frame(src, stream.clone(), false, false);
-                                    if res.is_err() { break; }
-                                    queued_pkts.push(res.unwrap());
+                                    let pkt = read_multiple_frame(src, stream.clone(), false, false)?;
+                                    queued_pkts.push(pkt);
                                 }
                                 queued_pkts.reverse();
-                                res
+                                Ok(pkt0)
                             },
                     }
                 },
@@ -665,7 +658,6 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
         Ok(())
     }
 
-#[allow(unused_variables)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if !self.queued_pkts.is_empty() {
             let pkt = self.queued_pkts.pop().unwrap();
@@ -677,8 +669,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
                 if self.cur_data_chunk < self.data_chunks.len() {
                     let (pos, _, _) = self.data_chunks[self.cur_data_chunk];
                     self.src.seek(SeekFrom::Start(pos))?;
-                    let res = read_chunk(self.src);
-                    if let Ok((id, size, ver)) = res {
+                    if let Ok((_id, size, ver)) = read_chunk(self.src) {
                         self.data_pos = self.src.tell();
                         self.data_ver = ver;
                         self.data_end = self.data_pos + (size as u64);
@@ -745,7 +736,6 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
         }
     }
 
-    #[allow(unused_variables)]
     fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         self.queued_pkts.clear();
         let ret = seek_idx.find_pos(time);
@@ -839,7 +829,6 @@ fn skip_ra_metadata(src: &mut ByteReader) -> DemuxerResult<()> {
     Ok(())
 }
 
-#[allow(unused_variables)]
 fn parse_aformat3(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     let start = src.tell();
     let header_len          = src.read_u16be()?;
@@ -873,13 +862,12 @@ fn parse_aformat3(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     })
 }
 
-#[allow(unused_variables)]
 fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     let start = src.tell();
     src.read_skip(2)?; // zeroes
     let id                  = src.read_u32be()?;
     validate!(id == mktag!(b".ra4"));
-    let data_size           = src.read_u32be()?;
+    let _data_size          = src.read_u32be()?;
     let _ver4               = src.read_u16be()?; // should be 4
     let header_size         = src.read_u32be()?;
     let flavor              = src.read_u16be()?;
@@ -926,13 +914,12 @@ fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     })
 }
 
-#[allow(unused_variables)]
 fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     let start = src.tell();
     src.read_skip(2)?; // zeroes
     let id                  = src.read_u32be()?;
     validate!((id == mktag!(b".ra5")) || (id == mktag!(b".ra4")));
-    let data_size           = src.read_u32be()?;
+    let _data_size          = src.read_u32be()?;
     let _ver5               = src.read_u16be()?; // should be 5
     let header_size         = src.read_u32be()?;
     let flavor              = src.read_u16be()?;
@@ -943,7 +930,7 @@ fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     let ileave_factor       = src.read_u16be()?;
     let frame_size          = src.read_u16be()?;
     let ileave_block_size   = src.read_u16be()?;
-    let user_data           = src.read_u32be()?;
+    let _user_data          = src.read_u32be()?;
     let _sample_rate1       = src.read_u16be()?;
     let sample_rate         = src.read_u32be()?;
     let sample_size         = src.read_u32be()?;
@@ -1009,9 +996,8 @@ impl<'a> RealMediaDemuxer<'a> {
             slice_buf:      Vec::new(),
         }
     }
-#[allow(unused_variables)]
     fn read_header(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
-        let (id, size, ver) = read_chunk(self.src)?;
+        let (id, size, _ver) = read_chunk(self.src)?;
         validate!((id == mktag!(b".RMF")) || (id == mktag!(b".RMP")));
         validate!(size >= RMVB_HDR_SIZE);
         let fver    = self.src.read_u32be()?;
@@ -1026,17 +1012,17 @@ impl<'a> RealMediaDemuxer<'a> {
         let prop_size = if ver == 0 { RMVB_PROP_SIZE } else { RMVB_PROP_SIZE + 4 };
         validate!(size >= prop_size);
         validate!((ver == 0) || (ver == 2));
-        let maxbr       = self.src.read_u32be()?;
-        let avgbr       = self.src.read_u32be()?;
-        let maxps       = self.src.read_u32be()?;
-        let avgps       = self.src.read_u32be()?;
-        let num_pkt     = self.src.read_u32be()? as usize;
-        let duration    = self.src.read_u32be()?;
-        let preroll     = self.src.read_u32be()?;
-        let idx_off     = self.src.read_size(ver)?;
-        let data_off    = self.src.read_u32be()?;
-        let num_streams = self.src.read_u16be()? as usize;
-        let flags       = self.src.read_u16be()?;
+        let _maxbr      = self.src.read_u32be()?;
+        let _avgbr      = self.src.read_u32be()?;
+        let _maxps      = self.src.read_u32be()?;
+        let _avgps      = self.src.read_u32be()?;
+        let _num_pkt    = self.src.read_u32be()? as usize;
+        let _duration   = self.src.read_u32be()?;
+        let _preroll    = self.src.read_u32be()?;
+        let _idx_off    = self.src.read_size(ver)?;
+        let _data_off   = self.src.read_u32be()?;
+        let _um_streams = self.src.read_u16be()? as usize;
+        let _flags      = self.src.read_u16be()?;
         if size > prop_size {
             self.src.read_skip((size - prop_size) as usize)?;
         }
@@ -1102,7 +1088,6 @@ impl<'a> RealMediaDemuxer<'a> {
         }
         Ok(false)
     }
-#[allow(unused_variables)]
     fn parse_content_desc(&mut self) -> DemuxerResult<()> {
         let title_len       = self.src.read_u16be()? as usize;
         self.src.read_skip(title_len)?;
@@ -1114,21 +1099,20 @@ impl<'a> RealMediaDemuxer<'a> {
         self.src.read_skip(comment_len)?;
         Ok(())
     }
-#[allow(unused_variables)]
     fn parse_mdpr(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
         let stream_no       = self.src.read_u16be()? as u32;
 //todo check stream_no for duplicates
-        let maxbr           = self.src.read_u32be()?;
-        let avgbr           = self.src.read_u32be()?;
-        let maxps           = self.src.read_u32be()?;
-        let avgps           = self.src.read_u32be()?;
-        let start           = self.src.read_u32be()?;
-        let preroll         = self.src.read_u32be()?;
+        let _maxbr          = self.src.read_u32be()?;
+        let _avgbr          = self.src.read_u32be()?;
+        let _maxps          = self.src.read_u32be()?;
+        let _avgps          = self.src.read_u32be()?;
+        let _start          = self.src.read_u32be()?;
+        let _preroll        = self.src.read_u32be()?;
         let duration        = self.src.read_u32be()?;
         let sname_size      = self.src.read_byte()? as usize;
-        let sname           = read_string_size(self.src, sname_size)?;
+        let _sname          = read_string_size(self.src, sname_size)?;
         let mime_size       = self.src.read_byte()? as usize;
-        let mime            = read_string_size(self.src, mime_size)?;
+        let _mime           = read_string_size(self.src, mime_size)?;
         let edata_size      = self.src.read_u32be()? as usize;
         let edata: Option<Vec<u8>> = if edata_size == 0 { None } else {
             let mut edvec: Vec<u8> = vec![0; edata_size];
@@ -1200,7 +1184,6 @@ struct RealAudioDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for RealAudioDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let magic                                       = self.src.read_u32be()?;
         validate!(magic == mktag!(b".ra\xFD"));
@@ -1276,8 +1259,7 @@ impl<'a> DemuxCore<'a> for RealAudioDemuxer<'a> {
         Err(DemuxerError::NoSuchInput)
     }
 
-    #[allow(unused_variables)]
-    fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, _time: NATimePoint, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
 
@@ -1547,8 +1529,7 @@ struct RealIVRDemuxer<'a> {
 }
 
 impl<'a> DemuxCore<'a> for RealIVRDemuxer<'a> {
-    #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, _seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let magic                                       = self.src.peek_u32be()?;
         if magic == mktag!(b".REC") {
             let mut rec = RecordDemuxer::new(0, 0);
@@ -1617,8 +1598,7 @@ impl<'a> DemuxCore<'a> for RealIVRDemuxer<'a> {
         }
     }
 
-    #[allow(unused_variables)]
-    fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, _time: NATimePoint, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
 
