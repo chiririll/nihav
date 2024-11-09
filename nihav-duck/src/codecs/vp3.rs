@@ -26,16 +26,12 @@ struct VP30Codes {
     mbtype_cb:  Codebook<VPMBType>,
 }
 
-fn map_mbt(idx: usize) -> VPMBType {
-    VP30_MBTYPE_SYMS[idx]
-}
-
 impl VP30Codes {
     fn new() -> Self {
         let dc_cb;
         let ac_i_cb;
         let ac_p_cb;
-        let mut cr = TableCodebookDescReader::new(&VP30_MBTYPE_CODES, &VP30_MBTYPE_BITS, map_mbt);
+        let mut cr = TableCodebookDescReader::new(&VP30_MBTYPE_CODES, &VP30_MBTYPE_BITS, |idx| VP30_MBTYPE_SYMS[idx]);
         let mbtype_cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
         unsafe {
             let mut udc_cb: mem::MaybeUninit::<[Codebook<u8>; 5]> = mem::MaybeUninit::uninit();

@@ -9,13 +9,9 @@ struct DeltaCodebook {
     cb: Codebook<u16>,
 }
 
-fn map_idx(idx: usize) -> u16 {
-    idx as u16
-}
-
 impl Default for DeltaCodebook {
     fn default() -> Self {
-        let mut cr = TableCodebookDescReader::new(&LUMA_CODES, &LUMA_BITS, map_idx);
+        let mut cr = TableCodebookDescReader::new(&LUMA_CODES, &LUMA_BITS, |idx| idx as u16);
         let cb = Codebook::new(&mut cr, CodebookMode::LSB).unwrap();
         Self { cb }
     }

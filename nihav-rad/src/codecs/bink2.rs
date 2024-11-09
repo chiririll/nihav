@@ -1008,7 +1008,6 @@ struct Bink2Codes {
 }
 
 fn map_ac(idx: usize) -> u8 { idx as u8 }
-fn map_mv(idx: usize) -> i8 { BINK2_MV_SYMS[idx] }
 
 impl Default for Bink2Codes {
     fn default() -> Self {
@@ -1016,7 +1015,7 @@ impl Default for Bink2Codes {
         let ac_cb1 = Codebook::new(&mut cbr, CodebookMode::LSB).unwrap();
         let mut cbr = TableCodebookDescReader::new(BINK2_AC_CODES2, BINK2_AC_BITS2, map_ac);
         let ac_cb2 = Codebook::new(&mut cbr, CodebookMode::LSB).unwrap();
-        let mut cbr = TableCodebookDescReader::new(BINK2_MV_CODES, BINK2_MV_BITS, map_mv);
+        let mut cbr = TableCodebookDescReader::new(BINK2_MV_CODES, BINK2_MV_BITS, |idx| BINK2_MV_SYMS[idx]);
         let mv_cb = Codebook::new(&mut cbr, CodebookMode::LSB).unwrap();
         let mut cbr = TableCodebookDescReader::new(BINK2_AC_VAL_CODES1, BINK2_AC_VAL_BITS1, map_ac);
         let val_cb1 = Codebook::new(&mut cbr, CodebookMode::LSB).unwrap();

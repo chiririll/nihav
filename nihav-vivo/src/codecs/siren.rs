@@ -57,13 +57,6 @@ struct SirenDecoder {
 }
 
 fn map_idx_diff(idx: usize) -> i8 { (idx as i8) - 12 }
-fn map_idx0(idx: usize) -> u16 { VEC_CB0_SYMS[idx] }
-fn map_idx1(idx: usize) -> u16 { VEC_CB1_SYMS[idx] }
-fn map_idx2(idx: usize) -> u16 { VEC_CB2_SYMS[idx] }
-fn map_idx3(idx: usize) -> u16 { VEC_CB3_SYMS[idx] }
-fn map_idx4(idx: usize) -> u16 { VEC_CB4_SYMS[idx] }
-fn map_idx5(idx: usize) -> u16 { VEC_CB5_SYMS[idx] }
-fn map_idx6(idx: usize) -> u16 { VEC_CB6_SYMS[idx] }
 impl SirenDecoder {
     fn new() -> Self {
         let mut diff_cb = Vec::with_capacity(NUM_DIFF_CB);
@@ -72,19 +65,19 @@ impl SirenDecoder {
             let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
             diff_cb.push(cb);
         }
-        let mut cr = TableCodebookDescReader::new(&VEC_CB0_BITS, &VEC_CB0_LENS, map_idx0);
+        let mut cr = TableCodebookDescReader::new(&VEC_CB0_BITS, &VEC_CB0_LENS, |idx| VEC_CB0_SYMS[idx]);
         let vec_cb0 = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-        let mut cr = TableCodebookDescReader::new(&VEC_CB1_BITS, &VEC_CB1_LENS, map_idx1);
+        let mut cr = TableCodebookDescReader::new(&VEC_CB1_BITS, &VEC_CB1_LENS, |idx| VEC_CB1_SYMS[idx]);
         let vec_cb1 = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-        let mut cr = TableCodebookDescReader::new(&VEC_CB2_BITS, &VEC_CB2_LENS, map_idx2);
+        let mut cr = TableCodebookDescReader::new(&VEC_CB2_BITS, &VEC_CB2_LENS, |idx| VEC_CB2_SYMS[idx]);
         let vec_cb2 = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-        let mut cr = TableCodebookDescReader::new(&VEC_CB3_BITS, &VEC_CB3_LENS, map_idx3);
+        let mut cr = TableCodebookDescReader::new(&VEC_CB3_BITS, &VEC_CB3_LENS, |idx| VEC_CB3_SYMS[idx]);
         let vec_cb3 = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-        let mut cr = TableCodebookDescReader::new(&VEC_CB4_BITS, &VEC_CB4_LENS, map_idx4);
+        let mut cr = TableCodebookDescReader::new(&VEC_CB4_BITS, &VEC_CB4_LENS, |idx| VEC_CB4_SYMS[idx]);
         let vec_cb4 = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-        let mut cr = TableCodebookDescReader::new(&VEC_CB5_BITS, &VEC_CB5_LENS, map_idx5);
+        let mut cr = TableCodebookDescReader::new(&VEC_CB5_BITS, &VEC_CB5_LENS, |idx| VEC_CB5_SYMS[idx]);
         let vec_cb5 = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-        let mut cr = TableCodebookDescReader::new(&VEC_CB6_BITS, &VEC_CB6_LENS, map_idx6);
+        let mut cr = TableCodebookDescReader::new(&VEC_CB6_BITS, &VEC_CB6_LENS, |idx| VEC_CB6_SYMS[idx]);
         let vec_cb6 = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
         let vec_cb = [vec_cb0, vec_cb1, vec_cb2, vec_cb3, vec_cb4, vec_cb5, vec_cb6];
 

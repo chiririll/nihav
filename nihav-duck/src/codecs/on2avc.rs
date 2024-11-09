@@ -37,56 +37,39 @@ struct Codebooks {
     spec_cb:        [Codebook<u16>; 15],
 }
 
-fn scale_map(idx: usize) -> i8 { (idx as i8) - 60 }
-fn cb_map1(idx: usize)  -> u16 { AVC_SPEC_CB1_SYMS[idx] }
-fn cb_map2(idx: usize)  -> u16 { AVC_SPEC_CB2_SYMS[idx] }
-fn cb_map3(idx: usize)  -> u16 { AVC_SPEC_CB3_SYMS[idx] }
-fn cb_map4(idx: usize)  -> u16 { AVC_SPEC_CB4_SYMS[idx] }
-fn cb_map5(idx: usize)  -> u16 { AVC_SPEC_CB5_SYMS[idx] }
-fn cb_map6(idx: usize)  -> u16 { AVC_SPEC_CB6_SYMS[idx] }
-fn cb_map7(idx: usize)  -> u16 { AVC_SPEC_CB7_SYMS[idx] }
-fn cb_map8(idx: usize)  -> u16 { AVC_SPEC_CB8_SYMS[idx] }
-fn cb_map9(idx: usize)  -> u16 { AVC_SPEC_CB9_SYMS[idx] }
-fn cb_map10(idx: usize) -> u16 { AVC_SPEC_CB10_SYMS[idx] }
-fn cb_map11(idx: usize) -> u16 { AVC_SPEC_CB11_SYMS[idx] }
-fn cb_map12(idx: usize) -> u16 { AVC_SPEC_CB12_SYMS[idx] }
-fn cb_map13(idx: usize) -> u16 { AVC_SPEC_CB13_SYMS[idx] }
-fn cb_map14(idx: usize) -> u16 { AVC_SPEC_CB14_SYMS[idx] }
-fn cb_map15(idx: usize) -> u16 { AVC_SPEC_CB15_SYMS[idx] }
-
 impl Codebooks {
     fn new() -> Self {
-        let mut coderead = TableCodebookDescReader::new(AVC_SCF_CODEBOOK_CODES, AVC_SCF_CODEBOOK_BITS, scale_map);
+        let mut coderead = TableCodebookDescReader::new(AVC_SCF_CODEBOOK_CODES, AVC_SCF_CODEBOOK_BITS, |idx| (idx as i8) - 60);
         let scale_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB1_CODES, AVC_SPEC_CB1_BITS, cb_map1);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB1_CODES, AVC_SPEC_CB1_BITS, |idx| AVC_SPEC_CB1_SYMS[idx]);
         let cb1 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB2_CODES, AVC_SPEC_CB2_BITS, cb_map2);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB2_CODES, AVC_SPEC_CB2_BITS, |idx| AVC_SPEC_CB2_SYMS[idx]);
         let cb2 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB3_CODES, AVC_SPEC_CB3_BITS, cb_map3);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB3_CODES, AVC_SPEC_CB3_BITS, |idx| AVC_SPEC_CB3_SYMS[idx]);
         let cb3 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB4_CODES, AVC_SPEC_CB4_BITS, cb_map4);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB4_CODES, AVC_SPEC_CB4_BITS, |idx| AVC_SPEC_CB4_SYMS[idx]);
         let cb4 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB5_CODES, AVC_SPEC_CB5_BITS, cb_map5);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB5_CODES, AVC_SPEC_CB5_BITS, |idx| AVC_SPEC_CB5_SYMS[idx]);
         let cb5 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB6_CODES, AVC_SPEC_CB6_BITS, cb_map6);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB6_CODES, AVC_SPEC_CB6_BITS, |idx| AVC_SPEC_CB6_SYMS[idx]);
         let cb6 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB7_CODES, AVC_SPEC_CB7_BITS, cb_map7);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB7_CODES, AVC_SPEC_CB7_BITS, |idx| AVC_SPEC_CB7_SYMS[idx]);
         let cb7 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB8_CODES, AVC_SPEC_CB8_BITS, cb_map8);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB8_CODES, AVC_SPEC_CB8_BITS, |idx| AVC_SPEC_CB8_SYMS[idx]);
         let cb8 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB9_CODES, AVC_SPEC_CB9_BITS, cb_map9);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB9_CODES, AVC_SPEC_CB9_BITS, |idx| AVC_SPEC_CB9_SYMS[idx]);
         let cb9 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB10_CODES, AVC_SPEC_CB10_BITS, cb_map10);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB10_CODES, AVC_SPEC_CB10_BITS, |idx| AVC_SPEC_CB10_SYMS[idx]);
         let cb10 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB11_CODES, AVC_SPEC_CB11_BITS, cb_map11);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB11_CODES, AVC_SPEC_CB11_BITS, |idx| AVC_SPEC_CB11_SYMS[idx]);
         let cb11 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB12_CODES, AVC_SPEC_CB12_BITS, cb_map12);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB12_CODES, AVC_SPEC_CB12_BITS, |idx| AVC_SPEC_CB12_SYMS[idx]);
         let cb12 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB13_CODES, AVC_SPEC_CB13_BITS, cb_map13);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB13_CODES, AVC_SPEC_CB13_BITS, |idx| AVC_SPEC_CB13_SYMS[idx]);
         let cb13 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB14_CODES, AVC_SPEC_CB14_BITS, cb_map14);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB14_CODES, AVC_SPEC_CB14_BITS, |idx| AVC_SPEC_CB14_SYMS[idx]);
         let cb14 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB15_CODES, AVC_SPEC_CB15_BITS, cb_map15);
+        let mut coderead = TableCodebookDescReader::new(AVC_SPEC_CB15_CODES, AVC_SPEC_CB15_BITS, |idx| AVC_SPEC_CB15_SYMS[idx]);
         let cb15 = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let spec_cb = [cb1, cb2, cb3, cb4, cb5, cb6, cb7, cb8, cb9, cb10, cb11, cb12, cb13, cb14, cb15];
         Self { scale_cb, spec_cb }

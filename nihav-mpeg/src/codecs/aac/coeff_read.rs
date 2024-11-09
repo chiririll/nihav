@@ -21,7 +21,6 @@ pub struct Codebooks {
 }
 
 fn scale_map(idx: usize) -> i8 { (idx as i8) - 60 }
-fn cb_map(idx: usize) -> u16 { idx as u16 }
 
 impl Codebooks {
     pub fn new() -> Self {
@@ -30,7 +29,7 @@ impl Codebooks {
         let spec_cb = unsafe {
                 let mut uspec_cb: mem::MaybeUninit::<[Codebook<u16>; 11]> = mem::MaybeUninit::uninit();
                 for i in 0..AAC_SPEC_CODES.len() {
-                    let mut coderead = TableCodebookDescReader::new(AAC_SPEC_CODES[i], AAC_SPEC_BITS[i], cb_map);
+                    let mut coderead = TableCodebookDescReader::new(AAC_SPEC_CODES[i], AAC_SPEC_BITS[i], |idx| idx as u16);
                     ptr::write(&mut (*uspec_cb.as_mut_ptr())[i], Codebook::new(&mut coderead, CodebookMode::MSB).unwrap());
                 }
                 uspec_cb.assume_init()
