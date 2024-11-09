@@ -586,6 +586,8 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
                                 let hdr_skip = (src.tell() - pos) as usize;
 
                                 let slice_size = payload_size - hdr_skip;
+                                validate!(packet_num as usize <= num_pkts);
+                                validate!(off as usize + slice_size <= (frame_size as usize));
                                 slice_buf.resize(slice_size, 0);
                                 src.read_buf(slice_buf.as_mut_slice())?;
                                 if packet_num == 1 {
