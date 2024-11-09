@@ -184,8 +184,9 @@ fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
             return;
         }
         let mut same = true;
-        let num_components = sbuf.get_info().get_format().get_num_comp();
-        for i in 0..num_components {
+        let src_components = sbuf.get_info().get_format().get_num_comp();
+        let dst_components = dbuf.get_info().get_format().get_num_comp();
+        for i in 0..src_components.max(dst_components) {
             if sbuf.get_stride(i) != dbuf.get_stride(i) {
                 same = false;
                 break;
@@ -201,7 +202,7 @@ fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
             ddata.copy_from_slice(&sdata[0..]);
         } else {
             let sdata = sbuf.get_data();
-            for comp in 0..num_components {
+            for comp in 0..src_components.min(dst_components) {
                 let (_, h) = sbuf.get_dimensions(comp);
                 let src = &sdata[sbuf.get_offset(comp)..];
                 let sstride = sbuf.get_stride(comp);
@@ -217,8 +218,9 @@ fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
         }
     } else if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf16(), pic_out.get_vbuf16()) {
         let mut same = true;
-        let num_components = sbuf.get_info().get_format().get_num_comp();
-        for i in 0..num_components {
+        let src_components = sbuf.get_info().get_format().get_num_comp();
+        let dst_components = dbuf.get_info().get_format().get_num_comp();
+        for i in 0..src_components.max(dst_components) {
             if sbuf.get_stride(i) != dbuf.get_stride(i) {
                 same = false;
                 break;
@@ -234,7 +236,7 @@ fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
             ddata.copy_from_slice(&sdata[0..]);
         } else {
             let sdata = sbuf.get_data();
-            for comp in 0..num_components {
+            for comp in 0..src_components.min(dst_components) {
                 let (_, h) = sbuf.get_dimensions(comp);
                 let src = &sdata[sbuf.get_offset(comp)..];
                 let sstride = sbuf.get_stride(comp);
