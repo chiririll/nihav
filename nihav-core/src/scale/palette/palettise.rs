@@ -122,10 +122,10 @@ impl KDTree {
         }
         let mut min = [255u8; 3];
         let mut max = [0u8; 3];
-        for i in start..end {
-            for comp in 0..3 {
-                min[comp] = min[comp].min(pal[i][comp]);
-                max[comp] = max[comp].max(pal[i][comp]);
+        for clr in pal[start..end].iter() {
+            for ((mi, ma), &c) in min.iter_mut().zip(max.iter_mut()).zip(clr.iter()) {
+                *mi = (*mi).min(c);
+                *ma = (*ma).max(c);
             }
         }
         let dr = max[0] - min[0];

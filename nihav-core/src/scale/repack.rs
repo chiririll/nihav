@@ -166,8 +166,8 @@ impl Kernel for UnpackKernel {
         if let Some(ref buf) = pic_in.get_vbuf() {
             let step = buf.get_info().get_format().elem_size as usize;
             let mut soff: [usize; MAX_CHROMATONS] = [0; MAX_CHROMATONS];
-            for i in 0..self.ncomps {
-                soff[i] = buf.get_info().get_format().get_chromaton(i).unwrap().get_offset() as usize;
+            for (i, off) in soff[..self.ncomps].iter_mut().enumerate() {
+                *off = buf.get_info().get_format().get_chromaton(i).unwrap().get_offset() as usize;
             }
             let (w, h) = buf.get_dimensions(0);
             let ioff = buf.get_offset(0);
@@ -186,16 +186,18 @@ impl Kernel for UnpackKernel {
                 if ychr.next_elem == 0 || usize::from(ychr.next_elem) == step {
                     for src in sdata.chunks(istride).take(h) {
                         for x in 0..w {
-                            for i in 0..self.ncomps {
-                                dst[offs[i] + x] = src[x * step + soff[i]];
+                            for (&doff, &soff) in offs[..self.ncomps].iter().zip(soff.iter()) {
+                                dst[doff + x] = src[x * step + soff];
                             }
                         }
-                        for i in 0..self.ncomps { offs[i] += ostride[i]; }
+                        for (off, &stride) in offs[..self.ncomps].iter_mut().zip(ostride.iter()) {
+                            *off += stride;
+                        }
                     }
                 } else {
                     let mut steps: [usize; MAX_CHROMATONS] = [0; MAX_CHROMATONS];
-                    for i in 0..self.ncomps {
-                        steps[i] = buf.get_info().get_format().get_chromaton(i).unwrap().next_elem as usize;
+                    for (i, step) in steps[..self.ncomps].iter_mut().enumerate() {
+                        *step = buf.get_info().get_format().get_chromaton(i).unwrap().next_elem as usize;
                     }
 
                     for src in sdata.chunks(istride).take(h) {

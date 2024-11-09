@@ -713,16 +713,16 @@ impl NAPixelFormaton {
                     start_shift = start_shift.min(comp.shift);
                     if comp.comp_offs != 0 { use_shift = false; }
                 }
-                for component in 0..(self.components as usize) {
+                for dname in name[..(self.components as usize)].iter_mut() {
                     for (comp, cname) in self.comp_info.iter().zip(b"rgba".iter()) {
                         if let Some(comp) = comp {
                             if use_shift {
                                 if comp.shift == start_shift {
-                                    name[component] = *cname;
+                                    *dname = *cname;
                                     start_shift += comp.depth;
                                 }
                             } else if comp.comp_offs == start_off {
-                                name[component] = *cname;
+                                *dname = *cname;
                                 if planar {
                                     start_off += 1;
                                 } else {
@@ -909,13 +909,12 @@ fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
             },
             5551 => {
                 let mut offs = [0; 4];
-                let depth = [ 5, 5, 5, 1 ];
                 let mut cur_off = 0;
-                for comp in 0..4 {
+                for (comp, &depth) in [ 5, 5, 5, 1 ].iter().enumerate() {
                     for (off, ord) in offs.iter_mut().zip(order.iter()) {
                         if *ord == comp {
                             *off = cur_off;
-                            cur_off += depth[comp];
+                            cur_off += depth;
                             break;
                         }
                     }

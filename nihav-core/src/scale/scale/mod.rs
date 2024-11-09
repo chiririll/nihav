@@ -219,10 +219,10 @@ impl LanczosResize {
         let norm = std::f32::consts::PI * std::f32::consts::PI;
         let frac = (num as f32) / (den as f32);
         let a = order as f32;
-        for i in 0..(order * 2) {
+        for (i, coef) in coeffs[..order * 2].iter_mut().enumerate() {
             let x = frac - ((i as f32) + 1.0 - a);
             let fp = std::f32::consts::PI * x;
-            coeffs[i] = a * fp.sin() * (fp / a).sin() / (norm * x * x);
+            *coef = a * fp.sin() * (fp / a).sin() / (norm * x * x);
         }
     }
     fn create_cache(order: usize, den: usize) -> Vec<Vec<f32>> {

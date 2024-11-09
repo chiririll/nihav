@@ -32,8 +32,8 @@ impl<'a> VQBox<'a> {
         for pix in arr.iter() {
             counts[idx(pix)] += 1;
         }
-        for i in 0..256 {
-            buckets.push(Vec::with_capacity(counts[i]));
+        for &count in counts.iter() {
+            buckets.push(Vec::with_capacity(count));
         }
         for pix in arr.iter() {
             buckets[idx(pix)].push(*pix);

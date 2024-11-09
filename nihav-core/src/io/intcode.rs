@@ -168,7 +168,6 @@ impl<'a> IntCodeReader for BitReader<'a> {
             UintCodeType::GammaP                  => read_gammap(self),
         }
     }
-    #[allow(unused_variables)]
     fn read_code_signed(&mut self, t: IntCodeType) -> BitReaderResult<i32> {
         let uval =
             match t {
@@ -178,8 +177,8 @@ impl<'a> IntCodeReader for BitReader<'a> {
                 IntCodeType::GammaP                  => read_gammap(self)?,
             };
         match t {
-            IntCodeType::Golomb(m)               => Ok(uval_to_sval0mp(uval)),
-            IntCodeType::Rice(k)                 => Ok(uval_to_sval0mp(uval)),
+            IntCodeType::Golomb(_)               => Ok(uval_to_sval0mp(uval)),
+            IntCodeType::Rice(_)                 => Ok(uval_to_sval0mp(uval)),
             IntCodeType::Gamma                   => Ok(uval_to_sval0pm(uval)),
             IntCodeType::GammaP                  => Ok(uval_to_sval0pm(uval)),
         }

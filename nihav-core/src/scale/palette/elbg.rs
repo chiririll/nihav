@@ -77,8 +77,8 @@ impl ELBG {
     #[allow(dead_code)]
     pub fn new(initial_pal: &[[u8; 3]; 256]) -> Self {
         let mut clusters = Vec::with_capacity(256);
-        for i in 0..256 {
-            let pix = Pixel { r: initial_pal[i][0], g: initial_pal[i][1], b: initial_pal[i][2] };
+        for clr in initial_pal.iter() {
+            let pix = Pixel { r: clr[0], g: clr[1], b: clr[2] };
             let cluster = Cluster::new(pix);
             clusters.push(cluster);
         }
@@ -231,9 +231,9 @@ impl ELBG {
         let mut do_elbg_step = true;
         while (iterations < 10) && (dist < prev_dist - prev_dist / 100) {
             prev_dist = dist;
-            for i in 0..256 {
-                old_cb[i] = self.clusters[i].centroid;
-                self.clusters[i].reset();
+            for (cb, cluster) in old_cb.iter_mut().zip(self.clusters.iter_mut()) {
+                *cb = cluster.centroid;
+                cluster.reset();
             }
             // put pixels into the nearest clusters
             indices.clear();
@@ -290,11 +290,11 @@ impl ELBG {
                     let mut closest_idx = *low_idx;
                     let mut closest_dist = std::u32::MAX;
                     let low_centr = self.clusters[*low_idx].centroid;
-                    for i in 0..256 {//low_u.iter() {
-                        if i == *low_idx || used[i] {
+                    for (i, (cluster, &used)) in self.clusters.iter().zip(used.iter()).enumerate() {//low_u.iter() {
+                        if i == *low_idx || used {
                             continue;
                         }
-                        let dist = self.clusters[i].centroid.dist(low_centr);
+                        let dist = cluster.centroid.dist(low_centr);
                         if closest_dist > dist {
                             closest_dist = dist;
                             closest_idx  = i;
@@ -329,8 +329,8 @@ impl ELBG {
             iterations += 1;
         }
         if dist < prev_dist {
-            for i in 0..256 {
-                old_cb[i] = self.clusters[i].centroid;
+            for (cb, cluster) in old_cb.iter_mut().zip(self.clusters.iter()) {
+                *cb = cluster.centroid;
             }
         }
         for i in 0..256 {

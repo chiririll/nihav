@@ -360,7 +360,6 @@ impl<S: Copy> Codebook<S> {
 }
 
 impl<'a, S: Copy> CodebookReader<S> for BitReader<'a> {
-    #[allow(unused_variables)]
     fn read_cb(&mut self, cb: &Codebook<S>) -> CodebookResult<S> {
         let mut esc = true;
         let mut idx = 0;

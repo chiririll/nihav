@@ -9,6 +9,7 @@ pub struct NeuQuantQuantiser {
 
 const SPECIAL_NODES: usize = 2;
 impl NeuQuantQuantiser {
+    #[allow(clippy::needless_range_loop)]
     pub fn new(factor: usize) -> Self {
         let mut weights = [[0.0; 3]; 256];
         if SPECIAL_NODES > 1 {

@@ -1,6 +1,5 @@
 //! Various compression formats support.
 #[cfg(feature="deflate")]
-#[allow(clippy::manual_range_contains)]
 pub mod deflate;
 
 use crate::io::byteio::ByteIOError;

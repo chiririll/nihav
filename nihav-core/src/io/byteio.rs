@@ -517,8 +517,7 @@ impl<'a> ByteIO for MemoryReader<'a> {
         Ok(read_size)
     }
 
-    #[allow(unused_variables)]
-    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
+    fn write_buf(&mut self, _buf: &[u8]) -> ByteIOResult<()> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -618,8 +617,7 @@ impl<T: Read+Seek> ByteIO for FileReader<T> {
         Ok(size)
     }
 
-    #[allow(unused_variables)]
-    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
+    fn write_buf(&mut self, _buf: &[u8]) -> ByteIOResult<()> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -773,8 +771,7 @@ impl<T: Read+Seek> ByteIO for BoundedFileReader<T> {
         Ok(size)
     }
 
-    #[allow(unused_variables)]
-    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
+    fn write_buf(&mut self, _buf: &[u8]) -> ByteIOResult<()> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -1006,28 +1003,23 @@ impl<'a> MemoryWriter<'a> {
 }
 
 impl<'a> ByteIO for MemoryWriter<'a> {
-    #[allow(unused_variables)]
     fn read_byte(&mut self) -> ByteIOResult<u8> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
     fn peek_byte(&mut self) -> ByteIOResult<u8> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf_some(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn peek_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -1084,28 +1076,23 @@ impl<'a> GrowableMemoryWriter<'a> {
 }
 
 impl<'a> ByteIO for GrowableMemoryWriter<'a> {
-    #[allow(unused_variables)]
     fn read_byte(&mut self) -> ByteIOResult<u8> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
     fn peek_byte(&mut self) -> ByteIOResult<u8> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf_some(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn peek_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -1155,28 +1142,23 @@ impl<T: Write+Seek> FileWriter<T> {
 }
 
 impl<T: Write+Seek> ByteIO for FileWriter<T> {
-    #[allow(unused_variables)]
     fn read_byte(&mut self) -> ByteIOResult<u8> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
     fn peek_byte(&mut self) -> ByteIOResult<u8> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf_some(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 
-    #[allow(unused_variables)]
-    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn peek_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
         Err(ByteIOError::NotImplemented)
     }
 

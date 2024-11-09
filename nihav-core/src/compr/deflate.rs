@@ -368,9 +368,9 @@ impl Inflate {
             return Err(DecompressError::InvalidData);
         }
         let cstart = (self.bpos.wrapping_sub(offset)) & mask;
-        for i in 0..len {
+        for (i, out) in dst[..len].iter_mut().enumerate() {
             self.buf[(self.bpos + i) & mask] = self.buf[(cstart + i) & mask];
-            dst[i] = self.buf[(cstart + i) & mask];
+            *out = self.buf[(cstart + i) & mask];
         }
         self.bpos = (self.bpos + len) & mask;
         self.full_pos += len;
@@ -1041,10 +1041,9 @@ struct GzipCRC32 {
 }
 
 impl GzipCRC32 {
-    #[allow(clippy::unreadable_literal)]
     fn new() -> Self {
         let mut tab = [0u32; 256];
-        for i in 0..256 {
+        for (i, el) in tab.iter_mut().enumerate() {
             let mut c = i as u32;
             for _ in 0..8 {
                 if (c & 1) != 0 {
@@ -1053,7 +1052,7 @@ impl GzipCRC32 {
                     c >>= 1;
                 }
             }
-            tab[i] = c;
+            *el = c;
         }
         Self { tab, crc: 0 }
     }
@@ -1159,9 +1158,7 @@ pub fn gzip_decode(br: &mut ByteReader, skip_crc: bool) -> DecompressResult<Vec<
             for i in 0..shift_len {
                 tail[i] = tail[i + inlen];
             }
-            for i in shift_len..8 {
-                tail[i] = inblk[i - shift_len];
-            }
+            tail[shift_len..8].copy_from_slice(&inblk[..8 - shift_len]);
         }
     }
     if !skip_crc {
@@ -1385,7 +1382,7 @@ impl DeflateWriter {
     }
     fn write_len_bits(&mut self, len: u16) {
         let llen = len - 3;
-        if llen >= 8 && llen < 255 {
+        if (8..255).contains(&llen) {
             let bits = (16 - llen.leading_zeros() - 3) as u8;
             self.write(llen & ((1 << bits) - 1), bits);
         }
