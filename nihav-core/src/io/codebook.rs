@@ -423,13 +423,13 @@ impl<'a> CodebookDescReader<u32> for ShortCodebookDescReader<'a> {
 pub struct TableCodebookDescReader<'a, CodeType:'static, IndexType:'static> {
     bits:       &'a [u8],
     codes:      &'a [CodeType],
-    idx_map:    fn(usize) -> IndexType,
+    idx_map:    Box<dyn Fn(usize) -> IndexType>,
 }
 
 impl<'a, CodeType, IndexType> TableCodebookDescReader<'a, CodeType, IndexType> {
     /// Constructs a new `TableCodebookDescReader` instance.
-    pub fn new(codes: &'a [CodeType], bits: &'a [u8], idx_map: fn(usize) -> IndexType) -> Self {
-        Self { bits, codes, idx_map }
+    pub fn new<MapFunc: Fn(usize) -> IndexType + 'static>(codes: &'a [CodeType], bits: &'a [u8], map_func: MapFunc) -> Self {
+        Self { bits, codes, idx_map: Box::new(map_func) }
     }
 }
 impl<'a, CodeType: Copy+Into<u32>, IndexType> CodebookDescReader<IndexType> for TableCodebookDescReader<'a, CodeType, IndexType>
