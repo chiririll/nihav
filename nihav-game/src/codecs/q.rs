@@ -11,7 +11,7 @@ enum TileMode {
     Run,
     Reuse,
     FB,
-    MV,
+    MV(isize),
     Forward(u16),
     Backward(u16),
     Skip,
@@ -308,7 +308,7 @@ impl QVideoDecoder {
                                             validate!(rtile < self.tile_off.len());
                                             copy_tile!(self, tile_off, self.tile_off[rtile]);
                                         },
-                                        TileMode::MV => {
+                                        TileMode::MV(_) => {
                                             let idx         = br.read_byte()? as usize;
                                             let (x, y) = DEF_MVS[idx];
                                             let src_off = (tile_off as isize) + (x as isize) * 4 + (y as isize) * 4 * (self.w as isize);
@@ -360,12 +360,13 @@ impl QVideoDecoder {
                     0xFC => {
                         let idx         = br.read_byte()? as usize;
                         let (x, y) = DEF_MVS[idx];
-                        let src_off = (tile_off as isize) + (x as isize) * 4 + (y as isize) * 4 * (self.w as isize);
+                        let mv_off = (x as isize) * 4 + (y as isize) * 4 * (self.w as isize);
+                        let src_off = (tile_off as isize) + mv_off;
                         validate!(src_off >= 0);
                         validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);
 
                         copy_tile!(self, tile_off, src_off as usize);
-                        last_mode = TileMode::MV;
+                        last_mode = TileMode::MV(mv_off);
                     },
                     0xFD => {
                         let off         = (br.read_byte()? as usize) + 1;
@@ -473,6 +474,19 @@ impl QVideoDecoder {
                         let mut tile_no  = tile_no;
                         let mut tile_off = tile_off;
                         for i in 0..run {
+                            if let TileMode::MV(mv_off) = last_mode {
+                                let src_off = (tile_off as isize) + mv_off;
+                                validate!(src_off >= 0);
+                                validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);
+
+                                copy_tile!(self, tile_off, src_off as usize);
+                                if i + 1 < run {
+                                    let (tno, &toff) = titer.next().unwrap();
+                                    tile_no  = tno;
+                                    tile_off = toff;
+                                }
+                                continue;
+                            }
                             let copy_off = match last_mode {
                                     TileMode::Forward(off) => {
                                         tile_no + (off as usize)
@@ -547,7 +561,7 @@ impl QVideoDecoder {
                                             validate!(rtile < self.tile_off.len());
                                             copy_tile!(self, tile_off, self.tile_off[rtile]);
                                         },
-                                        TileMode::MV => {
+                                        TileMode::MV(_) => {
                                             let idx         = br.read_byte()? as usize;
                                             let (x, y) = DEF_MVS[idx];
                                             let src_off = (tile_off as isize) + (x as isize) * 4 + (y as isize) * 4 * (self.w as isize);
@@ -599,12 +613,13 @@ impl QVideoDecoder {
                     0xFC => {
                         let idx         = br.read_byte()? as usize;
                         let (x, y) = DEF_MVS[idx];
-                        let src_off = (tile_off as isize) + (x as isize) * 4 + (y as isize) * 4 * (self.w as isize);
+                        let mv_off = (x as isize) * 4 + (y as isize) * 4 * (self.w as isize);
+                        let src_off = (tile_off as isize) + mv_off;
                         validate!(src_off >= 0);
                         validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);
 
                         copy_tile!(self, tile_off, src_off as usize);
-                        last_mode = TileMode::MV;
+                        last_mode = TileMode::MV(mv_off);
                     },
                     0xFD => {
                         let off         = (br.read_byte()? as usize) + 1;
