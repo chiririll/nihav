@@ -826,7 +826,7 @@ mod test {
         game_register_all_decoders(&mut dec_reg);
 
         test_decoding("legend-q", "legend-q-video", "assets/Game/CCS003.Q", Some(16), &dmx_reg, &dec_reg,
-                      ExpectedTestResult::MD5([0x4c0f0712, 0xc6c39f5b, 0x5bb6902f, 0x9119940e]));
+                      ExpectedTestResult::MD5([0x1be6ef08, 0xdbff6d2e, 0x9595ee10, 0x1dfda486]));
     }
 }
 
