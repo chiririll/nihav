@@ -130,7 +130,7 @@ impl<'a> DemuxCore<'a> for QDemuxer<'a> {
                     self.side_data.push(0);
                     self.side_data.push(0);
                 },
-                8 => return Err(DemuxerError::InvalidData), //should be handled before main loop
+                8 if size > 0 => return Err(DemuxerError::InvalidData), //should be handled before main loop
                 9 => { // first part of interlaced frame
                     let cur_len = self.side_data.len();
                     self.side_data.resize(cur_len + size + 6, 0);
