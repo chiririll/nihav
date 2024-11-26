@@ -12,6 +12,7 @@ enum TileMode {
     Reuse,
     FB,
     MV(isize),
+    Absolute(usize),
     Forward(u16),
     Backward(u16),
     Skip,
@@ -29,6 +30,7 @@ struct QVideoDecoder {
     mode:       u8,
     patterns:   [u16; 128],
     version:    u8,
+    version2:   u8,
     f8_cache:   [[u8; 16]; 240],
 }
 
@@ -60,6 +62,7 @@ impl QVideoDecoder {
             tile_h:     0,
             patterns:   [0; 128],
             version:    0,
+            version2:   0,
             f8_cache:   [[0; 16]; 240],
         }
     }
@@ -103,7 +106,7 @@ impl QVideoDecoder {
         Ok(())
     }
 
-    fn decode_frame_v3(&mut self, br: &mut ByteReader, _ctype: u16) -> DecoderResult<()> {
+    fn decode_frame_v3_0(&mut self, br: &mut ByteReader, _ctype: u16) -> DecoderResult<()> {
         let mut titer = self.tile_off.iter().enumerate();
         let mut skip_mode = false;
         while let Some((tile_no, &tile_off)) = titer.next()  {
@@ -180,6 +183,289 @@ impl QVideoDecoder {
                         copy_tile!(self, tile_off, self.tile_off[tile_no - off]);
                     },
                     _ => {},
+                };
+            }
+            skip_mode = op == 0xFF;
+        }
+
+        Ok(())
+    }
+
+    fn decode_frame_v3_x(&mut self, br: &mut ByteReader, _ctype: u16) -> DecoderResult<()> {
+        const MV_X: [i8; 16] = [ 0, 1, 2, 3, 4, 5, 6, 7, -8, -1, -2, -3, -4, -5, -6, -7 ];
+        const MV_Y: [i8; 16] = [ 8, 9, 2, 3, 4, 5, 6, 7, -8, -9, -2, -3, -4, -5, -6, -7 ];
+
+        let mut titer = self.tile_off.iter().enumerate();
+        let mut skip_mode = false;
+        let mut last_mode = TileMode::Start;
+        while let Some((tile_no, &tile_off)) = titer.next()  {
+            let op                      = br.read_byte()?;
+            if op < 0xF8 {
+                let clr0 = op;
+                let clr1                = br.read_byte()?;
+                if clr0 == clr1 {
+                    for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                        for el in dline[..self.tile_w].iter_mut() {
+                            *el = clr0;
+                        }
+                    }
+                    last_mode = TileMode::Fill;
+                } else {
+                    let pat_idx         = br.peek_byte()?;
+                    if pat_idx & 0x80 == 0 {
+                                          br.read_byte()?;
+                        let mut pattern = self.patterns[usize::from(pat_idx)];
+                        for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                            for el in dline[..self.tile_w].iter_mut() {
+                                *el = if (pattern & 0x8000) == 0 { clr0 } else { clr1 };
+                                pattern <<= 1;
+                            }
+                        }
+                        last_mode = TileMode::ShortPattern(clr0, clr1);
+                    } else {
+                        let mut pattern = br.read_u16le()?;
+                        for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                            for el in dline[..self.tile_w].iter_mut() {
+                                *el = if (pattern & 0x8000) == 0 { clr0 } else { clr1 };
+                                pattern <<= 1;
+                            }
+                        }
+                        last_mode = TileMode::LongPattern(clr0, clr1);
+                    }
+                }
+            } else {
+                match op {
+                    0xF8 => unimplemented!(), // skip+count?
+                    0xF9 => {
+                        let run         = br.read_byte()? as usize;
+                        validate!(run > 0);
+                        match last_mode {
+                            TileMode::ShortPattern(_, _) |
+                            TileMode::LongPattern(_, _) |
+                            TileMode::Fill |
+                            TileMode::Reuse => {
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    if !skip_mode {
+                                        copy_tile!(self, tile_off, self.tile_off[tile_no - 1]);
+                                    }
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::Absolute(off) => {
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    copy_tile!(self, tile_off, self.tile_off[off]);
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::MV(off) => {
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    let src_off = tile_off as isize + off;
+                                    validate!(src_off >= 0);
+                                    validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);
+
+                                    copy_tile!(self, tile_off, src_off as usize);
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::Forward(off) => {
+                                let off = off as usize;
+                                let mut tile_no  = tile_no;
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    validate!(tile_no + off < self.tile_off.len());
+                                    copy_tile!(self, tile_off, self.tile_off[tile_no + off]);
+                                    if i + 1 < run {
+                                        let (tno, &toff) = titer.next().unwrap();
+                                        tile_no  = tno;
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::Backward(off) => {
+                                let mut tile_no  = tile_no;
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    copy_tile!(self, tile_off, self.tile_off[tile_no - (off as usize)]);
+                                    if i + 1 < run {
+                                        let (tno, &toff) = titer.next().unwrap();
+                                        tile_no  = tno;
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::Skip => {
+                                for _ in 0..run - 1 {
+                                    let (_tno, _toff) = titer.next().unwrap();
+                                }
+                            }
+                            _ => unimplemented!(),
+                        }
+
+                        validate!(tile_no > 0);
+                        last_mode = TileMode::Run;
+                    },
+                    0xFA => {
+                        let off         = br.read_u16le()? as usize;
+                        validate!(off < self.tile_off.len());
+                        copy_tile!(self, tile_off, self.tile_off[off]);
+                        last_mode = TileMode::Absolute(off);
+                    },
+                    0xFB => {
+                        let run         = br.read_byte()? as usize;
+                        validate!(run > 0 && tile_no + run <= self.tile_off.len());
+                        match last_mode {
+                            TileMode::Fill => {
+                                let mut tile_off = tile_off;
+
+                                for i in 0..run {
+                                    let clr0 = br.read_byte()?;
+                                    for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                                        for el in dline[..self.tile_w].iter_mut() {
+                                            *el = clr0;
+                                        }
+                                    }
+
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::ShortPattern(clr0, clr1) => {
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    let mut pattern = if (br.peek_byte()? & 0x80) == 0 {
+                                            self.patterns[usize::from(br.read_byte()?)]
+                                        } else {
+                                            br.read_u16le()?
+                                        };
+                                    for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                                        for el in dline[..self.tile_w].iter_mut() {
+                                            *el = if (pattern & 0x8000) == 0 { clr0 } else { clr1 };
+                                            pattern <<= 1;
+                                        }
+                                    }
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::LongPattern(clr0, clr1) => {
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    let mut pattern = br.read_u16le()?;
+                                    for dline in self.frame[tile_off..].chunks_mut(self.w).take(self.tile_h) {
+                                        for el in dline[..self.tile_w].iter_mut() {
+                                            *el = if (pattern & 0x8000) == 0 { clr0 } else { clr1 };
+                                            pattern <<= 1;
+                                        }
+                                    }
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::Absolute(_) => {
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    let off         = br.read_u16le()? as usize;
+                                    validate!(off < self.tile_off.len());
+                                    copy_tile!(self, tile_off, self.tile_off[off]);
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::MV(_) => {
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    let idx         = br.read_byte()? as usize;
+                                    let x = MV_X[idx & 0xF] as isize * 4;
+                                    let y = MV_Y[idx >>  4] as isize * 4;
+                                    let src_off = (tile_off as isize) + x + y * (self.w as isize);
+                                    validate!(src_off >= 0);
+                                    validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);
+
+                                    copy_tile!(self, tile_off, src_off as usize);
+                                    if i + 1 < run {
+                                        let (_tno, &toff) = titer.next().unwrap();
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::Forward(_) => {
+                                let mut tile_no  = tile_no;
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    let off         = (br.read_byte()? as usize) + 1;
+                                    validate!(tile_no + off < self.tile_off.len());
+                                    copy_tile!(self, tile_off, self.tile_off[tile_no + off]);
+                                    if i + 1 < run {
+                                        let (tno, &toff) = titer.next().unwrap();
+                                        tile_no  = tno;
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            TileMode::Backward(_) => {
+                                let mut tile_no  = tile_no;
+                                let mut tile_off = tile_off;
+                                for i in 0..run {
+                                    let off         = (br.read_byte()? as usize) + 1;
+                                    validate!(off <= tile_no);
+                                    copy_tile!(self, tile_off, self.tile_off[tile_no - off]);
+                                    if i + 1 < run {
+                                        let (tno, &toff) = titer.next().unwrap();
+                                        tile_no  = tno;
+                                        tile_off = toff;
+                                    }
+                                }
+                            },
+                            _ => unimplemented!(),
+                        }
+                        last_mode = TileMode::Reuse;
+                    },
+                    0xFC => {
+                        let idx         = br.read_byte()? as usize;
+                        let x = MV_X[idx & 0xF] as isize * 4;
+                        let y = MV_Y[idx >>  4] as isize * 4;
+                        let src_off = (tile_off as isize) + x + y * (self.w as isize);
+                        validate!(src_off >= 0);
+                        validate!((src_off as usize) + self.tile_w + (self.tile_h - 1) * self.w <= self.w * self.h);
+
+                        copy_tile!(self, tile_off, src_off as usize);
+                        last_mode = TileMode::MV(x + y * (self.w as isize));
+                    },
+                    0xFD => {
+                        let off         = (br.read_byte()? as usize) + 1;
+                        validate!(tile_no + off < self.tile_off.len());
+                        copy_tile!(self, tile_off, self.tile_off[tile_no + off]);
+                        last_mode = TileMode::Forward(off as u16);
+                    },
+                    0xFE => {
+                        let off         = (br.read_byte()? as usize) + 1;
+                        validate!(off <= tile_no);
+                        copy_tile!(self, tile_off, self.tile_off[tile_no - off]);
+                        last_mode = TileMode::Backward(off as u16);
+                    },
+                    _ => {
+                        last_mode = TileMode::Skip;
+                    },
                 };
             }
             skip_mode = op == 0xFF;
@@ -674,6 +960,7 @@ impl NADecoder for QVideoDecoder {
                     return Err(DecoderError::NotImplemented);
                 }
                 self.version = buf[2];
+                self.version2 = buf[3];
                 if self.version != 3{
                     w *= self.tile_w;
                     h *= self.tile_h;
@@ -736,7 +1023,11 @@ impl NADecoder for QVideoDecoder {
                         self.mode = if ctype == 9 || ctype == 11 { 7 } else { 6 };
                     }
                     if self.version == 3 {
-                        self.decode_frame_v3(&mut br, ctype)?;
+                        if self.version2 == 0 {
+                            self.decode_frame_v3_0(&mut br, ctype)?;
+                        } else {
+                            self.decode_frame_v3_x(&mut br, ctype)?;
+                        }
                     } else if self.version < 6 {
                         self.decode_frame_5(&mut br, ctype)?;
                     } else {
