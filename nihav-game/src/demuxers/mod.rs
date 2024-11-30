@@ -27,8 +27,6 @@ mod siff;
 mod smush;
 #[cfg(feature="demuxer_vmd")]
 mod vmd;
-#[cfg(feature="demuxer_vx")]
-mod vx;
 
 const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_bmv")]
@@ -53,8 +51,6 @@ const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
     &smush::MCMPDemuxerCreator {},
 #[cfg(feature="demuxer_vmd")]
     &vmd::VMDDemuxerCreator {},
-#[cfg(feature="demuxer_vx")]
-    &vx::VXDemuxerCreator {},
 ];
 
 /// Registers all available demuxers provided by this crate.
