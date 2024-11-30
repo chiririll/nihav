@@ -274,11 +274,6 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 6, cond: &CC::Ge(Arg::U16LE(32))}],
     },
     DetectConditions {
-        demux_name: "arxel-cnm",
-        extensions: ".cnm",
-        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"CNM UNR\x00")}],
-    },
-    DetectConditions {
         demux_name: "fcmp",
         extensions: ".cmp",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"FCMP")}],
@@ -292,24 +287,6 @@ const DETECTORS: &[DetectConditions] = &[
         demux_name: "gdv",
         extensions: ".gdv",
         conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U32LE(0x29111994))}],
-    },
-    DetectConditions {
-        demux_name: "fable-imax",
-        extensions: ".imx",
-        conditions: &[CheckItem{offs:  0, cond: &CC::Str(b"IMAX") },
-                      CheckItem{offs: 10, cond: &CC::Eq(Arg::U16LE(0x102)) }],
-    },
-    DetectConditions {
-        demux_name: "hl-fmv",
-        extensions: ".fmv",
-        conditions: &[CheckItem{offs:  0, cond: &CC::Str(b"FMV*") },
-                      CheckItem{offs:  4, cond: &CC::Eq(Arg::U32LE(0)) }],
-    },
-    DetectConditions {
-        demux_name: "legend-q",
-        extensions: ".q",
-        conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U16LE(0x6839))},
-                      CheckItem{offs: 2, cond: &CC::In(Arg::Byte(3), Arg::Byte(7))}],
     },
     DetectConditions {
         demux_name: "siff",
@@ -420,13 +397,6 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[],
     },
     DetectConditions {
-        demux_name: "sierra-rbt",
-        extensions: ".rbt",
-        conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::Byte(0x16)) },
-                      CheckItem{offs: 2, cond: &CC::Str(b"SOL\0")},
-                      CheckItem{offs: 6, cond: &CC::In(Arg::U16LE(4), Arg::U16LE(6))}],
-    },
-    DetectConditions {
         demux_name: "sierra-seq",
         extensions: ".seq",
         conditions: &[],
@@ -435,11 +405,6 @@ const DETECTORS: &[DetectConditions] = &[
         demux_name: "vmd",
         extensions: ".vmd",
         conditions: &[],
-    },
-    DetectConditions {
-        demux_name: "vx",
-        extensions: ".vx",
-        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"VXDS") }],
     },
 ];
 
