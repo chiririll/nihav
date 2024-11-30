@@ -33,8 +33,6 @@ pub mod midivid;
 pub mod midivid3;
 #[cfg(feature="decoder_q")]
 pub mod q;
-#[cfg(feature="decoder_rbt")]
-pub mod rbt;
 #[cfg(feature="decoder_seq")]
 pub mod seq;
 #[cfg(feature="decoder_sga")]
@@ -78,10 +76,6 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "kmvc", get_decoder: kmvc::get_decoder },
 #[cfg(feature="decoder_q")]
     DecoderInfo { name: "legend-q-video", get_decoder: q::get_decoder },
-#[cfg(feature="decoder_rbt")]
-    DecoderInfo { name: "rbt-video", get_decoder: rbt::get_decoder },
-#[cfg(feature="decoder_rbt")]
-    DecoderInfo { name: "rbt-audio", get_decoder: rbt::get_decoder_audio },
 #[cfg(feature="decoder_seq")]
     DecoderInfo { name: "seq-video", get_decoder: seq::get_decoder },
 #[cfg(feature="decoder_sga")]

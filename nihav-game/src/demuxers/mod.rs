@@ -18,8 +18,6 @@ mod fst;
 mod gdv;
 #[cfg(feature="demuxer_q")]
 mod q;
-#[cfg(feature="demuxer_rbt")]
-mod rbt;
 #[cfg(feature="demuxer_seq")]
 mod seq;
 #[cfg(feature="demuxer_sga")]
@@ -47,8 +45,6 @@ const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
     &gdv::GDVDemuxerCreator {},
 #[cfg(feature="demuxer_q")]
     &q::QDemuxerCreator {},
-#[cfg(feature="demuxer_rbt")]
-    &rbt::RobotDemuxerCreator {},
 #[cfg(feature="demuxer_seq")]
     &seq::SequenceDemuxerCreator {},
 #[cfg(feature="demuxer_sga")]
