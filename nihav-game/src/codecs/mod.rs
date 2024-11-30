@@ -31,8 +31,6 @@ pub mod lhst500f22;
 pub mod midivid;
 #[cfg(feature="decoder_midivid3")]
 pub mod midivid3;
-#[cfg(feature="decoder_q")]
-pub mod q;
 #[cfg(feature="decoder_seq")]
 pub mod seq;
 #[cfg(feature="decoder_sga")]
@@ -74,8 +72,6 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "ipma2", get_decoder: ipma::get_decoder_v2 },
 #[cfg(feature="decoder_kmvc")]
     DecoderInfo { name: "kmvc", get_decoder: kmvc::get_decoder },
-#[cfg(feature="decoder_q")]
-    DecoderInfo { name: "legend-q-video", get_decoder: q::get_decoder },
 #[cfg(feature="decoder_seq")]
     DecoderInfo { name: "seq-video", get_decoder: seq::get_decoder },
 #[cfg(feature="decoder_sga")]
