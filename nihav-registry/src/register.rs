@@ -156,7 +156,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio;    "ulaw", "mu-law PCM"),
 
     desc!(video-im; "indeo1", "Intel Raw IF09"),
-    desc!(video-im; "indeo2", "Intel Indeo 2"),
+    desc!(video;    "indeo2", "Intel Indeo 2"),
     desc!(video;    "indeo3", "Intel Indeo 3"),
     desc!(video;    "indeo4", "Intel Indeo 4", CODEC_CAP_REORDER | CODEC_CAP_SCALABLE),
     desc!(video;    "indeo5", "Intel Indeo 5", CODEC_CAP_REORDER | CODEC_CAP_SCALABLE),
