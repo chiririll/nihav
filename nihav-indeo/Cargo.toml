@@ -29,9 +29,10 @@ decoder_indeo4 = ["decoders"]
 decoder_indeo5 = ["decoders"]
 decoder_intel263 = ["decoders"]
 
-all_demuxers = ["demuxer_ivf"]
+all_demuxers = ["demuxer_dvi", "demuxer_ivf"]
 demuxers = []
 
+demuxer_dvi = ["demuxers"]
 demuxer_ivf = ["demuxers"]
 
 all_encoders = ["all_video_encoders"]

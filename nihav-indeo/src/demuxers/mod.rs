@@ -11,10 +11,15 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DemuxerError::InvalidData); } };
 }
 
+#[cfg(feature="demuxer_dvi")]
+mod dvi;
+
 #[cfg(feature="demuxer_ivf")]
 mod ivf;
 
 const DEMUXERS: &[&dyn DemuxerCreator] = &[
+#[cfg(feature="demuxer_dvi")]
+    &dvi::DVIDemuxerCreator {},
 #[cfg(feature="demuxer_ivf")]
     &ivf::IVFDemuxerCreator {},
 ];
