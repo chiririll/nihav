@@ -188,15 +188,16 @@ struct Indeo2Decoder {
     info:    NACodecInfoRef,
     cb:      Codebook<u8>,
     frmmgr:  HAMShuffler<u8>,
+    rtv2:    bool,
 }
 
 #[allow(clippy::identity_op)]
 impl Indeo2Decoder {
-    fn new() -> Self {
+    fn new(rtv2: bool) -> Self {
         let dummy_info = NACodecInfo::new_dummy();
         let mut coderead = IR2CodeReader{};
         let cb = Codebook::new(&mut coderead, CodebookMode::LSB).unwrap();
-        Indeo2Decoder { info: dummy_info, cb, frmmgr: HAMShuffler::new() }
+        Indeo2Decoder { info: dummy_info, cb, frmmgr: HAMShuffler::new(), rtv2 }
     }
 
     fn decode_plane_intra(&self, br: &mut BitReader,
@@ -311,8 +312,12 @@ const IR2_START: usize = 48;
 impl NADecoder for Indeo2Decoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let w = vinfo.get_width();
-            let h = vinfo.get_height();
+            // The only known RTV2 sample uses conventional Indeo 2 format but codes twice as small picture
+            let (w, h) = if !self.rtv2 {
+                    (vinfo.width, vinfo.height)
+                } else {
+                    (vinfo.width / 2, vinfo.height / 2)
+                };
             let f = vinfo.is_flipped();
             let fmt = formats::YUV410_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, f, fmt));
@@ -373,7 +378,11 @@ impl NAOptionHandler for Indeo2Decoder {
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
-    Box::new(Indeo2Decoder::new())
+    Box::new(Indeo2Decoder::new(false))
+}
+
+pub fn get_decoder_rtv2() -> Box<dyn NADecoder + Send> {
+    Box::new(Indeo2Decoder::new(true))
 }
 
 #[cfg(test)]
@@ -381,8 +390,27 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::indeo_register_all_decoders;
+    use crate::*;
     use nihav_commonfmt::generic_register_all_demuxers;
+    #[test]
+    fn test_rtv2() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        indeo_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        indeo_register_all_decoders(&mut dec_reg);
+
+        // sample comes from a demo by Digital Video Arts
+        test_decoding("dvi", "ima-rtv2", "assets/Indeo/YULELOG.AVS", Some(7),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0xcf6c556c, 0x4517cf10, 0x6831ced5, 0xc0d5df2e],
+                            [0x19182a32, 0x0929c079, 0x5ee02d73, 0x8eb2292f],
+                            [0x89fa94fc, 0xf8098a83, 0x9c82e77e, 0x402b4048],
+                            [0xb1aef0a3, 0x27683f69, 0xe6328f7f, 0x810d922f],
+                            [0xaa386982, 0xd205dcd1, 0x74d9ec2b, 0x38c0db83],
+                            [0xc4a43fd2, 0x4b74e5cc, 0x77cb5f03, 0x8b2995e4],
+                            [0xa35a2a2f, 0xf4d811be, 0x6beaa06c, 0x823fdaa3],
+                            [0x4a841217, 0x1f42c091, 0xeeab933f, 0xfab83333]]));
+    }
     #[test]
     fn test_indeo2() {
         let mut dmx_reg = RegisteredDemuxers::new();

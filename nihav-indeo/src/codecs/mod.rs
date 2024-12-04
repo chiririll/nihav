@@ -40,6 +40,8 @@ mod imc;
 
 const INDEO_CODECS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_indeo2")]
+    DecoderInfo { name: "ima-rtv2", get_decoder: indeo2::get_decoder_rtv2 },
+#[cfg(feature="decoder_indeo2")]
     DecoderInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
 #[cfg(feature="decoder_indeo3")]
     DecoderInfo { name: "indeo3", get_decoder: indeo3::get_decoder },
