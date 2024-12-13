@@ -202,6 +202,17 @@ println!(" left {} / {}", br.left() >> 3, sum);
         let cypos = ((ypos + dy) & 63) >> RV60_BLOCK_LOG2[size];
         ((cypos as u8) & RV60_AVAIL_MASK[cxpos]) == 0
     }
+    fn has_top_right_block_mv(&self, xpos: usize, ypos: usize, dx: usize, dy: usize, size: usize) -> bool {
+        // the original Peter's proposed solution was
+        // (ypos + dy > 0) && (xpos + dx + size + 8) <= self.awidth
+        // but this should work too
+        if (ypos + dy) == 0 { return false; }
+        let xpos2 = xpos + dx;
+        if (xpos2 + size) >= self.awidth { return false; }
+        let cxpos = ((xpos + dx) & 63) >> RV60_BLOCK_LOG2[size];
+        let cypos = ((ypos + dy) & 63) >> RV60_BLOCK_LOG2[size];
+        ((cypos as u8) & RV60_AVAIL_MASK[cxpos]) == 0
+    }
     fn has_left_block(&self, xpos: usize, ypos: usize, dx: usize, dy: usize, size: usize) -> bool {
         if (xpos + dx) == 0 { return false; }
         let ypos2 = ypos + dy;
@@ -212,6 +223,17 @@ println!(" left {} / {}", br.left() >> 3, sum);
         if (xpos + dx) == 0 { return false; }
         let ypos2 = ypos + dy;
         if (ypos2 + size * 2) > self.aheight { return false; }
+        let cxpos = (!(xpos + dx) & 63) >> RV60_BLOCK_LOG2[size];
+        let cypos = (!(ypos + dy) & 63) >> RV60_BLOCK_LOG2[size];
+        ((cypos as u8) & RV60_AVAIL_MASK[cxpos]) >= 1
+    }
+    fn has_left_down_block_mv(&self, xpos: usize, ypos: usize, dx: usize, dy: usize, size: usize) -> bool {
+        // the original Peter's proposed solution was
+        // (xpos + dx > 0) && (ypos + dy + size + 8) <= self.aheight
+        // but this should work too
+        if (xpos + dx) == 0 { return false; }
+        let ypos2 = ypos + dy;
+        if (ypos2 + size) >= self.aheight { return false; }
         let cxpos = (!(xpos + dx) & 63) >> RV60_BLOCK_LOG2[size];
         let cypos = (!(ypos + dy) & 63) >> RV60_BLOCK_LOG2[size];
         ((cypos as u8) & RV60_AVAIL_MASK[cxpos]) >= 1
@@ -1281,13 +1303,13 @@ println!(" left {} bits", br.left());
                 skip_cand.add(*mv);
             }
         }
-        if hdr.has_top_right_block(self.xpos, self.ypos, 0, 0, size) {
+        if hdr.has_top_right_block_mv(self.xpos, self.ypos, 0, 0, size) {
             let mv = &self.blk_info[self.blk_pos - self.blk_stride + mv_size].mv;
             if mv.is_some() {
                 skip_cand.add(*mv);
             }
         }
-        if hdr.has_left_down_block(self.xpos, self.ypos, 0, 0, size) {
+        if hdr.has_left_down_block_mv(self.xpos, self.ypos, 0, 0, size) {
             let mv = &self.blk_info[self.blk_pos + self.blk_stride * mv_size - 1].mv;
             if mv.is_some() {
                 skip_cand.add(*mv);
