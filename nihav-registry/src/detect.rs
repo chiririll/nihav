@@ -246,6 +246,12 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 0x84, cond: &CC::Str(b"mdat")}],
     },
     DetectConditions {
+        demux_name: "mov-resfork",
+        extensions: ".mov",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U32BE(0x100))},
+                      CheckItem{offs: 0x108, cond: &CC::Str(b"moov")}],
+    },
+    DetectConditions {
         demux_name: "yuv4mpeg",
         extensions: ".y4m",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"YUV4MPEG2 ") }],
