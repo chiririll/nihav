@@ -452,7 +452,7 @@ struct FLACPacketiser {
 fn read_utf8(br: &mut BitReader) -> DecoderResult<u64> {
     let byte                    = br.read(8)? as u8;
     let len = (!byte).leading_zeros();
-    if (len == 1) || (len > 5) {
+    if (len == 1) || (len > 7) {
         return Err(DecoderError::InvalidData);
     }
     if len > 1 {

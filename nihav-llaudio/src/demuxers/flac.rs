@@ -141,8 +141,8 @@ fn read_utf8(src: &[u8]) -> DemuxerResult<u32> {
         return Ok(u32::from(src[0]));
     }
     let len = (!src[0]).leading_zeros() as usize;
-    validate!(len != 1 && len <= 5 && src.len() >= len);
-    let mut val = u32::from(src[0] & 0x1F);
+    validate!(len != 1 && len <= 7 && src.len() >= len);
+    let mut val = u32::from(src[0] << len >> len);
     for byte in src.iter().take(len).skip(1) {
         validate!((*byte & 0xC0) == 0x80);
         val = (val << 6) | u32::from(*byte & 0x3F);
