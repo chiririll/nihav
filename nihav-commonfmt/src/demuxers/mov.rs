@@ -739,7 +739,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                     let _bytes_per_sample   = br.read_u32be()?;
                     track.bsize = bytes_per_frame as usize;
                     track.frame_samples = samples_per_packet as usize;
-                    track.tb_num = samples_per_packet;
+                    track.tb_num = samples_per_packet.max(1);
                     block_align = bytes_per_frame as usize;
                 },
                 2 => {
