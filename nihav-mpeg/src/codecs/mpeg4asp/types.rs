@@ -288,19 +288,19 @@ impl PredState {
             0..=3 => {
                 let cur_addr = mb_x * 2 + (n & 1) + (n / 2) * self.y_dc.stride;
                 let (diff, dir) = Self::dc_pred(&self.y_dc, cur_addr);
-                let dc = ((cur_dc + diff / i16::from(dc_scale)) * i16::from(dc_scale)).max(-2048).min(2047);
+                let dc = ((cur_dc + (diff + i16::from(dc_scale >> 1)) / i16::from(dc_scale)) * i16::from(dc_scale)).max(-2048).min(2047);
                 self.y_dc.data[self.y_dc.xpos + cur_addr] = dc;
                 (dc, dir)
             },
             4 => {
                 let (diff, dir) = Self::dc_pred(&self.u_dc, mb_x);
-                let dc = ((cur_dc + diff / i16::from(dc_scale)) * i16::from(dc_scale)).max(-2048).min(2047);
+                let dc = ((cur_dc + (diff + i16::from(dc_scale >> 1)) / i16::from(dc_scale)) * i16::from(dc_scale)).max(-2048).min(2047);
                 self.u_dc.data[self.u_dc.xpos + mb_x] = dc;
                 (dc, dir)
             },
             5 => {
                 let (diff, dir) = Self::dc_pred(&self.v_dc, mb_x);
-                let dc = ((cur_dc + diff / i16::from(dc_scale)) * i16::from(dc_scale)).max(-2048).min(2047);
+                let dc = ((cur_dc + (diff + i16::from(dc_scale >> 1)) / i16::from(dc_scale)) * i16::from(dc_scale)).max(-2048).min(2047);
                 self.v_dc.data[self.v_dc.xpos + mb_x] = dc;
                 (dc, dir)
             },
