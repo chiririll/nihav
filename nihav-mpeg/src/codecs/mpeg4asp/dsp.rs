@@ -122,9 +122,7 @@ trait MVOps {
 
 impl MVOps for MV {
     fn get_chroma_mv(&self) -> MV {
-        const CHROMA_ROUND: [i16; 4] = [0, 1, 0, 0];
-        MV{ x: (self.x >> 1) + CHROMA_ROUND[(self.x & 3) as usize],
-            y: (self.y >> 1) + CHROMA_ROUND[(self.y & 3) as usize] }
+        MV{ x: self.x >> 1, y: self.y >> 1 }
     }
     fn get_chroma_4mv(&self) -> MV {
         MV{ x: (self.x >> 3) + H263_CHROMA_ROUND[(self.x & 0xF) as usize],
@@ -233,7 +231,7 @@ impl DSP {
         let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
         copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.mc_funcs);
         let cmv = mv.get_chroma_mv();
-        let cmode = ((cmv.x & 1) + (cmv.y & 1) * 2) as usize;
+        let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
         copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs);
         copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs);
     }
@@ -242,7 +240,7 @@ impl DSP {
         let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
         copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.avg_mc_funcs);
         let cmv = mv.get_chroma_mv();
-        let cmode = ((cmv.x & 1) + (cmv.y & 1) * 2) as usize;
+        let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
         copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, mv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs);
         copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, mv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs);
     }
