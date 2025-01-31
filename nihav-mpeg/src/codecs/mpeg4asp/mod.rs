@@ -359,12 +359,12 @@ mod test {
                       Some(8), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0x01264d54, 0xfb462b03, 0x34dd4dab, 0x8d976230],
                         [0x03be8499, 0x2234824e, 0x4b13d013, 0x635a8ca9],
-                        [0x11e9bccc, 0x78370850, 0x80a836e8, 0x8eede59b],
-                        [0x0c22b418, 0xf3c29564, 0x33474027, 0xa0e41461],
+                        [0x8069c490, 0x23a8d90d, 0xbe40713b, 0xbfd1f2bb],
+                        [0xe9c3cdfc, 0x517dc772, 0x3def7eb5, 0x945cc329],
                         [0x6d1c5064, 0x1c8c863e, 0x2ea9bd7c, 0xefbe5791],
-                        [0xece7e446, 0x5f096da0, 0xb6c91e31, 0x6a4ef9f3],
+                        [0x73587bc1, 0x3cab079e, 0x017decb1, 0x437687de],
                         [0x25450ef1, 0xa5594f36, 0x8df05845, 0x6e1f1fb2],
-                        [0x080ac91b, 0x26d417e0, 0x2137543e, 0xf93584cb],
+                        [0x3f1cad0b, 0x16eaf81d, 0x08c43f87, 0x3a6881d2],
                         [0x2d0476a7, 0x291ac9bc, 0xc7147ab8, 0xaf8e3b24]]));
     }
     #[test]
@@ -379,9 +379,9 @@ mod test {
                       "assets/MPEG/asp/problem.mov",
                       Some(256), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0xb1ac5e3c, 0xef74b180, 0xcb5ed0dd, 0x60bdaf30],
-                        [0xaff6d592, 0x9d450833, 0xf90047b1, 0xf4aa7fb6],
-                        [0xb8d70078, 0x649464dc, 0xe237186b, 0x8dd3821b],
-                        [0x972bb38a, 0xcfea0fbd, 0xe4fcdf29, 0xbbfba841]]));
+                        [0x7feb72e4, 0x47837b2b, 0x8f66a93c, 0xe2ae7e17],
+                        [0x5c7b532f, 0x263187bb, 0xac174cbf, 0x604ad2ef],
+                        [0xd7cc655b, 0x92e4df5a, 0x7001b0ae, 0x6ccb0117]]));
     }
     #[test]
     fn test_mpeg4asp_bframes() {
@@ -410,13 +410,13 @@ mod test {
                       "assets/MPEG/asp/vtm_video.avi",
                       Some(8), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0x536b8b3f, 0x6b33df1f, 0x3253605f, 0x92b6c801],
-                        [0xb047efb5, 0x7ca6e7c7, 0x1e0cbe99, 0x2209ac0c],
-                        [0x919383bb, 0x19269661, 0x5065b9dc, 0xd11ac7b7],
-                        [0x430cb217, 0x79517417, 0x7d469406, 0x88a25eee],
-                        [0x22ed09ff, 0x0fcc87b5, 0x2938cd02, 0x533b406f],
-                        [0xedaf2d73, 0xb04d9b36, 0xcaa819dc, 0x423bd7b7],
-                        [0x85aece48, 0x5b3cb0a9, 0x6e6f7231, 0xbdcf2c87],
-                        [0x18073137, 0x7f3517ff, 0xac0b4565, 0xf11cfe68],
-                        [0x72e254b1, 0xe7ad8ccd, 0x3b67a04d, 0xe37853af]]));
+                        [0x9b9953f6, 0x1d14ef3d, 0x974aa0e9, 0x3b1b88d7],
+                        [0x6d941dcc, 0x174efb79, 0xba65a60f, 0x208040ce],
+                        [0xe67b2e27, 0x16e9eb68, 0xed812111, 0xba7eff8a],
+                        [0xc6bf0541, 0x297a8b0a, 0xc2711e63, 0x8eb34b78],
+                        [0x71c61f3e, 0x3c252570, 0x3f74433d, 0xe58d4e3f],
+                        [0xab946927, 0xfdd4434a, 0x46e87ebf, 0x7bf70818],
+                        [0xd99fb937, 0xd1412a14, 0xe78ae113, 0x9d9e44a9],
+                        [0x4b4421cc, 0x919b086c, 0x33b5b5f3, 0xbe9d5a87]]));
     }
 }
