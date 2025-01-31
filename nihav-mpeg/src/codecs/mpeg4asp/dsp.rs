@@ -150,7 +150,7 @@ impl DSP {
         self.idct = xvidish_idct;
     }
     pub fn set_rounding(&mut self, rounding: bool) {
-        if !rounding {
+        if rounding {
             self.mc_funcs       = ASP_INTERP_FUNCS_NR;
             self.avg_mc_funcs   = ASP_INTERP_AVG_FUNCS_NR;
         } else {
@@ -373,7 +373,7 @@ fn asp_interp11nr(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw
             .zip(src.chunks(sstride).zip(src[sstride..].chunks(sstride))).take(bh) {
         for (dst, (src0, src1)) in drow.iter_mut()
                 .zip(srow0.windows(2).zip(srow1.windows(2))).take(bw) {
-            *dst = ((u16::from(src0[0]) + u16::from(src0[1]) + u16::from(src1[0]) + u16::from(src1[1])) >> 2) as u8;
+            *dst = ((u16::from(src0[0]) + u16::from(src0[1]) + u16::from(src1[0]) + u16::from(src1[1]) + 1) >> 2) as u8;
         }
     }
 }
@@ -430,7 +430,7 @@ fn asp_interp11nr_avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize
             let b = ((src[sidx + x] as u16) +
                      (src[sidx + x + 1] as u16) +
                      (src[sidx + x + sstride] as u16) +
-                     (src[sidx + x + sstride + 1] as u16)) >> 2;
+                     (src[sidx + x + sstride + 1] as u16) + 1) >> 2;
             dst[didx + x] = ((a + b + 1) >> 1) as u8;
         }
         didx += dstride;
