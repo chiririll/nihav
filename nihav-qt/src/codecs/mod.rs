@@ -42,6 +42,10 @@ mod imaadpcm;
 #[cfg(feature="decoder_mace")]
 mod mace;
 
+#[cfg(feature="decoder_qcelp")]
+#[allow(clippy::excessive_precision)]
+mod qcelp;
+
 #[cfg(any(feature="decoder_qdm",feature="decoder_qdm2"))]
 mod qdmcommon;
 #[cfg(feature="decoder_qdm")]
@@ -75,6 +79,8 @@ const QT_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "mace-3", get_decoder: mace::get_decoder_3 },
 #[cfg(feature="decoder_mace")]
     DecoderInfo { name: "mace-6", get_decoder: mace::get_decoder_6 },
+#[cfg(feature="decoder_qcelp")]
+    DecoderInfo { name: "qualcomm-purevoice", get_decoder: qcelp::get_decoder },
 #[cfg(feature="decoder_qdm")]
     DecoderInfo { name: "qdesign-music", get_decoder: qdmc::get_decoder },
 #[cfg(feature="decoder_qdm2")]
