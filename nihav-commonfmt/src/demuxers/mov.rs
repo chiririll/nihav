@@ -874,10 +874,23 @@ fn read_stsz(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     } else {
         let entries             = br.read_u32be()? as usize;
         validate!((entries * 4 + 12) as u64 == size);
-        track.chunk_sizes = Vec::with_capacity(entries);
-        for _ in 0..entries {
-            let sample_size     = br.read_u32be()?;
-            track.chunk_sizes.push(sample_size);
+        if entries < 1024 {
+            track.chunk_sizes = Vec::with_capacity(entries);
+            for _ in 0..entries {
+                let sample_size     = br.read_u32be()?;
+                track.chunk_sizes.push(sample_size);
+            }
+        } else {
+            // reading whole array at once and converting it later is much faster
+            track.chunk_sizes = vec![0; entries];
+            unsafe {
+                let ptr = track.chunk_sizes.as_mut_ptr() as *mut u8;
+                let dbuf = std::slice::from_raw_parts_mut(ptr, entries * 4);
+                br.read_buf(dbuf)?;
+            }
+            for el in track.chunk_sizes.iter_mut() {
+                *el = u32::from_be(*el);
+            }
         }
         Ok(size)
     }
@@ -889,10 +902,24 @@ fn read_stco(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()? as usize;
     validate!((entries * 4 + 8) as u64 == size);
-    track.chunk_offsets = Vec::with_capacity(entries);
-    for _i in 0..entries {
-        let sample_offset   = br.read_u32be()?;
-        track.chunk_offsets.push(u64::from(sample_offset));
+    if entries < 1024 {
+        track.chunk_offsets = Vec::with_capacity(entries);
+        for _i in 0..entries {
+            let sample_offset   = br.read_u32be()?;
+            track.chunk_offsets.push(u64::from(sample_offset));
+        }
+    } else {
+        // reading whole array at once and converting it later is much faster
+        track.chunk_offsets = vec![0; entries];
+        let mut tmp = vec![0u32; entries];
+        unsafe {
+            let data = tmp.as_mut_ptr();
+            let ptr = std::slice::from_raw_parts_mut(data as *mut u8, entries * 4);
+            br.read_buf(ptr)?;
+        }
+        for (dst, &src) in track.chunk_offsets.iter_mut().zip(tmp.iter()) {
+            *dst = u64::from(u32::from_be(src));
+        }
     }
     Ok(size)
 }
@@ -910,10 +937,24 @@ fn read_ctts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     match version {
         0 | 1 => {
             validate!(size == (entries as u64) * 8 + 8);
-            for _ in 0..entries {
-                let samp_count  = br.read_u32be()?;
-                let samp_offset = br.read_u32be()?;
-                track.ctts_map.add(samp_count, samp_offset / track.tb_div);
+            if entries < 1024 {
+                for _ in 0..entries {
+                    let samp_count  = br.read_u32be()?;
+                    let samp_offset = br.read_u32be()?;
+                    track.ctts_map.add(samp_count, samp_offset / track.tb_div);
+                }
+            } else {
+                // reading whole array at once and converting it later is much faster
+                track.ctts_map.array.resize(entries, RLEPair(0, 0));
+                unsafe {
+                    let data = track.ctts_map.array.as_mut_ptr();
+                    let ptr = std::slice::from_raw_parts_mut(data as *mut u8, entries * 8);
+                    br.read_buf(ptr)?;
+                }
+                for RLEPair(count, offset) in track.ctts_map.array.iter_mut() {
+                    *count = u32::from_be(*count);
+                    *offset = u32::from_be(*offset) / track.tb_div;
+                }
             }
         },
         _ => unreachable!(),
@@ -1157,9 +1198,13 @@ impl TimeSearcher {
     }
 }
 
+#[repr(C)]
+#[derive(Clone,Copy,Default)]
+struct RLEPair<T>(u32, T);
+
 #[derive(Default)]
 struct RLESearcher<T> {
-    array:      Vec<(u32, T)>,
+    array:      Vec<RLEPair<T>>,
     idx:        usize,
     start:      u64,
     next:       u64,
@@ -1175,7 +1220,7 @@ impl<T:Default+Copy> RLESearcher<T> {
         self.array.reserve(size);
     }
     fn add(&mut self, len: u32, val: T) {
-        self.array.push((len, val));
+        self.array.push(RLEPair(len, val));
     }
     fn reset(&mut self) {
         self.start = 0;
