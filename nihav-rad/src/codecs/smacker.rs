@@ -283,10 +283,14 @@ impl SmackerVideoDecoder {
                         }
                     },
                 1 => { // full
-                        let mode = if !self.is_ver4 || !br.read_bool()? {
+                        let mode = if !self.is_ver4 {
                                 0
+                            } else if br.read_bool()? {
+                                1
+                            } else if br.read_bool()? {
+                                2
                             } else {
-                                1 + br.read(1)?
+                                0
                             };
                         for i in 0..run {
                             let mut doff = self.block_pos(block + i);
@@ -406,14 +410,14 @@ impl NADecoder for SmackerVideoDecoder {
 
             let mut mr = MemoryReader::new_read(&edata);
             let mut br = ByteReader::new(&mut mr);
-            let magic                   = br.read_u32be()?;
+            let magic                   = br.read_tag()?;
             self.flags                  = br.read_u32le()?;
             let mmap_size               = br.read_u32le()?;
             let mclr_size               = br.read_u32le()?;
             let full_size               = br.read_u32le()?;
             let type_size               = br.read_u32le()?;
 
-            self.is_ver4 = (magic & 0xFF) == 0x34;
+            self.is_ver4 = &magic == b"SMK4";
             let mut br = BitReader::new(&edata[24..], BitReaderMode::LE);
             self.mmap_tree.decode(&mut br, mmap_size)?;
             self.mclr_tree.decode(&mut br, mclr_size)?;
@@ -637,6 +641,22 @@ mod test {
                             [0xea32a37c, 0x94d76dda, 0xbb34ca1d, 0xfc9d8a25],
                             [0x37855f28, 0xb508a386, 0x1f0bd981, 0x0f967e25],
                             [0x9b9f453a, 0xf6e34fe7, 0x9279fd71, 0x850a4f36]]));
+    }
+    #[test]
+    fn test_smkvid4() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        rad_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        rad_register_all_decoders(&mut dec_reg);
+
+        // sample from Army Man: Air Tactics
+        test_decoding("smacker", "smacker-video", "assets/RAD/cine2.smk", Some(32000), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                            [0x9da29a47, 0xd61a31ef, 0xa0da6b39, 0xbcf48d01],
+                            [0x604be492, 0x347854c0, 0xfeca481d, 0x98161276],
+                            [0x3922ad4a, 0x21ac6633, 0xe2c62e0b, 0x11cf3db5],
+                            [0xf1e58d8b, 0x539a6e41, 0x9ba5ebd6, 0x4129f62f],
+                            [0x549c73f5, 0x5eecbbc4, 0xcf301c7f, 0x7dfad240]]));
     }
     #[test]
     fn test_smkaud_u8() {
