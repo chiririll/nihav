@@ -135,6 +135,9 @@ impl BinkAudioDecoder {
                         let buf = &mut self.coeffs[0..];
                         rdft.do_rdft_inplace(std::mem::transmute::<&mut [f32], &mut [FFTComplex]>(buf));
                     }
+                    for i in (0..self.coeffs.len()).step_by(2) {
+                        self.coeffs.swap(i, i + 1);
+                    }
                 },
             _ => unreachable!(),
         };
