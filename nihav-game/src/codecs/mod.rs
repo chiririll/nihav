@@ -10,8 +10,6 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
-#[cfg(any(feature="decoder_beam_vbv",feature="decoder_beam_fcp"))]
-pub mod beam;
 #[cfg(feature="decoder_bmv")]
 pub mod bmv;
 #[cfg(feature="decoder_bmv3")]
@@ -45,10 +43,6 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "gdv-audio", get_decoder: gremlinvideo::get_decoder_audio },
 #[cfg(feature="decoder_gdvvid")]
     DecoderInfo { name: "gdv-video", get_decoder: gremlinvideo::get_decoder_video },
-#[cfg(feature="decoder_beam_fcp")]
-    DecoderInfo { name: "beam-fcp", get_decoder: beam::get_decoder_fcp },
-#[cfg(feature="decoder_beam_vbv")]
-    DecoderInfo { name: "beam-video", get_decoder: beam::get_decoder_vbv },
 #[cfg(feature="decoder_bmv")]
     DecoderInfo { name: "bmv-audio", get_decoder: bmv::get_decoder_audio },
 #[cfg(feature="decoder_bmv")]
