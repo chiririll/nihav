@@ -195,7 +195,7 @@ impl<'a> ARMovieDemuxer<'a> {
                 }
 
                 let tot_size: u32 = vid_size + aud_sizes.iter().sum::<u32>();
-                validate!((tot_size as usize) <= cur_chunk_size);
+                validate!(cur_chunk_size == 0 || (tot_size as usize) <= cur_chunk_size);
                 self.chunk_offs.push(ChunkInfo { offset, vid_size, aud_sizes });
             } else {
                 return Err(DemuxerError::InvalidData);
@@ -305,11 +305,16 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
             for ((&id, &sratestr), (&chan, &fmt)) in sound_ids.iter().zip(srates.iter())
                         .zip(channels.iter().zip(sndformats.iter())) {
                 let codec_id = parse_uint(id)?;
-                let codec_name = if codec_id == 1 { "arm_rawaudio" } else { "unknown" };
                 let channels = parse_uint(chan)?;
                 validate!(channels > 0 && channels < 16);
                 let edata = fmt.to_owned();
                 let bits = parse_uint(fmt)?;
+                let codec_name = match codec_id {
+                        1 => "arm_rawaudio",
+                        101 if bits == 8 => "arm_rawaudio",
+                        101 => "escape-adpcm",
+                        _ => "unknown"
+                    };
                 let mut srate = parse_uint(sratestr)?;
                 if srate > 0 && srate < 1000 { // probably in microseconds instead of Hertz
                     srate = 1000000 / srate;

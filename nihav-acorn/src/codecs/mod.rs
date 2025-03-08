@@ -35,6 +35,9 @@ mod rawvideo;
 #[cfg(feature="decoder_linepack")]
 mod linepack;
 
+#[cfg(feature="decoder_escape")]
+mod escape;
+
 #[cfg(feature="decoder_rawaudio")]
 mod rawaudio;
 
@@ -52,6 +55,15 @@ const ACORN_CODECS: &[DecoderInfo] = &[
 
 #[cfg(feature="decoder_linepack")]
     DecoderInfo { name: "linepack", get_decoder: linepack::get_decoder },
+
+#[cfg(feature="decoder_escape")]
+    DecoderInfo { name: "escape122", get_decoder: escape::get_decoder122 },
+#[cfg(feature="decoder_escape")]
+    DecoderInfo { name: "escape124", get_decoder: escape::get_decoder124 },
+#[cfg(feature="decoder_escape")]
+    DecoderInfo { name: "escape130", get_decoder: escape::get_decoder130 },
+#[cfg(feature="decoder_escape")]
+    DecoderInfo { name: "escape-adpcm", get_decoder: escape::get_decoder_audio },
 
 #[cfg(feature="decoder_rawaudio")]
     DecoderInfo { name: "arm_rawaudio", get_decoder: rawaudio::get_decoder },
@@ -81,6 +93,15 @@ const ACORN_PACKETISERS: &[PacketiserInfo] = &[
 
 #[cfg(feature="decoder_linepack")]
     PacketiserInfo { name: "linepack", get_packetiser: linepack::get_packetiser },
+
+#[cfg(feature="decoder_escape")]
+    PacketiserInfo { name: "escape122", get_packetiser: escape::get_packetiser },
+#[cfg(feature="decoder_escape")]
+    PacketiserInfo { name: "escape124", get_packetiser: escape::get_packetiser },
+#[cfg(feature="decoder_escape")]
+    PacketiserInfo { name: "escape130", get_packetiser: escape::get_packetiser },
+#[cfg(feature="decoder_escape")]
+    PacketiserInfo { name: "escape-adpcm", get_packetiser: rawaudio::get_packetiser },
 
 #[cfg(feature="decoder_rawaudio")]
     PacketiserInfo { name: "arm_rawaudio", get_packetiser: rawaudio::get_packetiser },
