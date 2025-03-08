@@ -305,13 +305,13 @@ impl IndexWriter {
             in_seq: [0; 4],
             in_len: 0,
             cand:   0,
-            table:  DUCK_VECTABLES[0],
+            table:  DUCK_VECTABLES[1],
         }
     }
     fn reset(&mut self, idx: usize) {
         self.dst.clear();
         self.in_len = 0;
-        self.table = DUCK_VECTABLES[idx];
+        self.table = DUCK_VECTABLES[idx + 1];
     }
     fn flush(&mut self) {
         if self.in_len > 0 {

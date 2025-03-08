@@ -43,11 +43,12 @@ struct IndexState<'a> {
     pos:        usize,
     vec_idx:    usize,
     vec_subidx: usize,
+    tbl0:       bool,
 }
 
 impl<'a> IndexState<'a> {
     fn new(src: &'a [u8]) -> Self {
-        Self { src, pos: 0, vec_idx: 0, vec_subidx: 0 }
+        Self { src, pos: 0, vec_idx: 0, vec_subidx: 0, tbl0: false }
     }
     fn get_next(&mut self) -> DecoderResult<()> {
         validate!(self.pos < self.src.len());
@@ -58,6 +59,9 @@ impl<'a> IndexState<'a> {
     }
     fn get_pred(&self, dtab: &[[u32; 4]; 256]) -> u32 { dtab[self.vec_idx][self.vec_subidx] }
     fn get_diff16(&mut self, dtab: &[[u32; 4]; 256]) -> DecoderResult<u32> {
+        if self.tbl0 {
+            return self.get_diff16_noesc(dtab);
+        }
         let pred1 = self.get_pred(dtab);
         let mut pred = pred1 >> 1;
         if (pred1 & 1) != 0 {
@@ -176,14 +180,14 @@ struct TM1Decoder {
 
 #[allow(clippy::identity_op)]
 impl TM1Decoder {
-    fn new() -> Self { Self::default() }
+    fn new() -> Self { Self { last_table_idx: 42, ..Default::default() } }
     fn set_delta_tables(&mut self, delta_set: usize, table_idx: usize, is_24bit: bool) {
         if (self.last_delta_set == delta_set) && (self.last_table_idx == table_idx) { return; }
         let ydt  = &DUCK_Y_DELTAS[delta_set];
         let yfdt = DUCK_Y_FAT_DELTAS[delta_set];
         let cdt  = &DUCK_C_DELTAS[delta_set];
         let cfdt = DUCK_C_FAT_DELTAS[delta_set];
-        let vec  = DUCK_VECTABLES[table_idx - 1];
+        let vec  = DUCK_VECTABLES[table_idx];
 
         let mut vec_iter = vec.iter();
         for i in 0..256 {
@@ -566,7 +570,7 @@ impl NADecoder for TM1Decoder {
         let is_24bit = !is_sprite && compr_info.is_24bit;
 
         let vec_idx = if ((tm1type & 1) != 0) && (meta_type > 0) { 1 } else { table_idx };
-        validate!((delta_set < DUCK_Y_DELTAS.len()) && (vec_idx > 0) && (vec_idx <= DUCK_VECTABLES.len()));
+        validate!((delta_set < DUCK_Y_DELTAS.len()) && (vec_idx < DUCK_VECTABLES.len()));
         self.set_delta_tables(delta_set, vec_idx, is_24bit);
 
         let out_width = if is_24bit { width >> 1 } else { width };
@@ -600,6 +604,14 @@ impl NADecoder for TM1Decoder {
         self.blk_h = compr_info.block_h;
         let mut mask = MaskState::new(is_intra && !is_sprite, mask_bits, mask_row_size);
         let mut index = IndexState::new(index_bytes);
+        index.tbl0 = vec_idx == 0;
+        let mut padded_idx_bytes = Vec::new();
+        if index.tbl0 { // old format, use padded buffer as the source instead
+            padded_idx_bytes.extend_from_slice(index_bytes);
+            padded_idx_bytes.resize(index_bytes.len() + 4, 0);
+            index = IndexState::new(&padded_idx_bytes);
+            index.tbl0 = true;
+        }
         let bufinfo;
         if !is_24bit {
             if let Some(mut buf) = self.lastframe.get16() {
@@ -691,5 +703,22 @@ mod test {
         //let file = "assets/Duck/SPRITES.AVI";
         //let file = "assets/Duck/TRICORD.AVI";
         //test_file_decoding("avi", file, Some(42), true, false, None/*Some("tm1-")*/, &dmx_reg, &dec_reg);
+    }
+    #[test]
+    fn test_old_tm1() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        duck_register_all_decoders(&mut dec_reg);
+
+        // sample from The Horde demo
+        test_decoding("avi", "truemotion1", "assets/Duck/segue00.duk", Some(5), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                        [0xc9b65289, 0x7f64d11d, 0xbfb6cbc5, 0x25778bec],
+                        [0xc9b65289, 0x7f64d11d, 0xbfb6cbc5, 0x25778bec],
+                        [0x8f1b56dd, 0x19c042f3, 0xcb0a220f, 0xc5942c0e],
+                        [0xa0373260, 0xf6c86a10, 0xa4267f65, 0xa5f112d7],
+                        [0xb0c2e64c, 0xc11a3e5a, 0x6fad1e3d, 0x9aa3b54f],
+                        [0x2a25cd1b, 0x1012d3a6, 0x4258be61, 0x0e3b6df6]]));
     }
 }
