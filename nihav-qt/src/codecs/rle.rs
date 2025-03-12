@@ -57,25 +57,26 @@ impl RleDecoder {
         let stride = frm.stride[0];
         let mut doff = frm.offset[0] + start_line * stride;
         let mut y = start_line;
+        let mut x = 0;
         while y < end_line {
-            let mut x = 0;
+            let start_code = br.peek_u16be()?;
+            validate!(start_code & 0x8000 != 0);
+            match start_code {
+                0x8000 => break,
+                0x80FF => {
+                    br.read_skip(2)?;
+                    x = 0;
+                    y += 1;
+                    doff += stride;
+                    has_skips = true;
+                    continue;
+                },
+                _ => {}
+            }
             while x < self.width {
                 let skip_code               = br.read_byte()?;
                 let rle_code                = br.read_byte()? as i8;
-                if x == 0 {
-                    validate!((skip_code & 0x80) != 0);
-                }
-                if rle_code == 0 {
-                    return Ok(false);
-                }
-                if x != 0 && (skip_code & 0x80) != 0 {
-                    x = 0;
-                    y += 1;
-                    validate!(y < end_line);
-                    doff += stride;
-                    has_skips = true;
-                }
-                let skip = (skip_code & 0x1F) as usize;
+                let skip = (skip_code & 0x7F) as usize;
                 if skip > 0 {
                     has_skips = true;
                 }
@@ -104,8 +105,13 @@ impl RleDecoder {
                         }
                     }
                 }
+
+                if (br.peek_byte()? & 0x80) != 0 {
+                    break;
+                }
             }
             doff += stride;
+            x = 0;
             y += 1;
         }
 
@@ -511,6 +517,24 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::qt_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
+    // sample from TV-ROM Too by BMUG
+    #[test]
+    fn test_qt_rle_1bit_lineskip() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        qt_register_all_decoders(&mut dec_reg);
+
+        test_decoding("mov-macbin", "qt-rle", "assets/QT/BMUG_on_the_QT.bin", Some(6), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                            [0xec03f743, 0xd1cdc26a, 0xbe7255c9, 0x28c7fb7a],
+                            [0x6fa69228, 0x922ce1dd, 0xd4d2baae, 0x3ade97eb],
+                            [0x7794302e, 0x5fde38c9, 0xd56d1cfe, 0x0e03587d],
+                            [0x4f0557cf, 0xfa087743, 0x30f227ea, 0x0f0ff416],
+                            [0x6217a039, 0x002976ef, 0x8ff6af97, 0xa8974808],
+                            [0xba8bc344, 0x05421de8, 0x17fc7f90, 0xe9240502],
+                            [0x8441f51c, 0xa88863b1, 0x2a8ecabb, 0xf6e6f77b]]));
+    }
     // samples from https://samples.mplayerhq.hu/V-codecs/QTRLE
     #[test]
     fn test_qt_rle_1bit() {
