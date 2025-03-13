@@ -83,6 +83,7 @@ impl MuxerCreator for Y4MMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "yuv4mpeg" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::SingleVideo("rawvideo") }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks(MUX_QUIRK_FIXED_RATE) }
 }
 
 #[cfg(test)]

@@ -195,6 +195,7 @@ impl MuxerCreator for GIFMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "gif" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::SingleVideo("gif") }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks(MUX_QUIRK_FIXED_RATE) }
 }
 
 #[cfg(test)]

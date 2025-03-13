@@ -123,6 +123,7 @@ impl MuxerCreator for EAMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "ea" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::OnlyVideo }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks(MUX_QUIRK_FIXED_RATE) }
 }
 
 #[cfg(test)]

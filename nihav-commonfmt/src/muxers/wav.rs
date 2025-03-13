@@ -112,6 +112,7 @@ impl MuxerCreator for WAVMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "wav" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::SingleAudio("any") }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks::new() }
 }
 
 #[cfg(test)]

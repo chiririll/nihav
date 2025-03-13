@@ -94,6 +94,7 @@ impl MuxerCreator for FLACMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "flac" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::SingleAudio("flac") }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks::new() }
 }
 
 #[cfg(test)]

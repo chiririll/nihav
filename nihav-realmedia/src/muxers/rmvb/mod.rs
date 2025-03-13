@@ -406,6 +406,7 @@ impl MuxerCreator for RealMediaMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "realmedia" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::Universal }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks::new() }
 }
 
 struct RAMuxer<'a> {
@@ -473,6 +474,7 @@ impl MuxerCreator for RealAudioMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "realaudio" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::SingleAudio("any") }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks::new() }
 }
 
 #[cfg(test)]

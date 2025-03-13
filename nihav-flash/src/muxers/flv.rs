@@ -287,6 +287,7 @@ impl MuxerCreator for FLVMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "flv" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::SingleVideoAndAudio("any", "any") }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks::new() }
 }
 
 #[cfg(test)]

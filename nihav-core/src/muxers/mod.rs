@@ -54,6 +54,45 @@ impl From<ByteIOError> for MuxerError {
     fn from(_: ByteIOError) -> Self { MuxerError::IOError }
 }
 
+/// Muxer quirks (i.e. peculiarities in muxer behaviour like accepting only frames of fixed duration)
+#[derive(Clone,Copy,Default)]
+pub struct MuxerQuirks(pub u32);
+
+/// Muxer expects all packets of one stream to have the same duration.
+pub const MUX_QUIRK_FIXED_RATE: u32         = 1 <<  0;
+/// Muxer expects to know full duration in advance.
+pub const MUX_QUIRK_FIXED_DURATION: u32     = 1 <<  1;
+/// Muxer does not care about synchronisation of the stream.
+pub const MUX_QUIRK_UNSYNC: u32            = 1 <<  2;
+
+impl MuxerQuirks {
+    /// Creates a new instance of `MuxerQuirks`
+    pub fn new() -> Self { Self::default() }
+
+    /// Queries if the muxer expects all packets of one stream to have the same duration.
+    pub fn is_fixed_rate(self) -> bool { (self.0 & MUX_QUIRK_FIXED_RATE) != 0 }
+    /// Tells that muxer expects all packets of one stream to have the same duration.
+    pub fn set_fixed_rate(&mut self) { self.0 |= MUX_QUIRK_FIXED_RATE; }
+    /// Tells that muxer does not expect all packets of one stream to have the same duration.
+    pub fn clear_fixed_rate(&mut self) { self.0 &= !MUX_QUIRK_FIXED_RATE; }
+
+    /// Queries if the muxer expects to know full duration in advance.
+    pub fn is_fixed_duration(self) -> bool { (self.0 & MUX_QUIRK_FIXED_DURATION) != 0 }
+    /// Tells that muxer expects to know full duration in advance.
+    pub fn set_fixed_duration(&mut self) { self.0 |= MUX_QUIRK_FIXED_DURATION; }
+    /// Tells that muxer does not expect to know full duration in advance.
+    pub fn clear_fixed_duration(&mut self) { self.0 &= !MUX_QUIRK_FIXED_DURATION; }
+
+
+    /// Queries if the muxer does not care about stream synchronisation.
+    pub fn is_unsync(self) -> bool { (self.0 & MUX_QUIRK_UNSYNC) != 0 }
+    /// Tells that muxer does not care about stream synchronisation.
+    pub fn set_unsync(&mut self) { self.0 |= MUX_QUIRK_UNSYNC; }
+    /// Tells that muxer actually cares about streams being synchronised.
+    pub fn clear_unsync(&mut self) { self.0 &= !MUX_QUIRK_UNSYNC; }
+}
+
+
 /// A trait for muxing operations.
 pub trait MuxCore<'a>: NAOptionHandler {
     /// Prepares everything for packet muxing.
@@ -131,6 +170,8 @@ pub trait MuxerCreator {
     fn get_name(&self) -> &'static str;
     /// Returns muxer capabilities for the current muxer.
     fn get_capabilities(&self) -> MuxerCapabilities;
+    /// Returns current muxer quirks.
+    fn get_quirks(&self) -> MuxerQuirks;
 }
 
 /// Creates muxer for a provided bytestream writer.
