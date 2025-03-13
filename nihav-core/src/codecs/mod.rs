@@ -285,9 +285,13 @@ pub const ENC_CAPS_PARAMCHANGE: u64 = 1 << 2;
 pub struct EncodeParameters {
     /// Input format.
     pub format:     NACodecTypeInfo,
-    /// Time base numerator. Ignored for audio.
+    /// Time base numerator.
+    ///
+    /// Audio encoders generally do not need it but some may use it to set e.g. frame length, so set it to the video/container codec timebase in such case.
     pub tb_num:     u32,
-    /// Time base denominator. Ignored for audio.
+    /// Time base denominator.
+    ///
+    /// Audio encoders generally do not need it but some may use it to set e.g. frame length, so set it to the video/container codec timebase in such case.
     pub tb_den:     u32,
     /// Bitrate in bits per second.
     pub bitrate:    u32,
