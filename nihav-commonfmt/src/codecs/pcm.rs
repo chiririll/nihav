@@ -205,9 +205,24 @@ impl NAEncoder for PCMEncoder {
         match encinfo.format {
             NACodecTypeInfo::None => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(_) => Err(EncoderError::FormatError),
-            NACodecTypeInfo::Audio(_) => {
-                let info = NACodecInfo::new("pcm", encinfo.format, None);
-                let mut stream = NAStream::new(StreamType::Audio, stream_id, info, encinfo.tb_num, encinfo.tb_den, 0);
+            NACodecTypeInfo::Audio(ainfo) => {
+                let slot_size = (usize::from(ainfo.channels) * usize::from(ainfo.format.bits) + 7) / 8;
+                let (tb_num, tb_den, block_len) = if ainfo.block_len > slot_size || encinfo.tb_num == 0 || encinfo.tb_den == ainfo.sample_rate {
+                        if encinfo.tb_num != 0 {
+                            (encinfo.tb_num, encinfo.tb_den, ainfo.block_len)
+                        } else {
+                            (ainfo.block_len.max(1) as u32, ainfo.sample_rate, ainfo.block_len)
+                        }
+                    } else {
+                        let block_len = u64::from(ainfo.sample_rate) * u64::from(encinfo.tb_num) / u64::from(encinfo.tb_den);
+
+                        (block_len as u32, ainfo.sample_rate, block_len as usize * slot_size)
+                    };
+
+                let mut new_ainfo = ainfo;
+                new_ainfo.block_len = block_len;
+                let info = NACodecInfo::new("pcm", NACodecTypeInfo::Audio(new_ainfo), None);
+                let mut stream = NAStream::new(StreamType::Audio, stream_id, info, tb_num, tb_den, 0);
                 stream.set_num(stream_id as usize);
                 let stream = stream.into_ref();
                 self.stream = Some(stream.clone());
