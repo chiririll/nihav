@@ -150,8 +150,14 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             self.bw.write_u16le(0)?; // priority
             self.bw.write_u16le(0)?; // language
             self.bw.write_u32le(0)?; // initial frames
-            self.bw.write_u32le(strm.tb_num)?;
-            self.bw.write_u32le(strm.tb_den)?;
+            if strm.get_info().get_name() != "pcm" {
+                self.bw.write_u32le(strm.tb_num)?;
+                self.bw.write_u32le(strm.tb_den)?;
+            } else {
+                let ainfo = strm.get_info().get_properties().get_audio_info().unwrap();
+                self.bw.write_u32le(1)?;
+                self.bw.write_u32le(ainfo.sample_rate)?;
+            }
             self.bw.write_u32le(0)?; // start
             self.bw.write_u32le(0)?; // length
             self.bw.write_u32le(0)?; // suggested buffer size
@@ -215,8 +221,15 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     self.bw.write_u16le(twocc.unwrap_or(0))?;
                     self.bw.write_u16le(ainfo.channels as u16)?;
                     self.bw.write_u32le(ainfo.sample_rate)?;
-                    self.bw.write_u32le(0)?; // avg bytes per second
-                    self.bw.write_u16le(ainfo.block_len as u16)?;
+                    if strm.get_info().get_name() != "pcm" {
+                        self.bw.write_u32le(0)?; // avg bytes per second
+                        self.bw.write_u16le(ainfo.block_len as u16)?;
+                    } else {
+                        let blk_size = u32::from(ainfo.channels) * u32::from(ainfo.format.bits) / 8;
+                        let avg_bytes = ainfo.sample_rate * blk_size;
+                        self.bw.write_u32le(avg_bytes)?;
+                        self.bw.write_u16le(blk_size as u16)?;
+                    }
                     self.bw.write_u16le(ainfo.format.bits as u16)?;
                     if let Some(ref edata) = strm.get_info().get_extradata() {
                         self.bw.write_buf(edata.as_slice())?;
@@ -389,6 +402,6 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "avi", &mux_reg,
-                          [0xa0fb0e47, 0x412e24dd, 0x6b89711c, 0x276fb799]);
+                          [0x9c490a1f, 0x8433ea58, 0xf02e27b7, 0x019f6c28]);
     }
 }
