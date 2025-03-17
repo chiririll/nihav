@@ -185,7 +185,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             }
             let (tb_num, _) = stream.get_timebase();
             let mut ts = stream.make_ts(Some(self.cur_frame[stream_no as usize]), None, None);
-            if stream.get_media_type() == StreamType::Audio && tb_num == 1 && stream.get_info().get_name() == "pcm" {
+            if stream.get_media_type() == StreamType::Audio && tb_num == 1 && stream.get_info().get_name() == "pcm" && ts.pts != Some(0) {
                 ts.pts = None;
             }
             let mut pkt = self.src.read_packet(stream, ts, is_keyframe, size)?;
