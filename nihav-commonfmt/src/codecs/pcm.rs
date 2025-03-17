@@ -216,7 +216,7 @@ impl NAEncoder for PCMEncoder {
                     } else {
                         let block_len = u64::from(ainfo.sample_rate) * u64::from(encinfo.tb_num) / u64::from(encinfo.tb_den);
 
-                        (block_len as u32, ainfo.sample_rate, block_len as usize * slot_size)
+                        (1, ainfo.sample_rate, block_len as usize * slot_size)
                     };
 
                 let mut new_ainfo = ainfo;
