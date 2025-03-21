@@ -323,6 +323,9 @@ impl NAEncoder for MSADPCMEncoder {
                 if outinfo.block_len == 0 {
                     outinfo.block_len = DEFAULT_BLOCK_LEN;
                 }
+                if outinfo.block_len == 1 && encinfo.tb_den != outinfo.sample_rate {
+                    outinfo.block_len = ((u64::from(outinfo.sample_rate) * u64::from(encinfo.tb_num) / u64::from(encinfo.tb_den) + 3) & !3) as usize;
+                }
                 if outinfo.block_len < 2 {
                     outinfo.block_len = 2;
                 }
