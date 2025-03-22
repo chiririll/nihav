@@ -286,9 +286,15 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     let end_clr = 256usize;
                     if start_clr < end_clr {
                         let chunk_len = ((end_clr - start_clr) as u32) * 4 + 4;
-                        self.bw.write_byte(b'0' + ((str_num / 10) as u8))?;
-                        self.bw.write_byte(b'0' + ((str_num % 10) as u8))?;
-                        self.bw.write_buf(b"pc")?;
+                        let mut tag = gen_chunk_tag(StreamType::Video, str_num as u32);
+                        tag[2] = b'p';
+                        tag[3] = b'c';
+                        self.index.push(IdxEntry {
+                                tag,
+                                key:    false,
+                                pos:    self.bw.tell(),
+                                len:    chunk_len });
+                        self.bw.write_buf(&tag)?;
                         self.bw.write_u32le(chunk_len)?;
                         self.bw.write_byte(start_clr as u8)?;
                         self.bw.write_byte((end_clr - start_clr) as u8)?;
@@ -326,7 +332,10 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             self.bw.write_u32le((self.index.len() * 16) as u32)?;
             for item in self.index.iter() {
                 self.bw.write_buf(&item.tag)?;
-                self.bw.write_u32le(if item.key { 0x10 } else { 0 })?;
+                let flags = if item.key { 0x10 }
+                            else if &item.tag[2..] == b"pc" { 0x100 }
+                            else { 0 };
+                self.bw.write_u32le(flags)?;
                 self.bw.write_u32le(item.pos as u32)?;
                 self.bw.write_u32le(item.len)?;
             }
