@@ -1,6 +1,9 @@
 use nihav_core::muxers::*;
 use nihav_registry::register::*;
 
+const MAX_RIFF_BLOCKS: usize = 16; // ~16GB file should be enough
+const MAX_RIFF_SIZE: u64 = 900 << 20; // 900MB of payload plus index data will hopefully fit in 1GB chunk limit
+
 #[derive(Clone,Copy)]
 struct IdxEntry {
     tag:        [u8; 4],
@@ -12,7 +15,9 @@ struct IdxEntry {
 #[derive(Clone,Copy)]
 struct AVIStream {
     strh_pos:   u64,
+    indx_pos:   u64,
     nframes:    u32,
+    lframes:    u32,
     is_video:   bool,
     max_size:   u32,
     pal_change: bool,
@@ -26,6 +31,10 @@ struct AVIMuxer<'a> {
     data_pos:       u64,
     stream_info:    Vec<AVIStream>,
     pal_pos:        Vec<u32>,
+    odml_pos:       u64,
+    riff_blk:       usize,
+    blk_start:      u64,
+    wrote_hdr:      bool,
 }
 
 impl<'a> AVIMuxer<'a> {
@@ -38,7 +47,89 @@ impl<'a> AVIMuxer<'a> {
             data_pos:       0,
             stream_info:    Vec::with_capacity(2),
             pal_pos:        Vec::with_capacity(2),
+            odml_pos:       0,
+            riff_blk:       0,
+            blk_start:      0,
+            wrote_hdr:      true,
         }
+    }
+    fn patch_stream_stats(&mut self) -> MuxerResult<()> {
+        let mut max_frames = 0;
+        let mut max_size = 0;
+        for sstat in self.stream_info.iter() {
+            max_frames = max_frames.max(sstat.nframes);
+            max_size = max_size.max(sstat.max_size);
+            if sstat.pal_change {
+                self.bw.seek(SeekFrom::Start(sstat.strh_pos))?;
+                self.bw.write_u32le(0x00010000)?;
+            }
+            self.bw.seek(SeekFrom::Start(sstat.strh_pos + 0x18))?;
+            self.bw.write_u32le(if sstat.is_video { sstat.nframes } else { 0 })?;
+            self.bw.write_u32le(sstat.max_size)?;
+        }
+        self.bw.seek(SeekFrom::Start(0x30))?;
+        self.bw.write_u32le(max_frames)?;
+        self.bw.seek(SeekFrom::Current(8))?;
+        self.bw.write_u32le(max_size)?;
+        Ok(())
+    }
+    fn flush_riff_block(&mut self) -> MuxerResult<()> {
+        for (sidx, stream) in self.stream_info.iter_mut().enumerate() {
+            let idx_pos = self.bw.tell();
+
+            let tag0 = b'0' + ((sidx / 10) as u8);
+            let tag1 = b'0' + ((sidx % 10) as u8);
+
+            let nentries = self.index.iter().filter(|idx| idx.tag[0] == tag0 && idx.tag[1] == tag1).count();
+
+            let tag = [b'i', b'x', tag0, tag1];
+            self.bw.write_buf(&tag)?;
+            self.bw.write_u32le((6 * 4 + nentries * 8) as u32)?;
+            self.bw.write_u16le(2)?;
+            self.bw.write_byte(0)?;
+            self.bw.write_byte(1)?; // AVI_INDEX_OF_CHUNKS
+            let mut chunk_id = [tag0, tag1, 0, 0];
+            if stream.is_video {
+                chunk_id[2] = b'd';
+                chunk_id[3] = b'c';
+            } else {
+                chunk_id[2] = b'w';
+                chunk_id[3] = b'b';
+            }
+            self.bw.write_u32le(nentries as u32)?;
+            self.bw.write_buf(&chunk_id)?;
+            self.bw.write_u64le(self.blk_start)?;
+            self.bw.write_u32le(0)?;
+
+            for entry in self.index.iter().filter(|idx| idx.tag[0] == tag0 && idx.tag[1] == tag1) {
+                self.bw.write_u32le((entry.pos - self.blk_start + 8) as u32)?;
+                self.bw.write_u32le(entry.len)?;
+            }
+
+            let idx_end = self.bw.tell();
+
+            self.bw.seek(SeekFrom::Start(stream.indx_pos + 8 * 4 + (self.riff_blk as u64) * 16))?;
+            self.bw.write_u64le(idx_pos)?;
+            self.bw.write_u32le((idx_end - idx_pos) as u32)?;
+            self.bw.write_u32le(stream.lframes)?;
+            stream.lframes = 0;
+
+            self.bw.seek(SeekFrom::Start(idx_end))?;
+        }
+
+        patch_size(self.bw, self.blk_start + 8)?;
+        patch_size(self.bw, self.data_pos)?;
+
+        self.index.clear();
+
+        self.riff_blk += 1;
+        self.blk_start = self.bw.tell();
+        self.wrote_hdr = false;
+
+        // keep updating actual stream statistics and flags
+        self.patch_stream_stats()?;
+
+        Ok(())
     }
 }
 
@@ -138,8 +229,10 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             };
             self.stream_info.push(AVIStream {
                     strh_pos:   self.bw.tell(),
+                    indx_pos:   0,
                     is_video:   strm.get_media_type() == StreamType::Video,
                     nframes:    0,
+                    lframes:    0,
                     max_size:   0,
                     pal_change: false,
                 });
@@ -241,7 +334,69 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                 _ => unreachable!(),
             };
             patch_size(self.bw, strf_pos)?;
+            /* OpenDML */ {
+                if let Some(sstat) = self.stream_info.last_mut() {
+                    sstat.indx_pos = self.bw.tell();
+                }
+                self.bw.write_buf(b"indx")?;
+                self.bw.write_u32le((6 * 4 + MAX_RIFF_BLOCKS * 16) as u32)?;
+                self.bw.write_u16le(4)?;
+                self.bw.write_byte(0)?;
+                self.bw.write_byte(0)?; // AVI_INDEX_OF_INDEXES
+                self.bw.write_u32le(0)?; // num entries
+                let mut ix_tag = [b'0' + ((strno / 10) as u8), b'0' + ((strno % 10) as u8), 0, 0];
+                match strm.get_media_type() {
+                    StreamType::Video => {
+                        ix_tag[2] = b'd';
+                        ix_tag[3] = b'b';
+                    },
+                    StreamType::Audio => {
+                        ix_tag[2] = b'w';
+                        ix_tag[3] = b'b';
+                    },
+                    _ => return Err(MuxerError::NotImplemented),
+                }
+                self.bw.write_buf(&ix_tag)?;
+                for _ in 0..3 {
+                    self.bw.write_u32le(0)?;
+                }
+                for _ in 0..MAX_RIFF_BLOCKS {
+                    self.bw.write_u64le(0)?;
+                    self.bw.write_u32le(0)?;
+                    self.bw.write_u32le(0)?;
+                }
+
+                /*if let StreamInfo::Video(ref vinfo) = stream {
+                    self.bw.write_buf(b"vprp")?;
+                    self.bw.write_u32le(0x44)?;
+                    self.bw.write_u32le(0)?; // video format token
+                    self.bw.write_u32le(0)?; // video standard
+                    self.bw.write_u32le((vinfo.tb_den + vinfo.tb_num / 2) / vinfo.tb_num)?; // refresh rate
+                    self.bw.write_u32le(vinfo.width as u32)?;
+                    self.bw.write_u32le(vinfo.height as u32)?;
+                    self.bw.write_u32le(0x00010001)?; // aspect ratio
+                    self.bw.write_u32le(vinfo.width as u32)?;
+                    self.bw.write_u32le(vinfo.height as u32)?;
+                    self.bw.write_u32le(1)?; // single field
+                    self.bw.write_u32le(vinfo.height as u32)?;
+                    self.bw.write_u32le(vinfo.width as u32)?;
+                    self.bw.write_u32le(vinfo.height as u32)?;
+                    self.bw.write_u32le(vinfo.width as u32)?;
+                    self.bw.write_u32le(0)?;
+                    self.bw.write_u32le(0)?;
+                    self.bw.write_u32le(0)?;
+                    self.bw.write_u32le(0)?;
+                }*/
+            }
             patch_size(self.bw, strl_pos)?;
+        }
+        /* OpenDML */ {
+            self.odml_pos = self.bw.tell();
+            self.bw.write_buf(b"LIST")?;
+            self.bw.write_u32le(16)?;
+            self.bw.write_buf(b"odmldmlh")?;
+            self.bw.write_u32le(4)?;
+            self.bw.write_u32le(0)?;
         }
         patch_size(self.bw, hdrl_pos)?;
 
@@ -258,6 +413,27 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         let str_num = stream.get_num();
         if str_num > 99 || str_num >= self.stream_info.len() {
             return Err(MuxerError::UnsupportedFormat);
+        }
+
+        if self.bw.tell() > self.blk_start + MAX_RIFF_SIZE {
+            self.flush_riff_block()?;
+        }
+
+        if !self.wrote_hdr {
+            if self.riff_blk >= MAX_RIFF_BLOCKS {
+                return Err(MuxerError::NotPossible);
+            }
+            self.bw.seek(SeekFrom::Start(self.blk_start))?;
+
+            self.bw.write_buf(b"RIFF")?;
+            self.bw.write_u32le(0)?;
+            self.bw.write_buf(b"AVIX")?;
+            self.bw.write_buf(b"LIST")?;
+            self.bw.write_u32le(0)?;
+            self.data_pos = self.bw.tell();
+            self.bw.write_buf(b"movi")?;
+
+            self.wrote_hdr = true;
         }
 
         let chunk_len = pkt.get_buffer().len() as u32;
@@ -307,6 +483,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         }
 
         self.stream_info[str_num].nframes += 1;
+        self.stream_info[str_num].lframes += 1;
         self.stream_info[str_num].max_size = self.stream_info[str_num].max_size.max(chunk_len);
         let tag = gen_chunk_tag(stream.get_media_type(), str_num as u32);
         self.index.push(IdxEntry {
@@ -326,39 +503,56 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         Ok(())
     }
     fn end(&mut self) -> MuxerResult<()> {
-        patch_size(self.bw, self.data_pos)?;
-        if !self.index.is_empty() {
-            self.bw.write_buf(b"idx1")?;
-            self.bw.write_u32le((self.index.len() * 16) as u32)?;
-            for item in self.index.iter() {
-                self.bw.write_buf(&item.tag)?;
-                let flags = if item.key { 0x10 }
-                            else if &item.tag[2..] == b"pc" { 0x100 }
-                            else { 0 };
-                self.bw.write_u32le(flags)?;
-                self.bw.write_u32le(item.pos as u32)?;
-                self.bw.write_u32le(item.len)?;
-            }
+        if self.riff_blk == 0 && self.index.is_empty() {
+            return Err(MuxerError::NotCreated);
         }
-        patch_size(self.bw, 8)?;
-        let mut max_frames = 0;
-        let mut max_size = 0;
-        for stri in self.stream_info.iter() {
-            max_frames = max_frames.max(stri.nframes);
-            max_size = max_size.max(stri.max_size);
-            if stri.pal_change {
-                self.bw.seek(SeekFrom::Start(stri.strh_pos))?;
-                self.bw.write_u32le(0x00010000)?;
+        if self.riff_blk > 0 {
+            self.flush_riff_block()?;
+            let mut max_frames = 0;
+            for sstat in self.stream_info.iter() {
+                max_frames = max_frames.max(sstat.nframes);
+
+                self.bw.seek(SeekFrom::Start(sstat.indx_pos + 12))?;
+                self.bw.write_u32le(self.riff_blk as u32)?;
             }
-            self.bw.seek(SeekFrom::Start(stri.strh_pos + 0x18))?;
-            self.bw.write_u32le(if stri.is_video { stri.nframes } else { 0 })?;
-            self.bw.write_u32le(stri.max_size)?;
+            self.bw.seek(SeekFrom::Start(self.odml_pos + 20))?;
+            self.bw.write_u32le(max_frames)?;
+
+            self.bw.flush()?;
+            Ok(())
+        } else if !self.index.is_empty() {
+            patch_size(self.bw, self.data_pos)?;
+            if !self.index.is_empty() {
+                self.bw.write_buf(b"idx1")?;
+                self.bw.write_u32le((self.index.len() * 16) as u32)?;
+                for item in self.index.iter() {
+                    self.bw.write_buf(&item.tag)?;
+                    let flags = if item.key { 0x10 }
+                                else if &item.tag[2..] == b"pc" { 0x100 }
+                                else { 0 };
+                    self.bw.write_u32le(flags)?;
+                    self.bw.write_u32le(item.pos as u32)?;
+                    self.bw.write_u32le(item.len)?;
+                }
+            }
+            patch_size(self.bw, 8)?;
+
+            self.patch_stream_stats()?;
+
+            // patch out useless OpenDML entries
+            self.bw.seek(SeekFrom::Start(self.odml_pos))?;
+            self.bw.write_buf(b"JUNK")?;
+            for sstat in self.stream_info.iter() {
+                self.bw.seek(SeekFrom::Start(sstat.indx_pos))?;
+                self.bw.write_buf(b"JUNK")?;
+            }
+
+            self.bw.flush()?;
+
+            Ok(())
+        } else {
+            Err(MuxerError::NotCreated)
         }
-        self.bw.seek(SeekFrom::Start(0x30))?;
-        self.bw.write_u32le(max_frames)?;
-        self.bw.seek(SeekFrom::Current(8))?;
-        self.bw.write_u32le(max_size)?;
-        Ok(())
     }
 }
 
@@ -409,6 +603,6 @@ mod test {
             };
         test_remuxing(&dec_config, &enc_config);*/
         test_remuxing_md5(&dec_config, "avi", &mux_reg,
-                          [0x9c490a1f, 0x8433ea58, 0xf02e27b7, 0x019f6c28]);
+                          [0xc5306965, 0xfe9ae8b8, 0x91c38644, 0x21ab366d]);
     }
 }
