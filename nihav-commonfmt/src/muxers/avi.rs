@@ -3,10 +3,9 @@ use nihav_registry::register::*;
 
 #[derive(Clone,Copy)]
 struct IdxEntry {
-    stream:     u32,
-    stype:      StreamType,
+    tag:        [u8; 4],
     key:        bool,
-    pos:        u32,
+    pos:        u64,
     len:        u32,
 }
 
@@ -51,16 +50,15 @@ fn patch_size(bw: &mut ByteWriter, pos: u64) -> MuxerResult<()> {
     Ok(())
 }
 
-fn write_chunk_hdr(bw: &mut ByteWriter, stype: StreamType, str_no: u32) -> MuxerResult<()> {
-    bw.write_byte(b'0' + ((str_no / 10) as u8))?;
-    bw.write_byte(b'0' + ((str_no % 10) as u8))?;
+fn gen_chunk_tag(stype: StreamType, str_no: u32) -> [u8; 4] {
+    let c0 = b'0' + ((str_no / 10) as u8);
+    let c1 = b'0' + ((str_no % 10) as u8);
     match stype {
-        StreamType::Video => { bw.write_buf(b"dc")?; },
-        StreamType::Audio => { bw.write_buf(b"wb")?; },
-        StreamType::Subtitles => { bw.write_buf(b"tx")?; },
-        _ => return Err(MuxerError::UnsupportedFormat),
-    };
-    Ok(())
+        StreamType::Video => [c0, c1, b'd', b'c'],
+        StreamType::Audio => [c0, c1, b'w', b'b'],
+        StreamType::Subtitles => [c0, c1, b't', b'x'],
+        _ => unimplemented!()
+    }
 }
 
 impl<'a> MuxCore<'a> for AVIMuxer<'a> {
@@ -304,13 +302,13 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
 
         self.stream_info[str_num].nframes += 1;
         self.stream_info[str_num].max_size = self.stream_info[str_num].max_size.max(chunk_len);
+        let tag = gen_chunk_tag(stream.get_media_type(), str_num as u32);
         self.index.push(IdxEntry {
-                stream: str_num as u32,
-                stype:  stream.get_media_type(),
+                tag,
                 key:    pkt.keyframe,
-                pos:    self.bw.tell() as u32,
+                pos:    self.bw.tell(),
                 len:    chunk_len });
-        write_chunk_hdr(self.bw, stream.get_media_type(), str_num as u32)?;
+        self.bw.write_buf(&tag)?;
         self.bw.write_u32le(chunk_len)?;
         self.bw.write_buf(pkt.get_buffer().as_slice())?;
         if (self.bw.tell() & 1) != 0 {
@@ -327,9 +325,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             self.bw.write_buf(b"idx1")?;
             self.bw.write_u32le((self.index.len() * 16) as u32)?;
             for item in self.index.iter() {
-                write_chunk_hdr(self.bw, item.stype, item.stream)?;
+                self.bw.write_buf(&item.tag)?;
                 self.bw.write_u32le(if item.key { 0x10 } else { 0 })?;
-                self.bw.write_u32le(item.pos)?;
+                self.bw.write_u32le(item.pos as u32)?;
                 self.bw.write_u32le(item.len)?;
             }
         }
