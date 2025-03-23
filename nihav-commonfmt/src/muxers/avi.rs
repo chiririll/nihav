@@ -207,7 +207,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             match strm.get_media_type() {
                 StreamType::Video => {
                     self.bw.write_buf(b"vids")?;
-                    let fcc = find_avi_fourcc(strm.get_info().get_name());
+                    let fcc = if strm.get_info().get_name() == "rawvideo-ms" {
+                            Some(*b"DIB ")
+                        } else { find_avi_fourcc(strm.get_info().get_name()) };
                     if fcc.is_none() {
                         return Err(MuxerError::UnsupportedFormat);
                     }
@@ -276,7 +278,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                         self.bw.write_u16le(1)?;
                         self.bw.write_u16le(8)?;
                     }
-                    let fcc = find_avi_fourcc(strm.get_info().get_name());
+                    let fcc = if strm.get_info().get_name() == "rawvideo-ms" {
+                                Some([0; 4])
+                            } else { find_avi_fourcc(strm.get_info().get_name()) };
                     if fcc.is_none() {
                         return Err(MuxerError::UnsupportedFormat);
                     }
