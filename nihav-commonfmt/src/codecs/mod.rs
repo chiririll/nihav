@@ -87,6 +87,8 @@ mod cinepakenc;
 mod gifenc;
 #[cfg(feature="encoder_rawvideo")]
 mod rawvideoenc;
+#[cfg(feature="encoder_rawvideo")]
+mod rawvideomsenc;
 #[cfg(feature="encoder_zmbv")]
 mod zmbvenc;
 
@@ -98,6 +100,8 @@ const ENCODERS: &[EncoderInfo] = &[
     EncoderInfo { name: "gif", get_encoder: gifenc::get_encoder },
 #[cfg(feature="encoder_rawvideo")]
     EncoderInfo { name: "rawvideo", get_encoder: rawvideoenc::get_encoder },
+#[cfg(feature="encoder_rawvideo")]
+    EncoderInfo { name: "rawvideo-ms", get_encoder: rawvideomsenc::get_encoder },
 #[cfg(feature="encoder_zmbv")]
     EncoderInfo { name: "zmbv", get_encoder: zmbvenc::get_encoder },
 
