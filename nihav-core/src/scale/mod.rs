@@ -20,6 +20,7 @@ use crate::frame::*;
 mod kernel;
 
 mod colorcvt;
+mod fill;
 mod repack;
 #[allow(clippy::module_inception)]
 mod scale;
@@ -91,6 +92,7 @@ const KERNELS: &[KernelDesc] = &[
     KernelDesc { name: "depal",         create: repack::create_depal },
     KernelDesc { name: "palette",       create: palette::create_palettise },
     KernelDesc { name: "scale",         create: scale::create_scale },
+    KernelDesc { name: "fill",          create: fill::create_fill },
     KernelDesc { name: "rgb_to_yuv",    create: colorcvt::create_rgb2yuv },
     KernelDesc { name: "yuv_to_rgb",    create: colorcvt::create_yuv2rgb },
 ];
@@ -356,6 +358,16 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
             println!("[adding scale]");
         }
         let new_stage = Stage::new("scale", &cur_fmt, ofmt, options)?;
+        cur_fmt = new_stage.fmt_out;
+        add_stage!(stages, new_stage);
+    }
+    let icomponents = cur_fmt.fmt.components - if cur_fmt.fmt.alpha { 1 } else { 0 };
+    let ocomponents = ofmt.fmt.components - if ofmt.fmt.alpha { 1 } else { 0 };
+    if !needs_palettise && ((!cur_fmt.fmt.alpha && ofmt.fmt.alpha) || (icomponents < ocomponents)) {
+        if debug {
+            println!("[adding fill]");
+        }
+        let new_stage = Stage::new("fill", &cur_fmt, ofmt, options)?;
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
