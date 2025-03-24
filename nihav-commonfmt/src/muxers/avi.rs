@@ -272,7 +272,11 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     self.bw.write_u32le(vinfo.width as u32)?;
                     self.bw.write_u32le(vinfo.height as u32)?;
                     if !vinfo.format.palette {
-                        self.bw.write_u16le(vinfo.format.components as u16)?;
+                        if strm.get_info().get_name() != "rawvideo-ms" {
+                            self.bw.write_u16le(vinfo.format.components as u16)?;
+                        } else {
+                            self.bw.write_u16le(1)?;
+                        }
                         self.bw.write_u16le(vinfo.format.get_total_depth() as u16)?;
                     } else {
                         self.bw.write_u16le(1)?;
