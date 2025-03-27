@@ -14,13 +14,18 @@ path = "../nihav-codec-support"
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
 
 [features]
-default = ["all_decoders"]
+default = ["all_decoders", "all_demuxers"]
 decoders = []
+demuxers = []
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_mwv1", "decoder_pgvv"]
+all_video_decoders = ["decoder_mwv1", "decoder_pgvv", "decoder_qpeg"]
 decoder_mwv1 = ["decoders"]
 decoder_pgvv = ["decoders"]
+decoder_qpeg = ["decoders"]
 
 all_audio_decoders = []
+
+all_demuxers = ["demuxer_qpeg"]
+demuxer_qpeg = ["demuxers"]

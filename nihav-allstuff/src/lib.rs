@@ -62,6 +62,7 @@ pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     game_register_all_demuxers(rd);
     indeo_register_all_demuxers(rd);
     llaudio_register_all_demuxers(rd);
+    misc_register_all_demuxers(rd);
     rad_register_all_demuxers(rd);
     realmedia_register_all_demuxers(rd);
     vivo_register_all_demuxers(rd);

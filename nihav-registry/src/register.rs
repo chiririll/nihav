@@ -315,6 +315,8 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video-im; "mwv1",          "Aware MotionWavelets"),
 
     desc!(video-im; "pgvv",          "Radius Studio Video"),
+
+    desc!(video-llp; "qpeg-dvc",          "QPEG video in DVC"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
