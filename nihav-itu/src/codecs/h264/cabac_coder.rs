@@ -167,14 +167,14 @@ impl<'a> CABAC<'a> {
             asm!(
                 // unpack state
                 "movzx  {state_idx:e},  byte ptr [{ctx} + 0x18 + {idx}]",
+                "movzx  {tmp},          word ptr [{ctx} + 0x418]",
                 "mov    {val_mps:x},    {state_idx:x}",
                 "and    {state_idx},    0x3F",
                 "and    {val_mps:r},    0x80",
-                "movzx  {tmp},          word ptr [{ctx} + 0x418]",
-                "mov    {bit:r},        {val_mps:r}",
                 "shr    {tmp},          6",
-                "and    {tmp},          3",
+                "mov    {bit:r},        {val_mps:r}",
                 "lea    {range_lps:r},  {range_tab}[rip]",
+                "and    {tmp},          3",
                 "lea    {range_lps:r},  [{range_lps:r} + {state_idx} * 4]",
                 "movzx  {range_lps:x},  byte ptr [{range_lps:r} + {tmp}]",
                 // self.cod_range -= range_lps;
