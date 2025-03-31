@@ -571,12 +571,16 @@ impl SliceState {
                                 cur_mvs[1..].iter().zip(top_mvs[1..].iter())).zip(
                             cur_refs[1..].iter().zip(
                                 top_refs[1..].iter())).take(4).enumerate() {
+                        let mut mask = 0;
                         if cur_cc || top_cc {
-                            self.deblock[y * 4 + x] |= 0x20;
+                            mask = 0x20;
                         } else {
                             if mvdiff4(cur_mv, top_mv) || !frefs.cmp_refs(cur_ref, top_ref) {
-                                self.deblock[y * 4 + x] |= 0x10;
+                                mask = 0x10;
                             }
+                        }
+                        if mask != 0 {
+                            self.deblock[y * 4 + x] = mask;
                         }
                     }
                 }
@@ -591,15 +595,19 @@ impl SliceState {
                 if !can_do_left {
                     continue;
                 }
+                let mut mask = 0;
                 if skip_8 {
                 } else if is_s || cur_intra || lleft_intra {
-                    self.deblock[y * 4 + x] |= if x == 0 { 4 } else { 3 };
+                    mask = if x == 0 { 4 } else { 3 };
                 } else if cur_cc || left_cc {
-                    self.deblock[y * 4 + x] |= 2;
+                    mask = 2;
                 } else {
                     if mvdiff4(cur_mv, left_mv) || !frefs.cmp_refs(cur_ref, left_ref) {
-                        self.deblock[y * 4 + x] |= 1;
+                        mask = 1;
                     }
+                }
+                if mask != 0 {
+                    self.deblock[y * 4 + x] |= mask;
                 }
                 lleft_intra = cur_intra;
             }
