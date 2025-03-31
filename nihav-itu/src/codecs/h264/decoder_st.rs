@@ -47,8 +47,6 @@ struct H264Decoder {
 
 impl H264Decoder {
     fn new() -> Self {
-        let avg_vi = NAVideoInfo { width: 32, height: 32, flipped: false, format: YUV420_FORMAT, bits: 12 };
-        let avg_buf = alloc_video_buffer(avg_vi, 4).unwrap().get_vbuf().unwrap();
         H264Decoder{
             info:       NACodecInfoRef::default(),
             width:      0,
@@ -83,7 +81,7 @@ impl H264Decoder {
 
             ipcm_buf:   [0; 256 + 64 + 64],
 
-            mc_dsp:     H264MC::new(avg_buf),
+            mc_dsp:     H264MC::new(),
 
             transform_8x8_mode: false,
         }

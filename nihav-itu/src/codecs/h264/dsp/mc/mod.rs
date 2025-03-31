@@ -54,7 +54,6 @@ impl McBlock {
 
 #[allow(clippy::type_complexity)]
 pub struct H264MC {
-    avg_buf:    NAVideoBufferRef<u8>,
     pub put_block_weighted:     [fn (dst: &mut [u8], stride: usize, src: &[u8], h: usize, wparams: [i8; 3]); 4],
     pub put_block_weighted2:    [fn (dst: &mut [u8], stride: usize, src0: &[u8], src1: &[u8], h: usize, wparams: [i8; 5]); 4],
     pub chroma_interp:          [fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx: u16, dy: u16, h: usize); 3],
@@ -65,9 +64,8 @@ pub struct H264MC {
 }
 
 impl H264MC {
-    pub fn new(avg_buf: NAVideoBufferRef<u8>) -> Self {
+    pub fn new() -> Self {
         let mut obj = Self {
-            avg_buf,
             put_block_weighted:     [put_blk_w_2, put_blk_w_4, put_blk_w_8, put_blk_w_16],
             put_block_weighted2:    [put_blk_w2_2, put_blk_w2_4, put_blk_w2_8, put_blk_w2_16],
             chroma_interp:          [chroma_interp_2, chroma_interp_4, chroma_interp_8],
@@ -199,35 +197,25 @@ impl H264MC {
     }
 
     pub fn do_mc_avg(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: &SimpleFrame, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
-        let mut abuf = self.avg_buf.clone();
-        let stride_y = abuf.get_stride(0);
-        let stride_c = abuf.get_stride(1);
-        let off_y = abuf.get_offset(0);
-        let off_u = abuf.get_offset(1);
-        let off_v = abuf.get_offset(2);
-        let data = abuf.get_data_mut().unwrap();
+        let ubuf = std::mem::MaybeUninit::<[u8; 64 * 16 + 32]>::uninit();
+        let mut buf = unsafe { ubuf.assume_init() };
+        let offset = 32 - ((&buf as *const u8 as usize) & 0x1F);
+
         let mut afrm = NASimpleVideoFrame {
-                width:      [64, 32, 32, 0],
-                height:     [64, 32, 32, 0],
+                width:      [32, 16, 16, 0],
+                height:     [16, 16, 16, 0],
                 flip:       false,
-                stride:     [stride_y, stride_c, stride_c, 0],
-                offset:     [off_y, off_u, off_v, 0],
+                stride:     [64, 64, 64, 0],
+                offset:     [0, 32, 48, 0],
                 components: 3,
-                data,
+                data:       &mut buf[offset..]
             };
         let amv = MV { x: mv.x + (xpos as i16) * 4, y: mv.y + (ypos as i16) * 4 };
         self.do_mc(&mut afrm, refpic, 0, 0, w, h, amv);
-        let wsize = match w {
-                2 => 0,
-                4 => 1,
-                8 => 2,
-                _ => 3,
-            };
-        let src = self.avg_buf.get_data();
-        for comp in 0..3 {
+        let wsize = (w.ilog2() - 1) as usize;
+        let src = afrm.data;
+        for (comp, (&sstride, &soff)) in afrm.stride.iter().zip(afrm.offset.iter()).take(3).enumerate() {
             let shift = if comp == 0 { 0 } else { 1 };
-            let sstride = self.avg_buf.get_stride(comp);
-            let soff = self.avg_buf.get_offset(comp);
             (self.avg[wsize - shift])(&mut frm.data[frm.offset[comp] + (xpos >> shift) + (ypos >> shift) * frm.stride[comp]..], frm.stride[comp], &src[soff..], sstride, h >> shift);
         }
     }
