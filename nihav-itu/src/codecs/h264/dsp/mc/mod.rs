@@ -82,7 +82,8 @@ impl H264MC {
         self.height = height;
     }
     pub fn do_mc(&mut self, frm: &mut NASimpleVideoFrame<u8>, refpic: &SimpleFrame, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
-        let mut ebuf = [0u8; 22 * 22];
+        let ubuf = std::mem::MaybeUninit::<[u8; 22 * 22]>::uninit();
+        let mut ebuf = unsafe { ubuf.assume_init() };
         let mvx = mv.x >> 2;
         let mvy = mv.y >> 2;
         let mode = ((mv.x & 3) + (mv.y & 3) * 4) as usize;
