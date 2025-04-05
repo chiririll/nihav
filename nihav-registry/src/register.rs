@@ -314,6 +314,8 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video-im; "mwv1",          "Aware MotionWavelets"),
 
+    desc!(video-llp; "pivideo",      "PI-Video"),
+
     desc!(video-im; "pgvv",          "Radius Studio Video"),
 
     desc!(video-llp; "qpeg-dvc",          "QPEG video in DVC"),
@@ -366,6 +368,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"VP70", "vp7"),
 
     (b"MWV1", "mwv1"),
+
+    (b"pivc", "pivideo"),
 
     (b"azpr", "apple-video"),
     (b"PGVV", "pgvv"),

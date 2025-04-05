@@ -15,6 +15,9 @@ mod mwv1;
 #[cfg(feature="decoder_pgvv")]
 mod pgvv;
 
+#[cfg(feature="decoder_pivc")]
+mod pivc;
+
 #[cfg(feature="decoder_qpeg")]
 mod qpeg;
 
@@ -23,6 +26,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "mwv1", get_decoder: mwv1::get_decoder },
 #[cfg(feature="decoder_pgvv")]
     DecoderInfo { name: "pgvv", get_decoder: pgvv::get_decoder },
+#[cfg(feature="decoder_pivc")]
+    DecoderInfo { name: "pivideo", get_decoder: pivc::get_decoder },
 #[cfg(feature="decoder_qpeg")]
     DecoderInfo { name: "qpeg-dvc", get_decoder: qpeg::get_decoder_dvc },
 ];
