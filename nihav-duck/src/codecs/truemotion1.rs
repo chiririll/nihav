@@ -606,11 +606,12 @@ impl NADecoder for TM1Decoder {
         let mut index = IndexState::new(index_bytes);
         index.tbl0 = vec_idx == 0;
         let mut padded_idx_bytes = Vec::new();
-        if index.tbl0 { // old format, use padded buffer as the source instead
+        if index.tbl0 || version == 1 || (version == 2 && meta_type == 1) {
+            // old format, use padded buffer as the source instead
             padded_idx_bytes.extend_from_slice(index_bytes);
             padded_idx_bytes.resize(index_bytes.len() + 4, 0);
             index = IndexState::new(&padded_idx_bytes);
-            index.tbl0 = true;
+            index.tbl0 = vec_idx == 0;
         }
         let bufinfo;
         if !is_24bit {
