@@ -97,7 +97,6 @@ impl NADecoder for Escape122Decoder {
         let vsize = br.read_u32le()? as usize;
         validate!(src.len() >= vsize);
         let pal_size = br.read_u16le()? as usize;
-        validate!((pal_size + 2) & 3 == 0);
         let nentries = (pal_size / 3).min(256);
         if nentries > 0 {
             br.read_buf(&mut self.pal[..nentries * 3])?;
