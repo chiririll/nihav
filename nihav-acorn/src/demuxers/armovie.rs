@@ -311,7 +311,7 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
                 let bits = parse_uint(fmt)?;
                 let codec_name = match codec_id {
                         1 => "arm_rawaudio",
-                        101 if bits == 8 => "arm_rawaudio",
+                        101 if bits == 8 && video_codec != 122 => "arm_rawaudio",
                         101 => "escape-adpcm",
                         _ => "unknown"
                     };
