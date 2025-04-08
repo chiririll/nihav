@@ -145,7 +145,21 @@ impl ZMBVEncoder {
 
         if let NABufferType::None = buf {
             if self.bpp == 0 {
-                return Err(EncoderError::FormatError);
+                println!("First frame is skip frame, pretending it's a black frame and hoping for the best");
+                if let Some(ref stream) = self.stream {
+                    if let Some(vinfo) = stream.get_info().get_properties().get_video_info() {
+                        let in_bpp = if vinfo.format.is_paletted() {
+                                8
+                            } else { vinfo.format.get_total_depth() };
+                        if !matches!(in_bpp, 8 | 15 | 16 | 24) {
+                             return Err(EncoderError::FormatError);
+                        }
+                        self.bpp = in_bpp;
+                    }
+                }
+                if self.bpp == 0 {
+                    return Err(EncoderError::FormatError);
+                }
             }
             self.frm1.copy_from_slice(&self.frm2);
             bpp = self.bpp;
