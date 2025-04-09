@@ -132,8 +132,8 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
                 };
 
             let cname = match w_format_tag {
-                    0x401 => "iac",
-                    0x402 => "imc",
+                    0x401 => "imc",
+                    0x402 => "iac",
                     _ =>     "unknown",
                 };
 
