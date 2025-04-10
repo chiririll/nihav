@@ -114,6 +114,7 @@ struct QcelpFrame {
     lag_frac:   [bool; 4],
     gain:       [u8; 4],
     lsp_data:   [usize; ORDER / 2],
+    lsp_flags:  [bool; ORDER],
     oct_seed:   u16,
     cb_seed:    u8,
 }
@@ -264,22 +265,22 @@ impl QcelpFrame {
             QcelpMode::Octavo => {
                 self.oct_seed = br.peek(16) as u16;
                 validate!(self.oct_seed != 0xFFFF);
-                self.cb_seed    |= (br.read(1)? as u8) << 3;
-                self.lsp_data[0] = br.read(1)? as usize;
-                self.lsp_data[1] = br.read(1)? as usize;
-                self.lsp_data[2] = br.read(1)? as usize;
-                self.cb_seed    |= (br.read(1)? as u8) << 2;
-                self.lsp_data[3] = br.read(1)? as usize;
-                self.lsp_data[4] = br.read(1)? as usize;
-                self.lsp_data[5] = br.read(1)? as usize;
-                self.cb_seed    |= (br.read(1)? as u8) << 1;
-                self.lsp_data[6] = br.read(1)? as usize;
-                self.lsp_data[7] = br.read(1)? as usize;
-                self.lsp_data[8] = br.read(1)? as usize;
-                self.cb_seed    |= br.read(1)? as u8;
-                self.lsp_data[9] = br.read(1)? as usize;
-                self.cb_gain[0]  = br.read(2)? as u8;
-                let reserved     = br.read(4)? as u8;
+                self.cb_seed     |= (br.read(1)? as u8) << 3;
+                self.lsp_flags[0] = br.read_bool()?;
+                self.lsp_flags[1] = br.read_bool()?;
+                self.lsp_flags[2] = br.read_bool()?;
+                self.cb_seed     |= (br.read(1)? as u8) << 2;
+                self.lsp_flags[3] = br.read_bool()?;
+                self.lsp_flags[4] = br.read_bool()?;
+                self.lsp_flags[5] = br.read_bool()?;
+                self.cb_seed     |= (br.read(1)? as u8) << 1;
+                self.lsp_flags[6] = br.read_bool()?;
+                self.lsp_flags[7] = br.read_bool()?;
+                self.lsp_flags[8] = br.read_bool()?;
+                self.cb_seed     |= br.read(1)? as u8;
+                self.lsp_flags[9] = br.read_bool()?;
+                self.cb_gain[0]   = br.read(2)? as u8;
+                let reserved      = br.read(4)? as u8;
                 validate!(reserved == 0);
             },
             QcelpMode::Silence => {},
@@ -495,8 +496,8 @@ impl QcelpDecoder {
                 let src = if self.prev_mode == QcelpMode::Octavo { &mut self.predictor } else { &mut self.prev_lsp };
                 let mut lsp = LSP::new_init();
                 for ((el, &src), &f_lsp) in lsp.data.iter_mut()
-                        .zip(src.data.iter()).zip(frame.lsp_data.iter()) {
-                    *el = (if f_lsp != 0 { SPREAD_FACTOR } else { -SPREAD_FACTOR }) +
+                        .zip(src.data.iter()).zip(frame.lsp_flags.iter()) {
+                    *el = (if f_lsp { SPREAD_FACTOR } else { -SPREAD_FACTOR }) +
                           src * OCTAVO_PRED_WEIGHT + *el * (1.0 - OCTAVO_PRED_WEIGHT);
                 }
                 self.predictor = lsp;
