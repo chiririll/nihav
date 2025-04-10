@@ -1021,7 +1021,7 @@ fn check_filter4(buf: &[u8], off: usize, step: usize, stride: usize, alpha: i16,
 
             // transpose block if necessary so it's always processed by rows
             "test       {tflag:e}, {tflag:e}",
-            "jz         1f",
+            "jz         2f",
             "punpcklwd  xmm0, xmm1",
             "movhlps    xmm4, xmm0",
             "punpcklwd  xmm2, xmm3",
@@ -1031,7 +1031,7 @@ fn check_filter4(buf: &[u8], off: usize, step: usize, stride: usize, alpha: i16,
             "movhlps    xmm1, xmm0",
             "movhlps    xmm3, xmm4",
             "movaps     xmm2, xmm4",
-            "1:",
+            "2:",
 
             // calculate deltas and flags
             "movd       xmm4, {alpha:r}",
