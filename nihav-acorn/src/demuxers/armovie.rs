@@ -463,4 +463,25 @@ mod test {
             println!("Got {}", pkt);
         }
     }
+    #[test]
+    fn test_armovie_tca_demux() {
+        // a sample from All About Planes
+        let mut file = File::open("assets/Acorn/wessex").unwrap();
+        let mut fr = FileReader::new_read(&mut file);
+        let mut br = ByteReader::new(&mut fr);
+        let mut dmx = ARMovieDemuxer::new(&mut br);
+        let mut sm = StreamManager::new();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
+
+        loop {
+            let pktres = dmx.get_data(&mut sm);
+            if let Err(e) = pktres {
+                if e == DemuxerError::EOF { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            println!("Got {}", pkt);
+        }
+    }
 }
