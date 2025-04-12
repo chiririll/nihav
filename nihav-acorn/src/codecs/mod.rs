@@ -112,6 +112,9 @@ const ACORN_PACKETISERS: &[PacketiserInfo] = &[
 #[cfg(feature="decoder_rawaudio")]
     PacketiserInfo { name: "arm_rawaudio", get_packetiser: rawaudio::get_packetiser },
 
+#[cfg(feature="decoder_euclid")]
+    PacketiserInfo { name: "euclid", get_packetiser: euclid::get_packetiser },
+
 #[cfg(feature="packetiser_cinepak")]
     PacketiserInfo { name: "cinepak", get_packetiser: wss_packetisers::get_packetiser_cinepak },
 #[cfg(feature="packetiser_msvideo1")]

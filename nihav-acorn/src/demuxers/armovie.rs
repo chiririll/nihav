@@ -1,5 +1,8 @@
 use nihav_core::demuxers::*;
 
+#[cfg(feature="demuxer_tca")]
+use super::tca::TCARawDemuxer;
+
 const VIDEO_CODECS: &[(i32, &str)] = &[
     (  1, "movinglines"),
     (  2, "arm_rawvideo"),
@@ -13,6 +16,7 @@ const VIDEO_CODECS: &[(i32, &str)] = &[
     (122, "escape122"),
     (124, "escape124"),
     (130, "escape130"),
+    (500, "euclid"),
     (600, "msvideo1"),
     (601, "msvideo1"),
     (602, "cinepak"),
@@ -155,6 +159,8 @@ struct ARMovieDemuxer<'a> {
     state:          ReadState,
     video_id:       Option<usize>,
     audio_ids:      Vec<usize>,
+    #[cfg(feature="demuxer_tca")]
+    tca:            Option<TCARawDemuxer>,
 }
 
 impl<'a> ARMovieDemuxer<'a> {
@@ -166,6 +172,8 @@ impl<'a> ARMovieDemuxer<'a> {
             state:          ReadState::None,
             video_id:       None,
             audio_ids:      Vec::new(),
+            #[cfg(feature="demuxer_tca")]
+            tca:            None,
         }
     }
     fn parse_catalogue(&mut self, offset: u32, num_chunks: usize, even_csize: usize, odd_csize: usize, aud_tracks: usize) -> DemuxerResult<()> {
@@ -262,6 +270,24 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
 
         self.parse_catalogue(cat_offset, num_chunks, even_chunk_size, odd_chunk_size, num_sound)?;
 
+        #[cfg(feature="demuxer_tca")]
+        if video_codec == 500 {
+            validate!(fps > 1.0e-4);
+            let mut tbase = fps;
+            let mut tb_num = 1;
+            while tbase.fract() > 1.0e-4 {
+                tb_num *= 10;
+                tbase *= 10.0;
+            }
+            let tb_den = tbase as u32;
+
+            self.src.seek(SeekFrom::Start(u64::from(self.chunk_offs[0].offset)))?;
+            let mut tca = TCARawDemuxer::default();
+            tca.open(self.src, strmgr, tb_num, tb_den)?;
+            self.tca = Some(tca);
+            return Ok(());
+        }
+
         let mut stream_id = 0;
         if video_codec > 0 {
             let codec_name = if let Some(idx) = VIDEO_CODECS.iter().position(|&(id, _)| id == video_codec) {
@@ -338,6 +364,11 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
     }
 
     fn get_data(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NARawData> {
+        #[cfg(feature="demuxer_tca")]
+        if let Some(ref mut tca) = self.tca {
+            return tca.get_frame(self.src, strmgr);
+        }
+
         while self.cur_chunk < self.chunk_offs.len() {
             let chunk = &self.chunk_offs[self.cur_chunk];
             match self.state {

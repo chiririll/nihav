@@ -267,6 +267,58 @@ pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(EuclidDecoder::new())
 }
 
+#[derive(Default)]
+struct EuclidPacketiser {
+    stream:     Option<NAStreamRef>,
+    buf:        Vec<u8>,
+    frameno:    u32,
+}
+
+impl EuclidPacketiser {
+    fn new() -> Self { Self::default() }
+}
+
+impl NAPacketiser for EuclidPacketiser {
+    fn attach_stream(&mut self, stream: NAStreamRef) {
+        self.stream = Some(stream);
+    }
+    fn add_data(&mut self, src: &[u8]) -> bool {
+        self.buf.extend_from_slice(src);
+        false
+    }
+    fn parse_stream(&mut self, id: u32) -> DecoderResult<NAStreamRef> {
+        if let Some(ref stream) = self.stream {
+            let mut stream = NAStream::clone(stream);
+            stream.id = id;
+            Ok(stream.into_ref())
+        } else {
+            Err(DecoderError::MissingReference)
+        }
+    }
+    fn skip_junk(&mut self) -> DecoderResult<usize> {
+        Err(DecoderError::NotImplemented)
+    }
+    fn get_packet(&mut self, stream: NAStreamRef) -> DecoderResult<Option<NAPacket>> {
+        if !self.buf.is_empty() {
+            let mut data = Vec::new();
+            std::mem::swap(&mut data, &mut self.buf);
+            let ts = NATimeInfo::new(Some(u64::from(self.frameno)), None, None, stream.tb_num, stream.tb_den);
+            self.frameno += 1;
+            Ok(Some(NAPacket::new(stream, ts, false, data)))
+        } else {
+            Ok(None)
+        }
+    }
+    fn reset(&mut self) {
+        self.buf.clear();
+    }
+    fn bytes_left(&self) -> usize { self.buf.len() }
+}
+
+pub fn get_packetiser() -> Box<dyn NAPacketiser + Send> {
+    Box::new(EuclidPacketiser::new())
+}
+
 #[cfg(test)]
 mod test {
     use nihav_core::codecs::RegisteredDecoders;
