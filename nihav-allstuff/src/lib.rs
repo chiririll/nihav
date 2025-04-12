@@ -56,6 +56,7 @@ pub fn nihav_register_all_packetisers(rp: &mut RegisteredPacketisers) {
 
 /// Registers all known demuxers.
 pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
+    acorn_register_all_demuxers(rd);
     duck_register_all_demuxers(rd);
     generic_register_all_demuxers(rd);
     flash_register_all_demuxers(rd);

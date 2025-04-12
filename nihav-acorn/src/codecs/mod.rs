@@ -38,6 +38,9 @@ mod linepack;
 #[cfg(feature="decoder_escape")]
 mod escape;
 
+#[cfg(feature="decoder_euclid")]
+mod euclid;
+
 #[cfg(feature="decoder_rawaudio")]
 mod rawaudio;
 
@@ -64,6 +67,9 @@ const ACORN_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "escape130", get_decoder: escape::get_decoder130 },
 #[cfg(feature="decoder_escape")]
     DecoderInfo { name: "escape-adpcm", get_decoder: escape::get_decoder_audio },
+
+#[cfg(feature="decoder_euclid")]
+    DecoderInfo { name: "euclid", get_decoder: euclid::get_decoder },
 
 #[cfg(feature="decoder_rawaudio")]
     DecoderInfo { name: "arm_rawaudio", get_decoder: rawaudio::get_decoder },

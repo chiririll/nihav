@@ -11,6 +11,14 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DemuxerError::InvalidData); } };
 }
 
+#[cfg(feature="demuxer_tca")]
+mod tca;
+
+const DEMUXERS: &[&dyn DemuxerCreator] = &[
+#[cfg(feature="demuxer_tca")]
+    &tca::TCADemuxerCreator {},
+];
+
 #[cfg(feature="demuxer_armovie")]
 mod armovie;
 
@@ -18,6 +26,13 @@ const RAW_DEMUXERS: &[&dyn RawDemuxerCreator] = &[
 #[cfg(feature="demuxer_armovie")]
     &armovie::ARMovieDemuxerCreator {},
 ];
+
+/// Registers all available demuxers provided by this crate.
+pub fn acorn_register_all_demuxers(rd: &mut RegisteredDemuxers) {
+    for demuxer in DEMUXERS.iter() {
+        rd.add_demuxer(*demuxer);
+    }
+}
 
 /// Registers all available demuxers provided by this crate.
 pub fn acorn_register_all_raw_demuxers(rd: &mut RegisteredRawDemuxers) {

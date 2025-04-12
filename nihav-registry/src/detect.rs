@@ -262,6 +262,12 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[CheckItem{offs:  0, cond: &CC::Str(b"ARMovie\n") }],
     },
     DetectConditions {
+        demux_name: "tca",
+        extensions: ".tca",
+        conditions: &[CheckItem{offs: 0x00, cond: &CC::Str(b"ACEF") },
+                      CheckItem{offs: 0x18, cond: &CC::Eq(Arg::U32LE(64))}],
+    },
+    DetectConditions {
         demux_name: "flv",
         extensions: ".flv",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"FLV") },

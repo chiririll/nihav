@@ -222,6 +222,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "escape124",            "Eidos Escape 124"),
     desc!(video;    "escape130",            "Eidos Escape 130"),
     desc!(audio;    "escape-adpcm",         "Eidos Escape ADPCM"),
+    desc!(video-llp; "euclid",              "Iota Euclid / The Complete Animation"),
 
     desc!(video;    "truemotion1",   "TrueMotion 1"),
     desc!(video-im; "truemotionrt",  "TrueMotion RT"),
