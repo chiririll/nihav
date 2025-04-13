@@ -16,7 +16,7 @@ impl<'a> TCADemuxer<'a> {
 
 impl<'a> DemuxCore<'a> for TCADemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
-        self.tca.open(self.src, strmgr, 1, 10)
+        self.tca.open(self.src, strmgr, 0, 0)
     }
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
@@ -51,7 +51,7 @@ pub(crate) struct TCACoreDemuxer {
 }
 
 impl TCACoreDemuxer {
-    pub(crate) fn open(&mut self, src: &mut ByteReader, strmgr: &mut StreamManager, tb_num: u32, tb_den: u32) -> DemuxerResult<()> {
+    pub(crate) fn open(&mut self, src: &mut ByteReader, strmgr: &mut StreamManager, mut tb_num: u32, mut tb_den: u32) -> DemuxerResult<()> {
         let start_pos = src.tell();
         let tag                     = src.peek_tag()?;
         let is_acef = &tag == b"ACEF";
@@ -86,21 +86,44 @@ impl TCACoreDemuxer {
                 while let Ok(tag)   = src.read_tag() {
                     let size        = src.read_u32le()? as usize;
                     validate!(size >= 8);
-                    if &tag == b"PALE" {
-                        validate!((0x28..=0x428).contains(&size) && (size & 3) == 0);
+                    match &tag {
+                        b"PALE" => {
+                            validate!((0x28..=0x428).contains(&size) && (size & 3) == 0);
                                       src.read_skip(0x1C)?;
-                        let nclrs = (size - 0x24) / 4;
-                        hdr.resize(HDR_SIZE + 4 + 256 * 3, 0);
-                        for _ in 0..nclrs {
-                            let idx = usize::from(src.read_byte()?);
+                            let nclrs = (size - 0x24) / 4;
+                            hdr.resize(HDR_SIZE + 4 + 256 * 3, 0);
+                            for _ in 0..nclrs {
+                                let idx = usize::from(src.read_byte()?);
                                       src.read_buf(&mut hdr[HDR_SIZE + 4 + idx * 3..][..3])?;
-                        }
-                    } else {
+                            }
+                        },
+                        b"RATE" if tb_num == 0 => {
+                            if size == 0x14 {
+                                let fixed = src.read_u32le()?;
+                                validate!(fixed < 2);
+                                tb_num    = src.read_u32le()?;
+                                tb_den    = src.read_u32le()? * 2;
+                                if fixed == 1 {
+                                    tb_den = tb_num;
+                                    tb_num = 1;
+                                }
+                                validate!(tb_num > 0 && tb_den > 0);
+                            } else {
                                       src.read_skip(size - 8)?;
+                            }
+                        },
+                        _ => {
+                                      src.read_skip(size - 8)?;
+                        },
                     }
                 }
             }
                                       src.seek(SeekFrom::Start(data_start))?;
+        }
+
+        if tb_num == 0 { // invent some default framerate
+            tb_num = 2;
+            tb_den = 25;
         }
 
         let vci = NACodecTypeInfo::Video(NAVideoInfo::new(width / 2, height / 2, false, PAL8_FORMAT));
