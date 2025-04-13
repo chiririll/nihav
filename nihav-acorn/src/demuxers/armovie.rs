@@ -1,7 +1,7 @@
 use nihav_core::demuxers::*;
 
 #[cfg(feature="demuxer_tca")]
-use super::tca::TCARawDemuxer;
+use super::tca::TCACoreDemuxer;
 
 const VIDEO_CODECS: &[(i32, &str)] = &[
     (  1, "movinglines"),
@@ -160,7 +160,7 @@ struct ARMovieDemuxer<'a> {
     video_id:       Option<usize>,
     audio_ids:      Vec<usize>,
     #[cfg(feature="demuxer_tca")]
-    tca:            Option<TCARawDemuxer>,
+    tca:            Option<TCACoreDemuxer>,
 }
 
 impl<'a> ARMovieDemuxer<'a> {
@@ -282,7 +282,7 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
             let tb_den = tbase as u32;
 
             self.src.seek(SeekFrom::Start(u64::from(self.chunk_offs[0].offset)))?;
-            let mut tca = TCARawDemuxer::default();
+            let mut tca = TCACoreDemuxer::default();
             tca.open(self.src, strmgr, tb_num, tb_den)?;
             self.tca = Some(tca);
             return Ok(());
@@ -366,7 +366,7 @@ impl<'a> RawDemuxCore<'a> for ARMovieDemuxer<'a> {
     fn get_data(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NARawData> {
         #[cfg(feature="demuxer_tca")]
         if let Some(ref mut tca) = self.tca {
-            return tca.get_frame(self.src, strmgr);
+            return tca.get_frame_raw(self.src, strmgr);
         }
 
         while self.cur_chunk < self.chunk_offs.len() {
