@@ -40,6 +40,8 @@ mod escape;
 
 #[cfg(feature="decoder_euclid")]
 mod euclid;
+#[cfg(feature="decoder_iotasound")]
+mod iotasound;
 
 #[cfg(feature="decoder_rawaudio")]
 mod rawaudio;
@@ -70,6 +72,8 @@ const ACORN_CODECS: &[DecoderInfo] = &[
 
 #[cfg(feature="decoder_euclid")]
     DecoderInfo { name: "euclid", get_decoder: euclid::get_decoder },
+#[cfg(feature="decoder_iotasound")]
+    DecoderInfo { name: "iota-sound", get_decoder: iotasound::get_decoder },
 
 #[cfg(feature="decoder_rawaudio")]
     DecoderInfo { name: "arm_rawaudio", get_decoder: rawaudio::get_decoder },
@@ -114,6 +118,8 @@ const ACORN_PACKETISERS: &[PacketiserInfo] = &[
 
 #[cfg(feature="decoder_euclid")]
     PacketiserInfo { name: "euclid", get_packetiser: euclid::get_packetiser },
+#[cfg(feature="decoder_iotasound")]
+    PacketiserInfo { name: "iota-sound", get_packetiser: rawaudio::get_packetiser },
 
 #[cfg(feature="packetiser_cinepak")]
     PacketiserInfo { name: "cinepak", get_packetiser: wss_packetisers::get_packetiser_cinepak },

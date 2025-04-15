@@ -48,6 +48,12 @@ impl DemuxerCreator for TCADemuxerCreator {
 pub(crate) struct TCACoreDemuxer {
     data_end:   u64,
     frameno:    u64,
+    video_pos:  u64,
+    sound_pos:  u64,
+    sound_end:  u64,
+    asize:      u64,
+    sblk_len:   usize,
+    audio:      bool,
 }
 
 impl TCACoreDemuxer {
@@ -77,6 +83,9 @@ impl TCACoreDemuxer {
         let height = read_u32le(&hdr[12..])? as usize;
         validate!(width > 0 && height > 0);
         validate!((width | height) & 1 == 0);
+
+        let mut sound_start = 0;
+        let mut sound_end = 0;
 
         if is_acef {
             let data_start = src.tell();
@@ -112,6 +121,21 @@ impl TCACoreDemuxer {
                                       src.read_skip(size - 8)?;
                             }
                         },
+                        b"SOUN" => {
+                            sound_start = src.tell();
+                            let stag        = src.read_tag()?;
+                            validate!(&stag == b"WAV1" || &stag == b"WAV2");
+                            let ssize       = src.read_u32le()?;
+                            validate!(ssize as usize <= size - 8 && ssize > 0x1C);
+                            sound_end = sound_start + u64::from(ssize);
+                                              src.read_u32le()?; // usually 1
+                                              src.read_u32le()?; // usually 20
+                                              src.read_u32le()?; // actual sound size
+                                              src.read_u32le()?; // some number, usually in 20000..30000 range
+                                              src.read_u32le()?; // usually -1
+                            sound_start = src.tell();
+                                              src.read_skip(size - 0x1C)?;
+                        },
                         _ => {
                                       src.read_skip(size - 8)?;
                         },
@@ -133,24 +157,61 @@ impl TCACoreDemuxer {
             return Err(DemuxerError::MemoryError);
         }
 
+        if sound_end > 0 {
+            let aci = NACodecTypeInfo::Audio(NAAudioInfo::new(8000, 1, SND_S16_FORMAT, 1));
+            let ainfo = NACodecInfo::new("iota-sound", aci, None);
+            let ret = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, 8000, 0));
+            if ret.is_none() {
+                return Err(DemuxerError::MemoryError);
+            }
+            self.sound_pos = sound_start;
+            self.sound_end = sound_end;
+            self.sblk_len = (8000 * u64::from(tb_num) / u64::from(tb_den)).max(1) as usize;
+        }
+
+        self.audio = false;
+        self.video_pos = src.tell();
+
         Ok(())
     }
 
     pub(crate) fn get_frame(&mut self, src: &mut ByteReader, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if src.tell() >= self.data_end {
-            return Err(DemuxerError::EOF);
-        }
-        let fsize               = src.read_u32le()? as usize;
-        if fsize == 0 {
-            return Err(DemuxerError::EOF);
-        }
-        validate!((9..=1048576).contains(&fsize));
-        if let Some(stream) = strmgr.get_stream(0) {
-            let ts = stream.make_ts(Some(self.frameno), None, None);
-            self.frameno += 1;
-            src.read_packet(stream, ts, false, fsize - 4)
-        } else {
-            Err(DemuxerError::InvalidData)
+        let has_video = self.video_pos + 4 < self.data_end;
+        let has_audio = self.audio && self.sound_pos < self.sound_end;
+
+        match (has_video, has_audio) {
+            (true, false) => {
+                                      src.seek(SeekFrom::Start(self.video_pos))?;
+                let fsize           = src.read_u32le()? as usize;
+                if fsize == 0 {
+                    return Err(DemuxerError::EOF);
+                }
+                validate!((9..=1048576).contains(&fsize));
+                if let Some(stream) = strmgr.get_stream(0) {
+                    let ts = stream.make_ts(Some(self.frameno), None, None);
+                    self.frameno += 1;
+                    self.audio = true;
+                    self.video_pos += fsize as u64;
+                    src.read_packet(stream, ts, false, fsize - 4)
+                } else {
+                    Err(DemuxerError::InvalidData)
+                }
+            },
+            (_, true) => {
+                                      src.seek(SeekFrom::Start(self.sound_pos))?;
+                self.audio = false;
+                let cur_blk_len = self.sblk_len.min((self.sound_end - self.sound_pos) as usize);
+                if let Some(stream) = strmgr.get_stream(1) {
+                    let ts = stream.make_ts(Some(self.asize * 2), None, None);
+                    self.asize += cur_blk_len as u64;
+                    self.audio = !has_video;
+                    self.sound_pos += cur_blk_len as u64;
+                    src.read_packet(stream, ts, false, cur_blk_len)
+                } else {
+                    Err(DemuxerError::InvalidData)
+                }
+            },
+            (false, false) => Err(DemuxerError::EOF),
         }
     }
 
