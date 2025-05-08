@@ -62,6 +62,8 @@ const ACORN_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "linepack", get_decoder: linepack::get_decoder },
 
 #[cfg(feature="decoder_escape")]
+    DecoderInfo { name: "escape102", get_decoder: escape::get_decoder102 },
+#[cfg(feature="decoder_escape")]
     DecoderInfo { name: "escape122", get_decoder: escape::get_decoder122 },
 #[cfg(feature="decoder_escape")]
     DecoderInfo { name: "escape124", get_decoder: escape::get_decoder124 },
@@ -104,6 +106,8 @@ const ACORN_PACKETISERS: &[PacketiserInfo] = &[
 #[cfg(feature="decoder_linepack")]
     PacketiserInfo { name: "linepack", get_packetiser: linepack::get_packetiser },
 
+#[cfg(feature="decoder_escape")]
+    PacketiserInfo { name: "escape102", get_packetiser: escape::get_packetiser },
 #[cfg(feature="decoder_escape")]
     PacketiserInfo { name: "escape122", get_packetiser: escape::get_packetiser },
 #[cfg(feature="decoder_escape")]

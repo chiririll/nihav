@@ -3,6 +3,8 @@ use nihav_core::io::byteio::*;
 use nihav_core::io::bitreader::*;
 use nihav_codec_support::codecs::imaadpcm::*;
 use std::str::FromStr;
+use super::RGB555_FORMAT;
+use super::yuvtab::YUV2RGB;
 
 const BGR555_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
                                         comp_info: [
@@ -35,6 +37,143 @@ impl<'a> ReadECode for BitReader<'a> {
             Ok(0)
         }
     }
+}
+
+struct Escape102Decoder {
+    info:           NACodecInfoRef,
+    frame:          Vec<u16>,
+    width:          usize,
+}
+
+impl Escape102Decoder {
+    fn new() -> Self {
+        Self {
+            info:   NACodecInfoRef::default(),
+            frame:  Vec::new(),
+            width:  0,
+        }
+    }
+    fn read_skip(br: &mut BitReader) -> DecoderResult<usize> {
+        if br.read_bool()? {
+            let val3 = br.read(3)? as usize;
+            if val3 == 7 {
+                let val7 = br.read(7)? as usize;
+                if val7 == 127 {
+                    let val15 = br.read(15)? as usize;
+                    Ok(val15 + 1 + 7 + 127)
+                } else {
+                    Ok(val7 + 1 + 7)
+                }
+            } else {
+                Ok(val3 + 1)
+            }
+        } else {
+            Ok(0)
+        }
+    }
+    fn read_chroma(br: &mut BitReader) -> DecoderResult<u16> {
+        let mut idx = br.read(6)? as usize;
+        if idx > 0x30 {
+            let hibits = br.read(2)?;
+            idx += (hibits << 6) as usize;
+        }
+        Ok(E102_CHROMA_TAB[idx])
+    }
+}
+
+impl NADecoder for Escape102Decoder {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
+        if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB555_FORMAT));
+            validate!((vinfo.get_width() | vinfo.get_height()) & 1 == 0);
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
+            self.frame = vec![0; vinfo.get_width() * vinfo.get_height()];
+            self.width = vinfo.get_width();
+            Ok(())
+        } else {
+            Err(DecoderError::InvalidData)
+        }
+    }
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+        let src = pkt.get_buffer();
+        validate!(src.len() > 8);
+        let mut mr = MemoryReader::new_read(&src);
+        let mut br = ByteReader::new(&mut mr);
+        let codec_id = br.read_u32le()?;
+        validate!(codec_id == 0x102);
+        let vsize = br.read_u32le()? as usize;
+        validate!(src.len() >= vsize);
+
+        let mut is_intra = true;
+        let mut br = BitReader::new(&src[8..], BitReaderMode::LE);
+        let mut skip = 0;
+        let mut new_skip = false;
+        for strip in self.frame.chunks_exact_mut(self.width * 2) {
+            for x in (0..self.width).step_by(2) {
+                if !new_skip {
+                    skip = Self::read_skip(&mut br)?;
+                    new_skip = true;
+                }
+                if skip > 0 {
+                    skip -= 1;
+                    is_intra = false;
+                    continue;
+                }
+
+                if !br.read_bool()? {
+                    let chr = Self::read_chroma(&mut br)?;
+                    for i in 0..4 {
+                        strip[x + (i & 1) + (i >> 1) * self.width] &= 0x1F;
+                        strip[x + (i & 1) + (i >> 1) * self.width] |= chr;
+                    }
+                } else {
+                    let pattern = br.read(3)?;
+                    let y0 = br.read(5)? as u16;
+                    let y1 = if pattern == 0 { 0 } else { br.read(5)? as u16 };
+                    let chr = if !br.read_bool()? {
+                            strip[x] & !0x1F
+                        } else {
+                            Self::read_chroma(&mut br)?
+                        };
+                    let clr0 = y0 | chr;
+                    let clr1 = y1 | chr;
+                    strip[x]                  = clr0;
+                    strip[x + 1]              = if (pattern & 1) == 0 { clr0 } else { clr1 };
+                    strip[x     + self.width] = if (pattern & 2) == 0 { clr0 } else { clr1 };
+                    strip[x + 1 + self.width] = if (pattern & 4) == 0 { clr0 } else { clr1 };
+                }
+                new_skip = false;
+            }
+        }
+
+        let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0)?;
+        let mut buf = bufinfo.get_vbuf16().unwrap();
+        let stride = buf.get_stride(0);
+        let data = buf.get_data_mut().unwrap();
+
+        for (dline, sline) in data.chunks_exact_mut(stride)
+                    .zip(self.frame.chunks_exact(self.width)) {
+            for (dst, &src) in dline.iter_mut().zip(sline.iter()) {
+                *dst = YUV2RGB[src as usize];
+            }
+        }
+
+        let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
+        frm.set_keyframe(is_intra);
+        frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
+        Ok(frm.into_ref())
+    }
+    fn flush(&mut self) {
+        for el in self.frame.iter_mut() {
+            *el = 0;
+        }
+    }
+}
+
+impl NAOptionHandler for Escape102Decoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
 struct Escape122Decoder {
@@ -547,6 +686,9 @@ impl NAOptionHandler for Escape130Decoder {
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
+pub fn get_decoder102() -> Box<dyn NADecoder + Send> {
+    Box::new(Escape102Decoder::new())
+}
 pub fn get_decoder122() -> Box<dyn NADecoder + Send> {
     Box::new(Escape122Decoder::new())
 }
@@ -721,6 +863,26 @@ mod test {
     use nihav_codec_support::test::dec_video::*;
     use crate::*;
     #[test]
+    fn test_escape102() {
+        let mut dmx_reg = RegisteredRawDemuxers::new();
+        acorn_register_all_raw_demuxers(&mut dmx_reg);
+        let mut pkt_reg = RegisteredPacketisers::new();
+        acorn_register_all_packetisers(&mut pkt_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        acorn_register_all_decoders(&mut dec_reg);
+
+        // sample from Archive Magazine CD 1995
+        test_decoding_raw("armovie", "escape102", "assets/Acorn/sprite1", Some(5),
+                          &dmx_reg, &pkt_reg, &dec_reg,
+                          ExpectedTestResult::MD5Frames(vec![
+                                [0x54a114a9, 0x2183370a, 0x4d12cd7d, 0x83da183b],
+                                [0x8c2a3641, 0x2b81b458, 0xdae4df2c, 0x6c8d80c5],
+                                [0x27d5f25d, 0x3cb31a7e, 0x9f3f9904, 0xe28c3419],
+                                [0x82f2f3b6, 0xe2b9931d, 0x2df8f388, 0x33b4e307],
+                                [0xf13e7c8e, 0xde49e589, 0x555a90fd, 0xa67f6641],
+                                [0x4ab76426, 0x0ef60466, 0x5613869d, 0xbac97a4a]]));
+    }
+    #[test]
     fn test_escape122() {
         let mut dmx_reg = RegisteredRawDemuxers::new();
         acorn_register_all_raw_demuxers(&mut dmx_reg);
@@ -819,4 +981,39 @@ const E130_Y_SIGNS: [[i8; 4]; 64] = [
     [ -1,  1, -1, -1 ], [  1, -1, -1, -1 ], [  0,  0,  0,  0 ], [  0,  0,  0,  0 ],
     [  0,  0,  0,  0 ], [  0,  0,  0,  0 ], [  0,  0,  0,  0 ], [  0,  0,  0,  0 ],
     [  0,  0,  0,  0 ], [  0,  0,  0,  0 ], [  0,  0,  0,  0 ], [  0,  0,  0,  0 ]
+];
+
+const E102_CHROMA_TAB: [u16; 256] = [
+    0x77A0, 0x77C0, 0x77E0, 0x7400, 0x7420, 0x7440, 0x7460, 0x7BA0,
+    0x7BC0, 0x7BE0, 0x7800, 0x7820, 0x7840, 0x7860, 0x7FA0, 0x7FC0,
+    0x7FE0, 0x7C00, 0x7C20, 0x7C40, 0x7C60, 0x03A0, 0x03C0, 0x03E0,
+    0x0000, 0x0020, 0x0040, 0x0060, 0x07A0, 0x07C0, 0x07E0, 0x0400,
+    0x0420, 0x0440, 0x0460, 0x0BA0, 0x0BC0, 0x0BE0, 0x0800, 0x0820,
+    0x0840, 0x0860, 0x0FA0, 0x0FC0, 0x0FE0, 0x0C00, 0x0C20, 0x0C40,
+    0x0C60, 0x3340, 0x30C0, 0x2400, 0x1A80, 0x1800, 0x1980, 0x0CC0,
+    0x02E0, 0x0180, 0x74C0, 0x6AE0, 0x6860, 0x5EE0, 0x5C60, 0x53A0,
+    0x77A0, 0x77C0, 0x77E0, 0x7400, 0x7420, 0x7440, 0x7460, 0x7BA0,
+    0x7BC0, 0x7BE0, 0x7800, 0x7820, 0x7840, 0x7860, 0x7FA0, 0x7FC0,
+    0x7FE0, 0x7C00, 0x7C20, 0x7C40, 0x7C60, 0x03A0, 0x03C0, 0x03E0,
+    0x0000, 0x0020, 0x0040, 0x0060, 0x07A0, 0x07C0, 0x07E0, 0x0400,
+    0x0420, 0x0440, 0x0460, 0x0BA0, 0x0BC0, 0x0BE0, 0x0800, 0x0820,
+    0x0840, 0x0860, 0x0FA0, 0x0FC0, 0x0FE0, 0x0C00, 0x0C20, 0x0C40,
+    0x0C60, 0x33A0, 0x26E0, 0x2460, 0x1AE0, 0x1860, 0x0E80, 0x0D20,
+    0x0340, 0x7680, 0x7520, 0x6B40, 0x68C0, 0x5F40, 0x5CC0, 0x5000,
+    0x77A0, 0x77C0, 0x77E0, 0x7400, 0x7420, 0x7440, 0x7460, 0x7BA0,
+    0x7BC0, 0x7BE0, 0x7800, 0x7820, 0x7840, 0x7860, 0x7FA0, 0x7FC0,
+    0x7FE0, 0x7C00, 0x7C20, 0x7C40, 0x7C60, 0x03A0, 0x03C0, 0x03E0,
+    0x0000, 0x0020, 0x0040, 0x0060, 0x07A0, 0x07C0, 0x07E0, 0x0400,
+    0x0420, 0x0440, 0x0460, 0x0BA0, 0x0BC0, 0x0BE0, 0x0800, 0x0820,
+    0x0840, 0x0860, 0x0FA0, 0x0FC0, 0x0FE0, 0x0C00, 0x0C20, 0x0C40,
+    0x0C60, 0x3000, 0x2740, 0x24C0, 0x1B40, 0x18C0, 0x0EE0, 0x0D80,
+    0x00C0, 0x76E0, 0x7580, 0x6BA0, 0x6920, 0x5FA0, 0x5D20, 0x5060,
+    0x77A0, 0x77C0, 0x77E0, 0x7400, 0x7420, 0x7440, 0x7460, 0x7BA0,
+    0x7BC0, 0x7BE0, 0x7800, 0x7820, 0x7840, 0x7860, 0x7FA0, 0x7FC0,
+    0x7FE0, 0x7C00, 0x7C20, 0x7C40, 0x7C60, 0x03A0, 0x03C0, 0x03E0,
+    0x0000, 0x0020, 0x0040, 0x0060, 0x07A0, 0x07C0, 0x07E0, 0x0400,
+    0x0420, 0x0440, 0x0460, 0x0BA0, 0x0BC0, 0x0BE0, 0x0800, 0x0820,
+    0x0840, 0x0860, 0x0FA0, 0x0FC0, 0x0FE0, 0x0C00, 0x0C20, 0x0C40,
+    0x0C60, 0x33A0, 0x27A0, 0x2520, 0x1BA0, 0x1920, 0x0F40, 0x0280,
+    0x0120, 0x7740, 0x6A80, 0x6800, 0x6980, 0x5C00, 0x5340, 0x50C0
 ];
