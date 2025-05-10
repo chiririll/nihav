@@ -75,6 +75,8 @@ struct AVIDemuxer<'a> {
     odml:           bool,
     odml_idx:       Vec<u64>,
     odml_riff:      Vec<RIFFSegment>,
+    iddx_pos:       u64,
+    odd_offset:     bool,
 }
 
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -103,7 +105,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
         }
         let mut tag: [u8; 4] = [0; 4];
         loop {
-            if (self.src.tell() & 1) == 1 {
+            if !self.odd_offset && (self.src.tell() & 1) == 1 {
                 self.src.read_skip(1)?;
                 self.movi_size -= 1;
                 if self.movi_size == 0 {
@@ -278,6 +280,8 @@ impl<'a> AVIDemuxer<'a> {
             odml: false,
             odml_idx: Vec::new(),
             odml_riff: Vec::with_capacity(1),
+            iddx_pos: 0,
+            odd_offset: false,
         }
     }
 
@@ -301,7 +305,7 @@ impl<'a> AVIDemuxer<'a> {
             if RIFFTag::Chunk(tag) == chunk.tag {
                 let psize = (chunk.parse)(self, strmgr, size)?;
                 if psize != size { return Err(InvalidData); }
-                if (psize & 1) == 1 { self.src.read_skip(1)?; }
+                if !self.odd_offset && (psize & 1) == 1 { self.src.read_skip(1)?; }
                 return Ok((size + 8, false));
             }
             if RIFFTag::List(tag, ltag) == chunk.tag {
@@ -313,7 +317,7 @@ impl<'a> AVIDemuxer<'a> {
                     let (psize, _) = self.parse_chunk(strmgr, end_tag, rest_size, depth+1)?;
                     if psize > rest_size { return Err(InvalidData); }
                     rest_size -= psize;
-                    if ((psize & 1) == 1) && (rest_size > 0) {
+                    if !self.odd_offset && ((psize & 1) == 1) && (rest_size > 0) {
                         rest_size -= 1;
                     }
                 }
@@ -327,7 +331,7 @@ impl<'a> AVIDemuxer<'a> {
             if size < 4 { return Err(InvalidData); }
             self.src.read_skip(size - 4)?;
         }
-        if (size & 1) == 1 { self.src.read_skip(1)?; }
+        if !self.odd_offset && (size & 1) == 1 { self.src.read_skip(1)?; }
         Ok((size + 8, false))
     }
 
@@ -364,15 +368,24 @@ impl<'a> AVIDemuxer<'a> {
         if !seek_idx.skip_index {
             if !self.odml || self.odml_idx.is_empty() {
                 self.src.read_skip(self.movi_size)?;
+                let mut seen_idx1 = false;
                 while rest_size > 0 {
                     let ret = self.parse_chunk(strmgr, RIFFTag::Chunk(mktag!(b"idx1")), rest_size,0);
                     if ret.is_err() { break; }
                     let (csz, end) = ret.unwrap();
                     if end {
                         let _res = parse_idx1(self.src, strmgr, seek_idx, csz, self.movi_pos, &mut self.key_offs);
+                        seen_idx1 = true;
                         break;
                     }
                     rest_size -= csz;
+                }
+                if !seen_idx1 && self.iddx_pos > 0 {
+                    self.src.seek(SeekFrom::Start(self.iddx_pos - 4))?;
+                    let iddx_size = self.src.read_u32le()? as usize;
+                    if let Ok((_size, odd_offset)) = parse_iddx_data(self.src, strmgr, seek_idx, iddx_size, self.movi_pos, &mut self.key_offs) {
+                        self.odd_offset = odd_offset;
+                    }
                 }
             } else {
                 let mut start = 0;
@@ -507,6 +520,7 @@ const CHUNKS: &[RIFFParser] = &[
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"strh")), parse: parse_strh },
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"indx")), parse: parse_indx },
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"JUNK")), parse: parse_junk },
+    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"iddx")), parse: parse_iddx },
     RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"odml")), parse: parse_odml },
     RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"rec ")), parse: parse_rec },
 ];
@@ -537,6 +551,12 @@ fn parse_odml(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -
 
 fn parse_rec(_dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
     Ok(0)
+}
+
+fn parse_iddx(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
+    dmx.iddx_pos = dmx.src.tell();
+    dmx.src.read_skip(size)?;
+    Ok(size)
 }
 
 fn parse_strh(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
@@ -819,6 +839,54 @@ fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut S
     }
     key_offs.sort_unstable();
     Ok(size)
+}
+
+fn parse_iddx_data(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<(usize, bool)> {
+    validate!((size & 15) == 0);
+    let mut tag = [0u8; 4];
+    let num_entries = size >> 4;
+    let mut counter = [0u64; 100];
+    let mut add_offset = 0;
+    let mut set_offset = false;
+    let mut odd_offset = false;
+    for _ in 0..num_entries {
+                              src.read_buf(&mut tag)?;
+        let flags           = src.read_u32le()?;
+        let mut offset      = src.read_u32le()? as u64;
+        let _length         = src.read_u32le()?;
+
+        if (offset & 1) != 0 {
+            odd_offset = true;
+        }
+
+        if !set_offset && offset < movi_pos {
+            add_offset = movi_pos - offset;
+        }
+        set_offset = true;
+
+        offset += add_offset;
+
+        if tag[0] < b'0' || tag[0] > b'9' || tag[1] < b'0' || tag[1] > b'9' {
+            continue;
+        }
+        let stream_no = ((tag[0] - b'0') * 10 + (tag[1] - b'0')) as usize;
+
+        if (flags & 0x10) != 0 {
+            if let Some(stream) = strmgr.get_stream(stream_no) {
+                if stream.get_media_type() == StreamType::Video {
+                    let (tb_num, tb_den) = stream.get_timebase();
+                    let pts = counter[stream_no];
+                    let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
+                    validate!(offset >= movi_pos);
+                    seek_idx.add_entry(stream_no as u32, SeekEntry { time, pts, pos: offset });
+                }
+                key_offs.push(offset);
+            }
+        }
+        counter[stream_no] += 1;
+    }
+    key_offs.sort_unstable();
+    Ok((size, odd_offset))
 }
 
 fn parse_odml_ix(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, stream_no: usize, size: usize, start: u64) -> DemuxerResult<u64> {
