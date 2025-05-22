@@ -20,6 +20,9 @@ use tables::*;
 mod tools;
 use tools::*;
 
+mod packetiser;
+pub use packetiser::get_packetiser_adts;
+
 const MAX_WINDOWS:  usize = 8;
 const MAX_SFBS:     usize = 64;
 
@@ -807,6 +810,8 @@ mod test {
     use nihav_codec_support::test::dec_video::test_decode_audio;
     use crate::mpeg_register_all_decoders;
     use nihav_realmedia::realmedia_register_all_demuxers;
+    use std::io::Read;
+
     #[test]
     fn test_aac() {
         let mut dmx_reg = RegisteredDemuxers::new();
@@ -827,6 +832,24 @@ mod test {
 
         let file = "assets/MPEG/SBRtestStereoAot29Sig0.mp4";
         test_decode_audio("mov", file, Some(400), None/*Some("aacsbr")*/, &dmx_reg, &dec_reg);
+    }
+    #[test]
+    fn test_adts_packetiser() {
+        let mut buf = [0; 4096];
+        // sample obtained with yt-dlp -f 234
+        let mut file = std::fs::File::open("assets/MPEG/Vf9Lvifxwk4.adts").unwrap();
+
+        let mut pkts = super::get_packetiser_adts();
+        file.read_exact(&mut buf).unwrap();
+        pkts.add_data(&buf);
+        let stream = pkts.parse_stream(0).unwrap();
+        let mut frame_sizes = Vec::with_capacity(15);
+        while let Some(pkt) = pkts.get_packet(stream.clone()).unwrap() {
+            let frame_size = pkt.get_buffer().len();
+            println!("pkt size {}", frame_size);
+            frame_sizes.push(frame_size);
+        }
+        assert_eq!(&frame_sizes, &[371, 372, 394, 402, 474, 400, 407, 399, 385]);
     }
 }
 

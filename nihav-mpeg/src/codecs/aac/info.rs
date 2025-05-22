@@ -76,12 +76,12 @@ impl fmt::Display for M4AType {
     }
 }
 
-const AAC_SAMPLE_RATES: [u32; 16] = [
+pub const AAC_SAMPLE_RATES: [u32; 16] = [
     96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050,
     16000, 12000, 11025,  8000,  7350, 0, 0, 0
 ];
 
-const AAC_CHANNELS: [usize; 8] = [ 0, 1, 2, 3, 4, 5, 6, 8 ];
+pub const AAC_CHANNELS: [usize; 8] = [ 0, 1, 2, 3, 4, 5, 6, 8 ];
 
 pub struct M4AInfo {
     pub otype:          M4AType,

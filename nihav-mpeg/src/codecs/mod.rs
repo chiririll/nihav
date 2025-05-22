@@ -41,6 +41,8 @@ pub fn mpeg_register_all_decoders(rd: &mut RegisteredDecoders) {
 const PACKETISERS: &[PacketiserInfo] = &[
 #[cfg(feature="decoder_mpa")]
     PacketiserInfo { name: "mpa", get_packetiser: mpegaudio::get_packetiser },
+#[cfg(feature="decoder_aac")]
+    PacketiserInfo { name: "adts", get_packetiser: aac::get_packetiser_adts },
 ];
 
 /// Registers all available packetisers provided by this crate.
