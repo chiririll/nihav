@@ -45,7 +45,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
 
         let mut width  = read_u16le(&header[12..])? as usize;
         let mut height = read_u16le(&header[14..])? as usize;
-        self.is_indeo = &header[24..27] == b"iv3";
+        self.is_indeo = &header[24..27] == b"iv3" || &header[24..27] == b"IV3";
         if self.is_indeo && width > 320 {
             width  >>= 1;
             height >>= 1;
