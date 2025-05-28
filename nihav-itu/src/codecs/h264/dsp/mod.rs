@@ -1,3 +1,4 @@
+#[allow(unexpected_cfgs)]
 mod mc;
 pub use mc::{H264MC, McBlock};
 #[cfg(target_arch="x86_64")]
