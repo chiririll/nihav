@@ -100,7 +100,7 @@ pub fn realmedia_register_all_decoders(rd: &mut RegisteredDecoders) {
 #[cfg(feature="encoder_cook")]
 mod cookenc;
 
-#[cfg(feature="encoder_rv40")]
+#[cfg(feature="encoder_realvideo4")]
 mod rv40enc;
 
 #[cfg(feature="encoders")]
@@ -108,7 +108,7 @@ const ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_cook")]
     EncoderInfo { name: "cook", get_encoder: cookenc::get_encoder },
 
-#[cfg(feature="encoder_rv40")]
+#[cfg(feature="encoder_realvideo4")]
     EncoderInfo { name: "realvideo4", get_encoder: rv40enc::get_encoder },
 ];
 

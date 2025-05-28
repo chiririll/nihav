@@ -43,8 +43,8 @@ decoder_ralf = ["decoders"]
 all_encoders = ["all_video_encoders", "all_audio_encoders"]
 encoders = []
 
-all_video_encoders = ["encoder_rv40"]
-encoder_rv40 = ["encoders"]
+all_video_encoders = ["encoder_realvideo4"]
+encoder_realvideo4 = ["encoders"]
 
 all_audio_encoders = ["encoder_cook"]
 encoder_cook = ["encoders"]
