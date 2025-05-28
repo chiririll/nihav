@@ -201,8 +201,8 @@ impl ELBG {
             return;
         }
         let mut old_cb: [Pixel; 256] = [Pixel::default(); 256];
-        let mut prev_dist = std::u64::MAX;
-        let mut dist = std::u64::MAX / 2;
+        let mut prev_dist = u64::MAX;
+        let mut dist = u64::MAX / 2;
         let mut indices = Vec::with_capacity(src.len());
         let mut pixels = Vec::with_capacity(src.len());
         pixels.extend_from_slice(src);
@@ -239,7 +239,7 @@ impl ELBG {
             indices.clear();
             for entry in entries.iter() {
                 let mut bestidx = 0;
-                let mut bestdist = std::u32::MAX;
+                let mut bestdist = u32::MAX;
                 for (i, cluster) in self.clusters.iter().enumerate() {
                     let dist = entry.pix.dist(cluster.centroid);
                     if bestdist > dist {
@@ -288,7 +288,7 @@ impl ELBG {
                     let high_idx_idx = (rng.next() as usize) % high_u.len();
                     let high_idx = high_u[high_idx_idx];
                     let mut closest_idx = *low_idx;
-                    let mut closest_dist = std::u32::MAX;
+                    let mut closest_dist = u32::MAX;
                     let low_centr = self.clusters[*low_idx].centroid;
                     for (i, (cluster, &used)) in self.clusters.iter().zip(used.iter()).enumerate() {//low_u.iter() {
                         if i == *low_idx || used {

@@ -48,7 +48,7 @@ fn dist_core(val: UnpackedPixel, other: &UnpackedPixel) -> u32 {
 
 fn find_nearest(pix: UnpackedPixel, pal: &[UnpackedPixel; 256]) -> usize {
     let mut bestidx = 0;
-    let mut bestdist = std::u32::MAX;
+    let mut bestdist = u32::MAX;
 
     for (idx, entry) in pal.iter().enumerate() {
         let dist = dist_core(pix, entry);
@@ -105,7 +105,7 @@ impl LocalSearch {
     }
     fn search(&self, pix: UnpackedPixel) -> usize {
         let idx = Self::quant(pix);
-        let mut best_dist = std::u32::MAX;
+        let mut best_dist = u32::MAX;
         let mut best_idx = 0;
         let mut count = 0;
         for clr in self.db[idx].iter() {
@@ -292,8 +292,8 @@ impl BlockState {
             }
         }
         if self.fill_dist == 0 {
-            self.clr2_dist = std::u32::MAX;
-            self.clr8_dist = std::u32::MAX;
+            self.clr2_dist = u32::MAX;
+            self.clr8_dist = u32::MAX;
             return;
         }
 
@@ -323,7 +323,7 @@ impl BlockState {
             }
         }
         if self.clr2_dist == 0 {
-            self.clr8_dist = std::u32::MAX;
+            self.clr8_dist = u32::MAX;
             return;
         }
 

@@ -720,7 +720,7 @@ impl EscapeIMAState {
         let sign = (nibble & 8) != 0;
         let diff = (i32::from(nibble & 7) * IMA_STEP_TABLE[self.step]) >> 2;
         let sample = if !sign { self.predictor + diff } else { self.predictor - diff };
-        self.predictor = sample.max(i32::from(std::i16::MIN)).min(i32::from(std::i16::MAX));
+        self.predictor = sample.max(i32::from(i16::MIN)).min(i32::from(i16::MAX));
         self.step = istep.max(0).min(IMA_MAX_STEP as isize) as usize;
         self.predictor as i16
     }

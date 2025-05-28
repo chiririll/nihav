@@ -60,9 +60,9 @@ impl NeuQuantQuantiser {
                 return i;
             }
         }
-        let mut bestdist = std::f64::MAX;
+        let mut bestdist = f64::MAX;
         let mut distidx = 0;
-        let mut bestbias = std::f64::MAX;
+        let mut bestbias = f64::MAX;
         let mut biasidx = 0;
         for i in SPECIAL_NODES..256 {
             let dist = (self.weights[i][0] - clr[0]) * (self.weights[i][0] - clr[0])

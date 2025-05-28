@@ -21,7 +21,7 @@ impl MVSearchModeCreate for MVSearchMode {
     }
 }
 
-const MAX_DIST: u32 = std::u32::MAX;
+const MAX_DIST: u32 = u32::MAX;
 const DIST_THRESH: u32 = 256;
 pub const LARGE_BLK8_DIST: u32 = 256;
 
@@ -118,7 +118,7 @@ impl MVSearch for EliminationSearch {
                 bavg[chroma + 1] += blk.iter().fold(0u16, |acc, &x| acc + u16::from(x));
             }
         }
-        let mut rough_dist = std::i32::MAX;
+        let mut rough_dist = i32::MAX;
         for ytry in 0..mv_est.mv_range * 2 + 1 {
             let dy = if (ytry & 1) == 0 { ytry >> 1 } else { -((ytry + 1) >> 1) };
             let ypos = (mb_y as isize) * 16 + (dy as isize);
@@ -165,7 +165,7 @@ impl MVSearch for EliminationSearch {
         let (width, height) = mv_est.ref_frame.get_dimensions(0);
         let bavg = ref_blk.iter().fold(0u16, |acc, &x| acc + u16::from(x));
 
-        let mut rough_dist = std::i32::MAX;
+        let mut rough_dist = i32::MAX;
         for ytry in 0..mv_est.mv_range * 2 + 1 {
             let dy = if (ytry & 1) == 0 { ytry >> 1 } else { -((ytry + 1) >> 1) };
             let ypos = (ypos_orig as isize) + (dy as isize);
@@ -220,7 +220,7 @@ impl MVSearch for EliminationSearch {
         let (width, height) = mv_est.ref_frame.get_dimensions(0);
         let bavg = ref_blk.iter().fold(0u16, |acc, &x| acc + u16::from(x));
 
-        let mut rough_dist = std::i32::MAX;
+        let mut rough_dist = i32::MAX;
         for ytry in 0..mv_est.mv_range * 2 + 1 {
             let dy = if (ytry & 1) == 0 { ytry >> 1 } else { -((ytry + 1) >> 1) };
             let ypos = (ypos_orig as isize) + (dy as isize);

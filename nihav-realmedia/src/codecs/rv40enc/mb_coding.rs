@@ -310,7 +310,7 @@ impl MacroblockDecider {
         self.mb.load(src, offsets, strides);
 
         self.best_mbt = MacroblockType::default();
-        self.best_dist = std::u32::MAX;
+        self.best_dist = u32::MAX;
         self.best_bits = 0;
     }
     pub fn try_b_coding(&mut self, ref_p: &NAVideoBuffer<u8>, ref_n: &NAVideoBuffer<u8>, be: &mut BitsEstimator, me: &mut MotionEstimator, rdm: &RateDistMetric, mbstate: &MBState, refine: bool) {
@@ -588,7 +588,7 @@ impl MacroblockDecider {
                 let do_chroma = ((x & 1) == 0) && ((y & 1) == 0);
 
                 let mut best_mode = PRED4_DEF[0];
-                let mut best_cdist = std::u32::MAX;
+                let mut best_cdist = u32::MAX;
                 let mut best_dist = 0;
                 let mut best_bits = 0;
                 for &try_mode in list.iter() {

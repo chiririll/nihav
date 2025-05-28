@@ -13,7 +13,7 @@ mod rc;
 use rc::*;
 
 const THRESHOLD: u32 = 64;
-const MAX_DIST: u32 = std::u32::MAX;
+const MAX_DIST: u32 = u32::MAX;
 
 #[derive(Clone,Copy,Default,PartialEq)]
 enum DoublingMode {

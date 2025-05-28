@@ -419,7 +419,7 @@ impl CinepakEncoder {
         }
     }
     fn find_nearest(codebook: &[YUVCode], code: YUVCode) -> (u8, u32) {
-        let mut min_dist = std::u32::MAX;
+        let mut min_dist = u32::MAX;
         let mut idx = 0;
         for (i, cw) in codebook.iter().enumerate() {
             let dist = cw.dist(code);

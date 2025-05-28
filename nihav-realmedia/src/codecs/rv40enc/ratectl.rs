@@ -205,7 +205,7 @@ impl BitRateControl {
     }
     pub fn update_stats(&mut self, ftype: FrameType, fsize: usize, ts_diff: u32) {
         if self.bitrate > 0 {
-            if ts_diff > 0 && self.duration < std::u32::MAX / 2 {
+            if ts_diff > 0 && self.duration < u32::MAX / 2 {
                 self.duration += ts_diff;
                 self.dcount += 1;
             }

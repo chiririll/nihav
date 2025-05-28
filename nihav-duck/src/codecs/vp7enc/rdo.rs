@@ -4,7 +4,7 @@ use super::coder::*;
 static mut COUNTER: usize = 0;
 
 pub const SMALL_DIST: u32 = 256;
-pub const MAX_DIST: u32 = std::u32::MAX;
+pub const MAX_DIST: u32 = u32::MAX;
 
 const INTER_TO_INTRA_RATIO: f32 = 0.85;
 

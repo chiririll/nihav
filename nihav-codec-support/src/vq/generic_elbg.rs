@@ -154,8 +154,8 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
             return 0;
         }
         let mut old_cb = vec![T::default(); self.clusters.len()];
-        let mut prev_dist = std::u64::MAX;
-        let mut dist = std::u64::MAX / 2;
+        let mut prev_dist = u64::MAX;
+        let mut dist = u64::MAX / 2;
         let mut indices = Vec::with_capacity(src.len());
         let mut elements = Vec::with_capacity(src.len());
         elements.extend_from_slice(src);
@@ -202,7 +202,7 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
             indices.clear();
             for entry in entries.iter() {
                 let mut bestidx = 0;
-                let mut bestdist = std::u32::MAX;
+                let mut bestdist = u32::MAX;
                 for (i, cluster) in self.clusters.iter().enumerate() {
                     let dist = entry.val.dist(cluster.centroid);
                     if bestdist > dist {
@@ -251,7 +251,7 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
                     let high_idx_idx = (rng.next() as usize) % high_u.len();
                     let high_idx = high_u[high_idx_idx];
                     let mut closest_idx = *low_idx;
-                    let mut closest_dist = std::u32::MAX;
+                    let mut closest_dist = u32::MAX;
                     let low_centr = self.clusters[*low_idx].centroid;
                     for (i, (&used, cluster)) in used.iter().zip(self.clusters.iter()).take(dst.len()).enumerate() {
                         if i == *low_idx || used {

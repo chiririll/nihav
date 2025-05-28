@@ -9,7 +9,7 @@ const TMRT_DELTA_TAB: [&[i16]; 3] = [
 ];
 
 const FIRST_NODE: u8 = 255;
-const ERR_MAX: u32 = std::u32::MAX;
+const ERR_MAX: u32 = u32::MAX;
 
 #[derive(Clone, Copy, Default)]
 struct TrellisNode {

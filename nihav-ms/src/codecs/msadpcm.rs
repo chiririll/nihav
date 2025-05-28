@@ -213,7 +213,7 @@ impl MSADPCMEncoder {
 
         let mut best_idx = [0usize; 2];
         for (ch, best_idx) in best_idx[..self.channels].iter_mut().enumerate() {
-            let mut best_dist = std::i64::MAX;
+            let mut best_dist = i64::MAX;
             for i in 0..ADAPT_COEFFS.len() {
                 let dist = self.calc_dist(ch, i, len);
                 if dist < best_dist {

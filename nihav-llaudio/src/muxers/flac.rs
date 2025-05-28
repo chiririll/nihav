@@ -14,8 +14,8 @@ impl<'a> FLACMuxer<'a> {
     fn new(bw: &'a mut ByteWriter<'a>) -> Self {
         Self {
             bw,
-            maxpkt: std::usize::MAX, minpkt: 0,
-            maxblk: std::u16::MAX, minblk: 0,
+            maxpkt: usize::MAX, minpkt: 0,
+            maxblk: u16::MAX, minblk: 0,
             duration: 0,
             bits: 0,
         }

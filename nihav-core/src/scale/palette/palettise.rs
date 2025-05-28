@@ -1,6 +1,6 @@
 pub fn find_nearest(pix: &[u8], pal: &[[u8; 3]; 256]) -> usize {
     let mut bestidx = 0;
-    let mut bestdist = std::i32::MAX;
+    let mut bestdist = i32::MAX;
 
     for (idx, entry) in pal.iter().enumerate() {
         let dist0 = i32::from(pix[0]) - i32::from(entry[0]);
@@ -58,7 +58,7 @@ impl LocalSearch {
     }
     pub fn search(&self, pix: [u8; 3]) -> usize {
         let idx = Self::quant(pix);
-        let mut best_dist = std::u32::MAX;
+        let mut best_dist = u32::MAX;
         let mut best_idx = 0;
         let mut count = 0;
         for clr in self.db[idx].iter() {

@@ -141,9 +141,9 @@ impl FromFmt<f32> for i16 {
 impl FromFmt<f32> for i32 {
     fn cvt_from(val: f32) -> i32 {
         if val >= 1.0 {
-            std::i32::MAX
+            i32::MAX
         } else if val <= -1.0 {
-            std::i32::MIN
+            i32::MIN
         } else {
             let scale = (1u32 << 31) as f32;
             (val * scale) as i32

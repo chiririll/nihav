@@ -853,11 +853,11 @@ impl G7231Decoder {
 }
 
 fn clip16(a: i32) -> i16 {
-    a.min(i32::from(std::i16::MAX)).max(i32::from(std::i16::MIN)) as i16
+    a.min(i32::from(i16::MAX)).max(i32::from(i16::MIN)) as i16
 }
 
 fn clip32(a: i64) -> i32 {
-    a.min(i64::from(std::i32::MAX)).max(i64::from(std::i32::MIN)) as i32
+    a.min(i64::from(i32::MAX)).max(i64::from(i32::MIN)) as i32
 }
 
 fn mul16(a: i32, b: i16) -> i32 {

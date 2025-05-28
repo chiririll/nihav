@@ -158,7 +158,7 @@ fn load24(frm: &mut [WorkPixel], width: usize, vbuf: &NAVideoBuffer<u8>) {
     }
 }
 
-const MAX_DIFF: i32 = std::i32::MAX;
+const MAX_DIFF: i32 = i32::MAX;
 
 fn luma15_delta(pix: &mut WorkPixel, pred: WorkPixel, tgt: WorkPixel, deltas: &[i32; 8], fat_deltas: &[i32; 8]) {
     let mut tpix = *pix;

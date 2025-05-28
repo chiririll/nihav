@@ -827,7 +827,7 @@ fn read_stss(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()? as usize;
-    validate!(entries < ((std::u32::MAX >> 2) - 8) as usize);
+    validate!(entries < ((u32::MAX >> 2) - 8) as usize);
     validate!((entries * 4 + 8) as u64 == size);
     track.keyframes = Vec::with_capacity(entries);
     let mut last_sample_no = 0;
@@ -845,7 +845,7 @@ fn read_stsc(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()? as usize;
-    validate!(entries < ((std::u32::MAX / 12) - 8) as usize);
+    validate!(entries < ((u32::MAX / 12) - 8) as usize);
     validate!((entries * 12 + 8) as u64 == size);
     track.sample_map = Vec::with_capacity(entries);
     let mut last_sample_no = 0;
@@ -1067,7 +1067,7 @@ fn read_trun(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
         track.ctts_map.reserve(sample_count);
     }
 
-    if track.chunk_offsets.len() < (std::u32::MAX as usize) {
+    if track.chunk_offsets.len() < (u32::MAX as usize) {
         track.keyframes.push((track.chunk_offsets.len() + 1) as u32);
     }
     for _ in 0..sample_count {
@@ -1770,7 +1770,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             return Err(DemuxerError::EOF);
         }
         let mut has_all_time = true;
-        let mut min_ts = std::u64::MAX;
+        let mut min_ts = u64::MAX;
         for trk in self.tracks.iter() {
             if let Some(ts) = trk.cur_ts {
                 min_ts = min_ts.min(ts);

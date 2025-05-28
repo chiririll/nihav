@@ -50,7 +50,7 @@ impl FromStr for MVSearchMode {
     }
 }
 
-const MAX_DIST: u32 = std::u32::MAX;
+const MAX_DIST: u32 = u32::MAX;
 const DIST_THRESH: u32 = 256;
 
 #[allow(clippy::wrong_self_convention)]
@@ -516,10 +516,10 @@ struct DummySearcher {}
 
 impl MVSearch for DummySearcher {
     fn search_mb(&mut self, _mv_est: &mut MVEstimator, _ref_mb: &RefMBData, _mb_x: usize, _mb_y: usize, _cand_mvs: &[MV]) -> (MV, u32) {
-        (ZERO_MV, std::u32::MAX / 2)
+        (ZERO_MV, u32::MAX / 2)
     }
     fn search_blk8(&mut self, _mv_est: &mut MVEstimator, _ref_mb: &RefMBData, _xpos: usize, _ypos: usize, _cand_mvs: &[MV]) -> (MV, u32) {
-        (ZERO_MV, std::u32::MAX / 2)
+        (ZERO_MV, u32::MAX / 2)
     }
 }
 

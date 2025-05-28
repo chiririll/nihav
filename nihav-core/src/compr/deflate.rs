@@ -1822,7 +1822,7 @@ struct TNode {
 impl Default for TNode {
     fn default() -> Self {
         Self {
-            price:  std::u32::MAX,
+            price:  u32::MAX,
             dist:   0,
             link:   0,
         }
