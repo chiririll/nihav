@@ -1539,7 +1539,7 @@ impl VP34Decoder {
         let mut biter = self.blocks.iter_mut();
         for by in 0..self.mb_h*2 {
             for bx in 0..self.mb_w*2 {
-                let mut blk = biter.next().unwrap();
+                let blk = biter.next().unwrap();
                 let qmat = &self.qmat_y;
                 blk.coeffs[0] *= qmat[0];
                 if blk.has_ac {
@@ -1553,7 +1553,7 @@ impl VP34Decoder {
         for plane in 1..3 {
             for by in 0..self.mb_h {
                 for bx in 0..self.mb_w {
-                    let mut blk = biter.next().unwrap();
+                    let blk = biter.next().unwrap();
                     let qmat = &self.qmat_c;
                     blk.coeffs[0] *= qmat[0];
                     if blk.has_ac {
@@ -1612,7 +1612,7 @@ impl VP34Decoder {
         let mut biter = self.blocks.iter_mut();
         for by in 0..self.mb_h*2 {
             for bx in 0..self.mb_w*2 {
-                let mut blk = biter.next().unwrap();
+                let blk = biter.next().unwrap();
                 // do MC for whole macroblock
                 if !blk.btype.is_intra() && (((bx | by) & 1) == 0) && (blk.btype != VPMBType::InterFourMV) {
                     let src = if blk.btype.get_ref_id() == 1 {
@@ -1680,7 +1680,7 @@ impl VP34Decoder {
         for plane in 1..3 {
             for by in 0..self.mb_h {
                 for bx in 0..self.mb_w {
-                    let mut blk = biter.next().unwrap();
+                    let blk = biter.next().unwrap();
                     let qmat = if blk.btype.is_intra() { &self.qmat_c } else { &self.qmat_c_p };
                     blk.coeffs[0] *= qmat[0];
                     if blk.has_ac {

@@ -25,9 +25,6 @@ fn map_quality_15bit(quality: u8) -> (u32, u32) {
 
 trait PixelOps {
     fn unpack(&self) -> UnpackedPixel;
-    fn dist<T: PixelOps>(&self, val: T) -> u32 {
-        dist_core(self.unpack(), &val.unpack())
-    }
 }
 
 impl PixelOps for u16 {

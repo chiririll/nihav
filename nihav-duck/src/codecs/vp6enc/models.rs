@@ -246,7 +246,6 @@ pub struct VP56MVModelStat {
 
 #[derive(Clone,Copy,Default)]
 pub struct VP56CoeffModelStat {
-    pub dc_token_probs: [[[ProbCounter; 5]; 6]; 6],
     pub dc_value_probs: [ProbCounter; 11],
     pub ac_val_probs:   [[[ProbCounter; 11]; 6]; 3],
 }

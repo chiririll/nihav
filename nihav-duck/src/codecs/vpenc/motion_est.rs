@@ -41,17 +41,6 @@ impl std::fmt::Display for MVSearchMode {
     }
 }
 
-#[allow(clippy::wrong_self_convention)]
-trait FromPixels {
-    fn from_pixels(self) -> Self;
-}
-
-impl FromPixels for MV {
-    fn from_pixels(self) -> MV {
-        MV { x: self.x * 4, y: self.y * 4 }
-    }
-}
-
 pub const DIA_PATTERN: [MV; 9] = [
     ZERO_MV,
     MV {x: -2, y:  0},

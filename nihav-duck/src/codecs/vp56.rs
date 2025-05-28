@@ -41,7 +41,6 @@ pub struct VP56MBTypeModel {
 pub struct VP56CoeffModel {
     pub dc_token_probs: [[[u8; 5]; 6]; 6],
     pub dc_value_probs: [u8; 11],
-    pub ac_ctype_probs: [[[[u8; 5]; 5]; 6]; 3],
     pub ac_type_probs:  [[[[u8; 5]; 6]; 3]; 3],
     pub ac_val_probs:   [[[u8; 11]; 6]; 3],
 }

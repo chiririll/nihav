@@ -87,6 +87,7 @@ impl Default for QuantInfo {
     }
 }
 
+#[allow(dead_code)]
 pub struct VideoObjectLayer {
     pub vol_type:               u8,
     pub version:                u8,
@@ -149,6 +150,7 @@ impl Macroblock {
     }
 }
 
+#[allow(dead_code)]
 pub struct PicState {
     pub timestamp:      u32,
     pub mb_type:        Vec<MBType>,

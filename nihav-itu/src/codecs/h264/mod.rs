@@ -107,7 +107,6 @@ pub struct CurrentMBInfo {
     pub sub_mb_type:    [SubMBType; 4],
     pub ipred:          [IntraPredMode; 16],
     pub chroma_ipred:   u8,
-    pub luma_ipred:     [u8; 16],
     pub mv_l0:          [MV; 16],
     pub ref_l0:         [PicRef; 4],
     pub mv_l1:          [MV; 16],

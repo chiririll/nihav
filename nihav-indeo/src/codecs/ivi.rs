@@ -147,6 +147,7 @@ pub enum TxType {
 pub const CORR_MAP_SIZE: usize = 122;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct BandHeader {
     pub plane_no:   usize,
     pub band_no:    usize,
@@ -205,6 +206,7 @@ pub enum MBType {
 }
 
 #[derive(Clone,Copy)]
+#[allow(dead_code)]
 pub struct MB {
     pub mtype:  MBType,
     pub pos_x:  usize,
