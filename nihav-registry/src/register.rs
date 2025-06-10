@@ -321,6 +321,11 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video-im; "pgvv",          "Radius Studio Video"),
 
     desc!(video-llp; "qpeg-dvc",          "QPEG video in DVC"),
+
+    desc!(video-llp; "qpeg-dvc",          "QPEG video in DVC"),
+
+    desc!(video;    "teal-video",    "TealMovie video"),
+    desc!(audio;    "teal-audio",    "TealMovie audio"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[

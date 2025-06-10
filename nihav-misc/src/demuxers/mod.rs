@@ -13,10 +13,14 @@ macro_rules! validate {
 
 #[cfg(feature="demuxer_qpeg")]
 mod qpeg;
+#[cfg(feature="demuxer_tealmov")]
+mod tealmov;
 
 const DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_qpeg")]
     &qpeg::QPEGDemuxerCreator {},
+#[cfg(feature="demuxer_tealmov")]
+    &tealmov::TealMovieDemuxerCreator {},
 ];
 
 /// Registers all available demuxers provided by this crate.

@@ -321,6 +321,11 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"IDVCd")}],
     },
     DetectConditions {
+        demux_name: "tealmov",
+        extensions: ".pdb",
+        conditions: &[CheckItem{offs: 0x3C, cond: &CC::Str(b"MvieTlMv")}],
+    },
+    DetectConditions {
         demux_name: "realaudio",
         extensions: ".ra,.ram",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b".ra\xFD")}],

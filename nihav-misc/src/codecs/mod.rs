@@ -21,6 +21,9 @@ mod pivc;
 #[cfg(feature="decoder_qpeg")]
 mod qpeg;
 
+#[cfg(feature="decoder_tealvid")]
+mod tealvid;
+
 const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_mwv1")]
     DecoderInfo { name: "mwv1", get_decoder: mwv1::get_decoder },
@@ -30,6 +33,10 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "pivideo", get_decoder: pivc::get_decoder },
 #[cfg(feature="decoder_qpeg")]
     DecoderInfo { name: "qpeg-dvc", get_decoder: qpeg::get_decoder_dvc },
+#[cfg(feature="decoder_tealvid")]
+    DecoderInfo { name: "teal-video", get_decoder: tealvid::get_decoder_video },
+#[cfg(feature="decoder_tealvid")]
+    DecoderInfo { name: "teal-audio", get_decoder: tealvid::get_decoder_audio },
 ];
 
 /// Registers all available codecs provided by this crate.
