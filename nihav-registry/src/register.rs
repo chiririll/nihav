@@ -322,8 +322,6 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video-llp; "qpeg-dvc",          "QPEG video in DVC"),
 
-    desc!(video-llp; "qpeg-dvc",          "QPEG video in DVC"),
-
     desc!(video;    "teal-video",    "TealMovie video"),
     desc!(audio;    "teal-audio",    "TealMovie audio"),
 ];
