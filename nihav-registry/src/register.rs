@@ -216,6 +216,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "supermovingblocks",    "Acorn Super Moving Blocks"),
     desc!(video;    "linepack",             "Henrik Pedersen's LinePack"),
     desc!(video;    "movie16_3",            "Henrik Pedersen's Movie 16:3"),
+    desc!(video;    "escape-any",           "wrapper for Eidos Escape codecs"),
     desc!(video;    "escape100",            "Eidos Escape 100"),
     desc!(video;    "escape102",            "Eidos Escape 102"),
     desc!(video;    "escape122",            "Eidos Escape 122"),
@@ -380,6 +381,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"azpr", "apple-video"),
     (b"PGVV", "pgvv"),
 
+    (b"ESCP", "escape-any"),
+
     (b"VXS1", "vxvideo"),
 
     (b"DX50", "mpeg4asp"),
@@ -426,6 +429,8 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"VP30", "vp3"),
     (b"VP31", "vp3"),
+
+    (b"ESCP", "escape-any"),
 
     (b"mp4v", "mpeg4asp"),
     (b"avc1", "h264"),

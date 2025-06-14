@@ -62,6 +62,8 @@ const ACORN_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "linepack", get_decoder: linepack::get_decoder },
 
 #[cfg(feature="decoder_escape")]
+    DecoderInfo { name: "escape-any", get_decoder: escape::get_decoder_any },
+#[cfg(feature="decoder_escape")]
     DecoderInfo { name: "escape102", get_decoder: escape::get_decoder102 },
 #[cfg(feature="decoder_escape")]
     DecoderInfo { name: "escape122", get_decoder: escape::get_decoder122 },

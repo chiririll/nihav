@@ -2,6 +2,7 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_core::io::bitreader::*;
 use nihav_codec_support::codecs::imaadpcm::*;
+use std::convert::TryFrom;
 use std::str::FromStr;
 use super::RGB555_FORMAT;
 use super::yuvtab::YUV2RGB;
@@ -697,6 +698,124 @@ pub fn get_decoder124() -> Box<dyn NADecoder + Send> {
 }
 pub fn get_decoder130() -> Box<dyn NADecoder + Send> {
     Box::new(Escape130Decoder::new())
+}
+
+#[derive(Debug,Copy,Clone,PartialEq)]
+enum EscapeCodec {
+    Escape102,
+    Escape122,
+    Escape124,
+    Escape130,
+}
+
+impl TryFrom<u16> for EscapeCodec {
+    type Error = ();
+    fn try_from(val: u16) -> Result<EscapeCodec, Self::Error> {
+        match val {
+            0x102 => Ok(EscapeCodec::Escape102),
+            0x116 => Ok(EscapeCodec::Escape122),
+            0x114 => Ok(EscapeCodec::Escape124),
+            0x130 => Ok(EscapeCodec::Escape130),
+            _ => Err(())
+        }
+    }
+}
+
+#[derive(Default)]
+#[allow(clippy::large_enum_variant)]
+enum EscapeDecoderVariant {
+    #[default]
+    None,
+    Escape102(Escape102Decoder),
+    Escape122(Escape122Decoder),
+    Escape124(Escape124Decoder),
+    Escape130(Escape130Decoder),
+}
+
+#[derive(Default)]
+struct EscapeAnyDecoder {
+    info:           NACodecInfoRef,
+    decoder:        EscapeDecoderVariant,
+}
+
+impl NADecoder for EscapeAnyDecoder {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
+        if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, YUV420_FORMAT));
+            validate!((vinfo.get_width() | vinfo.get_height()) & 7 == 0);
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
+            Ok(())
+        } else {
+            Err(DecoderError::InvalidData)
+        }
+    }
+    fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+        let src = pkt.get_buffer();
+        validate!(src.len() > 16);
+
+        let id = read_u16le(&src).unwrap_or_default();
+        let etype = EscapeCodec::try_from(id).map_err(|_| DecoderError::InvalidData)?;
+
+        if matches!(self.decoder, EscapeDecoderVariant::None) {
+            match etype {
+                EscapeCodec::Escape102 => {
+                    let mut dec = Escape102Decoder::new();
+                    dec.init(supp, self.info.clone())?;
+                    self.decoder = EscapeDecoderVariant::Escape102(dec);
+                },
+                EscapeCodec::Escape122 => {
+                    let mut dec = Escape122Decoder::new();
+                    dec.init(supp, self.info.clone())?;
+                    self.decoder = EscapeDecoderVariant::Escape122(dec);
+                },
+                EscapeCodec::Escape124 => {
+                    let mut dec = Escape124Decoder::new();
+                    dec.init(supp, self.info.clone())?;
+                    self.decoder = EscapeDecoderVariant::Escape124(dec);
+                },
+                EscapeCodec::Escape130 => {
+                    let mut dec = Escape130Decoder::new();
+                    dec.init(supp, self.info.clone())?;
+                    self.decoder = EscapeDecoderVariant::Escape130(dec);
+                },
+            }
+        }
+
+        match (etype, &mut self.decoder) {
+            (EscapeCodec::Escape102, EscapeDecoderVariant::Escape102(ref mut dec)) => {
+                dec.decode(supp, pkt)
+            },
+            (EscapeCodec::Escape122, EscapeDecoderVariant::Escape122(ref mut dec)) => {
+                dec.decode(supp, pkt)
+            },
+            (EscapeCodec::Escape124, EscapeDecoderVariant::Escape124(ref mut dec)) => {
+                dec.decode(supp, pkt)
+            },
+            (EscapeCodec::Escape130, EscapeDecoderVariant::Escape130(ref mut dec)) => {
+                dec.decode(supp, pkt)
+            },
+            _ => Err(DecoderError::InvalidData),
+        }
+    }
+    fn flush(&mut self) {
+        match self.decoder {
+            EscapeDecoderVariant::None => {},
+            EscapeDecoderVariant::Escape102(ref mut dec) => { dec.flush(); },
+            EscapeDecoderVariant::Escape122(ref mut dec) => { dec.flush(); },
+            EscapeDecoderVariant::Escape124(ref mut dec) => { dec.flush(); },
+            EscapeDecoderVariant::Escape130(ref mut dec) => { dec.flush(); },
+        }
+    }
+}
+
+impl NAOptionHandler for EscapeAnyDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
+pub fn get_decoder_any() -> Box<dyn NADecoder + Send> {
+    Box::<EscapeAnyDecoder>::default()
 }
 
 pub struct EscapeIMAState {
