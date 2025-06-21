@@ -223,8 +223,9 @@ impl SBRChannel {
                     let cur_x = self.x[l][p];
                     let prev_x = self.x[l - 1][p];
                     let pprev_x = self.x[l - 2][p];
-                    let g_k = match state.f_noise[..state.num_noise_bands].binary_search(&k) {
-                            Ok(idx) | Err(idx) => idx.min(state.num_noise_bands - 1),
+                    let g_k = match state.f_noise[..state.num_noise_bands].binary_search(&(dst_k + k)) {
+                            Ok(idx) => idx,
+                            Err(idx) => (idx - 1).min(state.num_noise_bands - 1),
                         };
                     let bw_val = self.bw_array[g_k];
                     *dst = cur_x + a0[p] * prev_x.scale(bw_val) + a1[p] * pprev_x.scale(bw_val * bw_val);
