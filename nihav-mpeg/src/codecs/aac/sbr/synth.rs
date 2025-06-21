@@ -570,7 +570,7 @@ impl SBRChannel {
         }
 
         let index_noise = self.index_noise.wrapping_sub(self.env_border[0] * 2) & 511;
-        for (slot, y) in self.y.iter_mut().skip(HF_ADJ).take(envelope_end * 2).skip(envelope_start * 2).enumerate() {
+        for (slot, y) in self.y.iter_mut().skip(HF_ADJ).enumerate().take(envelope_end * 2).skip(envelope_start * 2) {
             for (k, y) in y.iter_mut().enumerate().skip(kx).take(km - kx) {
                 *y = self.x_high[HF_ADJ + slot][k].scale(g_filt[slot][k]);
 
