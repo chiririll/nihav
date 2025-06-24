@@ -58,8 +58,8 @@ pub fn parse_sps(src: &[u8]) -> DecoderResult<SeqParameterSet> {
     sps.constraint_set0                             = br.read_bool()?;
     sps.constraint_set1                             = br.read_bool()?;
     sps.constraint_set2                             = br.read_bool()?;
-    let reserved                                    = br.read(5)?;
-    validate!(reserved == 0);
+    let _reserved                                   = br.read(5)?;
+//    validate!(reserved == 0);
     sps.level_idc                                   = br.read(8)? as u8;
     sps.seq_parameter_set_id                        = br.read_ue()?;
     sps.high_profile = is_high_profile(sps.profile_idc);
