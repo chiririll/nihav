@@ -1,5 +1,75 @@
 use super::*;
 use super::kernel::Kernel;
+#[cfg(target_arch="x86_64")]
+use std::arch::asm;
+
+#[cfg(target_arch="x86_64")]
+fn scale2x_sse2(sbuf: &NAVideoBuffer<u8>, dbuf: &mut NAVideoBuffer<u8>) {
+    let fmt = sbuf.get_info().get_format();
+    let dfmt = dbuf.get_info().get_format();
+    let ndcomp = dfmt.get_num_comp();
+    let ncomp = fmt.get_num_comp().min(ndcomp);
+
+    for comp in 0..ncomp {
+        let istride = sbuf.get_stride(comp);
+        let dstride = dbuf.get_stride(comp);
+        let (sw, _sh) = sbuf.get_dimensions(comp);
+        let (_dw, dh) = dbuf.get_dimensions(comp);
+        let ioff = sbuf.get_offset(comp);
+        let doff = dbuf.get_offset(comp);
+        let src = sbuf.get_data();
+        let dst = dbuf.get_data_mut().unwrap();
+
+        unsafe {
+            asm!(
+                "2:",
+                " mov {left}, {width}",
+                " mov {line}, {dst}",
+                " lea {line2}, [{dst} + {dstride}]",
+                " 3:",
+                "  movdqa xmm0, [{src}]",
+                "  movdqa xmm2, [{src}+16]",
+                "  add {src}, 32",
+                "  movdqa xmm1, xmm0",
+                "  movdqa xmm3, xmm2",
+                "  punpcklbw xmm0, xmm0",
+                "  punpckhbw xmm1, xmm1",
+                "  punpcklbw xmm2, xmm2",
+                "  punpckhbw xmm3, xmm3",
+                "  movdqa [{line}], xmm0",
+                "  movdqa [{line}+16], xmm1",
+                "  movdqa [{line}+32], xmm2",
+                "  movdqa [{line}+48], xmm3",
+                "  add {line}, 64",
+                "  movdqa [{line2}], xmm0",
+                "  movdqa [{line2}+16], xmm1",
+                "  movdqa [{line2}+32], xmm2",
+                "  movdqa [{line2}+48], xmm3",
+                "  add {line2}, 64",
+                "  sub {left}, 32",
+                "  jg 3b",
+                " add {src}, {istep}",
+                " lea {dst}, [{dst} + {dstride} * 2]",
+                " sub {height}, 2",
+                " jnz 2b",
+
+                dst = inout(reg) dst.as_mut_ptr().add(doff) => _,
+                src = inout(reg) src.as_ptr().add(ioff) => _,
+                width = in(reg) sw,
+                istep = in(reg) istride - sw,
+                dstride = in(reg) dstride,
+                height = inout(reg) dh => _,
+                left = out(reg) _,
+                line = out(reg) _,
+                line2 = out(reg) _,
+                out("xmm0") _,
+                out("xmm1") _,
+                out("xmm2") _,
+                out("xmm3") _,
+            );
+        }
+    }
+}
 
 trait ResizeLine<T> {
     fn resize_line(&mut self, src: &[T], src_len: usize, sstep: usize, dst: &mut [T], dst_len: usize, dstep: usize);
@@ -332,6 +402,7 @@ struct Scaler {
     resizers16: Vec<Resizer<u16>>,
     tmp8:       Vec<u8>,
     tmp16:      Vec<u16>,
+    is_nn:      bool,
 }
 
 fn set_resizer<T, F>(dst: &mut Vec<Resizer<T>>, new_resizer: F, in_fmt: &ScaleInfo, dest_fmt: &ScaleInfo)
@@ -370,6 +441,7 @@ impl Scaler {
             resizers16: Vec::new(),
             tmp8:       Vec::new(),
             tmp16:      Vec::new(),
+            is_nn:      false,
         }
     }
 }
@@ -383,6 +455,7 @@ impl Kernel for Scaler {
                     "nn" => {
                         if !is16 {
                             set_resizer(&mut self.resizers8, || Box::new(NNResampler::new()), in_fmt, dest_fmt);
+                            self.is_nn = true;
                         } else {
                             set_resizer(&mut self.resizers16, || Box::new(NNResampler::new()), in_fmt, dest_fmt);
                         }
@@ -428,9 +501,14 @@ impl Kernel for Scaler {
         }
         if !is16 && self.resizers8.is_empty() {
             set_resizer(&mut self.resizers8, || Box::new(NNResampler::new()), in_fmt, dest_fmt);
+            self.is_nn = true;
         }
         if is16 && self.resizers16.is_empty() {
             set_resizer(&mut self.resizers16, || Box::new(NNResampler::new()), in_fmt, dest_fmt);
+        }
+
+        if in_fmt.width * 2 != dest_fmt.width || in_fmt.height * 2 != dest_fmt.height {
+            self.is_nn = false;
         }
 
         let mut max_size = 0;
@@ -449,12 +527,29 @@ impl Kernel for Scaler {
             self.tmp16.resize(max_size, 0);
         }
 
-        let res = alloc_video_buffer(NAVideoInfo::new(dest_fmt.width, dest_fmt.height, false, in_fmt.fmt), 3);
+        let res = alloc_video_buffer(NAVideoInfo::new(dest_fmt.width, dest_fmt.height, false, in_fmt.fmt), 4);
         if res.is_err() { return Err(ScaleError::AllocError); }
         Ok(res.unwrap())
     }
     fn process(&mut self, pic_in: &NABufferType, pic_out: &mut NABufferType) {
         if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf(), pic_out.get_vbuf()) {
+            #[cfg(target_arch="x86_64")]
+            if self.is_nn {
+                let info = sbuf.get_info();
+                let mut aligned = true;
+                let width  = info.width;
+                let height = info.height;
+                for comp in info.format.comp_info.iter().flatten() {
+                    if ((width >> comp.h_ss) & 0x1F) != 0 || ((height >> comp.v_ss) & 1) != 0 {
+                        aligned = false;
+                        break;
+                    }
+                }
+                if aligned {
+                    scale2x_sse2(sbuf, dbuf);
+                    return;
+                }
+            }
             scale_loop!(sbuf, self.tmp8, dbuf, self.resizers8);
         } else if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf16(), pic_out.get_vbuf16()) {
             scale_loop!(sbuf, self.tmp16, dbuf, self.resizers16);
