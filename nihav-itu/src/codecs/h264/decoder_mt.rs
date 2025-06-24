@@ -739,10 +739,10 @@ impl NADecoderMT for H264MTDecoder {
                 let _compatibility      = br.read_byte()?;
                 let _level              = br.read_byte()?;
                 let b                   = br.read_byte()?;
-                validate!((b & 0xFC) == 0xFC);
+                //validate!((b & 0xFC) == 0xFC);
                 self.nal_len            = (b & 3) + 1;
                 let b                   = br.read_byte()?;
-                validate!((b & 0xE0) == 0xE0);
+                //validate!((b & 0xE0) == 0xE0);
                 let num_sps = (b & 0x1F) as usize;
                 for _ in 0..num_sps {
                     let len             = br.read_u16be()? as usize;
