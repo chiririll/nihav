@@ -80,7 +80,7 @@ impl<'a> AVIMuxer<'a> {
             let tag0 = b'0' + ((sidx / 10) as u8);
             let tag1 = b'0' + ((sidx % 10) as u8);
 
-            let nentries = self.index.iter().filter(|idx| idx.tag[0] == tag0 && idx.tag[1] == tag1).count();
+            let nentries = self.index.iter().filter(|idx| idx.tag[0] == tag0 && idx.tag[1] == tag1 && &idx.tag[2..] != b"pc").count();
 
             let tag = [b'i', b'x', tag0, tag1];
             self.bw.write_buf(&tag)?;
@@ -101,7 +101,7 @@ impl<'a> AVIMuxer<'a> {
             self.bw.write_u64le(self.blk_start)?;
             self.bw.write_u32le(0)?;
 
-            for entry in self.index.iter().filter(|idx| idx.tag[0] == tag0 && idx.tag[1] == tag1) {
+            for entry in self.index.iter().filter(|idx| idx.tag[0] == tag0 && idx.tag[1] == tag1 && &idx.tag[2..] != b"pc") {
                 self.bw.write_u32le((entry.pos - self.blk_start + 8) as u32)?;
                 self.bw.write_u32le(entry.len)?;
             }
