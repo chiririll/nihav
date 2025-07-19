@@ -408,7 +408,7 @@ static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
 static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"cvid", "cinepak"),
     (b"jpeg", "jpeg"),
-    //(b"raw ", "raw"),
+    (b"raw ", "rawvideo"),
     //(b"Yuv2", "raw"),
     (b"smc ", "qt-smc"),
     (b"rle ", "qt-rle"),
