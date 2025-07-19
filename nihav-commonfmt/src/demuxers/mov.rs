@@ -1451,6 +1451,8 @@ impl Track {
     fn get_size(&self, sample_no: usize) -> usize {
         if !self.chunk_sizes.is_empty() {
             self.chunk_sizes[sample_no] as usize
+        } else if self.stream_type != StreamType::Audio && self.sample_map.len() <= 1 && self.bsize > 0 {
+            self.bsize
         } else if !self.sample_map.is_empty() {
             let mut nsamp = 0;
             for (idx, samples) in self.sample_map.iter() {
