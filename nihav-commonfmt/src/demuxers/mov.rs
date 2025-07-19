@@ -313,7 +313,10 @@ fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
     let mut track = Track::new(dmx.cur_track as u32, dmx.tb_den);
     track.print_chunks = dmx.print_chunks;
     track.read_trak(dmx.src, size)?;
-    validate!(track.tkhd_found && track.stsd_found);
+    validate!(track.tkhd_found);
+    if !track.stsd_found {
+        track.stream = Some(NAStream::new(StreamType::Data, track.track_no, DUMMY_CODEC_INFO, track.tb_num, track.tb_den, 0));
+    }
     validate!(strmgr.get_stream_by_id(track.track_id).is_none());
     dmx.cur_track += 1;
     dmx.tracks.push(track);
