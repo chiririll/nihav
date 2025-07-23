@@ -316,6 +316,11 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 8, cond: &CC::Str(b"SHDR")}],
     },
     DetectConditions {
+        demux_name: "mvi",
+        extensions: ".mvi",
+        conditions: &[],
+    },
+    DetectConditions {
         demux_name: "qpeg",
         extensions: ".dvc",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"IDVCd")}],

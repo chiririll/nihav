@@ -9,6 +9,9 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
+#[cfg(feature="decoder_mvi")]
+mod motionpixels;
+
 #[cfg(feature="decoder_mwv1")]
 mod mwv1;
 
@@ -25,6 +28,12 @@ mod qpeg;
 mod tealvid;
 
 const DECODERS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_mvi")]
+    DecoderInfo { name: "mvi0", get_decoder: motionpixels::get_decoder0 },
+#[cfg(feature="decoder_mvi")]
+    DecoderInfo { name: "mvi1", get_decoder: motionpixels::get_decoder1 },
+#[cfg(feature="decoder_mvi")]
+    DecoderInfo { name: "mvi2", get_decoder: motionpixels::get_decoder2 },
 #[cfg(feature="decoder_mwv1")]
     DecoderInfo { name: "mwv1", get_decoder: mwv1::get_decoder },
 #[cfg(feature="decoder_pgvv")]

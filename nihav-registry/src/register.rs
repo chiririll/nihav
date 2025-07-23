@@ -315,6 +315,10 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "h264",          "ITU H.264", CODEC_CAP_COMPLEX_REORDER | CODEC_CAP_HYBRID),
     desc!(video-modern; "mpeg4asp",  "MPEG-4 ASP"),
 
+    desc!(video-im; "mvi0",          "MotionPixels (MVI)"),
+    desc!(video;    "mvi1",          "MotionPixels 1"),
+    desc!(video;    "mvi2",          "MotionPixels 2"),
+
     desc!(video-im; "mwv1",          "Aware MotionWavelets"),
 
     desc!(video-llp; "pivideo",      "PI-Video"),
@@ -375,6 +379,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"VP70", "vp7"),
 
     (b"MWV1", "mwv1"),
+
+    (b"MVI1", "mvi1"),
 
     (b"pivc", "pivideo"),
 

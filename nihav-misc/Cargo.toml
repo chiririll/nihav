@@ -20,7 +20,8 @@ demuxers = []
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_mwv1", "decoder_pgvv", "decoder_pivc", "decoder_qpeg", "decoder_tealvid"]
+all_video_decoders = ["decoder_mvi", "decoder_mwv1", "decoder_pgvv", "decoder_pivc", "decoder_qpeg", "decoder_tealvid"]
+decoder_mvi = ["decoders"]
 decoder_mwv1 = ["decoders"]
 decoder_pgvv = ["decoders"]
 decoder_pivc = ["decoders"]
@@ -29,6 +30,7 @@ decoder_tealvid = ["decoders"]
 
 all_audio_decoders = []
 
-all_demuxers = ["demuxer_qpeg", "demuxer_tealmov"]
+all_demuxers = ["demuxer_mvi", "demuxer_qpeg", "demuxer_tealmov"]
+demuxer_mvi = ["demuxers"]
 demuxer_qpeg = ["demuxers"]
 demuxer_tealmov = ["demuxers"]

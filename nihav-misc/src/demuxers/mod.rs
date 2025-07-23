@@ -11,12 +11,16 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DemuxerError::InvalidData); } };
 }
 
+#[cfg(feature="demuxer_mvi")]
+mod mvi;
 #[cfg(feature="demuxer_qpeg")]
 mod qpeg;
 #[cfg(feature="demuxer_tealmov")]
 mod tealmov;
 
 const DEMUXERS: &[&dyn DemuxerCreator] = &[
+#[cfg(feature="demuxer_mvi")]
+    &mvi::MVIDemuxerCreator {},
 #[cfg(feature="demuxer_qpeg")]
     &qpeg::QPEGDemuxerCreator {},
 #[cfg(feature="demuxer_tealmov")]
