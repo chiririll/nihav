@@ -77,6 +77,7 @@ struct AVIDemuxer<'a> {
     odml_riff:      Vec<RIFFSegment>,
     iddx_pos:       u64,
     odd_offset:     bool,
+    cur_handler:    [u8; 4],
 }
 
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -282,6 +283,7 @@ impl<'a> AVIDemuxer<'a> {
             odml_riff: Vec::with_capacity(1),
             iddx_pos: 0,
             odd_offset: false,
+            cur_handler: [0; 4],
         }
     }
 
@@ -562,7 +564,8 @@ fn parse_iddx(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) ->
 fn parse_strh(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 0x38 { return Err(InvalidData); }
     let tag = dmx.src.read_u32be()?; //stream type
-    let _fcc = dmx.src.read_u32be()?; //handler(fourcc)
+    let handler = dmx.src.read_tag()?; //handler(fourcc)
+    dmx.cur_handler = handler;
     dmx.src.read_u32le()?; //flags
     dmx.src.read_skip(2)?; //priority
     dmx.src.read_skip(2)?; //language
@@ -631,7 +634,10 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
     let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
     let mut vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, format);
     vhdr.bits = (planes as u8) * (bitcount as u8);
-    let cname = if find_raw_rgb_fmt(&compression, planes, bitcount, flip, &mut vhdr) {
+    let is_mvi = matches!(&dmx.cur_handler, b"MVI1" | b"mvi1" | b"MVI2" | b"mvi2");
+    let cname = if is_mvi {
+            if dmx.cur_handler[3] == b'1' { "mvi1" } else { "mvi2" }
+        } else if find_raw_rgb_fmt(&compression, planes, bitcount, flip, &mut vhdr) {
             "rawvideo-ms"
         } else if find_raw_yuv_fmt(&compression, &mut vhdr) {
             "rawvideo"
@@ -642,7 +648,16 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
             }
         };
     let vci = NACodecTypeInfo::Video(vhdr);
-    let edata = dmx.read_extradata(size - 40)?;
+    let mut edata = dmx.read_extradata(size - 40)?;
+    if is_mvi {
+        if let Some(ref mut dta) = edata {
+            for (i, &c) in compression.iter().enumerate() {
+                dta.insert(i, c);
+            }
+        } else {
+            edata = Some(compression.to_vec());
+        }
+    }
     if colors > 0 {
         if let Some(ref buf) = edata {
             let mut pal = [0u8; 1024];
