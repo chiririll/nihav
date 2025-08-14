@@ -401,6 +401,8 @@ static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
     (0x0001, "pcm"),
     (0x0002, "ms-adpcm"),
     (0x0003, "pcm"),
+    (0x0006, "alaw"),
+    (0x0007, "ulaw"),
     (0x0011, "ima-adpcm-ms"),
     (0x0055, "mp3"),
     (0x0061, "adpcm-dk4"),
