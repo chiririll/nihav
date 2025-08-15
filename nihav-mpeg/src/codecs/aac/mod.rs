@@ -676,7 +676,7 @@ impl AACDecoder {
 
 impl NADecoder for AACDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
-        if let NACodecTypeInfo::Audio(_) = info.get_properties() {
+        if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let edata = info.get_extradata().unwrap();
             validate!(edata.len() >= 2);
 
@@ -729,8 +729,15 @@ impl NADecoder for AACDecoder {
                         _ => br.read_skip(size as usize)?,
                     }
                 }
-                validate!(info_start > 0 && info_size > 0);
-                self.m4ainfo.read(&edata[info_start..][..info_size])?;
+                if info_start > 0 && info_size > 0 {
+                    self.m4ainfo.read(&edata[info_start..][..info_size])?;
+                } else {
+                    println!("info not found, making up");
+                    self.m4ainfo.otype = M4AType::LC;
+                    self.m4ainfo.srate = ainfo.sample_rate;
+                    self.m4ainfo.channels = usize::from(ainfo.channels);
+                    self.m4ainfo.samples = 1024;
+                }
             } else {
                 self.m4ainfo.read(&edata)?;
             }
@@ -769,11 +776,35 @@ impl NADecoder for AACDecoder {
         validate!(info.get_properties().is_audio());
         let pktbuf = pkt.get_buffer();
 
+        if &pktbuf[0..3] == b"ID3" && (1..=4).contains(&pktbuf[3]) && pktbuf[4] == 0 {
+            println!("ID3!");
+            return Err(DecoderError::InvalidData);
+        }
+
+        let start = if pktbuf.len() > 2 && pktbuf[0] == 0xFF && (pktbuf[1] & 0xF0) == 0xF0 {
+                if let Ok(hdr) = packetiser::ADTSHeader::parse(&pktbuf) {
+                    if hdr.srate != self.m4ainfo.srate {
+                        if hdr.srate * 2 == self.m4ainfo.srate {
+                            println!("reported ADTS sample rate differs from the container-provided one, patching...");
+                            self.m4ainfo.srate = hdr.srate;
+                            self.upsample = true;
+                            self.sbinfo = GASubbandInfo::find(self.m4ainfo.srate);
+                        } else {
+                            println!("reported ADTS sample rate differs from the container-provided one");
+                            return Err(DecoderError::InvalidData);
+                        }
+                    }
+                    hdr.hdr_size
+                } else {
+                    0
+                }
+            } else { 0 };
+
         let ainfo = self.info.get_properties().get_audio_info().unwrap();
         let samples = if !self.upsample { self.m4ainfo.samples } else { self.m4ainfo.samples * 2 };
         let mut abuf = alloc_audio_buffer(ainfo, samples, self.chmap.clone())?;
 
-        let mut br = BitReader::new(&pktbuf, BitReaderMode::BE);
+        let mut br = BitReader::new(&pktbuf[start..], BitReaderMode::BE);
         match self.m4ainfo.otype {
             M4AType::LC => {
                     self.decode_ga(&mut br, &mut abuf)?;

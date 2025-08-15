@@ -3,13 +3,13 @@ use nihav_core::io::bitreader::*;
 use super::info::*;
 
 #[derive(Default,Clone,Copy)]
-struct ADTSHeader {
-    srate:      u32,
-    channels:   u8,
-    hdr_size:   usize,
-    frame_size: usize,
-    samples:    usize,
-    hdr:        u32,
+pub struct ADTSHeader {
+    pub srate:      u32,
+    pub channels:   u8,
+    pub hdr_size:   usize,
+    pub frame_size: usize,
+    pub samples:    usize,
+    pub hdr:        u32,
 }
 
 impl PartialEq for ADTSHeader {
@@ -18,36 +18,11 @@ impl PartialEq for ADTSHeader {
     }
 }
 
-#[derive(Default)]
-struct PacketiserADTS {
-    buf:        Vec<u8>,
-    hdr:        Option<ADTSHeader>,
-}
+impl ADTSHeader {
+    pub fn parse(src: &[u8]) -> DecoderResult<ADTSHeader> {
+        if src.len() < 7 { return Err(DecoderError::ShortData); }
 
-impl PacketiserADTS {
-    fn new() -> Self { Self::default() }
-    fn skip_id3(buf: &[u8]) -> DecoderResult<usize> {
-        // check for ID3 tags in concatenated stream fragments
-        if &buf[0..3] == b"ID3" && (1..=4).contains(&buf[3]) && buf[4] == 0 {
-            if buf.len() < 10 {
-                return Err(DecoderError::ShortData);
-            }
-            let mut size = 0;
-            for &b in buf[6..10].iter() {
-                if (b & 0x80) != 0 {
-                    return Err(DecoderError::InvalidData);
-                }
-                size = (size << 7) | usize::from(b);
-            }
-            Ok(size + 10)
-        } else {
-            Ok(0)
-        }
-    }
-    fn parse_header(&self, off: usize) -> DecoderResult<ADTSHeader> {
-        if self.buf.len() < off + 7 { return Err(DecoderError::ShortData); }
-
-        let mut br = BitReader::new(&self.buf[off..], BitReaderMode::BE);
+        let mut br = BitReader::new(src, BitReaderMode::BE);
 
         let syncword                = br.read(12)?;
         if syncword != 0xFFF { return Err(DecoderError::InvalidData); }
@@ -93,6 +68,34 @@ impl PacketiserADTS {
     }
 }
 
+#[derive(Default)]
+struct PacketiserADTS {
+    buf:        Vec<u8>,
+    hdr:        Option<ADTSHeader>,
+}
+
+impl PacketiserADTS {
+    fn new() -> Self { Self::default() }
+    fn skip_id3(buf: &[u8]) -> DecoderResult<usize> {
+        // check for ID3 tags in concatenated stream fragments
+        if &buf[0..3] == b"ID3" && (1..=4).contains(&buf[3]) && buf[4] == 0 {
+            if buf.len() < 10 {
+                return Err(DecoderError::ShortData);
+            }
+            let mut size = 0;
+            for &b in buf[6..10].iter() {
+                if (b & 0x80) != 0 {
+                    return Err(DecoderError::InvalidData);
+                }
+                size = (size << 7) | usize::from(b);
+            }
+            Ok(size + 10)
+        } else {
+            Ok(0)
+        }
+    }
+}
+
 impl NAPacketiser for PacketiserADTS {
     fn attach_stream(&mut self, _stream: NAStreamRef) {}
     fn add_data(&mut self, src: &[u8]) -> bool {
@@ -108,7 +111,7 @@ impl NAPacketiser for PacketiserADTS {
             if id3_len + 7 > self.buf.len() {
                 return Err(DecoderError::ShortData);
             }
-            let hdr = self.parse_header(id3_len)?;
+            let hdr = ADTSHeader::parse(&self.buf[id3_len..])?;
             self.hdr = Some(hdr);
         }
         let hdr = self.hdr.unwrap();
@@ -126,7 +129,7 @@ impl NAPacketiser for PacketiserADTS {
         let mut iter = self.buf[2..].iter();
         loop {
             if (hdr & 0xFFF6) == 0xFFF6 {
-                let ret = self.parse_header(off);
+                let ret = ADTSHeader::parse(&self.buf[off..]);
                 match ret {
                     Ok(hdr) => {
                         if self.hdr.is_none() {
@@ -166,7 +169,7 @@ impl NAPacketiser for PacketiserADTS {
             return Err(DecoderError::ShortData);
         }
 
-        let hdr = self.parse_header(0)?;
+        let hdr = ADTSHeader::parse(&self.buf)?;
         if self.hdr.is_none() {
             self.hdr = Some(hdr);
         }
