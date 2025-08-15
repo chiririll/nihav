@@ -65,7 +65,7 @@ impl<'a> MuxCore<'a> for WAVMuxer<'a> {
         if stream.get_info().get_name() != "pcm" || ainfo.block_len > 0 {
             self.bw.write_u16le(ainfo.block_len as u16)?;
         } else {
-            self.bw.write_u16le(u16::from(ainfo.channels) * u16::from(ainfo.format.bits) >> 3)?;
+            self.bw.write_u16le((u16::from(ainfo.channels) * u16::from(ainfo.format.bits)) >> 3)?;
         }
         self.bw.write_u16le(u16::from(ainfo.format.bits))?;
         if let Some(ref buf) = stream.get_info().get_extradata() {
