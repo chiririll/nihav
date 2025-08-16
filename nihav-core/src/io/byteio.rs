@@ -28,7 +28,7 @@ pub type ByteIOResult<T> = Result<T, ByteIOError>;
 /// Common trait for bytestream operations.
 pub trait ByteIO {
     /// Reads data into provided buffer. Fails if it cannot fill whole buffer.
-    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
+    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<()>;
     /// Reads data into provided buffer. Partial read is treated as success.
     fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
     /// Reads data into provided buffer but does not advance read position.
@@ -253,13 +253,13 @@ impl<'a> ByteReader<'a> {
     /// ````
     pub fn new(io: &'a mut dyn ByteIO) -> Self { ByteReader { io } }
 
-    /// Reads data into provided buffer. Partial read is treated as success.
-    pub fn read_buf(&mut self, buf: &mut [u8])  -> ByteIOResult<usize> {
+    /// Reads data into provided buffer. Partial read is treated as failure.
+    pub fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<()> {
         self.io.read_buf(buf)
     }
 
-    /// Allocates additional space in vector and reads data there. Partial read is treated as success.
-    pub fn read_extend(&mut self, buf: &mut Vec<u8>, add_size: usize) -> ByteIOResult<usize> {
+    /// Allocates additional space in vector and reads data there. Partial read is treated as failure.
+    pub fn read_extend(&mut self, buf: &mut Vec<u8>, add_size: usize) -> ByteIOResult<()> {
         let cur_size = buf.len();
         buf.resize(cur_size + add_size, 0);
         self.io.read_buf(&mut buf[cur_size..])
@@ -511,11 +511,11 @@ impl<'a> ByteIO for MemoryReader<'a> {
         Ok(copy_size)
     }
 
-    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<()> {
         let read_size = self.peek_buf(buf)?;
         if read_size < buf.len() { return Err(ByteIOError::EOF); }
         self.pos += read_size;
-        Ok(read_size)
+        Ok(())
     }
 
     fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
@@ -587,9 +587,9 @@ impl<T: Read+Seek> ByteIO for FileReader<T> {
         Ok(b)
     }
 
-    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<()> {
         match self.file.read_exact(buf) {
-            Ok(())  => Ok(buf.len()),
+            Ok(())  => Ok(()),
             Err(err) => {
                 if err.kind() == std::io::ErrorKind::UnexpectedEof {
                     self.eof = true;
@@ -619,7 +619,8 @@ impl<T: Read+Seek> ByteIO for FileReader<T> {
     }
 
     fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
-        let size = self.read_buf(buf)?;
+        let size = buf.len();
+        self.read_buf(buf)?;
         self.seek(SeekFrom::Current(-(size as i64)))?;
         Ok(size)
     }
@@ -721,7 +722,7 @@ impl<T: Read+Seek> ByteIO for BoundedFileReader<T> {
         Ok(b)
     }
 
-    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<()> {
         if let Some(epos) = self.end {
             if self.real_tell() >= epos {
                 self.eof = true;
@@ -730,7 +731,7 @@ impl<T: Read+Seek> ByteIO for BoundedFileReader<T> {
         }
         let len = self.max_read_len(buf.len());
         match self.file.read_exact(&mut buf[..len]) {
-            Ok(()) if len == buf.len() => Ok(buf.len()),
+            Ok(()) if len == buf.len() => Ok(()),
             Ok(()) => {
                 self.eof = true;
                 Err(ByteIOError::EOF)
@@ -771,11 +772,11 @@ impl<T: Read+Seek> ByteIO for BoundedFileReader<T> {
 
     fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
         let len = self.max_read_len(buf.len());
-        let size = self.read_buf(&mut buf[..len])?;
-        if self.file.seek(SeekFrom::Current(-(size as i64))).is_err() {
+        self.read_buf(&mut buf[..len])?;
+        if self.file.seek(SeekFrom::Current(-(len as i64))).is_err() {
             return Err(ByteIOError::SeekError);
         }
-        Ok(size)
+        Ok(len)
     }
 
     fn write_buf(&mut self, _buf: &[u8]) -> ByteIOResult<()> {
@@ -1018,7 +1019,7 @@ impl<'a> ByteIO for MemoryWriter<'a> {
         Err(ByteIOError::NotImplemented)
     }
 
-    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<()> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -1091,7 +1092,7 @@ impl<'a> ByteIO for GrowableMemoryWriter<'a> {
         Err(ByteIOError::NotImplemented)
     }
 
-    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<()> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -1157,7 +1158,7 @@ impl<T: Write+Seek> ByteIO for FileWriter<T> {
         Err(ByteIOError::NotImplemented)
     }
 
-    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<usize> {
+    fn read_buf(&mut self, _buf: &mut [u8]) -> ByteIOResult<()> {
         Err(ByteIOError::NotImplemented)
     }
 
