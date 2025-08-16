@@ -258,6 +258,13 @@ impl<'a> ByteReader<'a> {
         self.io.read_buf(buf)
     }
 
+    /// Allocates additional space in vector and reads data there. Partial read is treated as success.
+    pub fn read_extend(&mut self, buf: &mut Vec<u8>, add_size: usize) -> ByteIOResult<usize> {
+        let cur_size = buf.len();
+        buf.resize(cur_size + add_size, 0);
+        self.io.read_buf(&mut buf[cur_size..])
+    }
+
     /// Reads data into provided buffer. Partial read is treated as success.
     pub fn read_buf_some(&mut self, buf: &mut [u8])  -> ByteIOResult<usize> {
         self.io.read_buf_some(buf)

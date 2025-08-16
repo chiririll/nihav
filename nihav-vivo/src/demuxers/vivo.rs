@@ -101,10 +101,7 @@ impl<'a> DemuxCore<'a> for VivoDemuxer<'a> {
             }
             if is_video {
                 validate!(self.v_den != 0);
-                let cur_size = self.video_buf.len();
-                let new_size = cur_size + size;
-                self.video_buf.resize(new_size, 0);
-                                          br.read_buf(&mut self.video_buf[cur_size..])?;
+                                          br.read_extend(&mut self.video_buf, size)?;
                 if (hdr >> 4) == 2 {
                     let mut buf = Vec::new();
                     std::mem::swap(&mut self.video_buf, &mut buf);
