@@ -4,12 +4,12 @@ use nihav_core::demuxers::*;
 use nihav_core::formats::YUV420_FORMAT;
 
 struct RawH264Demuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     cur_frame:      u64,
     frame_buf:      Vec<u8>,
 }
 
-fn read_nal(src: &mut ByteReader, dst: &mut Vec<u8>) -> DemuxerResult<()> {
+fn read_nal(src: &mut dyn ByteIO, dst: &mut Vec<u8>) -> DemuxerResult<()> {
     dst.clear();
     loop {
         let b                           = src.read_byte()?;
@@ -64,7 +64,7 @@ impl<'a> DemuxCore<'a> for RawH264Demuxer<'a> {
 
         let mut nal_buf = Vec::with_capacity(65536);
         loop {
-            read_nal(src, &mut nal_buf)?;
+            read_nal(*src, &mut nal_buf)?;
             if !nal_buf.is_empty() {
                 let nal_type = nal_buf[0] & 0x1F;
                 match nal_type {
@@ -137,7 +137,7 @@ impl<'a> DemuxCore<'a> for RawH264Demuxer<'a> {
         let mut nal_buf = Vec::with_capacity(65536);
         let mut is_eof = false;
         while !is_eof {
-            match read_nal(&mut self.src, &mut nal_buf) {
+            match read_nal(self.src, &mut nal_buf) {
                 Ok(()) => {},
                 Err(DemuxerError::IOError) => { is_eof = true; },
                 Err(err) => return Err(err),
@@ -186,7 +186,7 @@ impl<'a> NAOptionHandler for RawH264Demuxer<'a> {
 }
 
 impl<'a> RawH264Demuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         RawH264Demuxer {
             src:            io,
             cur_frame:      0,
@@ -198,7 +198,7 @@ impl<'a> RawH264Demuxer<'a> {
 pub struct RawH264DemuxerCreator { }
 
 impl DemuxerCreator for RawH264DemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(RawH264Demuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "rawh264" }

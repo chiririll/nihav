@@ -726,8 +726,7 @@ impl NADecoder for H264Decoder {
             let edata = info.get_extradata().unwrap();
 //print!("edata:"); for &el in edata.iter() { print!(" {:02X}", el); } println!();
             if edata.len() > 11 && &edata[0..4] == b"avcC" {
-                let mut mr = MemoryReader::new_read(edata.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(edata.as_slice());
                 let mut nal_buf = Vec::new();
 
                                           br.read_skip(4)?;
@@ -814,8 +813,7 @@ impl NADecoder for H264Decoder {
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let mut nal_buf = Vec::with_capacity(src.len());
         if self.nal_len > 0 {
             let mut skip_decoding = false;

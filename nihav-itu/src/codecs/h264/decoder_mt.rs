@@ -729,8 +729,7 @@ impl NADecoderMT for H264MTDecoder {
             let edata = info.get_extradata().unwrap();
 //print!("edata:"); for &el in edata.iter() { print!(" {:02X}", el); } println!();
             if edata.len() > 11 && &edata[0..4] == b"avcC" {
-                let mut mr = MemoryReader::new_read(edata.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(edata.as_slice());
 
                                           br.read_skip(4)?;
                 let version             = br.read_byte()?;
@@ -834,8 +833,7 @@ impl NADecoderMT for H264MTDecoder {
 
         let src = pkt.get_buffer();
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let mut nal_buf = Vec::with_capacity(src.len());
 
         if self.nal_len > 0 {
