@@ -1,7 +1,7 @@
 use nihav_core::demuxers::*;
 
 struct TealMovieDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     frameno:        usize,
     offsets:        Vec<u32>,
     afrm_start:     usize,
@@ -15,7 +15,7 @@ struct TealMovieDemuxer<'a> {
 }
 
 impl<'a> TealMovieDemuxer<'a> {
-    fn new(src: &'a mut ByteReader<'a>) -> Self {
+    fn new(src: &'a mut dyn ByteIO) -> Self {
         TealMovieDemuxer {
             src,
             frameno:        0,
@@ -30,7 +30,7 @@ impl<'a> TealMovieDemuxer<'a> {
             height:         0,
         }
     }
-    fn skip_block2(br: &mut ByteReader, b2_run: &mut usize, b2_type: &mut u8) -> DemuxerResult<()> {
+    fn skip_block2(br: &mut dyn ByteIO, b2_run: &mut usize, b2_type: &mut u8) -> DemuxerResult<()> {
         let op = if *b2_run > 0 {
                 *b2_run -= 1;
                 *b2_type
@@ -58,7 +58,7 @@ impl<'a> TealMovieDemuxer<'a> {
         }
         Ok(())
     }
-    fn skip_block4(br: &mut ByteReader, split: bool, b4_run: &mut usize, b4_type: &mut u8, b2_run: &mut usize, b2_type: &mut u8) -> DemuxerResult<()> {
+    fn skip_block4(br: &mut dyn ByteIO, split: bool, b4_run: &mut usize, b4_type: &mut u8, b2_run: &mut usize, b2_type: &mut u8) -> DemuxerResult<()> {
         let op = if split {
                 0xFF
             } else if *b4_run > 0 {
@@ -93,7 +93,7 @@ impl<'a> TealMovieDemuxer<'a> {
         }
         Ok(())
     }
-    fn find_type2_size(br: &mut ByteReader, width: usize, height: usize) -> DemuxerResult<usize> {
+    fn find_type2_size(br: &mut dyn ByteIO, width: usize, height: usize) -> DemuxerResult<usize> {
         let mut b8_type = 0;
         let mut b8_run  = 0;
         let mut b4_type = 0;
@@ -144,8 +144,7 @@ impl<'a> TealMovieDemuxer<'a> {
         Ok(br.tell() as usize)
     }
     fn parse_frame(&mut self) -> DemuxerResult<(bool, Vec<u8>)> {
-        let mut mr = MemoryReader::new_read(&self.buf[self.ppos..]);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&self.buf[self.ppos..]);
         let ftype = br.read_u16be()?;
         let flags = br.read_u16be()?;
         if (flags & 1) == 0 {
@@ -319,7 +318,7 @@ impl<'a> NAOptionHandler for TealMovieDemuxer<'a> {
 pub struct TealMovieDemuxerCreator { }
 
 impl DemuxerCreator for TealMovieDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(TealMovieDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "tealmov" }
@@ -334,8 +333,7 @@ mod test {
     fn test_teal_movie_demux() {
         // sample bundled with TealMovie software
         let mut file = File::open("assets/Misc/ASTRONUT.PDB").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = TealMovieDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

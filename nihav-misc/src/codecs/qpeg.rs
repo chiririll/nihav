@@ -1,4 +1,4 @@
-use nihav_core::io::byteio::{ByteReader,MemoryReader};
+use nihav_core::io::byteio::{ByteIO,MemoryReader};
 use nihav_core::codecs::*;
 
 struct DVCDecoder {
@@ -42,8 +42,7 @@ impl NADecoder for DVCDecoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let mut pos = 0;
         let mut is_intra = true;

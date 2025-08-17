@@ -1,4 +1,4 @@
-use nihav_core::io::byteio::{ByteReader,MemoryReader};
+use nihav_core::io::byteio::{ByteIO,MemoryReader};
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::codecs::*;
@@ -254,8 +254,7 @@ impl NADecoder for MWV1Decoder {
         if let NACodecTypeInfo::Video(_vinfo) = info.get_properties() {
             if let Some(edata) = info.get_extradata() {
                 validate!(edata.len() >= 64);
-                let mut mr = MemoryReader::new_read(edata.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(edata.as_slice());
                 let len                 = br.read_u32be()? as usize;
                 validate!(edata.len() == len);
                 let _                   = br.read_u32be()?; //always 7?

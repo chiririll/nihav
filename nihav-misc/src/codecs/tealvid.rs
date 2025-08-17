@@ -1,4 +1,4 @@
-use nihav_core::io::byteio::{ByteReader,MemoryReader};
+use nihav_core::io::byteio::{ByteIO,MemoryReader};
 use nihav_core::codecs::*;
 use nihav_codec_support::codecs::imaadpcm::*;
 
@@ -17,7 +17,7 @@ struct FrameContext {
 }
 
 impl FrameContext {
-    fn decode_block2(&mut self, br: &mut ByteReader, dst: &mut [u8], xpos: usize, ypos: usize) -> DecoderResult<()> {
+    fn decode_block2(&mut self, br: &mut dyn ByteIO, dst: &mut [u8], xpos: usize, ypos: usize) -> DecoderResult<()> {
         let op = if self.sub2op_run > 0 {
                 self.sub2op_run -= 1;
                 self.sub2op_val
@@ -76,7 +76,7 @@ impl FrameContext {
         }
         Ok(())
     }
-    fn decode_block4(&mut self, br: &mut ByteReader, dst: &mut [u8], xpos: usize, ypos: usize, split: bool) -> DecoderResult<()> {
+    fn decode_block4(&mut self, br: &mut dyn ByteIO, dst: &mut [u8], xpos: usize, ypos: usize, split: bool) -> DecoderResult<()> {
         let op = if split {
                 0xFF
             } else if self.subop_run > 0 {
@@ -149,7 +149,7 @@ impl FrameContext {
         }
         Ok(())
     }
-    fn unpack_frame(&mut self, br: &mut ByteReader, dst: &mut [u8]) -> DecoderResult<()> {
+    fn unpack_frame(&mut self, br: &mut dyn ByteIO, dst: &mut [u8]) -> DecoderResult<()> {
         self.op_run = 0;
         self.op_val = 0;
         self.subop_run = 0;
@@ -251,7 +251,7 @@ impl FrameDecoder {
         self.frame  = vec![0; self.fctx.width * self.fctx.height];
         self.fctx.pframe = vec![0; self.fctx.width * self.fctx.height];
     }
-    fn load_raw_frame(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+    fn load_raw_frame(&mut self, br: &mut dyn ByteIO) -> DecoderResult<()> {
         if self.fctx.width == 160 {
             br.read_buf(&mut self.frame)?;
         } else {
@@ -364,8 +364,7 @@ impl NADecoder for TealVideoDecoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let frm_type = br.read_u16be()?;
         let _is_last = (br.read_u16be()? & 1) == 0;

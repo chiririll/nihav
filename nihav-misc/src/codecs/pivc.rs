@@ -124,7 +124,7 @@ impl PIFrame {
         self.stride = (w + tile_size - 1) / tile_size * tile_size;
         self.frame = vec![0; self.stride * ((h + tile_size - 1) / tile_size * tile_size)];
     }
-    fn decode_tile_intra(&mut self, xpos: usize, ypos: usize, tsize: usize, flags: &mut ByteReader, pixels: &mut ByteReader) -> DecoderResult<()> {
+    fn decode_tile_intra(&mut self, xpos: usize, ypos: usize, tsize: usize, flags: &mut dyn ByteIO, pixels: &mut dyn ByteIO) -> DecoderResult<()> {
         let mut flg = flags.read_u16le()?;
         for yoff in (0..tsize).step_by(tsize / 4) {
             for xoff in (0..tsize).step_by(tsize / 4) {
@@ -151,7 +151,7 @@ impl PIFrame {
         }
         Ok(())
     }
-    fn decode_intra(&mut self, flags: &mut ByteReader, pixels: &mut ByteReader) -> DecoderResult<()> {
+    fn decode_intra(&mut self, flags: &mut dyn ByteIO, pixels: &mut dyn ByteIO) -> DecoderResult<()> {
         for y in (0..self.height).step_by(self.tile_size) {
             for x in (0..self.width).step_by(self.tile_size) {
                 self.decode_tile_intra(x, y, self.tile_size, flags, pixels)?;
@@ -160,7 +160,7 @@ impl PIFrame {
         Ok(())
     }
 
-    fn decode_tile_inter(&mut self, xpos: usize, ypos: usize, tsize: usize, flags: &mut ByteReader, pixels: &mut ByteReader) -> DecoderResult<()> {
+    fn decode_tile_inter(&mut self, xpos: usize, ypos: usize, tsize: usize, flags: &mut dyn ByteIO, pixels: &mut dyn ByteIO) -> DecoderResult<()> {
         let mut flg = flags.read_u16le()?;
         for yoff in (0..tsize).step_by(tsize / 4) {
             for xoff in (0..tsize).step_by(tsize / 4) {
@@ -189,7 +189,7 @@ impl PIFrame {
         }
         Ok(())
     }
-    fn decode_inter(&mut self, flags: &mut ByteReader, pixels: &mut ByteReader) -> DecoderResult<()> {
+    fn decode_inter(&mut self, flags: &mut dyn ByteIO, pixels: &mut dyn ByteIO) -> DecoderResult<()> {
         for y in (0..self.height).step_by(self.tile_size) {
             for x in (0..self.width).step_by(self.tile_size) {
                 self.decode_tile_inter(x, y, self.tile_size, flags, pixels)?;
@@ -286,11 +286,8 @@ impl NADecoder for PIVideoDecoder {
                 &self.ubuf
             };
 
-        let mut mr = MemoryReader::new_read(tree_flags);
-        let mut flags = ByteReader::new(&mut mr);
-
-        let mut mr = MemoryReader::new_read(pixel_data);
-        let mut pixels = ByteReader::new(&mut mr);
+        let mut flags = MemoryReader::new_read(tree_flags);
+        let mut pixels = MemoryReader::new_read(pixel_data);
 
         let is_intra = (frame_flags & 1) == 0;
 

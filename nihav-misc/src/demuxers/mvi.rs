@@ -1,7 +1,7 @@
 use nihav_core::demuxers::*;
 
 struct MVIDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     is_large:       bool,
     vpacket:        Option<NAPacket>,
     aframe:         usize,
@@ -13,7 +13,7 @@ struct MVIDemuxer<'a> {
 }
 
 impl<'a> MVIDemuxer<'a> {
-    fn new(src: &'a mut ByteReader<'a>) -> Self {
+    fn new(src: &'a mut dyn ByteIO) -> Self {
         MVIDemuxer {
             src,
             is_large:   false,
@@ -134,7 +134,7 @@ impl<'a> NAOptionHandler for MVIDemuxer<'a> {
 pub struct MVIDemuxerCreator { }
 
 impl DemuxerCreator for MVIDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(MVIDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "mvi" }
@@ -149,8 +149,7 @@ mod test {
     fn test_mvi_demux() {
         // sample from AD&D Core Rules CD
         let mut file = File::open("assets/Misc/MP/avtest.mvi").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = MVIDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

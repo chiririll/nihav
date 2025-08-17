@@ -1,12 +1,12 @@
 use nihav_core::demuxers::*;
 
 struct QPEGDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     frameno:        u32,
 }
 
 impl<'a> QPEGDemuxer<'a> {
-    fn new(src: &'a mut ByteReader<'a>) -> Self {
+    fn new(src: &'a mut dyn ByteIO) -> Self {
         QPEGDemuxer {
             src,
             frameno:    0,
@@ -68,7 +68,7 @@ impl<'a> NAOptionHandler for QPEGDemuxer<'a> {
 pub struct QPEGDemuxerCreator { }
 
 impl DemuxerCreator for QPEGDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(QPEGDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "qpeg" }
@@ -83,8 +83,7 @@ mod test {
     fn test_qpeg_demux() {
         // sample from Inside Multimedia 1994 October
         let mut file = File::open("assets/Misc/club01.dvc").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = QPEGDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

@@ -1,7 +1,7 @@
 // Somewhat simplified JPEG decoder
 // TODO: move common JPEG decoding into codec-support
 
-use nihav_core::io::byteio::{ByteReader,MemoryReader};
+use nihav_core::io::byteio::{ByteIO,MemoryReader};
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::codecs::*;
@@ -363,8 +363,7 @@ impl NADecoder for RadiusStudioDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         if src.len() < 2048 { return Err(DecoderError::ShortData); }
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let _size_v0            = br.read_u32be()? as usize;
         let field2_size         = br.read_u32be()? as usize;
         if field2_size != 0 {
