@@ -75,10 +75,8 @@ fn decode_frame(frm: &mut NASimpleVideoFrame<u8>, src: &[u8], width: usize, heig
     validate!(src.len() > idx_start);
 
     let src1 = if num_vec > 256 { &src[idx_start + (nblocks + 7)/8..] } else { &src[idx_start..] };
-    let mut mr = MemoryReader::new_read(src1);
-    let mut idx_br = ByteReader::new(&mut mr);
-    let mut mr = MemoryReader::new_read(&src[idx_start..]);
-    let mut idx9_br = ByteReader::new(&mut mr);
+    let mut idx_br = MemoryReader::new_read(src1);
+    let mut idx9_br = MemoryReader::new_read(&src[idx_start..]);
     let mut hi9 = 0u8;
     let mut bits = 0u8;
     for y in (0..height).step_by(2) {

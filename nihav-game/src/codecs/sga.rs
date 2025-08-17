@@ -31,7 +31,7 @@ impl DPVideoDecoder {
             height:     0,
         }
     }
-    fn decode_81(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+    fn decode_81(&mut self, br: &mut dyn ByteIO) -> DecoderResult<()> {
         let mut pat = [0; 8];
         let mut cur_clr = [0; 16];
         let mut off = 0;
@@ -171,10 +171,8 @@ impl DPVideoDecoder {
         Ok(())
     }
     fn decode_85(&mut self, clr_src: &[u8], op_src: &[u8]) -> DecoderResult<()> {
-        let mut mr = MemoryReader::new_read(clr_src);
-        let mut clrs = ByteReader::new(&mut mr);
-        let mut mr = MemoryReader::new_read(op_src);
-        let mut ops = ByteReader::new(&mut mr);
+        let mut clrs = MemoryReader::new_read(clr_src);
+        let mut ops = MemoryReader::new_read(op_src);
 
         let mut pat = [0; 8];
         let mut cur_clr = [0; 16];
@@ -444,8 +442,7 @@ impl NADecoder for DPVideoDecoder {
         match self.subtype {
             0x81 | 0x8A => {
                 validate!(src.len() > 12);
-                let mut mr = MemoryReader::new_read(&src);
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(&src);
                 let stype           = br.read_byte()?;
                 validate!(stype == 0x81 || stype == 0x8A);
                                       br.read_byte()?;
@@ -469,8 +466,7 @@ impl NADecoder for DPVideoDecoder {
             },
             0x85 | 0x86 | 0x89 => {
                 validate!(src.len() > 6);
-                let mut mr = MemoryReader::new_read(&src);
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(&src);
 
                 let pal_offset      = usize::from(br.read_u16be()?);
                 let pal_size        = usize::from(br.read_u16be()?);

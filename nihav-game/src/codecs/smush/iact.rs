@@ -51,8 +51,7 @@ impl NADecoder for IACTDecoder {
             }
             let _left = read_u32le(&src[14..])?;
             let offset = if self.tot_size == 0 {
-                    let mut mr = MemoryReader::new_read(&src[18..]);
-                    let mut br = ByteReader::new(&mut mr);
+                    let mut br = MemoryReader::new_read(&src[18..]);
                     let tag             = br.read_tag()?;
                     if &tag == b"iMUS" {
                         self.tot_size   = br.read_u32be()?;
@@ -82,8 +81,7 @@ impl NADecoder for IACTDecoder {
             }
             let nsamples = (match self.bits {
                     _ if self.old => {
-                        let mut mr = MemoryReader::new_read(&self.queued);
-                        let mut br = ByteReader::new(&mut mr);
+                        let mut br = MemoryReader::new_read(&self.queued);
                         let mut nblocks = 0;
                         while br.left() > 0 {
                             let len     = br.read_u16be()? as usize;
@@ -106,8 +104,7 @@ impl NADecoder for IACTDecoder {
             let adata = adata.get_data_mut().unwrap();
             match self.bits {
                 _ if self.old => {
-                    let mut mr = MemoryReader::new_read(&self.queued);
-                    let mut br = ByteReader::new(&mut mr);
+                    let mut br = MemoryReader::new_read(&self.queued);
                     for dst in adata.chunks_exact_mut(1024 * 2) {
                         let len         = br.read_u16be()? as usize;
                         let end = br.tell() + (len as u64);

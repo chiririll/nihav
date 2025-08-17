@@ -1,14 +1,14 @@
 use nihav_core::muxers::*;
 
 struct EAMuxer<'a> {
-    bw:             &'a mut ByteWriter<'a>,
+    bw:             &'a mut dyn ByteIO,
     has_alpha:      bool,
     nframes:        u32,
     max_size:       [u32; 2],
 }
 
 impl<'a> EAMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             has_alpha:      false,
@@ -118,7 +118,7 @@ impl<'a> NAOptionHandler for EAMuxer<'a> {
 pub struct EAMuxerCreator {}
 
 impl MuxerCreator for EAMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(EAMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "ea" }

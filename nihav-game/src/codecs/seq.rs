@@ -54,8 +54,7 @@ impl NADecoder for SequenceDecoder {
         let src = pkt.get_buffer();
         validate!(src.len() > FRAME_HEADER);
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let width       = br.read_u16le()? as usize;
         let height      = br.read_u16le()? as usize;
@@ -83,10 +82,8 @@ impl NADecoder for SequenceDecoder {
             },
             1 | 11 => {
                 validate!(!opcodes.is_empty());
-                let mut mr = MemoryReader::new_read(opcodes);
-                let mut ops = ByteReader::new(&mut mr);
-                let mut mr = MemoryReader::new_read(clr_data);
-                let mut clr = ByteReader::new(&mut mr);
+                let mut ops = MemoryReader::new_read(opcodes);
+                let mut clr = MemoryReader::new_read(clr_data);
 
                 let mut x = xoff;
                 let mut y = yoff;

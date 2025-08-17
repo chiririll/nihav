@@ -2,7 +2,7 @@ use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 
 struct SmushDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     old:        bool,
     size:       u64,
 
@@ -15,7 +15,7 @@ struct SmushDemuxer<'a> {
     asize:      u64,
 }
 
-fn parse_iact(br: &mut ByteReader, end: u64, arate: &mut u32, abits: &mut u8, chans: &mut u8, mcmp: bool) -> DemuxerResult<()> {
+fn parse_iact(br: &mut dyn ByteIO, end: u64, arate: &mut u32, abits: &mut u8, chans: &mut u8, mcmp: bool) -> DemuxerResult<()> {
     if !mcmp {
                                           br.read_skip(14)?;
     }
@@ -65,7 +65,7 @@ fn parse_iact(br: &mut ByteReader, end: u64, arate: &mut u32, abits: &mut u8, ch
 }
 
 impl<'a> SmushDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         SmushDemuxer {
             src:        io,
 
@@ -149,7 +149,7 @@ impl<'a> SmushDemuxer<'a> {
                     let opcode          = src.read_u16le()?;
                     let flags           = src.read_u16le()?;
                     if (opcode == 8) && (flags == 0x2E) {
-                        if parse_iact(src, end, &mut arate, &mut abits, &mut chans, false).is_ok() {
+                        if parse_iact(*src, end, &mut arate, &mut abits, &mut chans, false).is_ok() {
                             aname = "smush-iact";
                         }
                         validate!(src.tell() <= end);
@@ -489,7 +489,7 @@ impl<'a> NAOptionHandler for SmushDemuxer<'a> {
 pub struct SmushDemuxerCreator { }
 
 impl DemuxerCreator for SmushDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(SmushDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "smush" }
@@ -497,7 +497,7 @@ impl DemuxerCreator for SmushDemuxerCreator {
 
 
 struct MCMPDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     cur_frame:  usize,
 
     offsets:    Vec<u64>,
@@ -507,7 +507,7 @@ struct MCMPDemuxer<'a> {
 }
 
 impl<'a> MCMPDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         MCMPDemuxer {
             src:        io,
             cur_frame:  0,
@@ -571,7 +571,7 @@ impl<'a> DemuxCore<'a> for MCMPDemuxer<'a> {
             arate                       = self.src.read_u32le()?;
             validate!(arate > 0);
         } else {
-            parse_iact(self.src, data_start, &mut arate, &mut abits, &mut chans, true)?;
+            parse_iact(&mut *self.src, data_start, &mut arate, &mut abits, &mut chans, true)?;
         }
         if chans == 2 {
             for (samp, pts) in self.samples.iter_mut().zip(self.pts.iter_mut()) {
@@ -637,7 +637,7 @@ impl<'a> NAOptionHandler for MCMPDemuxer<'a> {
 pub struct MCMPDemuxerCreator { }
 
 impl DemuxerCreator for MCMPDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(MCMPDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "smush-mcmp" }
@@ -653,8 +653,7 @@ mod test {
     fn test_smush_demux_anim_v1() {
         // sample from Rebel Assault game
         let mut file = File::open("assets/Game/smush/c1block.anm").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = SmushDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -673,8 +672,7 @@ mod test {
     fn test_smush_demux_anim_v2() {
         // sample from The Dig
         let mut file = File::open("assets/Game/smush/PIGOUT.SAN").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = SmushDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -693,8 +691,7 @@ mod test {
     fn test_smush_demux_sanm() {
         // sample from Grim Fandango
         let mut file = File::open("assets/Game/smush/lol.snm").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = SmushDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -713,8 +710,7 @@ mod test {
     fn test_mcmp_demux_imus() {
         // sample from Grim Fandango
         let mut file = File::open("assets/Game/smush/1104 - Lupe.IMC").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = MCMPDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -733,8 +729,7 @@ mod test {
     fn test_mcmp_demux_wav() {
         // sample from Grim Fandango
         let mut file = File::open("assets/Game/smush/breadpor.WAV").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = MCMPDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

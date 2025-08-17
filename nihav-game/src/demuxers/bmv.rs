@@ -2,7 +2,7 @@ use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 
 struct BMVDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     vid_id:     usize,
     aud_id:     usize,
     vpos:       u64,
@@ -78,7 +78,7 @@ impl<'a> NAOptionHandler for BMVDemuxer<'a> {
 }
 
 impl<'a> BMVDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:        io,
             vid_id:     0,
@@ -93,14 +93,14 @@ impl<'a> BMVDemuxer<'a> {
 pub struct BMVDemuxerCreator { }
 
 impl DemuxerCreator for BMVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(BMVDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "bmv" }
 }
 
 struct BMV3Demuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     vid_id:     usize,
     aud_id:     usize,
     vpos:       u64,
@@ -223,7 +223,7 @@ impl<'a> NAOptionHandler for BMV3Demuxer<'a> {
 }
 
 impl<'a> BMV3Demuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:        io,
             vid_id:     0,
@@ -240,7 +240,7 @@ impl<'a> BMV3Demuxer<'a> {
 pub struct BMV3DemuxerCreator { }
 
 impl DemuxerCreator for BMV3DemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(BMV3Demuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "bmv3" }
@@ -255,8 +255,7 @@ mod test {
     #[test]
     fn test_bmv_demux() {
         let mut file = File::open("assets/Game/DW2-MOUSE.BMV").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = BMVDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -274,8 +273,7 @@ mod test {
     #[test]
     fn test_bmv3_demux() {
         let mut file = File::open("assets/Game/DW3-Loffnote.bmv").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = BMV3Demuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

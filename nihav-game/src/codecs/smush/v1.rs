@@ -130,7 +130,7 @@ impl Glyphs {
             }
         }
     }
-    fn read_additional(&mut self, br: &mut ByteReader, add: u16) -> DecoderResult<()> {
+    fn read_additional(&mut self, br: &mut dyn ByteIO, add: u16) -> DecoderResult<()> {
         if add > 0 {
             validate!(add <= 256);
             let mut gbuf = [0; 8];
@@ -284,7 +284,7 @@ fn do_mc(dst: &mut [u8], src: &[u8], stride: usize, xoff: isize, yoff: isize, w:
 }
 
 #[allow(clippy::too_many_arguments)]
-fn do_block47(br: &mut ByteReader, dst: &mut [u8], frm1: &[u8], frm2: &[u8], x: usize, y: usize, stride: usize, bsize: usize, clr: &[u8; 6], glyphs: &Glyphs) -> DecoderResult<()> {
+fn do_block47(br: &mut dyn ByteIO, dst: &mut [u8], frm1: &[u8], frm2: &[u8], x: usize, y: usize, stride: usize, bsize: usize, clr: &[u8; 6], glyphs: &Glyphs) -> DecoderResult<()> {
     let op                              = br.read_byte()?;
     match op {
         0xFF if bsize > 2 => {
@@ -413,7 +413,7 @@ impl Smush1Decoder {
         }
     }
 
-    fn decode_rle(br: &mut ByteReader, dst: &mut [u8], w: usize, h: usize, stride: usize) -> DecoderResult<()> {
+    fn decode_rle(br: &mut dyn ByteIO, dst: &mut [u8], w: usize, h: usize, stride: usize) -> DecoderResult<()> {
         let mut x = 0;
         let mut y = 0;
         let mut len = 0;
@@ -445,7 +445,7 @@ impl Smush1Decoder {
         Ok(())
     }
 
-    fn decode_1(&mut self, br: &mut ByteReader, x: i16, y: i16, w: usize, h: usize, transparent: bool) -> DecoderResult<()> {
+    fn decode_1(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, w: usize, h: usize, transparent: bool) -> DecoderResult<()> {
         for yy in 0..h {
             let len                     = u64::from(br.read_u16le()?);
             let end = br.tell() + len;
@@ -478,7 +478,7 @@ impl Smush1Decoder {
 
         Ok(())
     }
-    fn decode_2(&mut self, br: &mut ByteReader, x: i16, y: i16, _w: usize, _h: usize, len: usize) -> DecoderResult<()> {
+    fn decode_2(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, _w: usize, _h: usize, len: usize) -> DecoderResult<()> {
 
         validate!((len & 3) == 0);
         let mut xpos = x;
@@ -495,7 +495,7 @@ impl Smush1Decoder {
         Ok(())
     }
     #[allow(clippy::too_many_arguments)]
-    fn decode_4(&mut self, br: &mut ByteReader, x: i16, y: i16, w: usize, h: usize, mode: u8, add: u16) -> DecoderResult<()> {
+    fn decode_4(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, w: usize, h: usize, mode: u8, add: u16) -> DecoderResult<()> {
         self.glyphs.make_glyphs_4(mode);
         self.glyphs.read_additional(br, add)?;
 
@@ -535,7 +535,7 @@ impl Smush1Decoder {
         Ok(())
     }
     #[allow(clippy::too_many_arguments)]
-    fn decode_5(&mut self, br: &mut ByteReader, x: i16, y: i16, w: usize, h: usize, mode: u8, add: u16) -> DecoderResult<()> {
+    fn decode_5(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, w: usize, h: usize, mode: u8, add: u16) -> DecoderResult<()> {
         self.glyphs.make_glyphs_5(mode);
         self.glyphs.read_additional(br, add)?;
 
@@ -571,7 +571,7 @@ impl Smush1Decoder {
 
         Ok(())
     }
-    fn decode_21(&mut self, br: &mut ByteReader, x: i16, y: i16, w: usize, h: usize, size: usize) -> DecoderResult<()> {
+    fn decode_21(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, w: usize, h: usize, size: usize) -> DecoderResult<()> {
         let end = br.tell() + (size as u64);
         for yy in 0..h {
             if br.tell() >= end { break; }
@@ -601,7 +601,7 @@ impl Smush1Decoder {
         Ok(())
     }
     #[allow(clippy::too_many_arguments)]
-    fn decode_23(&mut self, br: &mut ByteReader, x: i16, y: i16, w: usize, h: usize, bias: u8, add: u16, old: bool) -> DecoderResult<()> {
+    fn decode_23(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, w: usize, h: usize, bias: u8, add: u16, old: bool) -> DecoderResult<()> {
         let mut lut = [0; 256];
         if old {
             for (i, el) in lut.iter_mut().enumerate() {
@@ -637,7 +637,7 @@ impl Smush1Decoder {
 
         Ok(())
     }
-    fn decode_37(&mut self, br: &mut ByteReader, x: i16, y: i16, mut w: usize, mut h: usize) -> DecoderResult<()> {
+    fn decode_37(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, mut w: usize, mut h: usize) -> DecoderResult<()> {
         let compr                       = br.read_byte()?;
         let mv_off                      = br.read_byte()? as usize;
         validate!(mv_off <= 2);
@@ -788,7 +788,7 @@ impl Smush1Decoder {
 
         Ok(())
     }
-    fn decode_47(&mut self, br: &mut ByteReader, x: i16, y: i16, w: usize, h: usize) -> DecoderResult<()> {
+    fn decode_47(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, w: usize, h: usize) -> DecoderResult<()> {
         let seq                         = br.read_u16le()?;
         let compr                       = br.read_byte()?;
         let reorder                     = br.read_byte()?;
@@ -871,7 +871,7 @@ impl Smush1Decoder {
 
         Ok(())
     }
-    fn decode_48(&mut self, br: &mut ByteReader, x: i16, y: i16, mut w: usize, mut h: usize) -> DecoderResult<()> {
+    fn decode_48(&mut self, br: &mut dyn ByteIO, x: i16, y: i16, mut w: usize, mut h: usize) -> DecoderResult<()> {
         let compr                       = br.read_byte()?;
         let mvsel                       = br.read_byte()? as usize;
         validate!(mvsel < 2);
@@ -1019,8 +1019,7 @@ impl NADecoder for Smush1Decoder {
         let src = pkt.get_buffer();
         validate!(src.len() > 8);
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let mut store = false;
         while br.left() > 0 {
@@ -1092,22 +1091,19 @@ impl NADecoder for Smush1Decoder {
                         37 => {
                             let start = br.tell() as usize;
                             let end   = start + size - 14;
-                            let mut mr = MemoryReader::new_read(&src[start..end]);
-                            let mut br = ByteReader::new(&mut mr);
+                            let mut br = MemoryReader::new_read(&src[start..end]);
                             self.decode_37(&mut br, x, y, w, h)?;
                         },
                         47 => {
                             let start = br.tell() as usize;
                             let end   = start + size - 14;
-                            let mut mr = MemoryReader::new_read(&src[start..end]);
-                            let mut br = ByteReader::new(&mut mr);
+                            let mut br = MemoryReader::new_read(&src[start..end]);
                             self.decode_47(&mut br, x, y, w, h)?;
                         },
                         48 => {
                             let start = br.tell() as usize;
                             let end   = start + size - 14;
-                            let mut mr = MemoryReader::new_read(&src[start..end]);
-                            let mut br = ByteReader::new(&mut mr);
+                            let mut br = MemoryReader::new_read(&src[start..end]);
                             self.decode_48(&mut br, x, y, w, h)?;
                         },
                         _ => return Err(DecoderError::NotImplemented),

@@ -8,7 +8,7 @@ enum GDVState {
 }
 
 struct GremlinVideoDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     frames:     u16,
     cur_frame:  u16,
     asize:      usize,
@@ -117,7 +117,7 @@ impl<'a> NAOptionHandler for GremlinVideoDemuxer<'a> {
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 impl<'a> GremlinVideoDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         GremlinVideoDemuxer {
             cur_frame: 0,
             frames: 0,
@@ -155,7 +155,7 @@ impl<'a> GremlinVideoDemuxer<'a> {
 pub struct GDVDemuxerCreator { }
 
 impl DemuxerCreator for GDVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(GremlinVideoDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "gdv" }
@@ -170,8 +170,7 @@ mod test {
     fn test_gdv_demux() {
         // sample from Normality game
         let mut file = File::open("assets/Game/intro1.gdv").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = GremlinVideoDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

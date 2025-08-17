@@ -288,8 +288,7 @@ impl NADecoder for KMVCDecoder {
             }
         }
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let header = br.read_byte()?;
         let method = header & 0xF;

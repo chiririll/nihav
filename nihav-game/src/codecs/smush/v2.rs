@@ -57,7 +57,7 @@ impl FrameData {
     }
 }
 
-fn decode_rle(br: &mut ByteReader, dst: &mut [u8]) -> DecoderResult<()> {
+fn decode_rle(br: &mut dyn ByteIO, dst: &mut [u8]) -> DecoderResult<()> {
     let mut len = 0;
     let mut clr = 0;
     let mut run = false;
@@ -117,7 +117,7 @@ fn draw_glyph(dst: &mut [u16], stride: usize, bsize: usize, glyph: &[u8], clr2: 
     }
 }
 
-fn do_block2(br: &mut ByteReader, dst: &mut [u16], x: usize, y: usize, bsize: usize, bdata: &BlockData) -> DecoderResult<()> {
+fn do_block2(br: &mut dyn ByteIO, dst: &mut [u16], x: usize, y: usize, bsize: usize, bdata: &BlockData) -> DecoderResult<()> {
     let stride = bdata.stride;
     let op                              = br.read_byte()?;
     match op {
@@ -228,8 +228,7 @@ impl NADecoder for Smush2Decoder {
         let src = pkt.get_buffer();
         validate!(src.len() > 8);
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let mut reorder = 0;
         while br.left() > 0 {
@@ -270,8 +269,7 @@ impl NADecoder for Smush2Decoder {
                         validate!(br.tell() < tend);
                         let start = br.tell() as usize;
                                           br.seek(SeekFrom::Start(tend))?;
-                        let mut mr = MemoryReader::new_read(&src[start..(tend as usize)]);
-                        let mut br = ByteReader::new(&mut mr);
+                        let mut br = MemoryReader::new_read(&src[start..(tend as usize)]);
 
                         if seq == 0 {
                             for el in self.pic.frm1.iter_mut() {

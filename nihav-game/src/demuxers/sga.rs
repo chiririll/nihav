@@ -9,7 +9,7 @@ const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(
                                             None, None],
                                         elem_size: 2, be: false, alpha: false, palette: false };
 struct SGADemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     subtype:        u8,
     apts:           u64,
     abuf:           Vec<u8>,
@@ -20,7 +20,7 @@ struct SGADemuxer<'a> {
 }
 
 impl<'a> SGADemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:            io,
             subtype:        0,
@@ -53,7 +53,7 @@ fn parse_smpte_time(src: &[u8], ntsc: bool) -> DemuxerResult<u64> {
     Ok(tot_sec * if ntsc { 60 } else { 30 } + u64::from(frame))
 }
 
-fn get_smpte_time(src: &mut ByteReader, ntsc: bool) -> DemuxerResult<u64> {
+fn get_smpte_time(src: &mut dyn ByteIO, ntsc: bool) -> DemuxerResult<u64> {
     let mut buf = [0; 4];
                                           src.read_buf(&mut buf)?;
     parse_smpte_time(&buf, ntsc)
@@ -359,7 +359,7 @@ impl<'a> NAOptionHandler for SGADemuxer<'a> {
 pub struct SGADemuxerCreator { }
 
 impl DemuxerCreator for SGADemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(SGADemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "sga" }
@@ -372,8 +372,7 @@ mod test {
 
     fn test_sga_demux(name: &str) {
         let mut file = File::open(name).unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = SGADemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

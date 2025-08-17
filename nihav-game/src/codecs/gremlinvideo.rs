@@ -28,7 +28,7 @@ const PREAMBLE_SIZE: usize = 4096;
 
 impl Bits8 {
     fn new() -> Self { Bits8 { queue: 0, fill: 0 } }
-    fn read_2bits(&mut self, br: &mut ByteReader) -> ByteIOResult<u8> {
+    fn read_2bits(&mut self, br: &mut dyn ByteIO) -> ByteIOResult<u8> {
         if self.fill == 0 {
             self.queue  = br.read_byte()?;
             self.fill  += 8;
@@ -42,12 +42,12 @@ impl Bits8 {
 
 impl Bits32 {
     fn new() -> Self { Bits32 { queue: 0, fill: 0 } }
-    fn fill(&mut self, br: &mut ByteReader) -> ByteIOResult<()> {
+    fn fill(&mut self, br: &mut dyn ByteIO) -> ByteIOResult<()> {
         self.queue = br.read_u32le()?;
         self.fill  = 32;
         Ok(())
     }
-    fn read_bits(&mut self, br: &mut ByteReader, nbits: u8) -> ByteIOResult<u32> {
+    fn read_bits(&mut self, br: &mut dyn ByteIO, nbits: u8) -> ByteIOResult<u32> {
         let res = self.queue & ((1 << nbits) - 1);
         self.queue >>= nbits;
         self.fill   -= nbits;
@@ -271,7 +271,7 @@ impl GremlinVideoDecoder {
         }
     }
 
-    fn decode_method2(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+    fn decode_method2(&mut self, br: &mut dyn ByteIO) -> DecoderResult<()> {
         let mut bits = Bits8::new();
 
         let mut size = self.info.get_properties().get_video_info().unwrap().get_width() *
@@ -309,7 +309,7 @@ impl GremlinVideoDecoder {
         Ok(())
     }
 
-    fn decode_method2_16bit(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+    fn decode_method2_16bit(&mut self, br: &mut dyn ByteIO) -> DecoderResult<()> {
         let mut bits = Bits8::new();
 
         if self.frame16[8] != 64 {
@@ -351,7 +351,7 @@ impl GremlinVideoDecoder {
         Ok(())
     }
 
-    fn decode_method5(&mut self, br: &mut ByteReader, skip: usize) -> DecoderResult<()> {
+    fn decode_method5(&mut self, br: &mut dyn ByteIO, skip: usize) -> DecoderResult<()> {
         let mut bits = Bits8::new();
 
         let mut size = self.info.get_properties().get_video_info().unwrap().get_width() *
@@ -396,7 +396,7 @@ impl GremlinVideoDecoder {
     }
 
     #[allow(clippy::identity_op)]
-    fn decode_method68(&mut self, br: &mut ByteReader,
+    fn decode_method68(&mut self, br: &mut dyn ByteIO,
                        skip: usize, use8: bool) -> DecoderResult<()> {
         let mut bits = Bits32::new();
 
@@ -564,8 +564,7 @@ impl NADecoder for GremlinVideoDecoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let flags = br.read_u32le()?;
         let w = self.info.get_properties().get_video_info().unwrap().get_width();
         let h = self.info.get_properties().get_video_info().unwrap().get_height();

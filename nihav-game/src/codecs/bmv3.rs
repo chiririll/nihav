@@ -33,7 +33,7 @@ impl NibbleReader {
     fn new() -> Self {
         Self { nib: 0, has_nib: false }
     }
-    fn get_nib(&mut self, br: &mut ByteReader) -> DecoderResult<u8> {
+    fn get_nib(&mut self, br: &mut dyn ByteIO) -> DecoderResult<u8> {
         if self.has_nib {
             self.has_nib = false;
             Ok(self.nib)
@@ -44,7 +44,7 @@ impl NibbleReader {
             Ok(b & 0xF)
         }
     }
-    fn get_length(&mut self, br: &mut ByteReader, mut len: usize, mut shift: u8) -> DecoderResult<usize> {
+    fn get_length(&mut self, br: &mut dyn ByteIO, mut len: usize, mut shift: u8) -> DecoderResult<usize> {
         loop {
             let nib = self.get_nib(br)? as usize;
             len |= nib << shift;
@@ -111,7 +111,7 @@ impl BMV3VideoDecoder {
         }
     }
     #[allow(clippy::identity_op)]
-    fn decode_frame(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+    fn decode_frame(&mut self, br: &mut dyn ByteIO) -> DecoderResult<()> {
         let mut idx = 0;
         loop {
             let op                          = br.read_byte()?;
@@ -258,7 +258,7 @@ impl BMV3VideoDecoder {
         self.mode = BMV3Mode::Copy;
         Ok(())
     }
-    fn pixfunc(&mut self, br: &mut ByteReader, len: usize) -> DecoderResult<()> {
+    fn pixfunc(&mut self, br: &mut dyn ByteIO, len: usize) -> DecoderResult<()> {
         validate!(len <= self.end - self.pos);
         for _ in 0..len {
             let op                          = BMV_PIXFUNCS_MAP[br.read_byte()? as usize];
@@ -290,7 +290,7 @@ impl BMV3VideoDecoder {
         Ok(())
     }
 
-    fn decode_normal(&mut self, br: &mut ByteReader, op: u8) -> DecoderResult<()> {
+    fn decode_normal(&mut self, br: &mut dyn ByteIO, op: u8) -> DecoderResult<()> {
         if op < 0x40 {
             let mode = op & 1;
             let len = ((op >> 1) & 0x7) as usize;
@@ -349,7 +349,7 @@ impl BMV3VideoDecoder {
         }
         Ok(())
     }
-    fn decode_copy(&mut self, br: &mut ByteReader, op: u8) -> DecoderResult<()> {
+    fn decode_copy(&mut self, br: &mut dyn ByteIO, op: u8) -> DecoderResult<()> {
         if op < 0x40 {
             let len = ((op >> 1) & 0x7) as usize;
             if len < 2 {
@@ -386,7 +386,7 @@ impl BMV3VideoDecoder {
         }
         Ok(())
     }
-    fn decode_mode4(&mut self, br: &mut ByteReader, op: u8) -> DecoderResult<()> {
+    fn decode_mode4(&mut self, br: &mut dyn ByteIO, op: u8) -> DecoderResult<()> {
         if (op & 0xF) < 4 {
             let mut len = ((op & 3) * 2) as usize;
             if (op & 0xF0) >= 0x20 {
@@ -404,7 +404,7 @@ impl BMV3VideoDecoder {
         }
         Ok(())
     }
-    fn decode_mode5c(&mut self, br: &mut ByteReader, op: u8) -> DecoderResult<()> {
+    fn decode_mode5c(&mut self, br: &mut dyn ByteIO, op: u8) -> DecoderResult<()> {
         if (op & 0xF) < 4 {
             let mut len = ((op & 3) * 2) as usize;
             if (op & 0xF0) >= 0x20 {
@@ -457,8 +457,7 @@ impl NADecoder for BMV3VideoDecoder {
         let src = pkt.get_buffer();
         validate!(src.len() > 1);
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let flags                               = br.read_byte()?;
 
         if (flags & BMV_COMMAND) != 0 {

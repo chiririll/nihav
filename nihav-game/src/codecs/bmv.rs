@@ -187,8 +187,7 @@ impl NADecoder for BMVVideoDecoder {
         let src = pkt.get_buffer();
         validate!(src.len() > 1);
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let flags                               = br.read_byte()?;
 
         if (flags & BMV_COMMAND) != 0 {

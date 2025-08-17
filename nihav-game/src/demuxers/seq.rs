@@ -2,7 +2,7 @@ use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 
 struct SequenceDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     nframes:    usize,
     frame_no:   usize,
 }
@@ -64,7 +64,7 @@ impl<'a> NAOptionHandler for SequenceDemuxer<'a> {
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 impl<'a> SequenceDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         SequenceDemuxer {
             src:        io,
             frame_no:   0,
@@ -76,7 +76,7 @@ impl<'a> SequenceDemuxer<'a> {
 pub struct SequenceDemuxerCreator { }
 
 impl DemuxerCreator for SequenceDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(SequenceDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "sierra-seq" }
@@ -91,8 +91,7 @@ mod test {
     #[test]
     fn test_seq() {
         let mut file = File::open("assets/Game/sierra/FS1.SEQ").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = SequenceDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

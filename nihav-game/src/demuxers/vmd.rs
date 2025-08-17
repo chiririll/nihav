@@ -21,7 +21,7 @@ struct FrameRec {
 }
 
 struct VMDDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     vid_id:     usize,
     aud_id:     usize,
     fno:        usize,
@@ -192,7 +192,7 @@ impl<'a> NAOptionHandler for VMDDemuxer<'a> {
 }
 
 impl<'a> VMDDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:        io,
             vid_id:     0,
@@ -208,7 +208,7 @@ impl<'a> VMDDemuxer<'a> {
 pub struct VMDDemuxerCreator { }
 
 impl DemuxerCreator for VMDDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(VMDDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "vmd" }
@@ -224,8 +224,7 @@ mod test {
         // sample: https://samples.mplayerhq.hu/game-formats/sierra-vmd/Lighthouse/128.vmd
         let mut file = File::open("assets/Game/sierra/128.vmd").unwrap();
         //let mut file = File::open("assets/Game/1491.VMD").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = VMDDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

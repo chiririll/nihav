@@ -23,7 +23,7 @@ macro_rules! lz_op {
         $off = ($off + 1) & 0xFFF;
     };
 }
-fn lz_unpack(br: &mut ByteReader, dst: &mut [u8]) -> DecoderResult<()> {
+fn lz_unpack(br: &mut dyn ByteIO, dst: &mut [u8]) -> DecoderResult<()> {
     let mut window: [u8; 0x1000] = [0x20; 0x1000];
 
     let dst_size = br.read_u32le()? as usize;
@@ -70,7 +70,7 @@ fn lz_unpack(br: &mut ByteReader, dst: &mut [u8]) -> DecoderResult<()> {
     Ok(())
 }
 
-fn rle_unpack(br: &mut ByteReader, len: usize, dst: &mut [u8]) -> DecoderResult<()> {
+fn rle_unpack(br: &mut dyn ByteIO, len: usize, dst: &mut [u8]) -> DecoderResult<()> {
     let end = br.tell() + (len as u64);
     let mut dpos = 0;
     if (len & 1) != 0 {
@@ -97,7 +97,7 @@ fn rle_unpack(br: &mut ByteReader, len: usize, dst: &mut [u8]) -> DecoderResult<
     Ok(())
 }
 
-fn decode_frame_data(br: &mut ByteReader, dst: &mut [u8], mut dpos: usize, stride: usize, w: usize, h: usize, method: u8) -> DecoderResult<bool> {
+fn decode_frame_data(br: &mut dyn ByteIO, dst: &mut [u8], mut dpos: usize, stride: usize, w: usize, h: usize, method: u8) -> DecoderResult<bool> {
     match method {
         1 => {
             for _ in 0..h {
@@ -182,7 +182,7 @@ impl VMDVideoDecoder {
             ver2:       0,
         }
     }
-    fn decode_frame(&mut self, br: &mut ByteReader) -> DecoderResult<bool> {
+    fn decode_frame(&mut self, br: &mut dyn ByteIO) -> DecoderResult<bool> {
         let frame_x                             = br.read_u16le()? as usize;
         let frame_y                             = br.read_u16le()? as usize;
         let frame_r                             = br.read_u16le()? as usize;
@@ -223,8 +223,7 @@ impl VMDVideoDecoder {
         let is_intra = if (method & 0x80) != 0 {
                 validate!(!self.buf.is_empty());
                 lz_unpack(br, &mut self.buf)?;
-                let mut mr = MemoryReader::new_read(&self.buf);
-                let mut buf_br = ByteReader::new(&mut mr);
+                let mut buf_br = MemoryReader::new_read(&self.buf);
                 decode_frame_data(&mut buf_br, &mut self.framebuf, dpos, stride, w, h, method & 0x7F)?
             } else {
                 decode_frame_data(br, &mut self.framebuf, dpos, stride, w, h, method & 0x7F)?
@@ -294,8 +293,7 @@ impl NADecoder for VMDVideoDecoder {
         let src = pkt.get_buffer();
         validate!(src.len() >= 10);
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let is_intra = self.decode_frame(&mut br)?;
 
@@ -400,7 +398,7 @@ impl VMDAudioDecoder {
             ch:     0,
         }
     }
-    fn decode_16bit(&self, dst: &mut [i16], off1: usize, br: &mut ByteReader, nblocks: usize, mut mask: u32) -> DecoderResult<()> {
+    fn decode_16bit(&self, dst: &mut [i16], off1: usize, br: &mut dyn ByteIO, nblocks: usize, mut mask: u32) -> DecoderResult<()> {
         let channels = self.chmap.num_channels();
         let mut off = [0, off1];
         for _ in 0..nblocks {
@@ -493,8 +491,7 @@ impl NADecoder for VMDAudioDecoder {
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();
             validate!(pktbuf.len() >= 6);
-            let mut mr = MemoryReader::new_read(&pktbuf);
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(&pktbuf);
             let blk_type                        = br.read_byte()?;
                                                   br.read_skip(9)?;
             let mask;
