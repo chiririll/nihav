@@ -1,14 +1,14 @@
 use nihav_core::demuxers::*;
 
 struct GIFDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     frameno:    u64,
     is_87:      bool,
     pal:        Arc<[u8; 1024]>,
 }
 
 impl<'a> GIFDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:        io,
             frameno:    0,
@@ -162,7 +162,7 @@ impl<'a> NAOptionHandler for GIFDemuxer<'a> {
 pub struct GIFDemuxerCreator { }
 
 impl DemuxerCreator for GIFDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(GIFDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "gif" }
@@ -177,8 +177,7 @@ mod test {
     fn test_gif_demux() {
         // sample: https://samples.mplayerhq.hu/image-samples/GIF/3D.gif
         let mut file = File::open("assets/Misc/3D.gif").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = GIFDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

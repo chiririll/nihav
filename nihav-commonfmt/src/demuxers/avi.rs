@@ -59,7 +59,7 @@ impl RIFFSegment {
 }
 
 struct AVIDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     cur_frame:      Vec<u64>,
     num_streams:    u8,
     size:           usize,
@@ -263,7 +263,7 @@ impl<'a> NAOptionHandler for AVIDemuxer<'a> {
 }
 
 impl<'a> AVIDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         AVIDemuxer {
             cur_frame: Vec::new(),
             num_streams: 0,
@@ -813,7 +813,7 @@ fn parse_junk(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) ->
     Ok(size)
 }
 
-fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<usize> {
+fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<usize> {
     validate!((size & 15) == 0);
     let mut tag = [0u8; 4];
     let num_entries = size >> 4;
@@ -856,7 +856,7 @@ fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut S
     Ok(size)
 }
 
-fn parse_iddx_data(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<(usize, bool)> {
+fn parse_iddx_data(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<(usize, bool)> {
     validate!((size & 15) == 0);
     let mut tag = [0u8; 4];
     let num_entries = size >> 4;
@@ -904,7 +904,7 @@ fn parse_iddx_data(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &
     Ok((size, odd_offset))
 }
 
-fn parse_odml_ix(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, stream_no: usize, size: usize, start: u64) -> DemuxerResult<u64> {
+fn parse_odml_ix(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, stream_no: usize, size: usize, start: u64) -> DemuxerResult<u64> {
     validate!(size >= 24);
     let entry_size = src.read_u16le()? as usize;
     if entry_size != 2 {
@@ -944,7 +944,7 @@ fn parse_odml_ix(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mu
 pub struct AVIDemuxerCreator { }
 
 impl DemuxerCreator for AVIDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(AVIDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "avi" }
@@ -959,8 +959,7 @@ mod test {
     fn test_avi_demux() {
         //test sample: https://samples.mplayerhq.hu/V-codecs/RT21/320x240/laser05.avi
         let mut file = File::open("assets/Indeo/laser05.avi").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = AVIDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

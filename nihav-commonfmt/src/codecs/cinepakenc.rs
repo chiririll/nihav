@@ -279,7 +279,7 @@ fn variance(a: u8, mean: u8) -> u32 {
     }
 }
 
-fn patch_size(bw: &mut ByteWriter, pos: u64) -> EncoderResult<()> {
+fn patch_size(bw: &mut dyn ByteIO, pos: u64) -> EncoderResult<()> {
     let size = bw.tell() - pos;
     bw.seek(SeekFrom::Current(-((size + 3) as i64)))?;
     bw.write_u24be((size + 4) as u32)?;
@@ -444,7 +444,7 @@ impl CinepakEncoder {
         let upd_size = cb_size * (new_cb.len() - skip_count) + (new_cb.len() + 31) / 32 * 4;
         upd_size < full_size
     }
-    fn write_cb(bw: &mut ByteWriter, mut id: u8, new_cb: &[YUVCode], old_cb: &[YUVCode], grayscale: bool, update: bool, num_elem: usize) -> EncoderResult<()> {
+    fn write_cb(bw: &mut dyn ByteIO, mut id: u8, new_cb: &[YUVCode], old_cb: &[YUVCode], grayscale: bool, update: bool, num_elem: usize) -> EncoderResult<()> {
         if grayscale {
             id |= 4;
         }
@@ -754,7 +754,7 @@ impl CinepakEncoder {
         for e in self.v1_cur_cb[self.cur_strip].iter_mut().skip(self.v1_len) { *e = YUVCode::default(); }
         for e in self.v4_cur_cb[self.cur_strip].iter_mut().skip(self.v4_len) { *e = YUVCode::default(); }
     }
-    fn encode_intra(&mut self, bw: &mut ByteWriter, in_frm: &NAVideoBuffer<u8>) -> EncoderResult<bool> {
+    fn encode_intra(&mut self, bw: &mut dyn ByteIO, in_frm: &NAVideoBuffer<u8>) -> EncoderResult<bool> {
         let (width, height) = in_frm.get_dimensions(0);
         let mut strip_h = (height / self.nstrips + 3) & !3;
         if strip_h == 0 {
@@ -943,7 +943,7 @@ impl CinepakEncoder {
         patch_size(bw, frame_data_pos)?;
         Ok(true)
     }
-    fn encode_inter(&mut self, bw: &mut ByteWriter, in_frm: &NAVideoBuffer<u8>) -> EncoderResult<bool> {
+    fn encode_inter(&mut self, bw: &mut dyn ByteIO, in_frm: &NAVideoBuffer<u8>) -> EncoderResult<bool> {
         let (width, height) = in_frm.get_dimensions(0);
         let mut strip_h = (height / self.nstrips + 3) & !3;
         if strip_h == 0 {
@@ -1229,8 +1229,7 @@ impl NAEncoder for CinepakEncoder {
             }
 
             let mut dbuf = Vec::with_capacity(4);
-            let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-            let mut bw   = ByteWriter::new(&mut gw);
+            let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
             let is_intra = if self.frmcount == 0 {
                     self.encode_intra(&mut bw, vbuf)?
                 } else {

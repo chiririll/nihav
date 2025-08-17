@@ -12,7 +12,7 @@ macro_rules! mktag {
 }
 
 struct WAVDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     data_pos:       u64,
     data_end:       u64,
     srate:          u32,
@@ -171,7 +171,7 @@ impl<'a> NAOptionHandler for WAVDemuxer<'a> {
 }
 
 impl<'a> WAVDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         WAVDemuxer {
             src:        io,
             data_pos:   0,
@@ -243,7 +243,7 @@ impl<'a> WAVDemuxer<'a> {
 pub struct WAVDemuxerCreator { }
 
 impl DemuxerCreator for WAVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(WAVDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "wav" }
@@ -258,8 +258,7 @@ mod test {
     fn test_wav_demux() {
         // sample: https://samples.mplayerhq.hu/A-codecs/msadpcm-stereo/scatter.wav
         let mut file = File::open("assets/MS/scatter.wav").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = WAVDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

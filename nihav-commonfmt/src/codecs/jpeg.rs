@@ -1,4 +1,4 @@
-use nihav_core::io::byteio::{ByteReader,MemoryReader};
+use nihav_core::io::byteio::{ByteIO,MemoryReader};
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::codecs::*;
@@ -235,7 +235,7 @@ impl JPEGDecoder {
         self.depth      = 0;
     }
 
-    fn parse_sof(&mut self, br: &mut ByteReader) -> DecoderResult<NABufferType> {
+    fn parse_sof(&mut self, br: &mut dyn ByteIO) -> DecoderResult<NABufferType> {
         validate!(self.width == 0);
 
         let len                         = br.read_u16be()? as usize;
@@ -462,8 +462,7 @@ impl NADecoder for JPEGDecoder {
         if src.len() <= 4 { return Err(DecoderError::ShortData); }
 
         let mut bufinfo = NABufferType::None;
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let start_tag                   = br.read_u16be()?;
         validate!(start_tag == 0xFFD8);
 

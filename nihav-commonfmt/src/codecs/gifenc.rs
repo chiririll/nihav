@@ -123,7 +123,7 @@ impl LZWEncoder {
             tmp:        Vec::new(),
         }
     }
-    fn compress(&mut self, writer: &mut ByteWriter, src: &[u8]) -> EncoderResult<()> {
+    fn compress(&mut self, writer: &mut dyn ByteIO, src: &[u8]) -> EncoderResult<()> {
         let clr_bits: u8 = if self.level != CompressionLevel::None {
                 let maxclr = u16::from(src.iter().fold(0u8, |acc, &a| acc.max(a))) + 1;
                 let mut bits = 2;
@@ -245,7 +245,7 @@ impl GIFEncoder {
             tr_idx:     None,
         }
     }
-    fn write_dummy_frame(&mut self, bw: &mut ByteWriter) -> EncoderResult<()> {
+    fn write_dummy_frame(&mut self, bw: &mut dyn ByteIO) -> EncoderResult<()> {
         let mut pix = [self.cur_frm[0]];
         if let (true, Some(tr_idx)) = (self.p_trans, self.tr_idx) {
             if tr_idx < pix[0] {
@@ -318,8 +318,7 @@ impl NAEncoder for GIFEncoder {
     }
     fn encode(&mut self, frm: &NAFrame) -> EncoderResult<()> {
         let mut dbuf = Vec::with_capacity(4);
-        let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-        let mut bw   = ByteWriter::new(&mut gw);
+        let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
 
         self.tmp_buf.clear();
 

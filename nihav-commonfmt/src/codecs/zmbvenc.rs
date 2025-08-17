@@ -140,7 +140,7 @@ impl ZMBVEncoder {
             sent_pal:   false,
         }
     }
-    fn encode_intra(&mut self, bw: &mut ByteWriter, buf: NABufferType) -> EncoderResult<()> {
+    fn encode_intra(&mut self, bw: &mut dyn ByteIO, buf: NABufferType) -> EncoderResult<()> {
         let mut bpp = buf_type_to_bpp(&buf);
 
         if let NABufferType::None = buf {
@@ -223,7 +223,7 @@ impl ZMBVEncoder {
 
         Ok(())
     }
-    fn encode_inter(&mut self, bw: &mut ByteWriter, buf: NABufferType) -> EncoderResult<()> {
+    fn encode_inter(&mut self, bw: &mut dyn ByteIO, buf: NABufferType) -> EncoderResult<()> {
         if let NABufferType::None = buf {
             self.frm1.copy_from_slice(&self.frm2);
 
@@ -488,8 +488,7 @@ impl NAEncoder for ZMBVEncoder {
     fn encode(&mut self, frm: &NAFrame) -> EncoderResult<()> {
         let buf = frm.get_buffer();
         let mut dbuf = Vec::with_capacity(4);
-        let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-        let mut bw   = ByteWriter::new(&mut gw);
+        let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
         let is_intra = if self.frmcount == 0 {
                 self.encode_intra(&mut bw, buf)?;
                 true

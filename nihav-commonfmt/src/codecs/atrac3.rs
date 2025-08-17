@@ -551,8 +551,7 @@ impl NADecoder for Atrac3Decoder {
             let edata = info.get_extradata().unwrap();
             validate!(edata.len() >= 4);
 
-            let mut mr = MemoryReader::new_read(&edata);
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(&edata);
 
             match edata.len() {
                 10 => {

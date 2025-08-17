@@ -22,7 +22,7 @@ trait Skip64 {
     fn skip64(&mut self, size: u64) -> ByteIOResult<()>;
 }
 
-impl<'a> Skip64 for ByteReader<'a> {
+impl<T: ?Sized + ByteIO> Skip64 for T {
     fn skip64(&mut self, size: u64) -> ByteIOResult<()> {
         if (size as usize as u64) != size {
             self.seek(SeekFrom::Current(size as i64))?;
@@ -33,7 +33,7 @@ impl<'a> Skip64 for ByteReader<'a> {
     }
 }
 
-fn read_chunk_header(br: &mut ByteReader) -> DemuxerResult<(u32, u64)> {
+fn read_chunk_header(br: &mut dyn ByteIO) -> DemuxerResult<(u32, u64)> {
     let size            = br.read_u32be()?;
     let ctype           = br.read_u32be()?;
     if size == 0 {
@@ -48,7 +48,7 @@ fn read_chunk_header(br: &mut ByteReader) -> DemuxerResult<(u32, u64)> {
     }
 }
 
-fn read_palette(br: &mut ByteReader, size: u64, pal: &mut [u8; 1024]) -> DemuxerResult<u64> {
+fn read_palette(br: &mut dyn ByteIO, size: u64, pal: &mut [u8; 1024]) -> DemuxerResult<u64> {
     let _seed           = br.read_u32be()?;
     let flags           = br.read_u16be()?;
     let palsize         = (br.read_u16be()? as usize) + 1;
@@ -80,7 +80,7 @@ struct RootChunkHandler {
 
 struct TrackChunkHandler {
     ctype:  u32,
-    parse:  fn(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64>,
+    parse:  fn(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64>,
 }
 
 const IGNORED_CHUNKS: &[u32] = &[
@@ -150,7 +150,7 @@ macro_rules! read_chunk_list {
         }
     };
     (track; $name: expr, $fname: ident, $handlers: ident) => {
-        fn $fname(&mut self, br: &mut ByteReader, size: u64) -> DemuxerResult<()> {
+        fn $fname(&mut self, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<()> {
             self.depth += 1;
             validate!(self.depth < 32);
             let list_end = br.tell() + size;
@@ -185,7 +185,7 @@ macro_rules! read_chunk_list {
     }
 }
 
-fn skip_chunk(_track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn skip_chunk(_track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     br.skip64(size)?;
     Ok(size)
 }
@@ -274,8 +274,7 @@ fn read_cmov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
     }
     let len = ret.unwrap();
     validate!(len == uncomp_size);
-    let mut mr = MemoryReader::new_read(dbuf.as_slice());
-    let mut br = ByteReader::new(&mut mr);
+    let mut br = MemoryReader::new_read(dbuf.as_slice());
     let (ctype, csize) = read_chunk_header(&mut br)?;
     validate!(ctype == mktag!(b"moov"));
     let mut ddmx = MOVDemuxer::new(&mut br);
@@ -379,7 +378,7 @@ const TRAK_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"mdia"), parse: read_mdia },
 ];
 
-fn read_tkhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_tkhd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     const KNOWN_TKHD_SIZE: u64 = 84;
     validate!(size >= KNOWN_TKHD_SIZE);
     let version             = br.read_byte()?;
@@ -407,7 +406,7 @@ fn read_tkhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(KNOWN_TKHD_SIZE)
 }
 
-fn read_mdia(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_mdia(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     track.stream_type = StreamType::None;
     track.read_mdia(br, size)?;
     Ok(size)
@@ -419,7 +418,7 @@ const MDIA_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"minf"), parse: read_minf },
 ];
 
-fn read_mdhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_mdhd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     const KNOWN_MDHD_SIZE: u64 = 24;
     validate!(size >= KNOWN_MDHD_SIZE);
     let version             = br.read_byte()?;
@@ -437,7 +436,7 @@ fn read_mdhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(KNOWN_MDHD_SIZE)
 }
 
-fn read_hdlr(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_hdlr(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     const KNOWN_HDLR_SIZE: u64 = 24;
     validate!(size >= KNOWN_HDLR_SIZE);
     let version             = br.read_byte()?;
@@ -468,7 +467,7 @@ fn read_hdlr(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(KNOWN_HDLR_SIZE)
 }
 
-fn read_minf(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_minf(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     track.read_minf(br, size)?;
     Ok(size)
 }
@@ -483,7 +482,7 @@ const MINF_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"stbl"), parse: read_stbl },
 ];
 
-fn read_vmhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_vmhd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     const KNOWN_VMHD_SIZE: u64 = 12;
     validate!(track.stream_type == StreamType::Video);
     validate!(size >= KNOWN_VMHD_SIZE);
@@ -495,7 +494,7 @@ fn read_vmhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(KNOWN_VMHD_SIZE)
 }
 
-fn read_smhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_smhd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     const KNOWN_SMHD_SIZE: u64 = 8;
     validate!(track.stream_type == StreamType::Audio);
     validate!(size >= KNOWN_SMHD_SIZE);
@@ -507,12 +506,12 @@ fn read_smhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(KNOWN_SMHD_SIZE)
 }
 
-fn read_gmhd(track: &mut Track, _br: &mut ByteReader, _size: u64) -> DemuxerResult<u64> {
+fn read_gmhd(track: &mut Track, _br: &mut dyn ByteIO, _size: u64) -> DemuxerResult<u64> {
     validate!(track.stream_type == StreamType::Data);
     Ok(0)
 }
 
-fn read_gmin(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_gmin(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     validate!(track.stream_type == StreamType::Data);
     const KNOWN_GMIN_SIZE: u64 = 16;
     validate!(size >= KNOWN_GMIN_SIZE);
@@ -526,7 +525,7 @@ fn read_gmin(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(KNOWN_GMIN_SIZE)
 }
 
-fn read_stbl(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_stbl(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     track.read_stbl(br, size)?;
     Ok(size)
 }
@@ -542,7 +541,7 @@ const STBL_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"ctts"), parse: read_ctts },
 ];
 
-fn parse_audio_edata(br: &mut ByteReader, start_pos: u64, size: u64) -> DemuxerResult<Option<Vec<u8>>> {
+fn parse_audio_edata(br: &mut dyn ByteIO, start_pos: u64, size: u64) -> DemuxerResult<Option<Vec<u8>>> {
     let read_part = br.tell() - start_pos;
     if read_part + 8 < size {
         let mut buf = [0; 8];
@@ -584,7 +583,7 @@ fn parse_audio_edata(br: &mut ByteReader, start_pos: u64, size: u64) -> DemuxerR
 }
 
 #[allow(clippy::neg_cmp_op_on_partial_ord)]
-fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     const KNOWN_STSD_SIZE: u64 = 24;
     validate!(size >= KNOWN_STSD_SIZE);
     let start_pos = br.tell();
@@ -797,7 +796,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(read_size)
 }
 
-fn read_stts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_stts(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     validate!(size >= 8);
     let start_pos = br.tell();
     let version             = br.read_byte()?;
@@ -825,7 +824,7 @@ fn read_stts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(read_size)
 }
 
-fn read_stss(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_stss(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     let version             = br.read_byte()?;
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
@@ -843,7 +842,7 @@ fn read_stss(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(size)
 }
 
-fn read_stsc(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_stsc(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     let version             = br.read_byte()?;
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
@@ -863,7 +862,7 @@ fn read_stsc(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(size)
 }
 
-fn read_stsz(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_stsz(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     let version             = br.read_byte()?;
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
@@ -899,7 +898,7 @@ fn read_stsz(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     }
 }
 
-fn read_stco(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_stco(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     let version             = br.read_byte()?;
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
@@ -927,7 +926,7 @@ fn read_stco(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(size)
 }
 
-fn read_ctts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_ctts(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     validate!(size >= 8);
     let version             = br.read_byte()?;
     let _flags              = br.read_u24be()?;
@@ -979,7 +978,7 @@ const TRAF_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"meta"), parse: skip_chunk },
 ];
 
-fn read_tfhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_tfhd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     validate!(size >= 8);
     let start = br.tell();
     let _version            = br.read_byte()?;
@@ -1011,7 +1010,7 @@ fn read_tfhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(br.tell() - start)
 }
 
-fn read_trun(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+fn read_trun(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     validate!(size >= 8);
     let version             = br.read_byte()?;
     let flags               = br.read_u24be()?;
@@ -1100,7 +1099,7 @@ fn read_trun(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
 }
 
 struct MOVDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     depth:          usize,
     mdat_pos:       u64,
     mdat_size:      u64,
@@ -1641,7 +1640,7 @@ impl Track {
     }
 }
 
-fn process_packet(src: &mut ByteReader, strmgr: &StreamManager, track: &mut Track, pts: NATimeInfo, offset: u64, size: usize, first: bool) -> DemuxerResult<NAPacket> {
+fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Track, pts: NATimeInfo, offset: u64, size: usize, first: bool) -> DemuxerResult<NAPacket> {
     if let Some(cpts) = pts.get_pts() {
         let ts = NATimeInfo::ts_to_time(cpts, 1000, pts.tb_num, pts.tb_den);
         track.cur_ts = Some(ts);
@@ -1911,16 +1910,16 @@ impl<'a> NAOptionHandler for MOVDemuxer<'a> {
 }
 
 impl<'a> MOVDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self::new_common(io, DemuxMode::Normal)
     }
-    fn new_macbinary(io: &'a mut ByteReader<'a>) -> Self {
+    fn new_macbinary(io: &'a mut dyn ByteIO) -> Self {
         Self::new_common(io, DemuxMode::MacBin)
     }
-    fn new_resfork(io: &'a mut ByteReader<'a>) -> Self {
+    fn new_resfork(io: &'a mut dyn ByteIO) -> Self {
         Self::new_common(io, DemuxMode::ResFork)
     }
-    fn new_common(io: &'a mut ByteReader<'a>, demux_mode: DemuxMode,) -> Self {
+    fn new_common(io: &'a mut dyn ByteIO, demux_mode: DemuxMode,) -> Self {
         MOVDemuxer {
             src:            io,
             depth:          0,
@@ -1973,7 +1972,7 @@ impl<'a> MOVDemuxer<'a> {
 pub struct MOVDemuxerCreator { }
 
 impl DemuxerCreator for MOVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(MOVDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "mov" }
@@ -1982,7 +1981,7 @@ impl DemuxerCreator for MOVDemuxerCreator {
 pub struct MacBinaryMOVDemuxerCreator { }
 
 impl DemuxerCreator for MacBinaryMOVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(MOVDemuxer::new_macbinary(br))
     }
     fn get_name(&self) -> &'static str { "mov-macbin" }
@@ -1991,7 +1990,7 @@ impl DemuxerCreator for MacBinaryMOVDemuxerCreator {
 pub struct MacResForkMOVDemuxerCreator { }
 
 impl DemuxerCreator for MacResForkMOVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(MOVDemuxer::new_resfork(br))
     }
     fn get_name(&self) -> &'static str { "mov-resfork" }
@@ -2289,8 +2288,7 @@ mod test {
     fn test_mov_demux() {
         // sample: https://samples.mplayerhq.hu/V-codecs/IV32/cubes.mov
         let mut file = File::open("assets/Indeo/cubes.mov").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = MOVDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -2311,8 +2309,7 @@ mod test {
     fn test_dash_demux() {
         // sample: a stream downloaded with youtube-dl
         let mut file = File::open("assets/ITU/dash.m4a").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = MOVDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -2333,8 +2330,7 @@ mod test {
     fn test_macbinary_demux() {
         // sample from King's Quest VI Macintosh edition
         let mut file = File::open("assets/QT/Halfdome.bin").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = MOVDemuxer::new_macbinary(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -2355,8 +2351,7 @@ mod test {
     fn test_resfork_demux() {
         // sample from The Wonders of Electricity: An Adventure in Safety
         let mut file = File::open("assets/QT/car.mov").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = MOVDemuxer::new_resfork(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

@@ -1,7 +1,7 @@
 use nihav_core::muxers::*;
 
 struct GIFMuxer<'a> {
-    bw:             &'a mut ByteWriter<'a>,
+    bw:             &'a mut dyn ByteIO,
     single:         bool,
     gif87:          bool,
     pal_written:    bool,
@@ -9,7 +9,7 @@ struct GIFMuxer<'a> {
 }
 
 impl<'a> GIFMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             single:         false,
@@ -190,7 +190,7 @@ impl<'a> NAOptionHandler for GIFMuxer<'a> {
 pub struct GIFMuxerCreator {}
 
 impl MuxerCreator for GIFMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(GIFMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "gif" }

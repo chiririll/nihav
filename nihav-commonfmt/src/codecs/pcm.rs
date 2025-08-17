@@ -170,8 +170,7 @@ macro_rules! write_buffer {
         let is_be = info.format.be;
 
         $dvec = vec![0u8; len * channels * std::mem::size_of::<$dtype>()];
-        let mut mw = MemoryWriter::new_write($dvec.as_mut_slice());
-        let mut bw = ByteWriter::new(&mut mw);
+        let mut bw = MemoryWriter::new_write($dvec.as_mut_slice());
         for off in 0..len {
             for j in 0..channels {
                 if is_be {

@@ -1,4 +1,4 @@
-use nihav_core::io::byteio::{ByteReader,MemoryReader};
+use nihav_core::io::byteio::{ByteIO,MemoryReader};
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::codecs::*;
 use nihav_codec_support::codecs::HAMShuffler;
@@ -64,7 +64,7 @@ impl CinepakDecoder {
             mode:   DecodeMode::Unknown,
         }
     }
-    fn read_cb(br: &mut ByteReader, size: usize, cb: &mut [[u8; 6]; 256], is_yuv: bool) -> DecoderResult<()> {
+    fn read_cb(br: &mut dyn ByteIO, size: usize, cb: &mut [[u8; 6]; 256], is_yuv: bool) -> DecoderResult<()> {
         let cb_elem = if is_yuv { 6 } else { 4 };
         let cb_size = (size - 4) / cb_elem;
         validate!(size - 4 == cb_size * cb_elem);
@@ -81,7 +81,7 @@ impl CinepakDecoder {
         }
         Ok(())
     }
-    fn read_cb_upd(br: &mut ByteReader, size: usize, cb: &mut [[u8; 6]; 256], is_yuv: bool) -> DecoderResult<()> {
+    fn read_cb_upd(br: &mut dyn ByteIO, size: usize, cb: &mut [[u8; 6]; 256], is_yuv: bool) -> DecoderResult<()> {
         let cb_elem = if is_yuv { 6 } else { 4 };
         let end = br.tell() + (size as u64) - 4;
         for i in (0..256).step_by(32) {
@@ -107,8 +107,7 @@ impl CinepakDecoder {
     }
     #[allow(clippy::too_many_arguments)]
     fn decode_strip(&mut self, src: &[u8], sno: usize, is_intra: bool, is_intra_strip: bool, xoff: usize, yoff: usize, xend: usize, yend: usize, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
-        let mut mr = MemoryReader::new_read(src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src);
         let mut idx_pos = 0;
         let mut idx_size = 0;
         let mut v1_only = false;
@@ -154,8 +153,7 @@ impl CinepakDecoder {
             };
         }
         validate!(idx_pos != 0);
-        let mut mr = MemoryReader::new_read(&src[idx_pos..][..idx_size]);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src[idx_pos..][..idx_size]);
 
         let mut x = xoff;
         let mut y = yoff;
@@ -247,8 +245,7 @@ impl NADecoder for CinepakDecoder {
         let src = pkt.get_buffer();
         if src.len() <= 10 { return Err(DecoderError::ShortData); }
 
-        let mut mr = MemoryReader::new_read(src.as_slice());
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src.as_slice());
 
         let flags                       = br.read_byte()?;
         let size                        = br.read_u24be()? as usize;

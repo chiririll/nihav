@@ -2,12 +2,12 @@ use nihav_core::muxers::*;
 use nihav_registry::register::*;
 
 struct WAVMuxer<'a> {
-    bw:         &'a mut ByteWriter<'a>,
+    bw:         &'a mut dyn ByteIO,
     data_pos:   u64,
 }
 
 impl<'a> WAVMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             data_pos:   0,
@@ -15,7 +15,7 @@ impl<'a> WAVMuxer<'a> {
     }
 }
 
-fn patch_size(bw: &mut ByteWriter, pos: u64) -> MuxerResult<()> {
+fn patch_size(bw: &mut dyn ByteIO, pos: u64) -> MuxerResult<()> {
     let size = bw.tell() - pos;
     bw.seek(SeekFrom::Current(-((size + 4) as i64)))?;
     bw.write_u32le(size as u32)?;
@@ -111,7 +111,7 @@ impl<'a> NAOptionHandler for WAVMuxer<'a> {
 pub struct WAVMuxerCreator {}
 
 impl MuxerCreator for WAVMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(WAVMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "wav" }

@@ -223,8 +223,7 @@ impl NADecoder for GIFDecoder {
             }
         }
 
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let tag                         = br.read_byte()?;
         validate!(tag == 0x2C);
         let left                        = usize::from(br.read_u16le()?);

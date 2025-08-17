@@ -24,7 +24,7 @@ struct AVIStream {
 }
 
 struct AVIMuxer<'a> {
-    bw:             &'a mut ByteWriter<'a>,
+    bw:             &'a mut dyn ByteIO,
     index:          Vec<IdxEntry>,
     video_str:      Option<usize>,
     video_id:       u32,
@@ -38,7 +38,7 @@ struct AVIMuxer<'a> {
 }
 
 impl<'a> AVIMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             index:          Vec::new(),
@@ -133,7 +133,7 @@ impl<'a> AVIMuxer<'a> {
     }
 }
 
-fn patch_size(bw: &mut ByteWriter, pos: u64) -> MuxerResult<()> {
+fn patch_size(bw: &mut dyn ByteIO, pos: u64) -> MuxerResult<()> {
     let size = bw.tell() - pos;
     bw.seek(SeekFrom::Current(-((size + 4) as i64)))?;
     bw.write_u32le(size as u32)?;
@@ -573,7 +573,7 @@ impl<'a> NAOptionHandler for AVIMuxer<'a> {
 pub struct AVIMuxerCreator {}
 
 impl MuxerCreator for AVIMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(AVIMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "avi" }

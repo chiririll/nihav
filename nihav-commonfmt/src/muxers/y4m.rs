@@ -1,11 +1,11 @@
 use nihav_core::muxers::*;
 
 struct Y4MMuxer<'a> {
-    bw:             &'a mut ByteWriter<'a>,
+    bw:             &'a mut dyn ByteIO,
 }
 
 impl<'a> Y4MMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
         }
@@ -78,7 +78,7 @@ impl<'a> NAOptionHandler for Y4MMuxer<'a> {
 pub struct Y4MMuxerCreator {}
 
 impl MuxerCreator for Y4MMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(Y4MMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "yuv4mpeg" }

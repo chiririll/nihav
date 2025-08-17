@@ -1,4 +1,4 @@
-use nihav_core::io::byteio::{ByteReader,MemoryReader};
+use nihav_core::io::byteio::{ByteIO,MemoryReader};
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::formats;
@@ -893,14 +893,12 @@ impl NADecoder for ClearVideoDecoder {
             if edata.len() == 0 || edata.len() < 0x60 { // no or short extradata probably comes from MOV
                 self.tsize = 4;
             } else if !self.is_rm {
-                let mut mr = MemoryReader::new_read(edata.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(edata.as_slice());
                 br.read_skip(0x5E).unwrap();
                 let tile_size = br.read_u32le()?;
                 self.tsize = tile_size.trailing_zeros() as u8;
             } else {
-                let mut mr = MemoryReader::new_read(edata.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(edata.as_slice());
                 br.read_skip(0x86).unwrap();
                 let tile_size = br.read_u32be()?;
                 self.tsize = tile_size.trailing_zeros() as u8;

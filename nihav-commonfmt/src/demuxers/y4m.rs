@@ -2,7 +2,7 @@ use nihav_core::demuxers::*;
 use std::str::FromStr;
 
 struct Y4MDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     width:      usize,
     height:     usize,
     frame_size: usize,
@@ -72,7 +72,7 @@ impl<'a> NAOptionHandler for Y4MDemuxer<'a> {
 }
 
 impl<'a> Y4MDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:        io,
             width:      0,
@@ -160,7 +160,7 @@ impl<'a> Y4MDemuxer<'a> {
     }
 }
 
-fn read_token(src: &mut ByteReader) -> DemuxerResult<(bool, String)> {
+fn read_token(src: &mut dyn ByteIO) -> DemuxerResult<(bool, String)> {
     let mut string = String::new();
     let ws;
     loop {
@@ -178,7 +178,7 @@ fn read_token(src: &mut ByteReader) -> DemuxerResult<(bool, String)> {
 pub struct Y4MDemuxerCreator { }
 
 impl DemuxerCreator for Y4MDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(Y4MDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "yuv4mpeg" }
@@ -193,8 +193,7 @@ mod test {
     fn test_y4m_demux() {
         // sample: self-created with avconv
         let mut file = File::open("assets/Misc/test.y4m").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = Y4MDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
