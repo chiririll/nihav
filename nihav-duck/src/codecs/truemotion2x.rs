@@ -39,13 +39,13 @@ struct Deltas {
 }
 
 impl Deltas {
-    fn reset(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+    fn reset(&mut self, br: &mut dyn ByteIO) -> DecoderResult<()> {
         let b                               = br.read_byte()? as usize;
         self.vq_idx = b;
         self.vq_pos = 0;
         Ok(())
     }
-    fn get_val(&mut self, br: &mut ByteReader) -> DecoderResult<u8> {
+    fn get_val(&mut self, br: &mut dyn ByteIO) -> DecoderResult<u8> {
         if self.vq_idx > self.codebook.len() { return Err(DecoderError::ShortData); }
         let ret = self.codebook[self.vq_idx][self.vq_pos];
         self.vq_pos += 1;
@@ -66,7 +66,7 @@ impl Deltas {
             -1 - hval
         }
     }
-    fn get_int(&mut self, br: &mut ByteReader) -> DecoderResult<i16> {
+    fn get_int(&mut self, br: &mut dyn ByteIO) -> DecoderResult<i16> {
         let b = self.get_val(br)?;
         if b != self.vq_esc - 1 {
             return Ok(Self::remap(u16::from(b)));
@@ -91,11 +91,11 @@ impl Deltas {
         }
         Ok(Self::remap(val))
     }
-    fn get_dy(&mut self, br: &mut ByteReader) -> DecoderResult<i16> {
+    fn get_dy(&mut self, br: &mut dyn ByteIO) -> DecoderResult<i16> {
         let b = self.get_val(br)?;
         Ok(self.tabs[1][b as usize])
     }
-    fn get_dc(&mut self, br: &mut ByteReader) -> DecoderResult<i16> {
+    fn get_dc(&mut self, br: &mut dyn ByteIO) -> DecoderResult<i16> {
         let b = self.get_val(br)?;
         Ok(self.tabs[0][b as usize])
     }
@@ -202,8 +202,7 @@ impl TM2XDecoder {
     fn parse_init(&mut self, version: u8) -> DecoderResult<()> {
         self.version = version;
 
-        let mut mr = MemoryReader::new_read(&self.dec_buf);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&self.dec_buf);
         if version > 4 {
             let _smth                   = br.read_u32be()?;
         }
@@ -231,8 +230,7 @@ impl TM2XDecoder {
         Ok(())
     }
     fn parse_tabs(&mut self) -> DecoderResult<()> {
-        let mut mr = MemoryReader::new_read(&self.dec_buf);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&self.dec_buf);
 
         let idx                         = br.read_byte()? as usize;
         validate!(idx < self.deltas.tabs.len());
@@ -245,8 +243,7 @@ impl TM2XDecoder {
         Ok(())
     }
     fn parse_cb_desc(&mut self, version: u8) -> DecoderResult<()> {
-        let mut mr = MemoryReader::new_read(&self.dec_buf);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&self.dec_buf);
 
         if version == 0x0A {
             self.deltas.vq_esc          = br.read_byte()?;
@@ -278,8 +275,7 @@ impl TM2XDecoder {
     #[allow(clippy::cognitive_complexity)]
     #[allow(clippy::identity_op)]
     fn decode_frame(&mut self, src: &[u8]) -> DecoderResult<()> {
-        let mut mr = MemoryReader::new_read(src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src);
 
         self.deltas.reset(&mut br)?;
         let bw = self.width / 8;
@@ -578,8 +574,7 @@ impl NADecoder for TM2XDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 8);
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let mut dec = Decryptor::default();
 
         let mut initialised = false;

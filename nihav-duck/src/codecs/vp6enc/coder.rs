@@ -120,7 +120,7 @@ pub trait EncoderTrait {
     fn write_zero_run(&mut self, val: usize, probs: &[u8; 14]) -> EncoderResult<()>;
 }
 
-impl<'a, 'b> EncoderTrait for BoolEncoder<'a, 'b> {
+impl<'a> EncoderTrait for BoolEncoder<'a> {
     fn write_cat(&mut self, cat: i8, tree: &[TokenSeq<i8>], tok_probs: &[u8], val_probs: &[u8; 11]) -> EncoderResult<()> {
         for entry in tree.iter() {
             if entry.val == cat {

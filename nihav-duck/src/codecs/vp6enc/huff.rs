@@ -18,14 +18,14 @@ impl HuffState {
 
 pub const MAX_EOB_RUN: usize = 63 + 10;
 
-pub struct HuffEncoder<'a, 'b> {
-    bw:         &'a mut ByteWriter<'b>,
+pub struct HuffEncoder<'a> {
+    bw:         &'a mut dyn ByteIO,
     bitbuf:     u32,
     bits:       u8,
 }
 
-impl<'a, 'b> HuffEncoder<'a, 'b> {
-    pub fn new(bw: &'a mut ByteWriter<'b>) -> Self {
+impl<'a> HuffEncoder<'a> {
+    pub fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bitbuf:     0,
             bits:       0,

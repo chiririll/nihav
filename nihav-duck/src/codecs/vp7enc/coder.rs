@@ -112,7 +112,7 @@ pub trait VP7BoolEncoder {
     fn encode_mb_type(&mut self, is_intra: bool, mb_type: &MBType, models: &VP7Models) -> EncoderResult<()>;
 }
 
-impl<'a, 'b> VP7BoolEncoder for BoolEncoder<'a, 'b> {
+impl<'a> VP7BoolEncoder for BoolEncoder<'a> {
     fn put_byte(&mut self, val: u8) -> EncoderResult<()> {
         self.put_bits(u32::from(val), 8)
     }

@@ -33,8 +33,8 @@ macro_rules! bit_seq {
     };
 }
 
-pub struct BoolEncoder<'a, 'b> {
-    bw:     &'a mut ByteWriter<'b>,
+pub struct BoolEncoder<'a> {
+    bw:     &'a mut dyn ByteIO,
     val:    u32,
     range:  u32,
     bits:   u8,
@@ -42,8 +42,8 @@ pub struct BoolEncoder<'a, 'b> {
     run:    usize,
 }
 
-impl<'a, 'b> BoolEncoder<'a, 'b> {
-    pub fn new(bw: &'a mut ByteWriter<'b>) -> Self {
+impl<'a> BoolEncoder<'a> {
+    pub fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             val:    0,

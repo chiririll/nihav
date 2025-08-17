@@ -102,8 +102,7 @@ impl VP7Encoder {
             self.fenc.load_frame(vbuf);
 
             let mut dbuf = Vec::with_capacity(4);
-            let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-            let mut bw   = ByteWriter::new(&mut gw);
+            let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
 
             let is_intra = self.frmcount == 0;
             let golden_frame = is_intra;

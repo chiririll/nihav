@@ -639,8 +639,7 @@ impl NAEncoder for TM1Encoder {
         }
 
         let mut dbuf = Vec::with_capacity(4);
-        let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-        let mut bw   = ByteWriter::new(&mut gw);
+        let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
 
         self.tm1type = match (self.is16, self.block_mode) {
                 (true,  BlockMode::FourByFour) => 2,

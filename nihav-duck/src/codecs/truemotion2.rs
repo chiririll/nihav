@@ -38,7 +38,7 @@ trait ReadLenEsc {
 
 const TM2_ESCAPE: usize = 0x80000000;
 
-impl<'a> ReadLenEsc for ByteReader<'a> {
+impl<T: ?Sized + ByteIO> ReadLenEsc for T {
     fn read_len_esc(&mut self) -> DecoderResult<usize> {
         let len                                 = self.read_u32le()? as usize;
         if len == TM2_ESCAPE {
@@ -102,7 +102,7 @@ impl Default for TM2Stream {
 }
 
 impl TM2Stream {
-    fn read_header(&mut self, src: &[u8], br: &mut ByteReader) -> DecoderResult<()> {
+    fn read_header(&mut self, src: &[u8], br: &mut dyn ByteIO) -> DecoderResult<()> {
         self.tokens.clear();
         self.pos = 0;
 
@@ -546,8 +546,7 @@ impl NADecoder for TM2Decoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 40 + (TM2StreamType::Num as usize) * 4 + 4);
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let magic                               = br.read_u32be()?;
         validate!(magic == 0x100 || magic == 0x101);

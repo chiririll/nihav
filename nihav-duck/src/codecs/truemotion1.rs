@@ -519,8 +519,7 @@ impl NADecoder for TM1Decoder {
         for i in 1..hdr_size {
             hdr[i - 1] = src[i] ^ src[i + 1];
         }
-        let mut mr = MemoryReader::new_read(&hdr[0..hdr_size-1]);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&hdr[0..hdr_size-1]);
 
         let tm1type                             = br.read_byte()? as usize;
         let delta_set                           = br.read_byte()? as usize;

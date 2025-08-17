@@ -58,8 +58,7 @@ impl NADecoder for DuckADPCMDecoder {
             let dst = adata.get_data_mut().unwrap();
 
             for blk in pktbuf.chunks_exact(self.block_len) {
-                let mut mr = MemoryReader::new_read(blk);
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(blk);
                 if self.is_dk3 {
                     let _typeid                 = br.read_byte()?;
                     let _version                = br.read_byte()?;

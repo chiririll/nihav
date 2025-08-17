@@ -22,9 +22,9 @@ mod rdo;
 
 const VERSION_VP61: u8 = VERSION_VP60 + 1;
 
-enum VP6Writer<'a, 'b> {
-    BoolCoder(BoolEncoder<'a, 'b>),
-    Huffman(HuffEncoder<'a, 'b>),
+enum VP6Writer<'a> {
+    BoolCoder(BoolEncoder<'a>),
+    Huffman(HuffEncoder<'a>),
 }
 
 #[derive(Default)]
@@ -407,7 +407,7 @@ impl VP6Encoder {
             }
         }
     }
-    fn encode_intra(&mut self, bw: &mut ByteWriter, quant: usize) -> EncoderResult<bool> {
+    fn encode_intra(&mut self, bw: &mut dyn ByteIO, quant: usize) -> EncoderResult<bool> {
         self.models.reset(false);
         self.models.reset_mbtype_models();
         self.stats.reset();
@@ -462,7 +462,7 @@ impl VP6Encoder {
         self.encode_coeffs(writer)?;
         Ok(true)
     }
-    fn encode_inter(&mut self, bw: &mut ByteWriter, quant: usize) -> EncoderResult<bool> {
+    fn encode_inter(&mut self, bw: &mut dyn ByteIO, quant: usize) -> EncoderResult<bool> {
         self.stats.reset();
 
         let multistream = self.huffman || self.version != VERSION_VP60;
@@ -484,7 +484,7 @@ impl VP6Encoder {
 
         Ok(golden_frame)
     }
-    fn write_inter_frame(&mut self, bw: &mut ByteWriter, quant: usize, multistream: bool, loop_filter: bool, golden_frame: bool) -> EncoderResult<()> {
+    fn write_inter_frame(&mut self, bw: &mut dyn ByteIO, quant: usize, multistream: bool, loop_filter: bool, golden_frame: bool) -> EncoderResult<()> {
         self.estimate_blocks(false);
 
         self.stats.generate(&mut self.models, false);
@@ -566,7 +566,7 @@ impl VP6Encoder {
 
         Ok(())
     }
-    fn encode_inter_fast(&mut self, bw: &mut ByteWriter, quant: usize) -> EncoderResult<bool> {
+    fn encode_inter_fast(&mut self, bw: &mut dyn ByteIO, quant: usize) -> EncoderResult<bool> {
         self.stats.reset();
 
         let multistream = self.huffman || self.version != VERSION_VP60;
@@ -721,8 +721,7 @@ impl NAEncoder for VP6Encoder {
         let buf = frm.get_buffer();
         if let Some(ref vbuf) = buf.get_vbuf() {
             let mut dbuf = Vec::with_capacity(4);
-            let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-            let mut bw   = ByteWriter::new(&mut gw);
+            let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
 
             // todo integrate with rate control
             let is_intra = (self.frmcount == 0) || self.decide_encoding();

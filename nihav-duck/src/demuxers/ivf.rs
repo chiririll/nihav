@@ -1,13 +1,13 @@
 use nihav_core::demuxers::*;
 
 struct IVFDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     nframes:        u32,
     frameno:        u32,
 }
 
 impl<'a> IVFDemuxer<'a> {
-    fn new(src: &'a mut ByteReader<'a>) -> Self {
+    fn new(src: &'a mut dyn ByteIO) -> Self {
         IVFDemuxer {
             src,
             nframes:    0,
@@ -83,7 +83,7 @@ impl<'a> NAOptionHandler for IVFDemuxer<'a> {
 pub struct IVFDemuxerCreator { }
 
 impl DemuxerCreator for IVFDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(IVFDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "dkivf" }
@@ -98,8 +98,7 @@ mod test {
     fn test_ivf_demux() {
         // sample is from the official VP8 test bitstream set
         let mut file = File::open("assets/Duck/VP8/vp80-00-comprehensive-001.ivf").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = IVFDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

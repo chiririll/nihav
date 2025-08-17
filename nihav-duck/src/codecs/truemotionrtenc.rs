@@ -213,8 +213,7 @@ impl NAEncoder for TMRTEncoder {
         let buf = frm.get_buffer();
         if let Some(ref vbuf) = buf.get_vbuf() {
             let mut dbuf = Vec::with_capacity(4);
-            let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-            let mut bw   = ByteWriter::new(&mut gw);
+            let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
 
             bw.write_byte(0)?; // header size
             bw.write_byte(17)?;
