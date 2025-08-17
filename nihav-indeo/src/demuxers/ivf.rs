@@ -1,7 +1,7 @@
 use nihav_core::demuxers::*;
 
 struct IVFDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     nframes:        u32,
     vframe:         u32,
     aframe:         u32,
@@ -15,7 +15,7 @@ struct IVFDemuxer<'a> {
 }
 
 impl<'a> IVFDemuxer<'a> {
-    fn new(src: &'a mut ByteReader<'a>) -> Self {
+    fn new(src: &'a mut dyn ByteIO) -> Self {
         IVFDemuxer {
             src,
             nframes:    0,
@@ -272,7 +272,7 @@ impl<'a> NAOptionHandler for IVFDemuxer<'a> {
 pub struct IVFDemuxerCreator { }
 
 impl DemuxerCreator for IVFDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(IVFDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "ivf" }
@@ -287,8 +287,7 @@ mod test {
     fn test_ivf_demux() {
         // sample is a trailer for Heart of Darkness game
         let mut file = File::open("assets/Indeo/TRAILERIIE.IVF").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = IVFDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

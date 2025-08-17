@@ -66,14 +66,14 @@ impl Header {
     }
 }
 
-struct DataReader<'a, 'b> {
-    br:         &'a mut ByteReader<'b>,
+struct DataReader<'a> {
+    br:         &'a mut dyn ByteIO,
     bpos:       u8,
     bitbuf:     u8,
 }
 
-impl<'a, 'b> DataReader<'a, 'b> {
-    fn new(br: &'a mut ByteReader<'b>) -> Self {
+impl<'a> DataReader<'a> {
+    fn new(br: &'a mut dyn ByteIO) -> Self {
         Self {
             br,
             bpos:       0,
@@ -108,8 +108,8 @@ impl Corrector {
     fn is_whole_block(&self) -> bool { matches!(*self, Corrector::Fill(_) | Corrector::ZeroBlock | Corrector::SkipBlock) }
 }
 
-struct QuadDecoder<'a, 'b, 'c> {
-    br:         &'a mut DataReader<'b, 'c>,
+struct QuadDecoder<'a, 'b> {
+    br:         &'a mut DataReader<'b>,
     cb:         [&'static IviDeltaCB; 4],
     cb_idx:     [usize; 4],
     mode:       u8,
@@ -121,8 +121,8 @@ struct QuadDecoder<'a, 'b, 'c> {
     fill:       Option<u8>,
 }
 
-impl<'a, 'b, 'c> QuadDecoder<'a, 'b, 'c> {
-    fn new(br: &'a mut DataReader<'b, 'c>, mode: u8, cb_index: [usize; 2]) -> Self {
+impl<'a, 'b> QuadDecoder<'a, 'b> {
+    fn new(br: &'a mut DataReader<'b>, mode: u8, cb_index: [usize; 2]) -> Self {
         Self {
             br, mode,
             lines_run:  0,
@@ -788,7 +788,7 @@ impl IV3Frame {
             plane.reset()
         }
     }
-    fn decode_planes(&mut self, ref_frame: &mut IV3Frame, br: &mut ByteReader, header: &mut Header, requant_tab: &RequantTab) -> DecoderResult<()> {
+    fn decode_planes(&mut self, ref_frame: &mut IV3Frame, br: &mut dyn ByteIO, header: &mut Header, requant_tab: &RequantTab) -> DecoderResult<()> {
         let data_start = header.data_start;
         let data_end   = header.data_end;
         for ((cur_plane, ref_plane), (&start, &end)) in self.plane.iter_mut()
@@ -903,8 +903,7 @@ impl NADecoder for Indeo3Decoder {
     #[allow(clippy::manual_range_contains)]
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         // read OS header
         let frameno                     = br.read_u32le()?;

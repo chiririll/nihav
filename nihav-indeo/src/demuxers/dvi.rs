@@ -12,14 +12,14 @@ const GRAY_FORMAT: NAPixelFormaton = NAPixelFormaton {
 };
 
 struct DVIDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     data_end:       u64,
     packets:        VecDeque<NAPacket>,
     fsizes:         Vec<usize>,
 }
 
 impl<'a> DVIDemuxer<'a> {
-    fn new(src: &'a mut ByteReader<'a>) -> Self {
+    fn new(src: &'a mut dyn ByteIO) -> Self {
         Self {
             src,
             data_end:   0,
@@ -225,7 +225,7 @@ impl<'a> NAOptionHandler for DVIDemuxer<'a> {
 pub struct DVIDemuxerCreator { }
 
 impl DemuxerCreator for DVIDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(DVIDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "dvi" }
@@ -240,8 +240,7 @@ mod test {
     fn test_dvi_demux() {
         // sample comes from a demo by Digital Video Arts
         let mut file = File::open("assets/Indeo/YULELOG.AVS").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = DVIDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

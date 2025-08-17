@@ -248,8 +248,7 @@ impl NAEncoder for Indeo3Encoder {
         }
         if skip_frame {
             let mut dbuf = Vec::with_capacity(16);
-            let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-            let mut bw   = ByteWriter::new(&mut gw);
+            let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
 
             // OS header
             bw.write_u32le(self.frameno)?;
@@ -282,8 +281,7 @@ impl NAEncoder for Indeo3Encoder {
 
         if let Some(ref vbuf) = buf.get_vbuf() {
             let mut dbuf = Vec::with_capacity(16);
-            let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-            let mut bw   = ByteWriter::new(&mut gw);
+            let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
 
             let (width, height) = vbuf.get_dimensions(0);
             if width != self.width || height != self.height {
