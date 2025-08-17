@@ -4,7 +4,7 @@ use nihav_core::io::bitreader::*;
 const AVC_ID: u8 = 7;
 
 struct FLVDemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     vpkts:      Vec<NAPacket>,
     vtag:       Option<u8>,
     apkts:      Vec<NAPacket>,
@@ -118,7 +118,7 @@ impl<'a> NAOptionHandler for FLVDemuxer<'a> {
 }
 
 impl<'a> FLVDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:        io,
             vpkts:      Vec::with_capacity(2),
@@ -460,7 +460,7 @@ impl<'a> FLVDemuxer<'a> {
 pub struct FLVDemuxerCreator { }
 
 impl DemuxerCreator for FLVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(FLVDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "flv" }
@@ -475,8 +475,7 @@ mod test {
     #[test]
     fn test_flv_demux() {
         let mut file = File::open("assets/Flash/input.flv").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = FLVDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -495,8 +494,7 @@ mod test {
     #[test]
     fn test_flv_demux_back() {
         let mut file = File::open("assets/Flash/input.flv").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = FLVDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

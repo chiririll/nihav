@@ -49,7 +49,7 @@ trait FLVPropertyWriter {
     fn write_property_bool(&mut self, name: &str, val: bool) -> MuxerResult<()>;
 }
 
-impl<'a> FLVPropertyWriter for ByteWriter<'a> {
+impl<T: ?Sized + ByteIO> FLVPropertyWriter for T {
     fn write_property_num(&mut self, name: &str, val: f64) -> MuxerResult<()> {
         self.write_u16be(name.len() as u16)?;
         self.write_buf(name.as_bytes())?;
@@ -87,7 +87,7 @@ macro_rules! write_packet {
 }
 
 struct FLVMuxer<'a> {
-    bw:     &'a mut ByteWriter<'a>,
+    bw:     &'a mut dyn ByteIO,
     atag:   u8,
     ahdr:   u8,
     vtag:   u8,
@@ -97,7 +97,7 @@ struct FLVMuxer<'a> {
 }
 
 impl<'a> FLVMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             atag:   NO_CODEC,
@@ -282,7 +282,7 @@ impl<'a> NAOptionHandler for FLVMuxer<'a> {
 pub struct FLVMuxerCreator {}
 
 impl MuxerCreator for FLVMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(FLVMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "flv" }

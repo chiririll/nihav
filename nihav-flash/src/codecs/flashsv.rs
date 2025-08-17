@@ -80,7 +80,7 @@ impl FSVDecoder {
             bsize:      Vec::new(),
         }
     }
-    fn decode_v1(&mut self, br: &mut ByteReader, data: &mut [u8], stride: usize) -> DecoderResult<bool> {
+    fn decode_v1(&mut self, br: &mut dyn ByteIO, data: &mut [u8], stride: usize) -> DecoderResult<bool> {
         let mut is_intra = true;
         for (yy, row) in data.chunks_mut(stride * self.block_h).enumerate() {
             let cur_h = (self.h - yy * self.block_h).min(self.block_h);
@@ -104,7 +104,7 @@ impl FSVDecoder {
         }
         Ok(is_intra)
     }
-    fn decode_v2(&mut self, br: &mut ByteReader, data: &mut [u8], stride: usize, keyframe: bool) -> DecoderResult<bool> {
+    fn decode_v2(&mut self, br: &mut dyn ByteIO, data: &mut [u8], stride: usize, keyframe: bool) -> DecoderResult<bool> {
         let mut is_intra = !self.has_ifrm;
         let bstride = (self.w + self.block_w - 1) / self.block_w;
         for y in (0..self.h).step_by(self.block_h) {
@@ -189,8 +189,7 @@ impl FSVDecoder {
                             }
                         },
                         2 => {
-                            let mut mr = MemoryReader::new_read(&self.tile[..src_len]);
-                            let mut br = ByteReader::new(&mut mr);
+                            let mut br = MemoryReader::new_read(&self.tile[..src_len]);
                             for line in dst.chunks_mut(stride).skip(start).take(height) {
                                 for rgb in line.chunks_mut(3).take(cur_w) {
                                     let b           = br.read_byte()?;
@@ -240,8 +239,7 @@ impl NADecoder for FSVDecoder {
         let src = pkt.get_buffer();
 
         validate!(src.len() > 4);
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let hdr0                        = br.read_u16be()? as usize;
         let hdr1                        = br.read_u16be()? as usize;
