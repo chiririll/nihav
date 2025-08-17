@@ -41,8 +41,7 @@ impl NADecoder for LinePackDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 2 && (src.len() & 1) == 0);
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
 
         let mut is_intra = true;
         let mut dpos = 0;

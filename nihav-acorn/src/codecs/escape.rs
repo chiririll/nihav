@@ -98,8 +98,7 @@ impl NADecoder for Escape102Decoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 8);
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let codec_id = br.read_u32le()?;
         validate!(codec_id == 0x102);
         let vsize = br.read_u32le()? as usize;
@@ -230,8 +229,7 @@ impl NADecoder for Escape122Decoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 8);
-        let mut mr = MemoryReader::new_read(&src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(&src);
         let codec_id = br.read_u32le()?;
         validate!(codec_id == 0x100 + 22);
         let vsize = br.read_u32le()? as usize;

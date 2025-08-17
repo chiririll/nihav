@@ -1,12 +1,12 @@
 use nihav_core::demuxers::*;
 
 struct TCADemuxer<'a> {
-    src:        &'a mut ByteReader<'a>,
+    src:        &'a mut dyn ByteIO,
     tca:        TCACoreDemuxer,
 }
 
 impl<'a> TCADemuxer<'a> {
-    fn new(src: &'a mut ByteReader<'a>) -> Self {
+    fn new(src: &'a mut dyn ByteIO) -> Self {
         Self {
             src,
             tca:    TCACoreDemuxer::default()
@@ -38,7 +38,7 @@ impl<'a> NAOptionHandler for TCADemuxer<'a> {
 pub struct TCADemuxerCreator { }
 
 impl DemuxerCreator for TCADemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(TCADemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "tca" }
@@ -57,7 +57,7 @@ pub(crate) struct TCACoreDemuxer {
 }
 
 impl TCACoreDemuxer {
-    pub(crate) fn open(&mut self, src: &mut ByteReader, strmgr: &mut StreamManager, mut tb_num: u32, mut tb_den: u32) -> DemuxerResult<()> {
+    pub(crate) fn open(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, mut tb_num: u32, mut tb_den: u32) -> DemuxerResult<()> {
         let start_pos = src.tell();
         let tag                     = src.peek_tag()?;
         let is_acef = &tag == b"ACEF";
@@ -175,7 +175,7 @@ impl TCACoreDemuxer {
         Ok(())
     }
 
-    pub(crate) fn get_frame(&mut self, src: &mut ByteReader, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
+    pub(crate) fn get_frame(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         let has_video = self.video_pos + 4 < self.data_end;
         let has_audio = self.audio && self.sound_pos < self.sound_end;
 
@@ -215,7 +215,7 @@ impl TCACoreDemuxer {
         }
     }
 
-    pub(crate) fn get_frame_raw(&mut self, src: &mut ByteReader, strmgr: &mut StreamManager) -> DemuxerResult<NARawData> {
+    pub(crate) fn get_frame_raw(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager) -> DemuxerResult<NARawData> {
         let pkt = self.get_frame(src, strmgr)?;
         Ok(NARawData::new_from_refbuf(pkt.get_stream(), pkt.get_buffer()))
     }
@@ -230,8 +230,7 @@ mod test {
     fn test_tca_demux() {
         // a sample from RISC DISC 3
         let mut file = File::open("assets/Acorn/JUMPER").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = TCADemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

@@ -100,8 +100,7 @@ impl NADecoder for RawDecoder {
         let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0)?;
         match self.codec_id {
             2 => {
-                let mut mr = MemoryReader::new_read(&src);
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(&src);
 
                 let mut buf = bufinfo.get_vbuf16().unwrap();
                 let stride = buf.get_stride(0);

@@ -28,7 +28,7 @@ trait ReadString {
     fn read_string(&mut self) -> DemuxerResult<Vec<u8>>;
 }
 
-impl<'a> ReadString for ByteReader<'a> {
+impl<T: ?Sized + ByteIO> ReadString for T {
     fn read_string(&mut self) -> DemuxerResult<Vec<u8>> {
         let mut res = Vec::new();
         loop {
@@ -153,7 +153,7 @@ enum ReadState {
 }
 
 struct ARMovieDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     chunk_offs:     Vec<ChunkInfo>,
     cur_chunk:      usize,
     state:          ReadState,
@@ -164,7 +164,7 @@ struct ARMovieDemuxer<'a> {
 }
 
 impl<'a> ARMovieDemuxer<'a> {
-    fn new(src: &'a mut ByteReader<'a>) -> Self {
+    fn new(src: &'a mut dyn ByteIO) -> Self {
         Self {
             src,
             chunk_offs:     Vec::new(),
@@ -427,11 +427,11 @@ impl<'a> NAOptionHandler for ARMovieDemuxer<'a> {
 pub struct ARMovieDemuxerCreator { }
 
 impl RawDemuxerCreator for ARMovieDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn RawDemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn RawDemuxCore<'a> + 'a> {
         Box::new(ARMovieDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "armovie" }
-    fn check_format(&self, br: &mut ByteReader) -> bool {
+    fn check_format(&self, br: &mut dyn ByteIO) -> bool {
         let mut hdr = [0; 8];
         br.read_buf(&mut hdr).is_ok() && &hdr == b"ARMovie\n"
     }
@@ -446,8 +446,7 @@ mod test {
     fn test_armovie_demux() {
         // a sample from Acorn Replay Demonstration Disc 2
         let mut file = File::open("assets/Acorn/CHEMSET2").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = ARMovieDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -467,8 +466,7 @@ mod test {
     fn test_armovie_tca_demux() {
         // a sample from All About Planes
         let mut file = File::open("assets/Acorn/wessex").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = ARMovieDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
