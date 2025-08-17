@@ -361,8 +361,7 @@ impl NADecoder for RALFDecoder {
             let edata = info.get_extradata().unwrap();
 
             validate!(edata.len() >= 20);
-            let mut mr = MemoryReader::new_read(&edata);
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(&edata);
                                                           br.read_skip(4).unwrap();
             let version                                 = br.read_u16be().unwrap();
                                                           br.read_skip(2).unwrap();

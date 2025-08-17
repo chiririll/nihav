@@ -3,7 +3,7 @@ use nihav_core::frame::*;
 use nihav_core::codecs::{NADecoder, NADecoderSupport, DecoderError, DecoderResult, FrameSkipMode};
 use nihav_core::options::*;
 use nihav_codec_support::codecs::{MV, ZERO_MV, IPBShuffler};
-use nihav_core::io::byteio::{MemoryReader,ByteReader};
+use nihav_core::io::byteio::{ByteIO,MemoryReader};
 use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 use nihav_core::io::intcode::*;
 use std::str::FromStr;
@@ -1424,8 +1424,7 @@ impl NADecoder for RealVideo60Decoder {
             let src: &[u8] = &edata;
 
             if src.len() < 8 { return Err(DecoderError::InvalidData); }
-            let mut mr = MemoryReader::new_read(src);
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(src);
             let _flags                                  = br.read_u32be()?;
             let version                                 = br.read_u32be()?;
             let _unk                                    = br.read_u16be()?;

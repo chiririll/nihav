@@ -17,7 +17,7 @@ trait ReadSize {
     fn read_size(&mut self, ver: u16) -> ByteIOResult<u64>;
 }
 
-impl<'a> ReadSize for ByteReader<'a> {
+impl<T: ?Sized + ByteIO> ReadSize for T {
     fn read_size(&mut self, ver: u16) -> ByteIOResult<u64> {
         match ver {
             0 => Ok(u64::from(self.read_u32be()?)),
@@ -151,7 +151,7 @@ impl RMAudioStream {
         }
         RMAudioStream { deint, iinfo, buf, sub_packet: 0 }
     }
-    fn read_apackets(&mut self, queued_packets: &mut Vec<NAPacket>, src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
+    fn read_apackets(&mut self, queued_packets: &mut Vec<NAPacket>, src: &mut dyn ByteIO, stream: NAStreamRef, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
         let ts = stream.make_ts(Some(ts as u64), None, None);
 
         if keyframe {
@@ -362,7 +362,7 @@ impl CommonStreamData {
 }
 
 struct RealMediaDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     data_pos:       u64,
     data_end:       u64,
     next_data:      u64,
@@ -386,7 +386,7 @@ fn find_codec_name(registry: &[(&[u8;4], &'static str)], fcc: u32) -> &'static s
     "unknown"
 }
 
-fn read_14or30(src: &mut ByteReader) -> DemuxerResult<(bool, u32)> {
+fn read_14or30(src: &mut dyn ByteIO) -> DemuxerResult<(bool, u32)> {
     let tmp = src.read_u16be()?;
     let flag = (tmp & 0x8000) != 0;
     if (tmp & 0x4000) == 0x4000 {
@@ -397,7 +397,7 @@ fn read_14or30(src: &mut ByteReader) -> DemuxerResult<(bool, u32)> {
     }
 }
 
-fn read_video_buf(src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: bool, frame_size: usize) -> DemuxerResult<NAPacket> {
+fn read_video_buf(src: &mut dyn ByteIO, stream: NAStreamRef, ts: u32, keyframe: bool, frame_size: usize) -> DemuxerResult<NAPacket> {
     let size = frame_size + 9;
     let mut vec: Vec<u8> = vec![0; size];
     //v[0] = 0; // 1 slice
@@ -408,7 +408,7 @@ fn read_video_buf(src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: 
     Ok(NAPacket::new(stream, ts, keyframe, vec))
 }
 
-fn read_multiple_frame(src: &mut ByteReader, stream: NAStreamRef, keyframe: bool, skip_mtype: bool) -> DemuxerResult<NAPacket> {
+fn read_multiple_frame(src: &mut dyn ByteIO, stream: NAStreamRef, keyframe: bool, skip_mtype: bool) -> DemuxerResult<NAPacket> {
     if !skip_mtype {
         let mtype       = src.read_byte()?;
         validate!(mtype == 0xC0);
@@ -425,8 +425,7 @@ struct RMDemuxCommon {}
 impl RMDemuxCommon {
     fn parse_stream_info(str_data: &mut CommonStreamData, strmgr: &mut StreamManager, stream_no: u32, edata: &[u8], duration: u32) -> DemuxerResult<bool> {
         let mut is_mlti = false;
-        let mut mr = MemoryReader::new_read(edata);
-        let mut src = ByteReader::new(&mut mr);
+        let mut src = MemoryReader::new_read(edata);
         let tag  = src.read_u32be()?;
         let tag2 = src.peek_u32be()?;
         if tag == mktag!('.', 'r', 'a', 0xFD) {
@@ -468,8 +467,7 @@ impl RMDemuxCommon {
                 str_data.mlti_mapper.add_substream();
                 {
                     let hdrsrc = &edata[pos..][..hdr_size];
-                    let mut mr = MemoryReader::new_read(hdrsrc);
-                    let mut hsrc = ByteReader::new(&mut mr);
+                    let mut hsrc = MemoryReader::new_read(hdrsrc);
 
                     let tag  = hsrc.read_u32be()?;
                     let tag2 = hsrc.peek_u32be()?;
@@ -491,7 +489,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
         }
         Ok(is_mlti)
     }
-    fn parse_audio_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut ByteReader, edata_: &[u8], duration: u32) -> DemuxerResult<()> {
+    fn parse_audio_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut dyn ByteIO, edata_: &[u8], duration: u32) -> DemuxerResult<()> {
         let ver         = src.read_u16be()?;
         let ainfo = match ver {
             3 => {
@@ -537,7 +535,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
         streams.push(RMStreamType::Audio(astr));
         Ok(())
     }
-    fn parse_video_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut ByteReader, edata_: &[u8], tag2: u32, duration: u32) -> DemuxerResult<()> {
+    fn parse_video_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut dyn ByteIO, edata_: &[u8], tag2: u32, duration: u32) -> DemuxerResult<()> {
         src.read_skip(4)?;
         let fcc         = src.read_u32be()?;
         let width       = src.read_u16be()? as usize;
@@ -568,7 +566,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
         Ok(())
     }
     #[allow(clippy::too_many_arguments)]
-    fn parse_packet_payload(src: &mut ByteReader, rmstream: &mut RMStreamType, stream: NAStreamRef, slice_buf: &mut Vec<u8>, queued_pkts: &mut Vec<NAPacket>, keyframe: bool, ts: u32, payload_size: usize) -> DemuxerResult<NAPacket> {
+    fn parse_packet_payload(src: &mut dyn ByteIO, rmstream: &mut RMStreamType, stream: NAStreamRef, slice_buf: &mut Vec<u8>, queued_pkts: &mut Vec<NAPacket>, keyframe: bool, ts: u32, payload_size: usize) -> DemuxerResult<NAPacket> {
         match rmstream {
             RMStreamType::Video(ref mut vstr) => {
 
@@ -770,7 +768,7 @@ impl<'a> NAOptionHandler for RealMediaDemuxer<'a> {
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
-fn read_chunk(src: &mut ByteReader) -> DemuxerResult<(u32, u32, u16)> {
+fn read_chunk(src: &mut dyn ByteIO) -> DemuxerResult<(u32, u32, u16)> {
     let id      = src.read_u32be()?;
 if id == 0 { return Ok((0, 0, 0)); }
     let size    = src.read_u32be()?;
@@ -819,7 +817,7 @@ impl RealAudioInfo {
     }
 }
 
-fn skip_ra_metadata(src: &mut ByteReader) -> DemuxerResult<()> {
+fn skip_ra_metadata(src: &mut dyn ByteIO) -> DemuxerResult<()> {
     let title_len           = src.read_byte()? as usize;
     src.read_skip(title_len)?;
     let author_len          = src.read_byte()? as usize;
@@ -831,7 +829,7 @@ fn skip_ra_metadata(src: &mut ByteReader) -> DemuxerResult<()> {
     Ok(())
 }
 
-fn parse_aformat3(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
+fn parse_aformat3(src: &mut dyn ByteIO) -> DemuxerResult<RealAudioInfo> {
     let start = src.tell();
     let header_len          = src.read_u16be()?;
     validate!(header_len >= 24);
@@ -864,7 +862,7 @@ fn parse_aformat3(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     })
 }
 
-fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
+fn parse_aformat4(src: &mut dyn ByteIO) -> DemuxerResult<RealAudioInfo> {
     let start = src.tell();
     src.read_skip(2)?; // zeroes
     let id                  = src.read_u32be()?;
@@ -916,7 +914,7 @@ fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     })
 }
 
-fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
+fn parse_aformat5(src: &mut dyn ByteIO) -> DemuxerResult<RealAudioInfo> {
     let start = src.tell();
     src.read_skip(2)?; // zeroes
     let id                  = src.read_u32be()?;
@@ -982,7 +980,7 @@ const RMVB_PROP_SIZE: u32 = 50;
 const KEYFRAME_FLAG: u8 = 0x02;
 
 impl<'a> RealMediaDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         RealMediaDemuxer {
             src:            io,
             data_pos:       0,
@@ -1164,7 +1162,7 @@ impl<'a> RealMediaDemuxer<'a> {
     }
 }
 
-fn read_string_size(src: &mut ByteReader, size: usize) -> DemuxerResult<String> {
+fn read_string_size(src: &mut dyn ByteIO, size: usize) -> DemuxerResult<String> {
     let mut vec: Vec<u8> = Vec::new();
     for _ in 0..size {
         let c = src.read_byte()?;
@@ -1178,7 +1176,7 @@ fn read_string_size(src: &mut ByteReader, size: usize) -> DemuxerResult<String> 
 }
 
 struct RealAudioDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     stream:         Option<RMAudioStream>,
     data_start:     u64,
     data_end:       u64,
@@ -1276,7 +1274,7 @@ impl<'a> NAOptionHandler for RealAudioDemuxer<'a> {
 }
 
 impl<'a> RealAudioDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         RealAudioDemuxer {
             src:            io,
             data_start:     0,
@@ -1301,14 +1299,14 @@ enum IVRRecord {
 }
 
 impl IVRRecord {
-    fn read_string(src: &mut ByteReader) -> DemuxerResult<Vec<u8>> {
+    fn read_string(src: &mut dyn ByteIO) -> DemuxerResult<Vec<u8>> {
         let len                     = src.read_u32be()? as usize;
         let mut val = vec![0; len];
         src.read_buf(val.as_mut_slice())?;
         Ok(val)
     }
 
-    fn read(src: &mut ByteReader) -> DemuxerResult<Self> {
+    fn read(src: &mut dyn ByteIO) -> DemuxerResult<Self> {
         let code = src.read_byte()?;
         match code {
             1 => {
@@ -1397,7 +1395,7 @@ impl RecordDemuxer {
             remap_ids:      Vec::new(),
         }
     }
-    fn parse_header(&mut self, src: &mut ByteReader, strmgr: &mut StreamManager, str_data: &mut CommonStreamData) -> DemuxerResult<()> {
+    fn parse_header(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, str_data: &mut CommonStreamData) -> DemuxerResult<()> {
         src.seek(SeekFrom::Start(self.cur_pos))?;
         let magic           = src.read_u32be()?;
         validate!(magic == mktag!(b".REC"));
@@ -1477,7 +1475,7 @@ impl RecordDemuxer {
 
         Ok(())
     }
-    fn get_packet(&mut self, src: &mut ByteReader, str_data: &mut CommonStreamData, strmgr: &StreamManager, queued_pkts: &mut Vec<NAPacket>, slice_buf: &mut Vec<u8>) -> DemuxerResult<NAPacket> {
+    fn get_packet(&mut self, src: &mut dyn ByteIO, str_data: &mut CommonStreamData, strmgr: &StreamManager, queued_pkts: &mut Vec<NAPacket>, slice_buf: &mut Vec<u8>) -> DemuxerResult<NAPacket> {
         src.seek(SeekFrom::Start(self.cur_pos))?;
         loop {
             let rec = IVRRecord::read(src)?;
@@ -1523,7 +1521,7 @@ impl RecordDemuxer {
 }
 
 struct RealIVRDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     recs:           Vec<RecordDemuxer>,
     cur_rec:        usize,
     queued_pkts:    Vec<NAPacket>,
@@ -1615,7 +1613,7 @@ impl<'a> NAOptionHandler for RealIVRDemuxer<'a> {
 }
 
 impl<'a> RealIVRDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         RealIVRDemuxer {
             src:            io,
             recs:           Vec::new(),
@@ -1652,7 +1650,7 @@ static RM_AUDIO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 pub struct RealMediaDemuxerCreator { }
 
 impl DemuxerCreator for RealMediaDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(RealMediaDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "realmedia" }
@@ -1661,7 +1659,7 @@ impl DemuxerCreator for RealMediaDemuxerCreator {
 pub struct RealAudioDemuxerCreator { }
 
 impl DemuxerCreator for RealAudioDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(RealAudioDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "realaudio" }
@@ -1670,7 +1668,7 @@ impl DemuxerCreator for RealAudioDemuxerCreator {
 pub struct RealIVRDemuxerCreator { }
 
 impl DemuxerCreator for RealIVRDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(RealIVRDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "real_ivr" }
@@ -1696,8 +1694,7 @@ mod test {
 //            File::open("assets/RV/clv1_sipr_384x208_realvideo_encoder_4.0.rm").unwrap();
 //            File::open("assets/RV/luckynight.rmvb").unwrap();
 //            File::open("assets/RV/rv40_ralf.rmvb").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = RealMediaDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -1720,8 +1717,7 @@ mod test {
         let mut file =
 //            File::open("assets/RV/welcome288.ra").unwrap();
             File::open("assets/RV/diemusik.ra").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = RealAudioDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
@@ -1743,8 +1739,7 @@ mod test {
         let mut file =
             File::open("assets/RV/Opener_rm_hi.ivr").unwrap();
 //            File::open("assets/RV/SherwinWilliamsCommercial.ivr").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = RealIVRDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

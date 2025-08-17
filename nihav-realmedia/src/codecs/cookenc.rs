@@ -829,8 +829,7 @@ impl NAEncoder for CookEncoder {
                 }
 
                 let mut edata = Vec::new();
-                let mut gw = GrowableMemoryWriter::new_write(&mut edata);
-                let mut bw = ByteWriter::new(&mut gw);
+                let mut bw = GrowableMemoryWriter::new_write(&mut edata);
                 if flavour.channels <= 2 {
                     let br_info = &BITRATE_PARAMS[flavour.br_ids[0]];
                     let ch_mode = if br_info.channels == 1 {

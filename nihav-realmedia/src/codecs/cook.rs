@@ -3,7 +3,7 @@ use nihav_core::frame::*;
 use nihav_core::codecs::*;
 use nihav_codec_support::dsp::mdct::IMDCT;
 use nihav_core::io::bitreader::*;
-use nihav_core::io::byteio::{ByteReader, MemoryReader};
+use nihav_core::io::byteio::{ByteIO, MemoryReader};
 use nihav_core::io::codebook::*;
 use nihav_core::io::intcode::*;
 use std::f32::consts;
@@ -168,7 +168,7 @@ impl CookChannelPair {
             qindex:         [0; MAX_SUBBANDS * 2],
         }
     }
-    fn read_hdr_v1(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+    fn read_hdr_v1(&mut self, br: &mut dyn ByteIO) -> DecoderResult<()> {
         let ver                                         = br.read_u32be()?;
         let micro_ver = ver & 0xFF;
         self.samples                                    = br.read_u16be()? as usize;
@@ -198,7 +198,7 @@ impl CookChannelPair {
         }
         Ok(())
     }
-    fn read_hdr_v2(&mut self, br: &mut ByteReader) -> DecoderResult<u32> {
+    fn read_hdr_v2(&mut self, br: &mut dyn ByteIO) -> DecoderResult<u32> {
         let ver                                         = br.read_u32be()?;
         validate!((ver >> 24) == 2);
         self.samples                                    = br.read_u16be()? as usize;
@@ -550,8 +550,7 @@ impl NADecoder for CookDecoder {
             let edata = info.get_extradata().unwrap();
             validate!(edata.len() >= 4);
 
-            let mut mr = MemoryReader::new_read(&edata);
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(&edata);
             let ver                                     = br.peek_u32be()?;
 
             let maj_ver = ver >> 24;

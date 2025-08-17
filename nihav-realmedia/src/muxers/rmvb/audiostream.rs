@@ -365,8 +365,7 @@ impl Interleaver for AACInterleaver {
     fn get_packet(&mut self) -> Option<(Vec<u8>, bool)> {
         if self.full {
             let mut dst = Vec::with_capacity(self.frame_size);
-            let mut gw = GrowableMemoryWriter::new_write(&mut dst);
-            let mut bw = ByteWriter::new(&mut gw);
+            let mut bw = GrowableMemoryWriter::new_write(&mut dst);
             bw.write_u16be((self.sizes.len() * 16) as u16).unwrap();
             for &pkt_size in self.sizes.iter() {
                 bw.write_u16be(pkt_size as u16).unwrap();
@@ -413,7 +412,7 @@ struct AudioStreamWriter {
 }
 
 impl RMStreamWriter for AudioStreamWriter {
-    fn write_header(&mut self, bw: &mut ByteWriter, astream: &NAStream) -> MuxerResult<()> {
+    fn write_header(&mut self, bw: &mut dyn ByteIO, astream: &NAStream) -> MuxerResult<()> {
         self.header_pos = bw.tell();
         if self.version < 6 {
             bw.write_buf(b".ra\xFD")?;
@@ -476,7 +475,7 @@ impl RMStreamWriter for AudioStreamWriter {
         }
     }
     fn flush(&mut self) { self.interleave.flush() }
-    fn finish(&mut self, bw: &mut ByteWriter) -> MuxerResult<()> {
+    fn finish(&mut self, bw: &mut dyn ByteIO) -> MuxerResult<()> {
         let cur_pos = bw.tell();
         match self.version {
             3 => {
@@ -498,7 +497,7 @@ impl RMStreamWriter for AudioStreamWriter {
     fn set_pkt_size(&mut self, _pkt_size: usize) {}
 }
 
-fn write_audio_metadata(bw: &mut ByteWriter) -> MuxerResult<()> {
+fn write_audio_metadata(bw: &mut dyn ByteIO) -> MuxerResult<()> {
     bw.write_byte(0)?; // title_string_length
     bw.write_byte(0)?; // author_string_length
     bw.write_byte(0)?; // copyright_string_length
@@ -506,7 +505,7 @@ fn write_audio_metadata(bw: &mut ByteWriter) -> MuxerResult<()> {
     Ok(())
 }
 
-fn write_aformat3(bw: &mut ByteWriter, _stream: &NAStream, il_info: &InterleaveInfo) -> MuxerResult<()> {
+fn write_aformat3(bw: &mut dyn ByteIO, _stream: &NAStream, il_info: &InterleaveInfo) -> MuxerResult<()> {
     let start = bw.tell();
     bw.write_u16be(0)?; // header_bytes
     bw.write_u16be(il_info.flavor as u16)?;
@@ -525,7 +524,7 @@ fn write_aformat3(bw: &mut ByteWriter, _stream: &NAStream, il_info: &InterleaveI
     Ok(())
 }
 
-fn write_aformat4(bw: &mut ByteWriter, stream: &NAStream, il_info: &InterleaveInfo) -> MuxerResult<()> {
+fn write_aformat4(bw: &mut dyn ByteIO, stream: &NAStream, il_info: &InterleaveInfo) -> MuxerResult<()> {
     let info = stream.get_info().get_properties().get_audio_info().unwrap();
 
     bw.write_u16be(0)?;
@@ -562,7 +561,7 @@ fn write_aformat4(bw: &mut ByteWriter, stream: &NAStream, il_info: &InterleaveIn
     Ok(())
 }
 
-fn write_aformat5(bw: &mut ByteWriter, stream: &NAStream, il_info: &InterleaveInfo) -> MuxerResult<()> {
+fn write_aformat5(bw: &mut dyn ByteIO, stream: &NAStream, il_info: &InterleaveInfo) -> MuxerResult<()> {
     let info = stream.get_info().get_properties().get_audio_info().unwrap();
 
     bw.write_u16be(0)?;
@@ -611,7 +610,7 @@ fn write_aformat5(bw: &mut ByteWriter, stream: &NAStream, il_info: &InterleaveIn
     Ok(())
 }
 
-fn write_lsd(bw: &mut ByteWriter, stream: &NAStream) -> MuxerResult<()> {
+fn write_lsd(bw: &mut dyn ByteIO, stream: &NAStream) -> MuxerResult<()> {
     if let Some(edata) = stream.get_info().get_extradata() {
         bw.write_buf(&edata)?;
     }

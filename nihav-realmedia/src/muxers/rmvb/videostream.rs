@@ -15,7 +15,7 @@ static VIDEO_CODEC_REGISTRY: &[(&[u8;4], &str)] = &[
 
 pub struct DummyStreamWriter {}
 impl RMStreamWriter for DummyStreamWriter {
-    fn write_header(&mut self, _bw: &mut ByteWriter, _stream: &NAStream) -> MuxerResult<()> {
+    fn write_header(&mut self, _bw: &mut dyn ByteIO, _stream: &NAStream) -> MuxerResult<()> {
         Ok(())
     }
     fn queue_packet(&mut self, _pkt: NAPacket, _ms: u32) -> bool {
@@ -25,7 +25,7 @@ impl RMStreamWriter for DummyStreamWriter {
         None
     }
     fn flush(&mut self) { }
-    fn finish(&mut self, _bw: &mut ByteWriter) -> MuxerResult<()> {
+    fn finish(&mut self, _bw: &mut dyn ByteIO) -> MuxerResult<()> {
         Ok(())
     }
     fn set_pkt_size(&mut self, _pkt_size: usize) {}
@@ -73,7 +73,7 @@ struct VideoStreamWriter {
 }
 
 impl RMStreamWriter for VideoStreamWriter {
-    fn write_header(&mut self, bw: &mut ByteWriter, vstream: &NAStream) -> MuxerResult<()> {
+    fn write_header(&mut self, bw: &mut dyn ByteIO, vstream: &NAStream) -> MuxerResult<()> {
         let info = vstream.get_info().get_properties().get_video_info().unwrap();
         let start = bw.tell();
 
@@ -226,7 +226,7 @@ impl RMStreamWriter for VideoStreamWriter {
     fn flush(&mut self) {
         self.flush = true;
     }
-    fn finish(&mut self, _bw: &mut ByteWriter) -> MuxerResult<()> {
+    fn finish(&mut self, _bw: &mut dyn ByteIO) -> MuxerResult<()> {
         Ok(())
     }
     fn set_pkt_size(&mut self, pkt_size: usize) {

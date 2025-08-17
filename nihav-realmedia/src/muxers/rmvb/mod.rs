@@ -10,7 +10,7 @@ trait RMWriterHelper {
     fn patch_value(&mut self, val: u32, off: u64) -> MuxerResult<()>;
 }
 
-impl<'a> RMWriterHelper for ByteWriter<'a> {
+impl<T: ?Sized + ByteIO> RMWriterHelper for T {
     fn write_chunk(&mut self, id: &[u8], size: u32, version: u16) -> MuxerResult<()> {
         self.write_buf(id)?;
         self.write_u32be(size)?;
@@ -33,11 +33,11 @@ impl<'a> RMWriterHelper for ByteWriter<'a> {
 }
 
 pub trait RMStreamWriter {
-    fn write_header(&mut self, bw: &mut ByteWriter, astream: &NAStream) -> MuxerResult<()>;
+    fn write_header(&mut self, bw: &mut dyn ByteIO, astream: &NAStream) -> MuxerResult<()>;
     fn queue_packet(&mut self, pkt: NAPacket, ms: u32) -> bool;
     fn get_packet(&mut self) -> Option<(Vec<u8>, u32, bool)>;
     fn flush(&mut self);
-    fn finish(&mut self, bw: &mut ByteWriter) -> MuxerResult<()>;
+    fn finish(&mut self, bw: &mut dyn ByteIO) -> MuxerResult<()>;
     fn set_pkt_size(&mut self, pkt_size: usize);
 }
 
@@ -85,7 +85,7 @@ impl RMStream {
             debug:          false,
         })
     }
-    fn write_mdpr(&mut self, bw: &mut ByteWriter, strm: &NAStream) -> MuxerResult<()> {
+    fn write_mdpr(&mut self, bw: &mut dyn ByteIO, strm: &NAStream) -> MuxerResult<()> {
         self.mdpr_pos = bw.tell();
 
         bw.write_chunk(b"MDPR", 0, 0)?;
@@ -123,7 +123,7 @@ impl RMStream {
 
         Ok(())
     }
-    fn write_packet(&mut self, bw: &mut ByteWriter, pkt: NAPacket, pkt_no: &mut u32) -> MuxerResult<()> {
+    fn write_packet(&mut self, bw: &mut dyn ByteIO, pkt: NAPacket, pkt_no: &mut u32) -> MuxerResult<()> {
         if let Some(pts) = pkt.get_pts() {
             let (tb_num, tb_den) = pkt.get_stream().get_timebase();
             let ms = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den) as u32;
@@ -134,7 +134,7 @@ impl RMStream {
         self.packetiser.queue_packet(pkt, self.cur_time);
         self.write_packets(bw, pkt_no)
     }
-    fn write_packets(&mut self, bw: &mut ByteWriter, pkt_no: &mut u32) -> MuxerResult<()> {
+    fn write_packets(&mut self, bw: &mut dyn ByteIO, pkt_no: &mut u32) -> MuxerResult<()> {
         while let Some((data, ts, first)) = self.packetiser.get_packet() {
             validate!(data.len() < 65000);
             if self.keyframe && first {
@@ -159,7 +159,7 @@ impl RMStream {
         }
         Ok(())
     }
-    fn finish(&mut self, bw: &mut ByteWriter, pkt_no: &mut u32) -> MuxerResult<()> {
+    fn finish(&mut self, bw: &mut dyn ByteIO, pkt_no: &mut u32) -> MuxerResult<()> {
         self.packetiser.flush();
         self.write_packets(bw, pkt_no)?;
 
@@ -178,7 +178,7 @@ impl RMStream {
 }
 
 struct RMMuxer<'a> {
-    bw:             &'a mut ByteWriter<'a>,
+    bw:             &'a mut dyn ByteIO,
     streams:        Vec<RMStream>,
     data_pos:       u64,
     num_chunks:     u32,
@@ -189,7 +189,7 @@ struct RMMuxer<'a> {
 }
 
 impl<'a> RMMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             streams:    Vec::new(),
@@ -260,7 +260,7 @@ impl<'a> RMMuxer<'a> {
     }
 }
 
-fn patch_size(bw: &mut ByteWriter, pos: u64) -> MuxerResult<()> {
+fn patch_size(bw: &mut dyn ByteIO, pos: u64) -> MuxerResult<()> {
     let end = bw.tell();
     bw.patch_value((end - pos) as u32, pos + 4)
 }
@@ -401,7 +401,7 @@ impl<'a> NAOptionHandler for RMMuxer<'a> {
 pub struct RealMediaMuxerCreator {}
 
 impl MuxerCreator for RealMediaMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(RMMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "realmedia" }
@@ -410,12 +410,12 @@ impl MuxerCreator for RealMediaMuxerCreator {
 }
 
 struct RAMuxer<'a> {
-    bw:             &'a mut ByteWriter<'a>,
+    bw:             &'a mut dyn ByteIO,
     sw:             Option<Box<dyn RMStreamWriter>>,
 }
 
 impl<'a> RAMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             sw:     None,
@@ -469,7 +469,7 @@ impl<'a> NAOptionHandler for RAMuxer<'a> {
 pub struct RealAudioMuxerCreator {}
 
 impl MuxerCreator for RealAudioMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(RAMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "realaudio" }
