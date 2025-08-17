@@ -38,8 +38,7 @@ const WV_HEADER_SIZE: usize = 32;
 impl WVHeader {
     #[allow(clippy::field_reassign_with_default)]
     fn parse(src: &[u8]) -> DemuxerResult<Self> {
-        let mut mr = MemoryReader::new_read(src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src);
         let tag                         = br.read_tag()?;
         validate!(&tag == b"wvpk");
         let mut hdr = Self::default();
@@ -94,7 +93,7 @@ struct FrameSeekInfo {
 }
 
 struct WavPackDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     samplepos:      u64,
     nsamples:       u64,
     first_blocks:   Option<(WVHeader, Vec<u8>)>,
@@ -103,7 +102,7 @@ struct WavPackDemuxer<'a> {
 }
 
 impl<'a> WavPackDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:            io,
             samplepos:      0,
@@ -265,7 +264,7 @@ impl<'a> NAOptionHandler for WavPackDemuxer<'a> {
 pub struct WavPackDemuxerCreator { }
 
 impl DemuxerCreator for WavPackDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(WavPackDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "wavpack" }
@@ -280,8 +279,7 @@ mod test {
     fn test_wavpack_demux() {
         // sample from the official WavPack test samples set
         let mut file = File::open("assets/LLaudio/wv/false_stereo.wv").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = WavPackDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

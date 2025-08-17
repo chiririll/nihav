@@ -41,8 +41,7 @@ impl NADecoder for APEDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(_ainfo) = info.get_properties() {
             if let Some(buf) = info.get_extradata() {
-                let mut mr = MemoryReader::new_read(&buf);
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(&buf);
                 let version             = br.read_u16le()?;
                 let compression         = br.read_u16le()?;
                 let _flags              = br.read_u16le()?;

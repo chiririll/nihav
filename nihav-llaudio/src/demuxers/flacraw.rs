@@ -2,7 +2,7 @@ use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 
 struct FLACDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     data_start:     u64,
     tot_samples:    u64,
     cur_samples:    u64,
@@ -15,7 +15,7 @@ struct FLACDemuxer<'a> {
 }
 
 impl<'a> FLACDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:            io,
             data_start:     0,
@@ -129,11 +129,11 @@ impl<'a> NAOptionHandler for FLACDemuxer<'a> {
 pub struct FLACDemuxerCreator { }
 
 impl RawDemuxerCreator for FLACDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn RawDemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn RawDemuxCore<'a> + 'a> {
         Box::new(FLACDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "flac" }
-    fn check_format(&self, br: &mut ByteReader) -> bool {
+    fn check_format(&self, br: &mut dyn ByteIO) -> bool {
         if br.seek(SeekFrom::Start(0)).is_err() {
             return false;
         }
@@ -152,8 +152,7 @@ mod test {
     fn test_flac_raw_demux() {
         // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.flac
         let mut file = File::open("assets/LLaudio/luckynight.flac").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = FLACDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

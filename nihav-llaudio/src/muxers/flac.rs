@@ -1,7 +1,7 @@
 use nihav_core::muxers::*;
 
 struct FLACMuxer<'a> {
-    bw:             &'a mut ByteWriter<'a>,
+    bw:             &'a mut dyn ByteIO,
     maxpkt:         usize,
     minpkt:         usize,
     duration:       u64,
@@ -11,7 +11,7 @@ struct FLACMuxer<'a> {
 }
 
 impl<'a> FLACMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             maxpkt: usize::MAX, minpkt: 0,
@@ -89,7 +89,7 @@ impl<'a> NAOptionHandler for FLACMuxer<'a> {
 pub struct FLACMuxerCreator {}
 
 impl MuxerCreator for FLACMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(FLACMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "flac" }

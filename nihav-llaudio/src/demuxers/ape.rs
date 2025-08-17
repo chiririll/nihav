@@ -9,7 +9,7 @@ struct Frame {
 }
 
 struct APEDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     cur_frame:      usize,
     frames:         Vec<Frame>,
     normal_blocks:  u32,
@@ -19,7 +19,7 @@ struct APEDemuxer<'a> {
 }
 
 impl<'a> APEDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:            io,
             cur_frame:      0,
@@ -237,7 +237,7 @@ impl<'a> NAOptionHandler for APEDemuxer<'a> {
 pub struct APEDemuxerCreator { }
 
 impl DemuxerCreator for APEDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(APEDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "ape" }
@@ -252,8 +252,7 @@ mod test {
     fn test_ape_demux() {
         // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.ape
         let mut file = File::open("assets/LLaudio/ape/luckynight.ape").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = APEDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

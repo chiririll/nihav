@@ -243,8 +243,7 @@ impl NADecoder for FlacDecoder {
             if let Some(buf) = info.get_extradata() {
                 validate!(buf.len() >= 22);
 
-                let mut mr = MemoryReader::new_read(&buf);
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(&buf);
 
                 self.min_blk_size       = br.read_u16be()? as usize;
                 self.max_blk_size       = br.read_u16be()? as usize;
@@ -655,8 +654,7 @@ mod test {
         llaudio_register_all_demuxers(&mut dmx_reg);
         let dmx_f = dmx_reg.find_demuxer("flac").unwrap();
         let mut file = std::fs::File::open("assets/LLaudio/luckynight.flac").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
         let mut pkt_sizes = Vec::new();

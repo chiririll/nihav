@@ -2,7 +2,7 @@ use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 
 struct TTADemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     cur_frame:      u32,
     nframes:        u32,
     nsamples:       u32,
@@ -13,7 +13,7 @@ struct TTADemuxer<'a> {
 }
 
 impl<'a> TTADemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:            io,
             cur_frame:      0,
@@ -110,7 +110,7 @@ impl<'a> NAOptionHandler for TTADemuxer<'a> {
 pub struct TTADemuxerCreator { }
 
 impl DemuxerCreator for TTADemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(TTADemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "tta" }
@@ -125,8 +125,7 @@ mod test {
     fn test_tta_demux() {
         // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.tta
         let mut file = File::open("assets/LLaudio/luckynight.tta").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = TTADemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

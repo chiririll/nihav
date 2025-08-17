@@ -10,7 +10,7 @@ struct FrameSeekInfo {
 }
 
 struct FLACDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     data_start:     u64,
     tot_samples:    u64,
     cur_samples:    u64,
@@ -35,7 +35,7 @@ fn common_header_word(mut val: u32) -> u32 {
 }
 
 impl<'a> FLACDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:            io,
             data_start:     0,
@@ -287,7 +287,7 @@ impl<'a> NAOptionHandler for FLACDemuxer<'a> {
 pub struct FLACDemuxerCreator { }
 
 impl DemuxerCreator for FLACDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(FLACDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "flac" }
@@ -302,8 +302,7 @@ mod test {
     fn test_flac_demux() {
         // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.flac
         let mut file = File::open("assets/LLaudio/luckynight.flac").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = FLACDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

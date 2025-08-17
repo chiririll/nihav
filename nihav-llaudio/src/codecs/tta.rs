@@ -224,8 +224,7 @@ impl NADecoder for TTADecoder {
                 if !check_crc(&buf) {
                     return Err(DecoderError::ChecksumError);
                 }
-                let mut mr = MemoryReader::new_read(&buf);
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(&buf);
                 let tag                 = br.read_tag()?;
                 validate!(&tag == b"TTA1");
                 let afmt                = br.read_u16le()?;

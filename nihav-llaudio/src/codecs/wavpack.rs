@@ -40,8 +40,7 @@ const WV_HEADER_SIZE: usize = 32;
 impl WVHeader {
     #[allow(clippy::field_reassign_with_default)]
     fn parse(src: &[u8]) -> DecoderResult<Self> {
-        let mut mr = MemoryReader::new_read(src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src);
         let tag                         = br.read_tag()?;
         validate!(&tag == b"wvpk");
         let mut hdr = Self::default();
@@ -535,7 +534,7 @@ struct WavPackDecoder {
     dstate:     DecorrState,
 }
 
-fn get_subblock(br: &mut ByteReader) -> DecoderResult<(u8, usize)> {
+fn get_subblock(br: &mut dyn ByteIO) -> DecoderResult<(u8, usize)> {
     let id1                             = br.read_byte()?;
     let id = id1 & 0x3F;
     let mut len = 2 * if (id1 & 0x80) == 0 {
@@ -657,8 +656,7 @@ impl WavPackDecoder {
     }
     #[allow(clippy::cognitive_complexity)]
     fn decode_block(&mut self, hdr: &WVHeader, src: &[u8], start_ch: usize, abuf: &mut NABufferType) -> DecoderResult<()> {
-        let mut mr = MemoryReader::new_read(src);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src);
         let mut has_terms = false;
         let mut has_weights = false;
         let mut has_samples = false;
@@ -930,8 +928,7 @@ impl NADecoder for WavPackDecoder {
                     self.header = hdr;
                     off += WV_HEADER_SIZE;
                     let size = hdr.get_size();
-                    let mut mr = MemoryReader::new_read(&buf[off..][..size]);
-                    let mut br = ByteReader::new(&mut mr);
+                    let mut br = MemoryReader::new_read(&buf[off..][..size]);
                     while br.left() > 0 {
                         let (id, len)   = get_subblock(&mut br)?;
                         match id {
