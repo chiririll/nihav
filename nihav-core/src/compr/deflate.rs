@@ -1066,7 +1066,7 @@ impl GzipCRC32 {
 }
 
 /// Decodes input data in gzip file format (RFC 1952) returning a vector containing decoded data.
-pub fn gzip_decode(br: &mut ByteReader, skip_crc: bool) -> DecompressResult<Vec<u8>> {
+pub fn gzip_decode(br: &mut dyn ByteIO, skip_crc: bool) -> DecompressResult<Vec<u8>> {
     const FLAG_HCRC:    u8 = 0x02;
     const FLAG_EXTRA:   u8 = 0x04;
     const FLAG_NAME:    u8 = 0x08;
@@ -2212,8 +2212,7 @@ mod test {
     0x8B, 0x65, 0x00, 0xB7, 0x36, 0xBD, 0x77, 0xA8, 0xBD, 0x5A, 0xAA, 0x1A, 0x09, 0x00, 0x00
         ];
 
-        let mut mr = MemoryReader::new_read(TEST_DATA);
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(TEST_DATA);
         let _dst_buf = gzip_decode(&mut br, false).unwrap();
 
 //        println!("{}", String::from_utf8_lossy(_dst_buf.as_slice()));

@@ -50,7 +50,7 @@ pub trait NAPacketReader {
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()>;
 }
 
-impl<'a> NAPacketReader for ByteReader<'a> {
+impl<T: ?Sized + ByteIO> NAPacketReader for T {
     fn read_packet(&mut self, strm: NAStreamRef, ts: NATimeInfo, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
         let mut buf: Vec<u8> = Vec::with_capacity(size);
         if buf.capacity() < size { return Err(DemuxerError::MemoryError); }
@@ -448,14 +448,14 @@ impl From<ByteIOError> for DemuxerError {
 
 /// The trait for creating demuxers.
 pub trait DemuxerCreator {
-    /// Creates new demuxer instance that will use `ByteReader` source as an input.
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a>;
+    /// Creates new demuxer instance that will use source with `ByteIO` trait as an input.
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a>;
     /// Returns the name of current demuxer creator (equal to the container name it can demux).
     fn get_name(&self) -> &'static str;
 }
 
 /// Creates demuxer for a provided bytestream.
-pub fn create_demuxer<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<Demuxer<'a>> {
+pub fn create_demuxer<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut dyn ByteIO) -> DemuxerResult<Demuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     let mut strmgr = StreamManager::new();
     let mut seek_idx = SeekIndex::new();
@@ -464,7 +464,7 @@ pub fn create_demuxer<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut ByteReader<'a>
 }
 
 /// Creates demuxer for a provided bytestream with options applied right after its creation.
-pub fn create_demuxer_with_options<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut ByteReader<'a>, opts: &[NAOption]) -> DemuxerResult<Demuxer<'a>> {
+pub fn create_demuxer_with_options<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut dyn ByteIO, opts: &[NAOption]) -> DemuxerResult<Demuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     dmx.set_options(opts);
     let mut strmgr = StreamManager::new();
@@ -617,16 +617,16 @@ impl<'a> NAOptionHandler for RawDemuxer<'a> {
 
 /// The trait for creating raw data demuxers.
 pub trait RawDemuxerCreator {
-    /// Creates new raw demuxer instance that will use `ByteReader` source as an input.
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn RawDemuxCore<'a> + 'a>;
+    /// Creates new raw demuxer instance that will use source with `ByteIO` trait as an input.
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn RawDemuxCore<'a> + 'a>;
     /// Tries to check whether the input can be demuxed with the demuxer.
-    fn check_format(&self, br: &mut ByteReader) -> bool;
+    fn check_format(&self, br: &mut dyn ByteIO) -> bool;
     /// Returns the name of current raw data demuxer creator (equal to the container name it can demux).
     fn get_name(&self) -> &'static str;
 }
 
 /// Creates raw data demuxer for a provided bytestream.
-pub fn create_raw_demuxer<'a>(dmxcr: &dyn RawDemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<RawDemuxer<'a>> {
+pub fn create_raw_demuxer<'a>(dmxcr: &dyn RawDemuxerCreator, br: &'a mut dyn ByteIO) -> DemuxerResult<RawDemuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     let mut strmgr = StreamManager::new();
     let mut seek_idx = SeekIndex::new();
@@ -635,7 +635,7 @@ pub fn create_raw_demuxer<'a>(dmxcr: &dyn RawDemuxerCreator, br: &'a mut ByteRea
 }
 
 /// Creates raw data demuxer for a provided bytestream with options applied right after its creation.
-pub fn create_raw_demuxer_with_options<'a>(dmxcr: &dyn RawDemuxerCreator, br: &'a mut ByteReader<'a>, opts: &[NAOption]) -> DemuxerResult<RawDemuxer<'a>> {
+pub fn create_raw_demuxer_with_options<'a>(dmxcr: &dyn RawDemuxerCreator, br: &'a mut dyn ByteIO, opts: &[NAOption]) -> DemuxerResult<RawDemuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     dmx.set_options(opts);
     let mut strmgr = StreamManager::new();

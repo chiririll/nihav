@@ -164,8 +164,8 @@ impl<'a> NAOptionHandler for Muxer<'a> {
 
 /// The trait for creating muxers.
 pub trait MuxerCreator {
-    /// Creates new muxer instance that will use `ByteWriter` for output.
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a>;
+    /// Creates new muxer instance that will use an object with `ByteIO` trait for output.
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a>;
     /// Returns the name of current muxer creator (equal to the container name it can create).
     fn get_name(&self) -> &'static str;
     /// Returns muxer capabilities for the current muxer.
@@ -175,7 +175,7 @@ pub trait MuxerCreator {
 }
 
 /// Creates muxer for a provided bytestream writer.
-pub fn create_muxer<'a>(mxcr: &dyn MuxerCreator, strmgr: StreamManager, bw: &'a mut ByteWriter<'a>) -> MuxerResult<Muxer<'a>> {
+pub fn create_muxer<'a>(mxcr: &dyn MuxerCreator, strmgr: StreamManager, bw: &'a mut dyn ByteIO) -> MuxerResult<Muxer<'a>> {
     let mut mux = mxcr.new_muxer(bw);
     mux.create(&strmgr)?;
     Ok(Muxer::new(mux, strmgr))
