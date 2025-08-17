@@ -13,15 +13,14 @@
 //!
 //! let name = "mediafile.ogv";
 //! let mut file = File::open(name).unwrap();
-//! let mut filereader = FileReader::new_read(&mut file);
-//! let mut br = ByteReader::new(&mut filereader);
+//! let mut br = FileReader::new_read(&mut file);
 //! let result = detect_format(name, &mut br);
 //! if let Some((name, score)) = result {
 //!     println!("detected format {} with score {:?}", name, score);
 //! }
 //! ```
 use std::io::SeekFrom;
-use nihav_core::io::byteio::ByteReader;
+use nihav_core::io::byteio::ByteIO;
 
 /// Format detection score.
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -68,7 +67,7 @@ impl Arg {
             Arg::U64LE(v) => { v }
         }
     }
-    fn read_val(&self, src: &mut ByteReader) -> Option<u64> {
+    fn read_val(&self, src: &mut dyn ByteIO) -> Option<u64> {
         match *self {
             Arg::Byte(_) => {
                 let res = src.peek_byte();
@@ -117,35 +116,35 @@ impl Arg {
             }
         }
     }
-    fn eq(&self, src: &mut ByteReader) -> bool {
+    fn eq(&self, src: &mut dyn ByteIO) -> bool {
         if let Some(rval) = self.read_val(src) {
             rval == self.val()
         } else {
             false
         }
     }
-    fn ge(&self, src: &mut ByteReader) -> bool {
+    fn ge(&self, src: &mut dyn ByteIO) -> bool {
         if let Some(rval) = self.read_val(src) {
             rval >= self.val()
         } else {
             false
         }
     }
-    fn gt(&self, src: &mut ByteReader) -> bool {
+    fn gt(&self, src: &mut dyn ByteIO) -> bool {
         if let Some(rval) = self.read_val(src) {
             rval > self.val()
         } else {
             false
         }
     }
-    fn le(&self, src: &mut ByteReader) -> bool {
+    fn le(&self, src: &mut dyn ByteIO) -> bool {
         if let Some(rval) = self.read_val(src) {
             rval <= self.val()
         } else {
             false
         }
     }
-    fn lt(&self, src: &mut ByteReader) -> bool {
+    fn lt(&self, src: &mut dyn ByteIO) -> bool {
         if let Some(rval) = self.read_val(src) {
             rval < self.val()
         } else {
@@ -167,7 +166,7 @@ enum CC<'a> {
 }
 
 impl<'a> CC<'a> {
-    fn eval(&self, src: &mut ByteReader) -> bool {
+    fn eval(&self, src: &mut dyn ByteIO) -> bool {
         match *self {
             CC::Or(a, b)         => { a.eval(src) || b.eval(src) },
             CC::Eq(ref arg)      => { arg.eq(src) },
@@ -426,7 +425,7 @@ const DETECTORS: &[DetectConditions] = &[
 /// This function tries to determine container format using both file extension and checking against container specific markers inside.
 /// In case of success the function returns short container name and the detection score.
 /// Result should have the highest detection score among tested.
-pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, DetectionScore)> {
+pub fn detect_format(name: &str, src: &mut dyn ByteIO) -> Option<(&'static str, DetectionScore)> {
     let mut result = None;
     let lname = name.to_lowercase();
     for detector in DETECTORS {
@@ -495,8 +494,7 @@ mod test {
     fn test_avi_detect() {
         let name = "assets/Indeo/laser05.avi";
         let mut file = File::open(name).unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let (name, score) = detect_format(name, &mut br).unwrap();
         assert_eq!(name, "avi");
         assert_eq!(score, DetectionScore::MagicMatches);
@@ -506,8 +504,7 @@ mod test {
     fn test_gdv_detect() {
         let name = "assets/Game/intro1.gdv";
         let mut file = File::open(name).unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let (name, score) = detect_format(name, &mut br).unwrap();
         assert_eq!(name, "gdv");
         assert_eq!(score, DetectionScore::MagicMatches);
