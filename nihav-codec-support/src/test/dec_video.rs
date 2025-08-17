@@ -18,8 +18,7 @@ type PossibleDecoder = Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>;
 /*fn open_wav_out(pfx: &str, strno: usize) -> WavWriter {
     let name = format!("assets/{}out{:02}.wav", pfx, strno);
     let mut file = File::create(name).unwrap();
-    let mut fw = FileWriter::new_write(&mut file);
-    let mut wr = ByteWriter::new(&mut fw);
+    let mut wr = FileWriter::new_write(&mut file);
     WavWriter::new(&mut wr)
 }*/
 
@@ -40,8 +39,7 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
                           dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders) {
     let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
     let mut file = File::open(name).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
     let mut decs: Vec<PossibleDecoder> = Vec::new();
@@ -96,8 +94,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
                          dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders) {
     let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
     let mut file = File::open(name).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
     let mut decs: Vec<PossibleDecoder> = Vec::new();
@@ -122,8 +119,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
     if let Some(audio_pfx) = audio_pfx {
         let name = format!("{}/{}out.wav", OUTPUT_PREFIX, audio_pfx);
         let file = File::create(name).unwrap();
-        let mut fw = FileWriter::new_write(file);
-        let mut wr = ByteWriter::new(&mut fw);
+        let mut wr = FileWriter::new_write(file);
         let mut wwr = WavWriter::new(&mut wr);
         let mut wrote_header = false;
 
@@ -266,8 +262,7 @@ pub fn test_decoding(demuxer: &str, dec_name: &str, filename: &str, limit: Optio
                      test: ExpectedTestResult) {
     let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
     let mut file = File::open(filename).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
     let mut decs: Vec<PossibleDecoder> = Vec::new();
@@ -377,8 +372,7 @@ pub fn test_decoding_raw(demuxer: &str, dec_name: &str, filename: &str, limit: O
                          dec_reg: &RegisteredDecoders, test: ExpectedTestResult) {
     let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
     let mut file = File::open(filename).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_raw_demuxer(dmx_f, &mut br).unwrap();
 
     let mut decs: Vec<Option<(Box<dyn NAPacketiser>, Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
@@ -528,8 +522,7 @@ pub fn test_mt_decoding(demuxer: &str, dec_name: &str, filename: &str, limit: Op
 
     let dmx_f = dmx_reg.find_demuxer(demuxer).expect("demuxer is not found");
     let mut file = File::open(filename).expect("input file should be present");
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).expect("demuxer can't be created");
 
     let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoderMT>)>> = Vec::new();
@@ -652,8 +645,7 @@ pub fn test_decode_images(demuxer: &str, name: &str, video_pfx: &str, limit: Opt
                           dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders) {
     let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
     let mut file = File::open(name).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
     let mut decs: Vec<PossibleDecoder> = Vec::new();

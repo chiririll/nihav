@@ -5,23 +5,23 @@ use std::io::SeekFrom;
 
 /// WAVE output writer.
 pub struct WavWriter<'a> {
-    io: &'a mut ByteWriter<'a>,
+    io: &'a mut dyn ByteIO,
     data_pos: u64,
 }
 
-fn write_byte(wr: &mut ByteWriter, sample: u8) -> ByteIOResult<()> {
+fn write_byte(wr: &mut dyn ByteIO, sample: u8) -> ByteIOResult<()> {
     wr.write_byte(sample)
 }
 
-fn write_s16(wr: &mut ByteWriter, sample: i16) -> ByteIOResult<()> {
+fn write_s16(wr: &mut dyn ByteIO, sample: i16) -> ByteIOResult<()> {
     wr.write_u16le(sample as u16)
 }
 
-fn write_s32(wr: &mut ByteWriter, sample: i32) -> ByteIOResult<()> {
+fn write_s32(wr: &mut dyn ByteIO, sample: i32) -> ByteIOResult<()> {
     wr.write_u16le((sample >> 16) as u16)
 }
 
-fn write_f32(wr: &mut ByteWriter, sample: f32) -> ByteIOResult<()> {
+fn write_f32(wr: &mut dyn ByteIO, sample: f32) -> ByteIOResult<()> {
     let mut out = (sample * 32768.0) as i32;
     if out < -32768 { out = -32768; }
     if out >  32767 { out =  32767; }
@@ -57,7 +57,7 @@ macro_rules! write_data {
 
 impl<'a> WavWriter<'a> {
     /// Constructs a new `WavWriter` instance.
-    pub fn new(io: &'a mut ByteWriter<'a>) -> Self {
+    pub fn new(io: &'a mut dyn ByteIO) -> Self {
         WavWriter { io, data_pos: 0 }
     }
     /// Writes audio format information to the file header.

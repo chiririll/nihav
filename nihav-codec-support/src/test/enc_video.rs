@@ -44,15 +44,13 @@ pub struct EncoderTestParams {
 pub fn test_remuxing(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
     let mux_f = enc_config.mux_reg.find_muxer(enc_config.muxer).unwrap();
     let out_name = "assets/test_out/".to_owned() + enc_config.out_name;
     let file = File::create(&out_name).unwrap();
-    let mut fw = FileWriter::new_write(file);
-    let mut bw = ByteWriter::new(&mut fw);
+    let mut bw = FileWriter::new_write(file);
     let mut out_sm = StreamManager::new();
     let mux_caps = mux_f.get_capabilities();
     let mut stream_map: Vec<Option<usize>> = Vec::new();
@@ -127,15 +125,13 @@ pub fn test_remuxing(dec_config: &DecoderTestParams, enc_config: &EncoderTestPar
 pub fn test_remuxing_md5(dec_config: &DecoderTestParams, muxer: &str, mux_reg: &RegisteredMuxers, md5_hash: [u32; 4]) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
     let mux_f = mux_reg.find_muxer(muxer).unwrap();
 
     let mut dst = Vec::with_capacity(1 << 10);
-    let mut gw = GrowableMemoryWriter::new_write(&mut dst);
-    let mut bw = ByteWriter::new(&mut gw);
+    let mut bw = GrowableMemoryWriter::new_write(&mut dst);
     let mut out_sm = StreamManager::new();
     let mux_caps = mux_f.get_capabilities();
     let mut stream_map: Vec<Option<usize>> = Vec::new();
@@ -213,8 +209,7 @@ pub fn test_remuxing_md5(dec_config: &DecoderTestParams, muxer: &str, mux_reg: &
 pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters, enc_options: &[NAOption]) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
     let in_stream = dmx.get_streams().find(|strm| strm.get_media_type() == dec_config.stream_type).unwrap();
@@ -263,8 +258,7 @@ pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &Encode
     let mux_f = enc_config.mux_reg.find_muxer(enc_config.muxer).unwrap();
     let out_name = "assets/test_out/".to_owned() + enc_config.out_name;
     let file = File::create(&out_name).unwrap();
-    let mut fw = FileWriter::new_write(file);
-    let mut bw = ByteWriter::new(&mut fw);
+    let mut bw = FileWriter::new_write(file);
     let mut mux = create_muxer(mux_f, out_sm, &mut bw).unwrap();
 
     let (mut ifmt, dst_vinfo) = if let NACodecTypeInfo::Video(vinfo) = enc_params.format {
@@ -322,8 +316,7 @@ pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &Encode
 pub fn test_encoding_md5(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters, enc_options: &[NAOption], ref_hash: &[u32; 4]) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
-    let mut fr = FileReader::new_read(&mut file);
-    let mut br = ByteReader::new(&mut fr);
+    let mut br = FileReader::new_read(&mut file);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
     let in_stream = dmx.get_streams().find(|strm| strm.get_media_type() == dec_config.stream_type).unwrap();
