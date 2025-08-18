@@ -33,8 +33,7 @@ impl<'a> ReadMarkerBit for BitReader<'a> {
 }
 
 pub fn scan_start_codes(src: &[u8]) -> DecoderResult<Vec<usize>> {
-    let mut mr = MemoryReader::new_read(src);
-    let mut br = ByteReader::new(&mut mr);
+    let mut br = MemoryReader::new_read(src);
 
     let mut offs = Vec::new();
     let mut pfx = br.read_u32be()?;

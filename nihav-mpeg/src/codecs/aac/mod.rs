@@ -681,8 +681,7 @@ impl NADecoder for AACDecoder {
             validate!(edata.len() >= 2);
 
             if (edata.len() > 12) && (&edata[4..8] == b"esds") {
-                let mut mr = MemoryReader::new_read(edata.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(edata.as_slice());
                 let esds_size           = br.read_u32be()? as usize;
                 validate!(esds_size <= edata.len());
                                           br.read_skip(8)?;
