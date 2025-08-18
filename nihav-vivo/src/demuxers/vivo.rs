@@ -1,7 +1,7 @@
 use nihav_core::demuxers::*;
 
 struct VivoDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     video_id:       usize,
     audio_id:       usize,
     video_buf:      Vec<u8>,
@@ -19,7 +19,7 @@ struct VivoDemuxer<'a> {
     aname:          &'static str,
 }
 
-fn read_size(br: &mut ByteReader) -> DemuxerResult<usize> {
+fn read_size(br: &mut dyn ByteIO) -> DemuxerResult<usize> {
     let mut ret = 0;
     loop {
         let c = br.read_byte()?;
@@ -91,13 +91,13 @@ impl<'a> DemuxCore<'a> for VivoDemuxer<'a> {
             let hdr = if force_size { br.read_byte()? } else { hdr1 };
             let (is_video, mut size) = match hdr >> 4 {
                     1 => { (true, 128) },
-                    2 => { validate!(!force_size); (true, read_size(br)?) },
+                    2 => { validate!(!force_size); (true, read_size(*br)?) },
                     3 => { (false, 40) },
                     4 => { (false, 24) },
                     _ => return Err(DemuxerError::InvalidData),
                 };
             if force_size {
-                size                    = read_size(br)?;
+                size                    = read_size(*br)?;
             }
             if is_video {
                 validate!(self.v_den != 0);
@@ -140,7 +140,7 @@ impl<'a> NAOptionHandler for VivoDemuxer<'a> {
 }
 
 impl<'a> VivoDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         VivoDemuxer {
             src:            io,
             video_id:       0,
@@ -245,7 +245,7 @@ impl<'a> VivoDemuxer<'a> {
 pub struct VivoDemuxerCreator { }
 
 impl DemuxerCreator for VivoDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(VivoDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "vivo" }
@@ -261,8 +261,7 @@ mod test {
 //        let mut file = File::open("assets/Misc/greetings.viv").unwrap();
         // sample: https://samples.mplayerhq.hu/vivo/vivo2/favmovie.viv
         let mut file = File::open("assets/Misc/favmovie.viv").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = VivoDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
