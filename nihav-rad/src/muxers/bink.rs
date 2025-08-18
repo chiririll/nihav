@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 const ASSEMBLE_DEPTH: usize = 32;
 
 struct BinkMuxer<'a> {
-    bw:             &'a mut ByteWriter<'a>,
+    bw:             &'a mut dyn ByteIO,
     naudio:         usize,
     maxsize:        u32,
     nframes:        usize,
@@ -18,7 +18,7 @@ struct BinkMuxer<'a> {
 }
 
 impl<'a> BinkMuxer<'a> {
-    fn new(bw: &'a mut ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self {
             bw,
             naudio:         0,
@@ -231,7 +231,7 @@ impl<'a> NAOptionHandler for BinkMuxer<'a> {
 pub struct BinkMuxerCreator {}
 
 impl MuxerCreator for BinkMuxerCreator {
-    fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a> {
+    fn new_muxer<'a>(&self, bw: &'a mut dyn ByteIO) -> Box<dyn MuxCore<'a> + 'a> {
         Box::new(BinkMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "bink" }

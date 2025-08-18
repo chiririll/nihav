@@ -1110,8 +1110,7 @@ impl NADecoder for BinkDecoder {
             let edata = info.get_extradata().unwrap();
             validate!(edata.len() >= 8);
 
-            let mut mr = MemoryReader::new_read(&edata);
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(&edata);
             let magic                   = br.read_u32be()?;
             let flags                   = br.read_u32le()?;
 

@@ -408,8 +408,7 @@ impl NADecoder for SmackerVideoDecoder {
             self.stride = w;
             self.frame.resize(w * h, 0);
 
-            let mut mr = MemoryReader::new_read(&edata);
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(&edata);
             let magic                   = br.read_tag()?;
             self.flags                  = br.read_u32le()?;
             let mmap_size               = br.read_u32le()?;

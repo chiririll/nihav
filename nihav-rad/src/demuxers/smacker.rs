@@ -66,7 +66,7 @@ impl AudioTrack {
 }
 
 struct SmackerVideoDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     frames:         usize,
     pts_inc:        u64,
     cur_pts:        u64,
@@ -274,7 +274,7 @@ impl<'a> NAOptionHandler for SmackerVideoDemuxer<'a> {
 }
 
 impl<'a> SmackerVideoDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         SmackerVideoDemuxer {
             src:            io,
             frames:         0,
@@ -298,7 +298,7 @@ impl<'a> SmackerVideoDemuxer<'a> {
 pub struct SMKDemuxerCreator { }
 
 impl DemuxerCreator for SMKDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(SmackerVideoDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "smacker" }
@@ -316,8 +316,7 @@ mod test {
 //        let mut file = File::open("assets/RAD/ajfstr1.smk").unwrap();
 //        let mut file = File::open("assets/RAD/credits.smk").unwrap();
 //        let mut file = File::open("assets/RAD/wetlogo.smk").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = SmackerVideoDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();

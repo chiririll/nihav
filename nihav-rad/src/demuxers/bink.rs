@@ -1,5 +1,5 @@
 use nihav_core::demuxers::*;
-use nihav_core::io::byteio::ByteReader;
+use nihav_core::io::byteio::ByteIO;
 
 struct AudioTrack {
     id:             usize,
@@ -28,7 +28,7 @@ impl AudioTrack {
 }
 
 struct BinkDemuxer<'a> {
-    src:            &'a mut ByteReader<'a>,
+    src:            &'a mut dyn ByteIO,
     cur_frame:      usize,
     frames:         usize,
     video_id:       usize,
@@ -173,7 +173,7 @@ impl<'a> NAOptionHandler for BinkDemuxer<'a> {
 }
 
 impl<'a> BinkDemuxer<'a> {
-    fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut dyn ByteIO) -> Self {
         Self {
             src:            io,
             cur_frame:      0,
@@ -192,7 +192,7 @@ impl<'a> BinkDemuxer<'a> {
 pub struct BinkDemuxerCreator { }
 
 impl DemuxerCreator for BinkDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut dyn ByteIO) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(BinkDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "bink" }
@@ -211,8 +211,7 @@ mod test {
 //        let mut file = File::open("assets/RAD/Snd0a110c51.dee").unwrap();
 //        let mut file = File::open("assets/RAD/NEW.BIK").unwrap();
 //        let mut file = File::open("assets/RAD/ge_video_86l.bk2").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
+        let mut br = FileReader::new_read(&mut file);
         let mut dmx = BinkDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
