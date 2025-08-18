@@ -49,7 +49,7 @@ impl RleDecoder {
     fn new() -> Self {
         Self::default()
     }
-    fn decode_mono(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u8>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
+    fn decode_mono(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
         let mut has_skips = false;
         let mut pix_buf = [0u8; 16];
         let npixels = 16;
@@ -117,7 +117,7 @@ impl RleDecoder {
 
         Ok(has_skips)
     }
-    fn decode_pal(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u8>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
+    fn decode_pal(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
         let mut has_skips = false;
         let mut pix_buf = [0u8; 16];
         let npixels = match self.depth {
@@ -187,7 +187,7 @@ impl RleDecoder {
 
         Ok(has_skips)
     }
-    fn decode_16bit(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u16>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
+    fn decode_16bit(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u16>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
         let mut has_skips = false;
 
         let stride = frm.stride[0];
@@ -243,7 +243,7 @@ impl RleDecoder {
 
         Ok(has_skips)
     }
-    fn decode_24bit(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u8>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
+    fn decode_24bit(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
         let mut has_skips = false;
         let mut rgb = [0u8; 3];
 
@@ -300,7 +300,7 @@ impl RleDecoder {
 
         Ok(has_skips)
     }
-    fn decode_32bit(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u8>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
+    fn decode_32bit(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, start_line: usize, end_line: usize) -> DecoderResult<bool> {
         let mut has_skips = false;
         let mut rgb = [0u8; 4];
 
@@ -384,8 +384,7 @@ impl NADecoder for RleDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 2);
-        let mut mr = MemoryReader::new_read(src.as_slice());
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src.as_slice());
 
         let id                          = br.read_byte()?;
         validate!(id == 0x40 || id == 0x00);

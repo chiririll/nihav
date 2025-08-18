@@ -256,8 +256,7 @@ impl NADecoder for QdmcDecoder {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             if let Some(edata) = info.get_extradata() {
                 validate!(edata.len() >= 36);
-                let mut mr = MemoryReader::new_read(edata.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(edata.as_slice());
                 let size                = br.read_u32be()? as usize;
                 validate!(size >= 36 && size <= edata.len());
                 let tag                 = br.read_tag()?;

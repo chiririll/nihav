@@ -59,8 +59,7 @@ impl NADecoder for SmcDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 2);
-        let mut mr = MemoryReader::new_read(src.as_slice());
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src.as_slice());
 
         let _flags                      = br.read_byte()?;
         let length                      = br.read_u24be()? as usize;

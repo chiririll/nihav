@@ -18,7 +18,7 @@ struct Packet {
 }
 
 impl Packet {
-    fn read(br: &mut ByteReader) -> DecoderResult<Self> {
+    fn read(br: &mut dyn ByteIO) -> DecoderResult<Self> {
         let id                          = br.read_byte()?;
         let size                        = if (id & 0x80) == 0 { br.read_byte()? as usize } else { br.read_u16be()? as usize };
         validate!(size <= (br.left() as usize));
@@ -80,8 +80,7 @@ impl NADecoder for Qdmc2Decoder {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             if let Some(edata) = info.get_extradata() {
                 validate!(edata.len() >= 36);
-                let mut mr = MemoryReader::new_read(edata.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(edata.as_slice());
                 let size                = br.read_u32be()? as usize;
                 validate!(size >= 36 && size <= edata.len());
                 let tag                 = br.read_tag()?;
@@ -131,8 +130,7 @@ impl NADecoder for Qdmc2Decoder {
             let pktbuf = pkt.get_buffer();
             validate!(pktbuf.len() == self.frm_bytes);
 
-            let mut mr = MemoryReader::new_read(pktbuf.as_slice());
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(pktbuf.as_slice());
             let hdr = Packet::read(&mut br)?;
 
             let (is_intra, has_checksum) = match hdr.id {

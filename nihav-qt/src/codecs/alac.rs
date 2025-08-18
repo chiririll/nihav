@@ -277,8 +277,7 @@ impl NADecoder for ALACDecoder {
         if let (NACodecTypeInfo::Audio(_), Some(edata)) = (info.get_properties(), info.get_extradata()) {
             validate!(edata.len() >= 12 + 24);
 
-            let mut mr = MemoryReader::new_read(&edata);
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(&edata);
             let len                         = br.read_u32be()? as usize;
             validate!(len == 12 + 24);
             let fcc                         = br.read_tag()?;

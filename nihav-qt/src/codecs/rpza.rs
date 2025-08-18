@@ -61,8 +61,7 @@ impl NADecoder for RpzaDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 2);
-        let mut mr = MemoryReader::new_read(src.as_slice());
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src.as_slice());
 
         let id                          = br.read_byte()?;
         validate!(id == 0xE1);

@@ -49,8 +49,7 @@ impl NADecoder for IMAADPCMDecoder {
 
             for data in pktbuf.chunks(PACKET_LEN * channels) {
                 for ch in 0..channels {
-                    let mut mr = MemoryReader::new_read(&data[PACKET_LEN * ch..][..PACKET_LEN]);
-                    let mut br = ByteReader::new(&mut mr);
+                    let mut br = MemoryReader::new_read(&data[PACKET_LEN * ch..][..PACKET_LEN]);
 
                     let init                    = br.read_u16be()?;
                     let pred = (init as i16) & !0x7F;
