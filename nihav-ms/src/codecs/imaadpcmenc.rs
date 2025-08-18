@@ -3,13 +3,13 @@ use nihav_core::io::byteio::*;
 use nihav_codec_support::codecs::imaadpcm::*;
 
 struct NibbleWriter<'a> {
-    bw:     ByteWriter<'a>,
+    bw:     &'a mut dyn ByteIO,
     val:    u8,
     first:  bool,
 }
 
 impl<'a> NibbleWriter<'a> {
-    fn new(bw: ByteWriter<'a>) -> Self {
+    fn new(bw: &'a mut dyn ByteIO) -> Self {
         Self { bw, val: 0, first: true }
     }
     fn write(&mut self, nib: u8) -> EncoderResult<()> {
@@ -74,8 +74,7 @@ impl IMAADPCMEncoder {
         }
 
         let mut dbuf = vec![0u8; self.block_size];
-        let mut mw = MemoryWriter::new_write(dbuf.as_mut_slice());
-        let mut bw = ByteWriter::new(&mut mw);
+        let mut bw = MemoryWriter::new_write(dbuf.as_mut_slice());
 
         for ch in 0..self.channels {
             self.first[ch].predictor = i32::from(self.samples[ch]);
@@ -88,7 +87,7 @@ impl IMAADPCMEncoder {
                 bw.write_byte(self.first[ch].step as u8)?;
                 bw.write_byte(0)?;
             }
-            let mut nw = NibbleWriter::new(bw);
+            let mut nw = NibbleWriter::new(&mut bw);
             for samples in self.samples.chunks(self.channels).take(self.block_len).skip(1) {
                 for (state, &samp) in self.first.iter_mut().zip(samples.iter()) {
                     let nib = state.compress_sample(samp);
@@ -157,7 +156,7 @@ impl IMAADPCMEncoder {
                 bw.write_byte(self.nibs[ch][0])?;
                 bw.write_byte(0)?;
             }
-            let mut nw = NibbleWriter::new(bw);
+            let mut nw = NibbleWriter::new(&mut bw);
             for i in 1..self.block_len {
                 for ch in 0..self.channels {
                     nw.write(self.nibs[ch][i])?;

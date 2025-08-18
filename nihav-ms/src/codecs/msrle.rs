@@ -15,7 +15,7 @@ impl RleDecoder {
     fn new() -> Self {
         Self::default()
     }
-    fn decode_8bit(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<FrameType> {
+    fn decode_8bit(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<FrameType> {
         let mut has_skips = false;
 
         if (br.left() as usize) == self.width * self.height {
@@ -86,7 +86,7 @@ impl RleDecoder {
 
         Ok(if has_skips { FrameType::P } else { FrameType::I })
     }
-    fn decode_4bit(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<FrameType> {
+    fn decode_4bit(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<FrameType> {
         let mut has_skips = false;
 
         if (br.left() as usize) == (self.width + 1) / 2 * self.height {
@@ -197,8 +197,7 @@ impl NADecoder for RleDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 2);
-        let mut mr = MemoryReader::new_read(src.as_slice());
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src.as_slice());
 
         let bufret = self.hams.clone_ref();
         let mut buf;

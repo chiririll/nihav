@@ -75,8 +75,7 @@ impl NADecoder for MSADPCMDecoder {
             if let Some(ref buf) = info.get_extradata() {
                 validate!(buf.len() >= 6);
                 validate!((buf.len() & 3) == 0);
-                let mut mr = MemoryReader::new_read(buf.as_slice());
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(buf.as_slice());
                 let _smth               = br.read_u16le()?;
                 let ncoeffs             = br.read_u16le()? as usize;
                 validate!(buf.len() == ncoeffs * 4 + 4);
@@ -111,8 +110,7 @@ impl NADecoder for MSADPCMDecoder {
             let mut pred = [Predictor::default(), Predictor::default()];
 
             for blk in pktbuf.chunks(self.block_len) {
-                let mut mr = MemoryReader::new_read(blk);
-                let mut br = ByteReader::new(&mut mr);
+                let mut br = MemoryReader::new_read(blk);
                 for p in pred[..channels].iter_mut() {
                     let coef_idx                = br.read_byte()? as usize;
                     validate!(coef_idx < self.adapt_coeffs.len());
@@ -208,8 +206,7 @@ impl MSADPCMEncoder {
         }
 
         let mut dbuf = vec![0u8; Self::calc_block_size(len, self.channels)];
-        let mut mw = MemoryWriter::new_write(dbuf.as_mut_slice());
-        let mut bw = ByteWriter::new(&mut mw);
+        let mut bw = MemoryWriter::new_write(dbuf.as_mut_slice());
 
         let mut best_idx = [0usize; 2];
         for (ch, best_idx) in best_idx[..self.channels].iter_mut().enumerate() {

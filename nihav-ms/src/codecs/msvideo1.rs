@@ -25,7 +25,7 @@ impl Video1Decoder {
     fn new() -> Self {
         Self::default()
     }
-    fn decode_frame(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<FrameType> {
+    fn decode_frame(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<FrameType> {
         let off = frm.offset[0];
         let stride = frm.stride[0];
         let mut skip_count = 0;
@@ -89,7 +89,7 @@ impl Video1Decoder {
             Ok(FrameType::Skip)
         }
     }
-    fn decode_frame16(&self, br: &mut ByteReader, frm: &mut NASimpleVideoFrame<u16>) -> DecoderResult<FrameType> {
+    fn decode_frame16(&self, br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u16>) -> DecoderResult<FrameType> {
         let off = frm.offset[0];
         let stride = frm.stride[0];
         let mut skip_count = 0;
@@ -178,8 +178,7 @@ impl NADecoder for Video1Decoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 2);
-        let mut mr = MemoryReader::new_read(src.as_slice());
-        let mut br = ByteReader::new(&mut mr);
+        let mut br = MemoryReader::new_read(src.as_slice());
 
         let buftype;
         let ftype;

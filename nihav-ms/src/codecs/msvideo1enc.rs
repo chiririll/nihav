@@ -402,18 +402,18 @@ impl<'a> BlockPainterPal<'a> {
 
 struct BlockWriterPal {}
 impl BlockWriterPal {
-    fn write_fill(bw: &mut ByteWriter, fill_val: u8) -> EncoderResult<()> {
+    fn write_fill(bw: &mut dyn ByteIO, fill_val: u8) -> EncoderResult<()> {
         bw.write_byte(fill_val)?;
         bw.write_byte(0x80)?;
         Ok(())
     }
-    fn write_clr2(bw: &mut ByteWriter, clr2_flags: u16, clr2: [u8; 2]) -> EncoderResult<()> {
+    fn write_clr2(bw: &mut dyn ByteIO, clr2_flags: u16, clr2: [u8; 2]) -> EncoderResult<()> {
         bw.write_u16le(clr2_flags)?;
         bw.write_byte(clr2[0])?;
         bw.write_byte(clr2[1])?;
         Ok(())
     }
-    fn write_clr8(bw: &mut ByteWriter, mut clr8_flags: u16, mut clr8: [[u8; 4]; 4]) -> EncoderResult<()> {
+    fn write_clr8(bw: &mut dyn ByteIO, mut clr8_flags: u16, mut clr8: [[u8; 4]; 4]) -> EncoderResult<()> {
         if (clr8_flags & 0x8000) == 0 {
             clr8_flags ^= 0xFF00;
             clr8[2].swap(0, 1);
@@ -482,17 +482,17 @@ impl BlockPainter15 {
 
 struct BlockWriter15 {}
 impl BlockWriter15 {
-    fn write_fill(bw: &mut ByteWriter, fill_val: u16) -> EncoderResult<()> {
+    fn write_fill(bw: &mut dyn ByteIO, fill_val: u16) -> EncoderResult<()> {
         bw.write_u16le(fill_val | 0x8000)?;
         Ok(())
     }
-    fn write_clr2(bw: &mut ByteWriter, clr2_flags: u16, clr2: [u16; 2]) -> EncoderResult<()> {
+    fn write_clr2(bw: &mut dyn ByteIO, clr2_flags: u16, clr2: [u16; 2]) -> EncoderResult<()> {
         bw.write_u16le(clr2_flags)?;
         bw.write_u16le(clr2[0])?;
         bw.write_u16le(clr2[1])?;
         Ok(())
     }
-    fn write_clr8(bw: &mut ByteWriter, mut clr8_flags: u16, mut clr8: [[u16; 4]; 4]) -> EncoderResult<()> {
+    fn write_clr8(bw: &mut dyn ByteIO, mut clr8_flags: u16, mut clr8: [[u16; 4]; 4]) -> EncoderResult<()> {
         if (clr8_flags & 0x8000) != 0 {
             clr8_flags ^= 0xFF00;
             clr8[2].swap(0, 1);
@@ -559,11 +559,11 @@ impl MSVideo1Encoder {
             }
         }
     }
-    fn write_skips(bw: &mut ByteWriter, skips: usize) -> EncoderResult<()> {
+    fn write_skips(bw: &mut dyn ByteIO, skips: usize) -> EncoderResult<()> {
         bw.write_u16le((skips as u16) | 0x8400)?;
         Ok(())
     }
-    fn encode_inter_rgb555(bw: &mut ByteWriter, cur_frm: &mut NAVideoBuffer<u16>, in_frm: &NAVideoBuffer<u16>, prev_frm: &NAVideoBuffer<u16>, quality: u8) -> EncoderResult<bool> {
+    fn encode_inter_rgb555(bw: &mut dyn ByteIO, cur_frm: &mut NAVideoBuffer<u16>, in_frm: &NAVideoBuffer<u16>, prev_frm: &NAVideoBuffer<u16>, quality: u8) -> EncoderResult<bool> {
         let (skip_threshold, fill_threshold) = map_quality_15bit(quality);
         let mut is_intra = true;
         let src = in_frm.get_data();
@@ -649,7 +649,7 @@ impl MSVideo1Encoder {
         } //xxx: something for inter?
         Ok(is_intra)
     }
-    fn encode_intra_rgb555(bw: &mut ByteWriter, cur_frm: &mut NAVideoBuffer<u16>, in_frm: &NAVideoBuffer<u16>, quality: u8) -> EncoderResult<bool> {
+    fn encode_intra_rgb555(bw: &mut dyn ByteIO, cur_frm: &mut NAVideoBuffer<u16>, in_frm: &NAVideoBuffer<u16>, quality: u8) -> EncoderResult<bool> {
         let (_, fill_threshold) = map_quality_15bit(quality);
         let src = in_frm.get_data();
         let sstride = in_frm.get_stride(0);
@@ -683,7 +683,7 @@ impl MSVideo1Encoder {
         bw.write_u16le(0)?;
         Ok(true)
     }
-    fn encode_inter_pal(bw: &mut ByteWriter, cur_frm: &mut NAVideoBuffer<u8>, in_frm: &NAVideoBuffer<u8>, prev_frm: &NAVideoBuffer<u8>, quality: u8, pal: &[UnpackedPixel; 256], ls: &LocalSearch) -> EncoderResult<bool> {
+    fn encode_inter_pal(bw: &mut dyn ByteIO, cur_frm: &mut NAVideoBuffer<u8>, in_frm: &NAVideoBuffer<u8>, prev_frm: &NAVideoBuffer<u8>, quality: u8, pal: &[UnpackedPixel; 256], ls: &LocalSearch) -> EncoderResult<bool> {
         let (skip_threshold, fill_threshold) = map_quality_pal(quality);
         let mut is_intra = true;
         let src = in_frm.get_data();
@@ -769,7 +769,7 @@ impl MSVideo1Encoder {
         } //xxx: something for inter?
         Ok(is_intra)
     }
-    fn encode_intra_pal(bw: &mut ByteWriter, cur_frm: &mut NAVideoBuffer<u8>, in_frm: &NAVideoBuffer<u8>, quality: u8, pal: &[UnpackedPixel; 256], ls: &LocalSearch) -> EncoderResult<bool> {
+    fn encode_intra_pal(bw: &mut dyn ByteIO, cur_frm: &mut NAVideoBuffer<u8>, in_frm: &NAVideoBuffer<u8>, quality: u8, pal: &[UnpackedPixel; 256], ls: &LocalSearch) -> EncoderResult<bool> {
         let (_, fill_threshold) = map_quality_pal(quality);
         let src = in_frm.get_data();
         let sstride = in_frm.get_stride(0);
@@ -875,8 +875,7 @@ impl NAEncoder for MSVideo1Encoder {
         if frm.frame_type == FrameType::Skip {
             if let Some(ref stream) = self.stream {
                 let mut dbuf = Vec::with_capacity(4);
-                let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-                let mut bw   = ByteWriter::new(&mut gw);
+                let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
 
                 let vinfo = stream.get_info().get_properties().get_video_info().unwrap();
                 let mut nskips = ((vinfo.get_width() + 3) / 4) * ((vinfo.get_height() + 3) / 4);
@@ -903,8 +902,7 @@ impl NAEncoder for MSVideo1Encoder {
             }
             let mut cur_frm = self.pool15.get_free().unwrap();
             let mut dbuf = Vec::with_capacity(4);
-            let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-            let mut bw   = ByteWriter::new(&mut gw);
+            let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
             if self.frmcount == 0 {
                 self.lastfrm15 = None;
             }
@@ -943,8 +941,7 @@ impl NAEncoder for MSVideo1Encoder {
 
             let mut cur_frm = self.pool8.get_free().unwrap();
             let mut dbuf = Vec::with_capacity(4);
-            let mut gw   = GrowableMemoryWriter::new_write(&mut dbuf);
-            let mut bw   = ByteWriter::new(&mut gw);
+            let mut bw   = GrowableMemoryWriter::new_write(&mut dbuf);
             if self.frmcount == 0 {
                 self.lastfrm8 = None;
             }

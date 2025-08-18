@@ -49,8 +49,7 @@ impl NADecoder for IMAADPCMDecoder {
             let mut off = [adata.get_offset(0), adata.get_offset(1)];
             let dst = adata.get_data_mut().unwrap();
 
-            let mut mr = MemoryReader::new_read(pktbuf.as_slice());
-            let mut br = ByteReader::new(&mut mr);
+            let mut br = MemoryReader::new_read(pktbuf.as_slice());
             for ch in 0..channels {
                 let pred                        = br.read_u16le()? as i16;
                 let step                        = br.read_byte()?;
