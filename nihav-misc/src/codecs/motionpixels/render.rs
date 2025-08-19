@@ -73,6 +73,8 @@ impl std::convert::From<RenderMode> for ReconFuncs {
             RenderMode::YUV4x4 =>
                 ReconFuncs { col_pred: col_pred_4_mvi, line_pred: line_pred_4x4_mvi },
 
+            RenderMode::RGBSmooth =>
+                ReconFuncs { col_pred: col_pred_rgb_mvi2, line_pred: line_pred_rgb_mvi2 },
             RenderMode::YUV2x1Smooth =>
                 ReconFuncs { col_pred: col_pred_full_mvi2, line_pred: line_pred_2x1_mvi2 },
             RenderMode::YUV2x2Smooth =>
@@ -754,6 +756,27 @@ fn lowres_pred4_odd(fline: &mut [u16], x: &mut usize, len: usize, pix: &mut YuvP
 
 // MVI2 extended prediction functions
 
+fn col_pred_rgb_mvi2(mpf: &mut MPFrame) -> DecoderResult<()> {
+    let mut pix = YuvPixel::default();
+    for (dst, (mline, fline)) in mpf.col_pred.iter_mut()
+            .zip(mpf.map.chunks_exact(mpf.width)
+                    .zip(mpf.frame.chunks_exact_mut(mpf.width))) {
+        if mline[0] != 0 {
+            pix = YuvPixel::unpack(fline[0]);
+        } else {
+            let delta = mpf.deltas.next_smooth()?;
+            pix.y = (pix.y + delta).clip_y();
+            let delta = mpf.deltas.next_smooth()?;
+            pix.v = (pix.v + delta).clip_y();
+            let delta = mpf.deltas.next_smooth()?;
+            pix.u = (pix.u + delta).clip_y();
+
+            fline[0] = pix.pack();
+        }
+        *dst = pix;
+    }
+    Ok(())
+}
 fn col_pred_full_mvi2(mpf: &mut MPFrame) -> DecoderResult<()> {
     let mut pix = YuvPixel::default();
     for (dst, (mline, fline)) in mpf.col_pred.iter_mut()
@@ -824,6 +847,37 @@ fn col_pred_4_mvi2(mpf: &mut MPFrame) -> DecoderResult<()> {
     Ok(())
 }
 
+fn line_pred_rgb_mvi2(mpf: &mut MPFrame) -> DecoderResult<()> {
+    mpf.deltas.switch_line();
+    for (&cpred, (fline, mline)) in mpf.col_pred.iter()
+            .zip(mpf.frame.chunks_exact_mut(mpf.width)
+                .zip(mpf.map.chunks_exact(mpf.width))) {
+        let mut pix = cpred;
+        let mut x = if mline[0] == 0 {
+                1
+            } else { 0 };
+        while x < mpf.width {
+            let mp = usize::from(mline[x]);
+            if mp != 0 {
+                x += mp;
+                if x < mpf.width {
+                    pix = YuvPixel::unpack(fline[x - 1]);
+                }
+            } else {
+                let delta = mpf.deltas.next_smooth()?;
+                pix.y = (pix.y + delta).clip_y();
+                let delta = mpf.deltas.next_smooth()?;
+                pix.v = (pix.v + delta).clip_y();
+                let delta = mpf.deltas.next_smooth()?;
+                pix.u = (pix.u + delta).clip_y();
+                fline[x] = pix.pack();
+                x += 1;
+            }
+        }
+        mpf.deltas.switch_line();
+    }
+    Ok(())
+}
 fn line_pred_2x1_mvi2(mpf: &mut MPFrame) -> DecoderResult<()> {
     for y in 0..mpf.height {
         let fline = &mut mpf.frame[(y ^ 1) * mpf.width..][..mpf.width];
