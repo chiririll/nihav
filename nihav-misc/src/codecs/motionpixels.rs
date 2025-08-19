@@ -136,6 +136,8 @@ pub struct MPFrame {
     pub gframe:     Vec<u16>,
     pub width:      usize,
     pub height:     usize,
+    pub ytop:       usize,
+    pub ybot:       usize,
     pub map:        Vec<u8>,
     pub lrmap:      Vec<bool>,
     pub obits:      u8,
@@ -154,6 +156,8 @@ impl MPFrame {
     pub fn init(&mut self, width: usize, height: usize, mode: RenderMode, is_dos: bool) {
         self.width   = width;
         self.height  = height;
+        self.ytop    = 0;
+        self.ybot    = 0;
         self.frame   = vec![0; width * height];
         self.map     = vec![0; width * height];
         self.lrmap   = vec![false; width * height];
@@ -178,6 +182,26 @@ impl MPFrame {
         for el in self.lrmap.iter_mut() {
             *el = false;
         }
+        if self.ytop != 0 {
+            for line in self.map.chunks_exact_mut(self.width).take(self.ytop) {
+                for piece in line.chunks_mut(255) {
+                    let len = piece.len() as u8;
+                    for el in piece.iter_mut() {
+                        *el = len;
+                    }
+                }
+            }
+        }
+        if self.ybot != 0 {
+            for line in self.map.chunks_exact_mut(self.width).rev().take(self.ybot) {
+                for piece in line.chunks_mut(255) {
+                    let len = piece.len() as u8;
+                    for el in piece.iter_mut() {
+                        *el = len;
+                    }
+                }
+            }
+        }
     }
     fn read_map(&mut self, br: &mut BitReader, mtype: MapType, large: bool, count: usize) -> DecoderResult<()> {
         let bits = if large { 8 } else { 4 };
@@ -192,7 +216,8 @@ impl MPFrame {
         Ok(())
     }
     fn read_mvi2_map(&mut self, br: &mut BitReader, mtype: MapType) -> DecoderResult<()> {
-        for pos in (0..(self.width * self.height)).step_by(0x2000) {
+        let height = self.height - self.ybot;
+        for pos in ((self.width * self.ytop)..(self.width * height)).step_by(0x2000) {
             let count_large = br.read(8)? as usize;
             let count_small = br.read(8)? as usize;
             for _ in 0..count_large {
@@ -300,6 +325,21 @@ impl MPFrame {
         Ok(())
     }
 
+    fn set_kropping(&mut self, ytop: usize, ybot: usize) {
+        if self.ytop == ytop && self.ybot == ybot {
+            return;
+        }
+        self.ytop = ytop;
+        self.ybot = ybot;
+
+        let height = self.height - self.ytop - self.ybot;
+        self.obits = 1;
+        while (1 << self.obits) < self.width * height {
+            self.obits += 1;
+        }
+        self.cbits = if self.width * height > 320 * 240 { 19 } else { 18 };
+    }
+
     fn decode(&mut self, flags: &mut MPFlags, version: MPVersion, is_kf: bool, br: &mut BitReader) -> DecoderResult<bool> {
         let is_dos = version.is_dos();
         let is_intra = if !is_dos { br.read_bool()? } else { is_kf };
@@ -339,8 +379,15 @@ impl MPFrame {
             flags.set_koda(subframe);
         }
 
-        if !is_dos && flags.has_koda() {
-            return Err(DecoderError::NotImplemented);
+        if !is_dos && is_intra {
+            if flags.has_koda() {
+                let ytop = br.read(8)? as usize;
+                let ybot = br.read(8)? as usize;
+                validate!(ytop + ybot < self.height);
+                self.set_kropping(ytop, ybot);
+            } else {
+                self.set_kropping(0, 0);
+            }
         }
 
         self.reset_map();
@@ -389,9 +436,9 @@ impl MPFrame {
         let ccount = br.read(4)? as usize;
 
         if ccount > 0 {
-            if self.map[0] == 0 {
-                self.frame[0] = br.read(15)? as u16;
-                self.map[0] = 1;
+            if self.map[self.ytop * self.width] == 0 {
+                self.frame[self.ytop * self.width] = br.read(15)? as u16;
+                self.map[self.ytop * self.width] = 1;
             }
             let cb = self.read_codes_desc(br, ccount)?;
             let mut delta_count = br.read(self.cbits)? as usize;
