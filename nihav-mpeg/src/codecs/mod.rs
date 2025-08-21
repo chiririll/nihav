@@ -29,6 +29,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "mp2", get_decoder: mpegaudio::get_decoder_mp2 },
 #[cfg(feature="decoder_mpa")]
     DecoderInfo { name: "mp3", get_decoder: mpegaudio::get_decoder_mp3 },
+#[cfg(feature="decoder_mpa")]
+    DecoderInfo { name: "mp3-multi", get_decoder: mpegaudio::get_decoder_mp3_multi },
 ];
 
 /// Registers all available codecs provided by this crate.

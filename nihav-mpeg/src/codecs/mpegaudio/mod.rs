@@ -120,6 +120,117 @@ impl MPADecoder {
             ctx.synth(&mut self.coeffs, &mut self.out, mode, mode_ext);
         }
     }
+
+    fn decode_to(&mut self, src: &[u8], ch0: &mut [f32], ch1: &mut [f32]) -> DecoderResult<usize> {
+        let mut br = BitReader::new(src, BitReaderMode::BE);
+
+        let syncword                = br.read(11)?;
+        validate!(syncword == 0x7FF);
+        let id                      = br.read(2)?;
+        validate!(id != 1);
+        let layer                   = (br.read(2)? ^ 3) as u8;
+        validate!(layer != 3);
+        let protection              = br.read_bool()?;
+        let bitrate_index           = br.read(4)? as usize;
+        validate!(bitrate_index < 15);
+        if bitrate_index == 0 {
+            //todo freeform eventually
+            unimplemented!();
+        }
+        let mut sf_idx              = br.read(2)? as usize;
+        validate!(sf_idx != 3);
+        let padding                 = br.read_bool()?;
+        let _private                = br.read_bool()?;
+        let mode                    = br.read(2)? as u8;
+        let mode_extension          = br.read(2)? as u8;
+        let _copyright              = br.read_bool()?;
+        let _original               = br.read_bool()?;
+        let _emphasis               = br.read(2)?;
+        if !protection {
+            let _crc_check          = br.read(16)?;
+        }
+        validate!(layer == self.ctx.layer_id());
+        match id {
+            0 => sf_idx += 6,
+            2 => sf_idx += 3,
+            _ => {},
+        };
+        let mpeg1 = id == 3;
+        let srate = SAMPLING_RATE[sf_idx];
+        if self.srate == 0 {
+            self.srate = srate;
+        }
+        validate!(srate == self.srate);
+        let channels = if mode == 3 { 1 } else { 2 };
+        if self.channels == 0 {
+            self.channels = channels;
+        }
+        if channels != self.channels {
+            self.flush();
+        }
+        let bitrate = BITRATE[if mpeg1 { 0 } else { 1 }][layer as usize][bitrate_index];
+        let frame_size = match layer {
+                0 => {
+                    ((SAMPLES / 3 / 8 * 1000 * (bitrate as usize) / (srate as usize)) & !3) + if padding { 4 } else { 0 }
+                },
+                2 if !mpeg1 => {
+                    SAMPLES / 2 / 8 * 1000 * (bitrate as usize) / (srate as usize) + if padding { 1 } else { 0 }
+                },
+                _ => {
+                    SAMPLES / 8 * 1000 * (bitrate as usize) / (srate as usize) + if padding { 1 } else { 0 }
+                },
+            };
+        validate!(src.len() >= frame_size);
+        self.sf_idx = sf_idx;
+
+        let nsamples = if mpeg1 { SAMPLES } else { SAMPLES / 2 };
+
+        match layer {
+            0 => unimplemented!(),
+            1 => {
+                if let LayerData::MP2(ref mut ctx) = self.ctx {
+                    ctx.mpeg1 = self.sf_idx < 3;
+                    ctx.sf_idx = self.sf_idx;
+                    ctx.br_idx = bitrate_index;
+                    ctx.read_layer2(&mut br, channels as usize, &mut self.out, mode, mode_extension)?;
+                } else {
+                    return Err(DecoderError::Bug);
+                }
+                for (dst, src) in ch0.chunks_exact_mut(32).zip(self.out[0].iter_mut()) {
+                    self.qmf[0].synth(src, dst);
+                }
+                if channels == 2 {
+                    for (dst, src) in ch1.chunks_mut(32).zip(self.out[1].iter_mut()) {
+                        self.qmf[1].synth(src, dst);
+                    }
+                }
+            },
+            _ => {
+                let ret = self.read_mp3_side_data(&mut br, &src[..frame_size], channels == 1);
+                match ret {
+                    Err(DecoderError::MissingReference) => {
+                        return Ok(0);
+                    },
+                    Err(err) => return Err(err),
+                    Ok(()) => {},
+                };
+                let has_data = self.decode_layer3(channels as usize, mode_extension)?;
+                if !has_data {
+                    return Ok(0);
+                }
+                self.synth_layer3(mode, mode_extension);
+                for (dst, src) in ch0.chunks_exact_mut(32).zip(self.out[0].iter_mut()) {
+                    self.qmf[0].synth(src, dst);
+                }
+                if channels == 2 {
+                    for (dst, src) in ch1.chunks_mut(32).zip(self.out[1].iter_mut()) {
+                        self.qmf[1].synth(src, dst);
+                    }
+                }
+            },
+        };
+        Ok(nsamples)
+    }
 }
 
 fn apply_ms(ch0: &mut [f32], ch1: &mut [f32]) {
@@ -301,6 +412,85 @@ pub fn get_decoder_mp3() -> Box<dyn NADecoder + Send> {
     Box::new(MPADecoder::new(2))
 }
 
+struct MPAMultiDecoder {
+    pkt:    MPAPacketiser,
+    dec:    MPADecoder,
+    ch0:    Vec<f32>,
+    ch1:    Vec<f32>,
+}
+
+impl MPAMultiDecoder {
+    fn new(layer: u8) -> Self {
+        Self {
+            pkt:    MPAPacketiser::new(),
+            dec:    MPADecoder::new(layer),
+            ch0:    Vec::with_capacity(SAMPLES * 4),
+            ch1:    Vec::with_capacity(SAMPLES * 4),
+        }
+    }
+}
+
+impl NADecoder for MPAMultiDecoder {
+    fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
+        self.dec.init(supp, info)
+    }
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+        let info = pkt.get_stream().get_info();
+        if let NACodecTypeInfo::Audio(_) = info.get_properties() {
+            let src = pkt.get_buffer();
+
+            self.pkt.add_data(&src);
+
+            self.ch0.clear();
+            self.ch1.clear();
+
+            let _count = self.pkt.skip_junk()?;
+
+            let mut nsamples = 0;
+            while let Ok(Some(subpkt)) = self.pkt.get_packet(pkt.get_stream()) {
+                let subsrc = subpkt.get_buffer();
+                self.ch0.resize(nsamples + SAMPLES, 0.0);
+                self.ch1.resize(nsamples + SAMPLES, 0.0);
+                nsamples += self.dec.decode_to(&subsrc, &mut self.ch0[nsamples..], &mut self.ch1[nsamples..])?;
+            }
+
+            let ainfo = NAAudioInfo::new(self.dec.srate, self.dec.channels, SND_F32P_FORMAT, nsamples);
+            let chmap = if self.dec.channels == 1 { self.dec.mmap.clone() } else { self.dec.smap.clone() };
+            let abuf = alloc_audio_buffer(ainfo, nsamples, chmap)?;
+            if nsamples > 0 {
+                let mut adata = abuf.get_abuf_f32().unwrap();
+                let stride = if self.dec.channels == 1 { adata.get_length() } else { adata.get_stride() };
+                let buf = adata.get_data_mut().unwrap();
+                buf[..nsamples].copy_from_slice(&self.ch0[..nsamples]);
+                if self.dec.channels == 2 {
+                    buf[stride..][..nsamples].copy_from_slice(&self.ch0[..nsamples]);
+                }
+            }
+
+            let mut frm = NAFrame::new_from_pkt(pkt, self.dec.info.clone(), abuf);
+            frm.set_duration(Some(nsamples as u64));
+            frm.set_keyframe(true);
+            Ok(frm.into_ref())
+        } else {
+            Err(DecoderError::Bug)
+        }
+    }
+    fn flush(&mut self) {
+        self.pkt.reset();
+        self.dec.flush();
+    }
+}
+
+impl NAOptionHandler for MPAMultiDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
+pub fn get_decoder_mp3_multi() -> Box<dyn NADecoder + Send> {
+    Box::new(MPAMultiDecoder::new(2))
+}
+
 #[derive(Clone,Copy,Debug)]
 struct MPAHeader {
     layer:      u8,
@@ -426,7 +616,7 @@ impl NAPacketiser for MPAPacketiser {
         let mut hdr = u16::from(self.buf[0]) * 256 + u16::from(self.buf[1]);
         let mut iter = self.buf[2..].iter();
         loop {
-            if (hdr & 0xFFE0) != 0xFFE0 {
+            if (hdr & 0xFFE0) == 0xFFE0 {
                 let ret = self.parse_header(off);
                 match ret {
                     Ok(hdr) => {

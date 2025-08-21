@@ -253,6 +253,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio;     "mp1",          "MPEG Audio Layer I"),
     desc!(audio;     "mp2",          "MPEG Audio Layer II"),
     desc!(audio;     "mp3",          "MPEG Audio Layer III"),
+    desc!(audio;     "mp3-multi",    "MPEG Audio Layer III (multiple frames)"),
     desc!(audio;     "speex",        "Speex"),
 
     desc!(video;    "gdv-video",     "Gremlin Digital Video - video"),
@@ -404,7 +405,7 @@ static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
     (0x0006, "alaw"),
     (0x0007, "ulaw"),
     (0x0011, "ima-adpcm-ms"),
-    (0x0055, "mp3"),
+    (0x0055, "mp3-multi"),
     (0x0061, "adpcm-dk4"),
     (0x0062, "adpcm-dk3"),
     (0x0401, "imc"),
