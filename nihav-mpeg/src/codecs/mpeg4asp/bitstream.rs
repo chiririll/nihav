@@ -51,7 +51,19 @@ pub fn scan_start_codes(src: &[u8]) -> DecoderResult<Vec<usize>> {
 }
 
 pub fn check_xvid_user_data(src: &[u8]) -> bool {
-    src.len() > 7 && &src[1..5] == b"XviD"
+    let is_xvid = src.len() > 7 && &src[1..5] == b"XviD";
+    if is_xvid { // check for version
+        let mut ver = 0;
+        for &c in src[6..].iter() {
+            if !c.is_ascii_digit() { break; }
+            ver = ver * 10 + u32::from(c - b'0');
+            if ver > 1048576 { return false; }
+        }
+        if ver < 50 { // these ones apparently use non-special DCT
+            return false;
+        }
+    }
+    is_xvid
 }
 
 fn read_var_len(br: &mut BitReader) -> DecoderResult<u32> {
