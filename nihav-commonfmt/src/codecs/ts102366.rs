@@ -658,7 +658,7 @@ impl ChannelData {
     fn calc_snr_offset(&mut self, csnroffst: u8) {
         self.snroffset = (((i32::from(csnroffst) - 15) << 4) + i32::from(self.fsnroffst)) << 2;
     }
-    fn compute_bap(&mut self, mask: &mut [i32; MAX_BANDS], floor: u16) {
+    fn compute_bap(&mut self, mask: &mut [i32; MAX_BANDS], floor: i16) {
         let end = self.endmant;
         let mut band = TS102366_BIN_TO_BAND[self.startmant] as usize;
         let mut bin = self.startmant;
@@ -1514,7 +1514,7 @@ const TS102366_FAST_DECAY: [u8; 4] = [ 0x3F, 0x53, 0x67, 0x7B ];
 const TS102366_SLOW_GAIN: [u16; 4] = [ 0x540, 0x4D8, 0x478, 0x410 ];
 const TS102366_FAST_GAIN: [u16; 8] = [ 0x080, 0x100, 0x180, 0x200, 0x280, 0x300, 0x380, 0x400 ];
 const TS102366_DBP_TAB:   [u16; 4] = [ 0x000, 0x700, 0x900, 0xB00 ];
-const TS102366_FLOOR_TAB: [u16; 8] = [ 0x02F0, 0x02B0, 0x0270, 0x0230, 0x01F0, 0x0170, 0x00F0, 0xF800 ];
+const TS102366_FLOOR_TAB: [i16; 8] = [ 0x02F0, 0x02B0, 0x0270, 0x0230, 0x01F0, 0x0170, 0x00F0, -0x800 ];
 
 const TS102366_BIN_TO_BAND: [u8; 256] = [
      0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
