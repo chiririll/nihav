@@ -50,6 +50,7 @@ pub fn nihav_register_all_mt_decoders(rd: &mut RegisteredMTDecoders) {
 /// Registers all known packetisers.
 pub fn nihav_register_all_packetisers(rp: &mut RegisteredPacketisers) {
     acorn_register_all_packetisers(rp);
+    generic_register_all_packetisers(rp);
     llaudio_register_all_packetisers(rp);
     mpeg_register_all_packetisers(rp);
 }

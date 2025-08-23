@@ -20,6 +20,8 @@ const STRATEGY_REUSE: u8 = 0;
 const LFE_CHANNEL:  usize = MAX_CHANNELS;
 const CPL_CHANNEL:  usize = MAX_CHANNELS + 1;
 
+const SYNCINFO_BITS: u32 = 40;
+
 struct IMDCTContext {
     xsincos:    [FFTComplex; BLOCK_LEN/2],
     fft:        FFT,
@@ -1249,6 +1251,153 @@ impl NAOptionHandler for AudioDecoder {
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(AudioDecoder::new())
+}
+
+#[derive(Default)]
+struct AudioPacketiser {
+    buf:        Vec<u8>,
+    hdr:        Option<Syncinfo>,
+    is_be:      Option<bool>,
+}
+
+impl AudioPacketiser {
+    fn new() -> Self { Self::default() }
+    fn parse_header(&self, off: usize) -> DecoderResult<(Syncinfo, bool)> {
+        if self.buf.len() < off + 5 { return Err(DecoderError::ShortData); }
+
+        let (mut br, is_be) = if (self.buf[off] == MAGIC_BYTE0) && (self.buf[off + 1] == MAGIC_BYTE1) {
+                (BitReader::new(&self.buf[off..], BitReaderMode::BE), true)
+            } else if (self.buf[off] == MAGIC_BYTE1) && (self.buf[off + 1] == MAGIC_BYTE0) {
+                (BitReader::new(&self.buf[off..], BitReaderMode::LE16MSB), false)
+            } else {
+                return Err(DecoderError::InvalidData);
+            };
+
+        if let Some(ref_is_be) = self.is_be {
+            if ref_is_be != is_be {
+                return Err(DecoderError::InvalidData);
+            }
+        }
+
+        let sinfo = Syncinfo::read(&mut br)?;
+        if !sinfo.is_valid() { return Err(DecoderError::InvalidData); }
+
+        Ok((sinfo, is_be))
+    }
+}
+
+impl NAPacketiser for AudioPacketiser {
+    fn attach_stream(&mut self, _stream: NAStreamRef) {}
+    fn add_data(&mut self, src: &[u8]) -> bool {
+        self.buf.extend_from_slice(src);
+        self.buf.len() < 4096
+    }
+    fn parse_stream(&mut self, id: u32) -> DecoderResult<NAStreamRef> {
+        if self.hdr.is_none() {
+            if self.buf.len() < 16 {
+                return Err(DecoderError::ShortData);
+            }
+            let (hdr, is_be) = self.parse_header(0)?;
+            self.hdr = Some(hdr);
+            self.is_be = Some(is_be);
+        }
+        let hdr = self.hdr.unwrap();
+
+        let mut br = if let Some(true) = self.is_be {
+                BitReader::new(self.buf.as_slice(), BitReaderMode::BE)
+            } else {
+                BitReader::new(self.buf.as_slice(), BitReaderMode::LE16MSB)
+            };
+        br.skip(SYNCINFO_BITS)?;
+        let bsi = BSI::read(&mut br)?;
+
+        let core_channels = bsi.acmod.get_num_channels();
+        let channels = core_channels + if bsi.lfeon { 1 } else { 0 };
+
+        let ainfo = NAAudioInfo::new(hdr.samplerate >> bsi.shift, channels as u8,
+                                     SND_F32P_FORMAT, BLOCK_LEN);
+        let info = NACodecInfo::new("ac3", NACodecTypeInfo::Audio(ainfo), None);
+        Ok(NAStream::new(StreamType::Audio, id, info, (NBLOCKS * BLOCK_LEN) as u32, hdr.samplerate >> bsi.shift, 0).into_ref())
+    }
+    fn skip_junk(&mut self) -> DecoderResult<usize> {
+        if self.buf.len() <= 2 {
+            return Ok(0);
+        }
+        let mut off = 0;
+        let mut hdr = u16::from(self.buf[0]) * 256 + u16::from(self.buf[1]);
+        let mut iter = self.buf[2..].iter();
+        const BE_SIG: u16 = (MAGIC_BYTE0 as u16) * 256 + (MAGIC_BYTE1 as u16);
+        const LE_SIG: u16 = (MAGIC_BYTE1 as u16) * 256 + (MAGIC_BYTE0 as u16);
+        loop {
+            if (hdr == BE_SIG && self.is_be != Some(false)) || (hdr == LE_SIG && self.is_be != Some(true)) {
+                let ret = self.parse_header(off);
+                match ret {
+                    Ok((hdr, is_be)) => {
+                        if self.hdr.is_none() {
+                            self.hdr = Some(hdr);
+                            self.is_be = Some(is_be);
+                        }
+                        let ref_hdr = self.hdr.unwrap();
+                        if ref_hdr.samplerate != hdr.samplerate { // header is valid but mismatches
+                            self.buf.drain(..off + 1);
+                            return Err(DecoderError::InvalidData);
+                        }
+                        break;
+                    },
+                    Err(err) => {
+                        self.buf.drain(..off + 1);
+                        return Err(err);
+                    },
+                };
+            }
+            off += 1;
+            if let Some(&b) = iter.next() {
+                hdr = (hdr << 8) | u16::from(b);
+            } else {
+                break;
+            }
+        }
+        self.buf.drain(..off);
+        Ok(off)
+    }
+    fn get_packet(&mut self, stream: NAStreamRef) -> DecoderResult<Option<NAPacket>> {
+        if self.buf.len() < 16 {
+            return Err(DecoderError::ShortData);
+        }
+        let (hdr, _) = self.parse_header(0)?;
+        if self.hdr.is_none() {
+            self.hdr = Some(hdr);
+        }
+        let ref_hdr = self.hdr.unwrap();
+        if ref_hdr.samplerate != hdr.samplerate { // header is valid but mismatches
+            return Err(DecoderError::InvalidData);
+        }
+        if hdr.frame_size <= self.buf.len() {
+            let mut br = if let Some(true) = self.is_be {
+                    BitReader::new(self.buf.as_slice(), BitReaderMode::BE)
+                } else {
+                    BitReader::new(self.buf.as_slice(), BitReaderMode::LE16MSB)
+                };
+            br.skip(SYNCINFO_BITS)?;
+            let bsi = BSI::read(&mut br)?;
+
+            let mut data = Vec::with_capacity(hdr.frame_size);
+            data.extend_from_slice(&self.buf[..hdr.frame_size]);
+            self.buf.drain(..hdr.frame_size);
+            let ts = NATimeInfo::new(None, None, Some(1), (NBLOCKS * BLOCK_LEN) as u32, hdr.samplerate >> bsi.shift);
+            Ok(Some(NAPacket::new(stream, ts, true, data)))
+        } else {
+            Ok(None)
+        }
+    }
+    fn reset(&mut self) {
+        self.buf.clear();
+    }
+    fn bytes_left(&self) -> usize { self.buf.len() }
+}
+
+pub fn get_packetiser() -> Box<dyn NAPacketiser + Send> {
+    Box::new(AudioPacketiser::new())
 }
 
 #[cfg(test)]

@@ -117,3 +117,14 @@ pub fn generic_register_all_encoders(re: &mut RegisteredEncoders) {
     }
 }
 
+const PACKETISERS: &[PacketiserInfo] = &[
+#[cfg(feature="decoder_ts102366")]
+    PacketiserInfo { name: "ac3", get_packetiser: ts102366::get_packetiser },
+];
+
+/// Registers all available packetisers provided by this crate.
+pub fn generic_register_all_packetisers(rp: &mut RegisteredPacketisers) {
+    for packetiser in PACKETISERS.iter() {
+        rp.add_packetiser(*packetiser);
+    }
+}
