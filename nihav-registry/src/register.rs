@@ -179,6 +179,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio;    "ralf",       "RealAudio Lossless"),
     desc!(audio;    "aac",        "AAC"),
     desc!(audio;    "ac3",        "ETSI TS 102 366"),
+    desc!(audio;    "ac3-multi",  "ETSI TS 102 366 (multiple frames)"),
     desc!(audio;    "atrac3",     "Sony Atrac3"),
     desc!(audio;    "sipro",      "Sipro Labs ADPCM"),
 
@@ -412,6 +413,7 @@ static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
     (0x0402, "iac"),
     (0x0500, "on2avc-500"),
     (0x0501, "on2avc-501"),
+    (0x2000, "ac3-multi"),
 ];
 
 static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[

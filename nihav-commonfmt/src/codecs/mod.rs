@@ -69,6 +69,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "sipro", get_decoder: sipro::get_decoder },
 #[cfg(feature="decoder_ts102366")]
     DecoderInfo { name: "ac3", get_decoder: ts102366::get_decoder },
+#[cfg(feature="decoder_ts102366")]
+    DecoderInfo { name: "ac3-multi", get_decoder: ts102366::get_decoder_multi },
 #[cfg(feature="decoder_atrac3")]
     DecoderInfo { name: "atrac3", get_decoder: atrac3::get_decoder },
 ];

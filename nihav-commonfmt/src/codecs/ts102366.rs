@@ -1253,6 +1253,95 @@ pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(AudioDecoder::new())
 }
 
+struct AudioMultiDecoder {
+    pkt:    AudioPacketiser,
+    dec:    AudioDecoder,
+}
+
+impl AudioMultiDecoder {
+    fn new() -> Self {
+        Self {
+            pkt:    AudioPacketiser::new(),
+            dec:    AudioDecoder::new(),
+        }
+    }
+}
+
+impl NADecoder for AudioMultiDecoder {
+    fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
+        self.dec.init(supp, info)
+    }
+    fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+        let info = pkt.get_stream().get_info();
+        if let NACodecTypeInfo::Audio(_) = info.get_properties() {
+            let src = pkt.get_buffer();
+
+            self.pkt.add_data(&src);
+
+            let _count = self.pkt.skip_junk()?;
+
+            let mut nsamples = 0;
+            let mut samples = Vec::new();
+            let mut cur_chmap = NAChannelMap::new();
+            let mut srate = 44100;
+            while let Ok(Some(subpkt)) = self.pkt.get_packet(pkt.get_stream()) {
+                let subfrm = self.dec.decode(supp, &subpkt)?;
+                if let NABufferType::AudioF32(abuf) = subfrm.get_buffer() {
+                    if cur_chmap.num_channels() == 0 {
+                        cur_chmap = abuf.get_chmap().clone();
+                        srate = abuf.get_info().get_sample_rate();
+                    }
+
+                    let src = abuf.get_data();
+                    let stride = abuf.get_stride();
+                    let len = abuf.get_length();
+                    while samples.len() < cur_chmap.num_channels() {
+                        samples.push(Vec::new());
+                    }
+                    for (dst_ch, src_ch) in samples.iter_mut().zip(src.chunks_exact(stride)) {
+                        dst_ch.resize(nsamples + len, 0.0);
+                        dst_ch[nsamples..].copy_from_slice(&src_ch[..len]);
+                    }
+                    nsamples += len;
+                }
+            }
+
+            let channels = cur_chmap.num_channels() as u8;
+            let ainfo = NAAudioInfo::new(srate, channels, SND_F32P_FORMAT, nsamples);
+            let abuf = alloc_audio_buffer(ainfo, nsamples, cur_chmap)?;
+            if nsamples > 0 {
+                let mut adata = abuf.get_abuf_f32().unwrap();
+                let stride = if channels == 1 { adata.get_length() } else { adata.get_stride() };
+                let dst = adata.get_data_mut().unwrap();
+                for (dch, sch) in dst.chunks_exact_mut(stride).zip(samples.iter()) {
+                    dch[..nsamples].copy_from_slice(sch);
+                }
+            }
+
+            let mut frm = NAFrame::new_from_pkt(pkt, self.dec.info.clone(), abuf);
+            frm.set_duration(Some(nsamples as u64));
+            frm.set_keyframe(true);
+            Ok(frm.into_ref())
+        } else {
+            Err(DecoderError::Bug)
+        }
+    }
+    fn flush(&mut self) {
+        self.pkt.reset();
+        self.dec.flush();
+    }
+}
+
+impl NAOptionHandler for AudioMultiDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
+pub fn get_decoder_multi() -> Box<dyn NADecoder + Send> {
+    Box::new(AudioMultiDecoder::new())
+}
+
 #[derive(Default)]
 struct AudioPacketiser {
     buf:        Vec<u8>,
