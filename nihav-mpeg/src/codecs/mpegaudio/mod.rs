@@ -184,6 +184,7 @@ impl MPADecoder {
         self.sf_idx = sf_idx;
 
         let nsamples = if mpeg1 { SAMPLES } else { SAMPLES / 2 };
+        let nframes = nsamples / 32;
 
         match layer {
             0 => unimplemented!(),
@@ -219,11 +220,11 @@ impl MPADecoder {
                     return Ok(0);
                 }
                 self.synth_layer3(mode, mode_extension);
-                for (dst, src) in ch0.chunks_exact_mut(32).zip(self.out[0].iter_mut()) {
+                for (dst, src) in ch0.chunks_exact_mut(32).zip(self.out[0].iter_mut()).take(nframes) {
                     self.qmf[0].synth(src, dst);
                 }
                 if channels == 2 {
-                    for (dst, src) in ch1.chunks_mut(32).zip(self.out[1].iter_mut()) {
+                    for (dst, src) in ch1.chunks_mut(32).zip(self.out[1].iter_mut()).take(nframes) {
                         self.qmf[1].synth(src, dst);
                     }
                 }
