@@ -3,42 +3,9 @@ use nihav_registry::register;
 use nihav_core::demuxers::DemuxerError::*;
 use std::str::FromStr;
 
-macro_rules! mktag {
-    ($a:expr, $b:expr, $c:expr, $d:expr) => ({
-        (($a as u32) << 24) | (($b as u32) << 16) | (($c as u32) << 8) | ($d as u32)
-    });
-    ($arr:expr) => ({
-        (($arr[0] as u32) << 24) | (($arr[1] as u32) << 16) | (($arr[2] as u32) << 8) | ($arr[3] as u32)
-    });
-}
-
-struct StreamState {
-    strm_no:    u8,
-    got_strf:   bool,
-    strm_type:  Option<StreamType>,
-}
-
-impl StreamState {
-    fn new() -> Self {
-        StreamState { strm_no: 0, got_strf: true, strm_type: None }
-    }
-    fn reset(&mut self) {
-        self.strm_type = None;
-        self.got_strf  = true;
-        self.strm_no  += 1;
-    }
-    fn valid_state(&self) -> bool {
-        match self.strm_type {
-            None => self.got_strf,
-            _    => false,
-        }
-    }
-}
-
 struct PalInfo {
     pal:        Arc<[u8; 1024]>,
     changed:    bool,
-    stream_no:  usize,
 }
 
 #[derive(Clone,Copy,Default)]
@@ -58,128 +25,517 @@ impl RIFFSegment {
     }
 }
 
-struct AVIDemuxer<'a> {
-    src:            &'a mut dyn ByteIO,
-    cur_frame:      Vec<u64>,
-    num_streams:    u8,
+#[derive(Default)]
+struct AVIStream {
+    strm_no:        u8,
+    got_strf:       bool,
+    strm_type:      Option<StreamType>,
+    pal:            Option<PalInfo>,
+    cur_frame:      u64,
+    odml_idx:       Vec<u64>,
+    handler:        [u8; 4],
+    strm_duration:  u32,
+    tb_num:         u32,
+    tb_den:         u32,
+}
+
+impl AVIStream {
+    fn parse_strh(&mut self, src: &mut dyn ByteIO, _strmgr: &mut StreamManager, _seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
+        if size < 0x38 { return Err(InvalidData); }
+        validate!(!self.got_strf);
+        let tag                 = src.read_tag()?; //stream type
+        self.handler            = src.read_tag()?; //handler(fourcc)
+                                  src.read_u32le()?; //flags
+                                  src.read_skip(2)?; //priority
+                                  src.read_skip(2)?; //language
+                                  src.read_skip(4)?; //initial frames
+        self.tb_num             = src.read_u32le()?; //scale
+        self.tb_den             = src.read_u32le()?; //rate
+                                  src.read_skip(4)?; //start
+        self.strm_duration      = src.read_u32le()?;
+                                  src.read_skip(4)?; //buf size
+                                  src.read_skip(4)?; //quality
+                                  src.read_skip(4)?; //sample size
+        let _a                  = src.read_u16le()?;
+        let _b                  = src.read_u16le()?;
+        let _c                  = src.read_u16le()?;
+        let _d                  = src.read_u16le()?;
+
+                                  src.read_skip(size - 0x38)?;
+
+        // padding streams should be ignored
+        if &tag == b"pads" {
+            self.got_strf = true;
+            return Ok(());
+        }
+
+        self.strm_type = match &tag {
+                b"vids" => Some(StreamType::Video),
+                b"auds" => Some(StreamType::Audio),
+                _       => Some(StreamType::Data),
+            };
+
+        Ok(())
+    }
+
+    fn parse_strf(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
+        validate!(self.strm_type.is_some() && !self.got_strf);
+        match self.strm_type {
+            Some(StreamType::Video) => self.parse_strf_vids(src, strmgr, size)?,
+            Some(StreamType::Audio) => self.parse_strf_auds(src, strmgr, size)?,
+            Some(_)                 => self.parse_strf_xxxx(src, strmgr, size)?,
+            _ => unreachable!(),
+        }
+        self.got_strf = true;
+        Ok(())
+    }
+    fn parse_strf_vids(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<()> {
+        if size < 40 { return Err(InvalidData); }
+        let bi_size         = src.read_u32le()?;
+        if (bi_size as usize) < 40 { return Err(InvalidData); }
+        let width           = src.read_u32le()?;
+        let height          = src.read_u32le()? as i32;
+        let planes          = src.read_u16le()?;
+        let bitcount        = src.read_u16le()?;
+        let compression     = src.read_tag()?;
+        let _img_size       = src.read_u32le()?;
+        let _xdpi           = src.read_u32le()?;
+        let _ydpi           = src.read_u32le()?;
+        let colors          = src.read_u32le()?;
+        validate!(colors <= 256);
+        let _imp_colors     = src.read_u32le()?;
+
+        let flip = height < 0;
+        let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
+        let mut vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, format);
+        vhdr.bits = (planes as u8) * (bitcount as u8);
+        let is_mvi = matches!(&self.handler, b"MVI1" | b"mvi1" | b"MVI2" | b"mvi2");
+        let cname = if is_mvi {
+                if self.handler[3] == b'1' { "mvi1" } else { "mvi2" }
+            } else if find_raw_rgb_fmt(&compression, planes, bitcount, flip, &mut vhdr) {
+                "rawvideo-ms"
+            } else if find_raw_yuv_fmt(&compression, &mut vhdr) {
+                "rawvideo"
+            } else {
+                match register::find_codec_from_avi_fourcc(&compression) {
+                    None => "unknown",
+                    Some(name) => name,
+                }
+            };
+        let vci = NACodecTypeInfo::Video(vhdr);
+        let mut edata = Self::read_extradata(src, size - 40)?;
+        if is_mvi {
+            if let Some(ref mut dta) = edata {
+                for (i, &c) in compression.iter().enumerate() {
+                    dta.insert(i, c);
+                }
+            } else {
+                edata = Some(compression.to_vec());
+            }
+        }
+        if colors > 0 {
+            if let Some(ref buf) = edata {
+                let mut pal = [0u8; 1024];
+                for (dpal, spal) in pal.chunks_mut(4).take(colors as usize).zip(buf.chunks(4)) {
+                    dpal[0] = spal[2];
+                    dpal[1] = spal[1];
+                    dpal[2] = spal[0];
+                    dpal[3] = 0;
+                }
+                self.pal = Some(PalInfo { pal: Arc::new(pal), changed: true });
+            }
+        }
+        let vinfo = NACodecInfo::new(cname, vci, edata);
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, u32::from(self.strm_no), vinfo, self.tb_num, self.tb_den, u64::from(self.strm_duration)));
+        if res.is_none() { return Err(MemoryError); }
+        Ok(())
+    }
+    fn parse_strf_auds(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<()> {
+        if size < 16 { return Err(InvalidData); }
+        let w_format_tag        = src.read_u16le()?;
+        let channels            = src.read_u16le()?;
+        let samplespersec       = src.read_u32le()?;
+        let _avgbytespersec     = src.read_u32le()?;
+        let block_align         = src.read_u16le()?;
+        let bits_per_sample     = src.read_u16le()?;
+
+        let signed = bits_per_sample > 8;
+        let soniton = NASoniton::new(bits_per_sample as u8, if signed { SONITON_FLAG_SIGNED } else { 0 });
+        let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
+        let edata = if size > 18 {
+                let edata_size  = src.read_u16le()? as usize;
+                validate!(edata_size + 18 <= size);
+                Self::read_extradata(src, size - 18)?
+            } else if size > 16 {
+                                  src.read_skip(size - 16)?;
+                None
+            } else {
+                None
+            };
+        let cname = match register::find_codec_from_wav_twocc(w_format_tag) {
+                        None => "unknown",
+                        Some(name) => name,
+                    };
+        let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, u32::from(self.strm_no), ainfo, self.tb_num, self.tb_den, u64::from(self.strm_duration)));
+        if res.is_none() { return Err(MemoryError); }
+        Ok(())
+    }
+    fn parse_strf_xxxx(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<()> {
+        let edata = Self::read_extradata(src, size)?;
+        let info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
+        let res = strmgr.add_stream(NAStream::new(StreamType::Data, u32::from(self.strm_no), info, self.tb_num, self.tb_den, u64::from(self.strm_duration)));
+        if res.is_none() { return Err(MemoryError); }
+        Ok(())
+    }
+    fn read_extradata(src: &mut dyn ByteIO, size: usize) -> DemuxerResult<Option<Vec<u8>>> {
+        if size == 0 { return Ok(None); }
+        let mut edvec: Vec<u8> = vec![0; size];
+        src.read_buf(&mut edvec)?;
+        Ok(Some(edvec))
+    }
+
+    fn parse_indx(&mut self, src: &mut dyn ByteIO, _strmgr: &mut StreamManager, _seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
+        validate!(size >= 24);
+        let entry_size              = src.read_u16le()? as usize;
+        if entry_size != 4 {
+            return Ok(());
+        }
+        let sub_type                = src.read_byte()?;
+        let idx_type                = src.read_byte()?;
+        validate!(sub_type == 0 && idx_type == 0);
+        let entries                 = src.read_u32le()? as usize;
+        validate!(entries > 0);
+        validate!(size >= 24 + entries * 4 * entry_size);
+                                      src.read_tag()?; //chunk id
+                                      src.read_skip(12)?; // reserved
+        for _ in 0..entries {
+            let offset              = src.read_u64le()?;
+            let _idx_len            = src.read_u32le()?;
+            let _nframes            = src.read_u32le()?;
+            self.odml_idx.push(offset);
+        }
+        Ok(())
+    }
+
+    fn parse_palette_change(&mut self, src: &mut dyn ByteIO, size: usize) -> DemuxerResult<()> {
+        if let Some(ref mut pe) = self.pal {
+            let mut newpal = *pe.pal;
+            let mut data_left = size;
+            while data_left > 0 {
+                validate!(data_left >= 8);
+                let start_clr       = src.read_byte()? as usize;
+                let len             = src.read_byte()? as usize;
+                let len = if len == 0 { 256 } else { len };
+                let _flags          = src.read_u16le()?;
+                validate!(start_clr + len <= 256);
+                let change_size = len * 4 + 4;
+                validate!(change_size <= data_left);
+                for i in start_clr..(start_clr + len) {
+                    newpal[i * 4]       = src.read_byte()?;
+                    newpal[i * 4 + 1]   = src.read_byte()?;
+                    newpal[i * 4 + 2]   = src.read_byte()?;
+                    newpal[i * 4 + 3]   = 0;
+                                      src.read_byte()?; // flags
+                }
+                data_left -= change_size;
+            }
+            pe.pal = Arc::new(newpal);
+            pe.changed = true;
+        } else {
+                                      src.read_skip(size)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct AVIState {
+    odd_offset:     bool,
+    odml:           bool,
+    odml_riff:      Vec<RIFFSegment>,
+    key_offs:       Vec<u64>,
     size:           usize,
     movi_size:      usize,
     movi_pos:       u64,
     movi_orig:      usize,
-    sstate:         StreamState,
-    tb_num:         u32,
-    tb_den:         u32,
-    strm_duration:  u32,
-    key_offs:       Vec<u64>,
-    pal:            Vec<PalInfo>,
-    odml:           bool,
-    odml_idx:       Vec<u64>,
-    odml_riff:      Vec<RIFFSegment>,
-    iddx_pos:       u64,
-    odd_offset:     bool,
-    cur_handler:    [u8; 4],
+
+    streams:        Vec<AVIStream>,
+    nom_streams:    usize,
+}
+
+impl AVIState {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn parse_hdrl(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
+        validate!(size > 20);
+        let end = src.tell() + (size as u64) - 4;
+        parse_chunks(self, src, strmgr, seek_index, HDRL_CHUNKS, end)
+    }
+    fn parse_movi(&mut self, src: &mut dyn ByteIO, _strmgr: &mut StreamManager, _seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
+        validate!(size > 10);
+        self.movi_size = size - 4;
+        self.movi_orig = self.movi_size;
+        self.movi_pos  = src.tell();
+
+        self.odml_riff[0].movi_pos  = self.movi_pos;
+        self.odml_riff[0].movi_size = self.movi_size;
+        Ok(())
+    }
+    fn parse_idx1(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
+        if seek_index.skip_index { return Ok(()); }
+        let _res = parse_idx1(src, strmgr, seek_index, size, self.movi_pos, &mut self.key_offs);
+        Ok(())
+    }
+    fn parse_iddx(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, iddx_size: usize) -> DemuxerResult<()> {
+        if seek_index.skip_index { return Ok(()); }
+        if let Ok((_size, odd_offset)) = parse_iddx_data(src, strmgr, seek_index, iddx_size, self.movi_pos, &mut self.key_offs) {
+            self.odd_offset = odd_offset;
+        }
+        Ok(())
+    }
+
+    fn parse_avih(&mut self, src: &mut dyn ByteIO, _strmgr: &mut StreamManager, _seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
+        validate!(size >= 0x38);
+        let _timebase = src.read_u32le()?; //microsec per frame
+        src.read_skip(4)?; //max frame size
+        src.read_skip(4)?; //padding
+        src.read_u32le()?; //flags
+        let _frames = src.read_u32le()?; //frames
+        src.read_skip(4)?; //initial frames
+        let streams = src.read_u32le()?; //streams
+        if streams > 100 { return Err(InvalidData); }
+        self.nom_streams = streams as usize;
+
+        src.read_skip(4)?; //buf size
+        let _width = src.read_u32le()?; //width
+        let _height = src.read_u32le()? as i32; //height
+        src.read_skip(16)?; //reserved
+
+        Ok(())
+    }
+    fn parse_strl(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
+        validate!(size >= 20);
+        let stream_no = self.streams.len();
+        validate!(stream_no < 100);
+        let mut stream = AVIStream { strm_no: stream_no as u8, ..Default::default() };
+        let end = src.tell() + size as u64 - 4;
+        parse_chunks(&mut stream, src, strmgr, seek_index, STRL_CHUNKS, end)?;
+        validate!(stream.got_strf);
+        if !stream.odml_idx.is_empty() {
+            self.odml = true;
+        }
+        self.streams.push(stream);
+        Ok(())
+    }
+}
+
+struct AVIDemuxer<'a> {
+    src:            &'a mut dyn ByteIO,
+    state:          AVIState,
 }
 
 #[derive(Debug,Clone,Copy,PartialEq)]
 enum RIFFTag {
-    Chunk(u32),
-    List(u32,u32),
+    Chunk([u8; 4]),
+    List([u8; 4]),
 }
 
-struct RIFFParser {
+struct ChunkHandler<T> {
     tag:   RIFFTag,
-    parse: fn(&mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize>,
+    parse: fn(obj: &mut T, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()>,
 }
+
+fn parse_chunks<T>(obj: &mut T, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, handlers: &[ChunkHandler<T>], parse_end: u64) -> DemuxerResult<()> {
+    while src.tell() < parse_end {
+        let tag                     = src.read_tag()?;
+        let size                    = src.read_u32le()?;
+        let chunk_end = src.tell() + u64::from(size) + u64::from(size & 1);
+        validate!(chunk_end <= parse_end);
+        if &tag == b"JUNK" {
+                                      src.seek(SeekFrom::Start(chunk_end))?;
+            continue;
+        }
+        let ref_tag = if &tag == b"LIST" {
+                validate!(size >= 4);
+                RIFFTag::List(src.read_tag()?)
+            } else { RIFFTag::Chunk(tag) };
+
+        if let Some(handler) = handlers.iter().find(|hdl| hdl.tag == ref_tag) {
+            (handler.parse)(obj, &mut *src, strmgr, seek_index, size as usize)?;
+            validate!(src.tell() <= chunk_end);
+        }
+                                      src.seek(SeekFrom::Start(chunk_end))?;
+    }
+    Ok(())
+}
+
+const AVI_ROOT_CHUNKS: &[ChunkHandler<AVIState>] = &[
+    ChunkHandler{ tag: RIFFTag::List( *b"hdrl"), parse: AVIState::parse_hdrl },
+    ChunkHandler{ tag: RIFFTag::List( *b"movi"), parse: AVIState::parse_movi },
+    ChunkHandler{ tag: RIFFTag::Chunk(*b"idx1"), parse: AVIState::parse_idx1 },
+    ChunkHandler{ tag: RIFFTag::Chunk(*b"iddx"), parse: AVIState::parse_iddx },
+];
+
+const HDRL_CHUNKS: &[ChunkHandler<AVIState>] = &[
+    ChunkHandler{ tag: RIFFTag::Chunk(*b"avih"), parse: AVIState::parse_avih },
+    ChunkHandler{ tag: RIFFTag::Chunk(*b"ON2h"), parse: AVIState::parse_avih },
+    ChunkHandler{ tag: RIFFTag::List( *b"strl"), parse: AVIState::parse_strl },
+];
+
+const STRL_CHUNKS: &[ChunkHandler<AVIStream>] = &[
+    ChunkHandler{ tag: RIFFTag::Chunk(*b"strh"), parse: AVIStream::parse_strh },
+    ChunkHandler{ tag: RIFFTag::Chunk(*b"strf"), parse: AVIStream::parse_strf },
+    ChunkHandler{ tag: RIFFTag::Chunk(*b"indx"), parse: AVIStream::parse_indx },
+];
 
 impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
-        self.read_header(strmgr, seek_index)?;
+        let riff_tag = self.src.read_tag()?;
+        let size     = self.src.read_u32le()? as usize;
+        self.state.odml_riff.push(RIFFSegment { pos: self.src.tell() - 8, size: size + 8, movi_pos: 0, movi_size: 0});
+        let avi_tag  = self.src.read_tag()?;
+        if !AVI_HEADER_TAGS.contains(&(&riff_tag, &avi_tag)) {
+            return Err(InvalidData);
+        }
+        self.state.size = size;
+
+        match parse_chunks(&mut self.state, &mut *self.src, strmgr, seek_index, AVI_ROOT_CHUNKS, size as u64 + 8) {
+            Ok(()) => {},
+            Err(DemuxerError::EOF) | Err(DemuxerError::IOError) => {},
+            Err(err) => return Err(err),
+        }
+
+        validate!(self.state.movi_pos != 0);
+        validate!(!self.state.streams.is_empty());
+
+        if self.state.odml {
+            let mut start = 0;
+            let mut last_strm_no = 255;
+            for stream in self.state.streams.iter_mut() {
+                for &offset in stream.odml_idx.iter() {
+                    if self.src.seek(SeekFrom::Start(offset)).is_err() {
+                        break;
+                    }
+                    let ret = self.src.read_tag();
+                    if ret.is_err() { break; }
+                    let tag = ret.unwrap();
+                    let ret = self.src.read_u32le();
+                    if ret.is_err() { break; }
+                    let size = ret.unwrap() as usize;
+                    if &tag[..2] != b"ix" || tag[2] < b'0' || tag[2] > b'9' || tag[3] < b'0' || tag[3] > b'9'{
+                        break;
+                    }
+                    let stream_no = ((tag[2] - b'0') * 10 + (tag[3] - b'0')) as usize;
+                    validate!(stream_no == usize::from(stream.strm_no));
+
+                    if last_strm_no != stream_no {
+                        start = 0;
+                        last_strm_no = stream_no;
+                    }
+                    let ret = parse_odml_ix(self.src, strmgr, seek_index, stream_no, size, start);
+                    if let Ok(new_start) = ret {
+                        start = new_start;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        self.src.seek(SeekFrom::Start(self.state.movi_pos))?;
+
         Ok(())
     }
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if self.movi_size == 0 {
-            if !self.odml {
+        if self.state.movi_size == 0 {
+            if !self.state.odml {
                 return Err(EOF);
             }
             self.try_next_odml_chunk()?;
         }
-        let mut tag: [u8; 4] = [0; 4];
         loop {
-            if !self.odd_offset && (self.src.tell() & 1) == 1 {
+            if !self.state.odd_offset && (self.src.tell() & 1) == 1 {
                 self.src.read_skip(1)?;
-                self.movi_size -= 1;
-                if self.movi_size == 0 {
-                    if !self.odml {
+                self.state.movi_size -= 1;
+                if self.state.movi_size == 0 {
+                    if !self.state.odml {
                         return Err(EOF);
                     }
                     self.try_next_odml_chunk()?;
                 }
             }
-            let is_keyframe = self.key_offs.binary_search(&self.src.tell()).is_ok();
-            self.src.read_buf(&mut tag)?;
+            let is_keyframe = self.state.key_offs.binary_search(&self.src.tell()).is_ok();
+            let tag = self.src.read_tag()?;
             let size = self.src.read_u32le()? as usize;
-            if mktag!(tag) == mktag!(b"JUNK") {
-                self.movi_size -= size + 8;
-                self.src.read_skip(size)?;
-                if self.movi_size == 0 {
-                    if !self.odml {
+            match &tag {
+                b"JUNK" => {
+                    self.state.movi_size -= size + 8;
+                    self.src.read_skip(size)?;
+                    if self.state.movi_size == 0 {
+                        if !self.state.odml {
+                            return Err(EOF);
+                        }
+                        self.try_next_odml_chunk()?;
+                    }
+                    continue;
+                },
+                b"LIST" => {
+                    self.state.movi_size -= 12;
+                    self.src.read_skip(4)?;
+                    if self.state.movi_size == 0 {
+                        if !self.state.odml {
+                            return Err(EOF);
+                        }
+                        self.try_next_odml_chunk()?;
+                    }
+                    continue;
+                },
+                b"idx1" | &[b'i', b'x', _, _] => {
+                    let idx_pos = self.src.tell() - 8;
+                    if !self.state.odml {
                         return Err(EOF);
                     }
-                    self.try_next_odml_chunk()?;
-                }
-                continue;
-            }
-            if mktag!(tag) == mktag!(b"LIST") {
-                self.movi_size -= 12;
-                self.src.read_skip(4)?;
-                if self.movi_size == 0 {
-                    if !self.odml {
-                        return Err(EOF);
+                    self.src.read_skip(size)?;
+                    if idx_pos > self.state.movi_pos {
+                        self.try_next_odml_chunk()?;
+                    } else {
+                        self.state.movi_pos = self.src.tell();
                     }
-                    self.try_next_odml_chunk()?;
-                }
-                continue;
-            }
-            if (tag[0] == b'i' && tag[1] == b'x') || (&tag == b"idx1") {
-                let idx_pos = self.src.tell() - 8;
-                if !self.odml {
-                    return Err(EOF);
-                }
-                self.src.read_skip(size)?;
-                if idx_pos > self.movi_pos {
-                    self.try_next_odml_chunk()?;
-                } else {
-                    self.movi_pos = self.src.tell();
-                }
-                continue;
+                    continue;
+                },
+                _ => {},
             }
             if tag[0] < b'0' || tag[0] > b'9' || tag[1] < b'0' || tag[1] > b'9' {
                 return Err(InvalidData);
             }
-            let stream_no = (tag[0] - b'0') * 10 + (tag[1] - b'0');
+            let stream_no = usize::from(tag[0] - b'0') * 10 + usize::from(tag[1] - b'0');
+            let stream = strmgr.get_stream(stream_no);
+            if stream.is_none() || stream_no >= self.state.streams.len() {
+                self.src.read_skip(size)?;
+                self.state.movi_size -= size + 8;
+                continue;
+            }
+            let cur_stream = &mut self.state.streams[stream_no];
             if tag[2] == b'p' && tag[3] == b'c' {
-                self.parse_palette_change(stream_no as usize, size)?;
-                self.movi_size -= size;
-                if self.movi_size == 0 {
-                    if !self.odml {
+                cur_stream.parse_palette_change(&mut *self.src, size)?;
+                self.state.movi_size -= size;
+                if self.state.movi_size == 0 {
+                    if !self.state.odml {
                         return Err(EOF);
                     }
                     self.try_next_odml_chunk()?;
                 }
                 continue;
             }
-            let stream = strmgr.get_stream(stream_no as usize);
-            if stream.is_none() {
-                self.src.read_skip(size)?;
-                self.movi_size -= size + 8;
-                continue;
-            }
             let stream = stream.unwrap();
             if size == 0 {
-                self.movi_size -= 8;
-                if self.movi_size == 0 {
-                    if !self.odml {
+                self.state.movi_size -= 8;
+                if self.state.movi_size == 0 {
+                    if !self.state.odml {
                         return Err(EOF);
                     }
                     self.try_next_odml_chunk()?;
@@ -187,20 +543,17 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                 continue;
             }
             let (tb_num, _) = stream.get_timebase();
-            let mut ts = stream.make_ts(Some(self.cur_frame[stream_no as usize]), None, None);
+            let mut ts = stream.make_ts(Some(cur_stream.cur_frame), None, None);
             if stream.get_media_type() == StreamType::Audio && tb_num == 1 && stream.get_info().get_name() == "pcm" && ts.pts != Some(0) {
                 ts.pts = None;
             }
             let mut pkt = self.src.read_packet(stream, ts, is_keyframe, size)?;
-            for pe in self.pal.iter_mut() {
-                if pe.stream_no == (stream_no as usize) {
-                    pkt.add_side_data(NASideData::Palette(pe.changed, pe.pal.clone()));
-                    pe.changed = false;
-                    break;
-                }
+            if let Some(ref mut pe) = cur_stream.pal {
+                pkt.add_side_data(NASideData::Palette(pe.changed, pe.pal.clone()));
+                pe.changed = false;
             }
-            self.cur_frame[stream_no as usize] += 1;
-            self.movi_size -= size + 8;
+            cur_stream.cur_frame += 1;
+            self.state.movi_size -= size + 8;
 
             return Ok(pkt);
         }
@@ -213,42 +566,42 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
         }
         let seek_info = ret.unwrap();
 
-        if self.odml && ((seek_info.pos < self.movi_pos) || (seek_info.pos > self.movi_pos + (self.movi_orig as u64))) {
+        if self.state.odml && ((seek_info.pos < self.state.movi_pos) || (seek_info.pos > self.state.movi_pos + (self.state.movi_orig as u64))) {
             let mut found = false;
-            for riff_seg in self.odml_riff.iter() {
+            for riff_seg in self.state.odml_riff.iter() {
                 if riff_seg.contains(seek_info.pos) {
                     found = true;
-                    self.movi_pos = riff_seg.movi_pos;
-                    self.movi_orig = riff_seg.movi_size;
-                    self.movi_size = riff_seg.movi_size;
+                    self.state.movi_pos = riff_seg.movi_pos;
+                    self.state.movi_orig = riff_seg.movi_size;
+                    self.state.movi_size = riff_seg.movi_size;
                     break;
                 }
             }
             if !found {
-                let riff_seg = self.odml_riff.last().unwrap();
+                let riff_seg = self.state.odml_riff.last().unwrap();
                 self.src.seek(SeekFrom::Start(riff_seg.get_end()))?;
                 loop {
                     let ret = self.try_next_odml_chunk();
                     if ret.is_err() {
                         return Err(DemuxerError::SeekError);
                     }
-                    let riff_seg = self.odml_riff.last().unwrap();
+                    let riff_seg = self.state.odml_riff.last().unwrap();
                     if riff_seg.contains(seek_info.pos) {
-                        self.movi_pos = riff_seg.movi_pos;
-                        self.movi_orig = riff_seg.movi_size;
-                        self.movi_size = riff_seg.movi_size;
+                        self.state.movi_pos = riff_seg.movi_pos;
+                        self.state.movi_orig = riff_seg.movi_size;
+                        self.state.movi_size = riff_seg.movi_size;
                         break;
                     }
                     self.src.seek(SeekFrom::Start(riff_seg.get_end()))?;
                 }
             }
         }
-        if seek_info.pos < self.movi_pos { return Err(DemuxerError::SeekError); }
-        let skip_size = (seek_info.pos - self.movi_pos) as usize;
-        if skip_size > self.movi_orig { return Err(DemuxerError::SeekError); }
-        self.movi_size = self.movi_orig - skip_size;
+        if seek_info.pos < self.state.movi_pos { return Err(DemuxerError::SeekError); }
+        let skip_size = (seek_info.pos - self.state.movi_pos) as usize;
+        if skip_size > self.state.movi_orig { return Err(DemuxerError::SeekError); }
+        self.state.movi_size = self.state.movi_orig - skip_size;
 
-        self.cur_frame[seek_info.str_id as usize] = seek_info.pts;
+        self.state.streams[seek_info.str_id as usize].cur_frame = seek_info.pts;
         self.src.seek(SeekFrom::Start(seek_info.pos))?;
 
         Ok(())
@@ -265,218 +618,19 @@ impl<'a> NAOptionHandler for AVIDemuxer<'a> {
 impl<'a> AVIDemuxer<'a> {
     fn new(io: &'a mut dyn ByteIO) -> Self {
         AVIDemuxer {
-            cur_frame: Vec::new(),
-            num_streams: 0,
             src: io,
-            size: 0,
-            movi_size: 0,
-            movi_pos:  0,
-            movi_orig: 0,
-            sstate: StreamState::new(),
-            tb_num: 0,
-            tb_den: 0,
-            strm_duration: 0,
-            key_offs: Vec::new(),
-            pal: Vec::new(),
-            odml: false,
-            odml_idx: Vec::new(),
-            odml_riff: Vec::with_capacity(1),
-            iddx_pos: 0,
-            odd_offset: false,
-            cur_handler: [0; 4],
+            state: AVIState::new(),
         }
     }
 
-    fn parse_chunk(&mut self, strmgr: &mut StreamManager, end_tag: RIFFTag, csize: usize, depth: u16) -> DemuxerResult<(usize, bool)> {
-        if csize < 8 { return Err(InvalidData); }
-        if depth > 42 { return Err(InvalidData); }
-
-        let tag  = self.src.read_u32be()?;
-        let size = self.src.read_u32le()? as usize;
-        if size > csize { return Err(InvalidData); }
-        if RIFFTag::Chunk(tag) == end_tag {
-            return Ok((size, true));
-        }
-        let is_list = is_list_tag(tag);
-        let ltag = if is_list { self.src.read_u32be()? } else { 0 };
-        if RIFFTag::List(tag, ltag) == end_tag {
-            return Ok((size, true));
-        }
-
-        for chunk in CHUNKS.iter() {
-            if RIFFTag::Chunk(tag) == chunk.tag {
-                let psize = (chunk.parse)(self, strmgr, size)?;
-                if psize != size { return Err(InvalidData); }
-                if !self.odd_offset && (psize & 1) == 1 { self.src.read_skip(1)?; }
-                return Ok((size + 8, false));
-            }
-            if RIFFTag::List(tag, ltag) == chunk.tag {
-                let mut rest_size = size - 4;
-                let psize = (chunk.parse)(self, strmgr, rest_size)?;
-                if psize > rest_size { return Err(InvalidData); }
-                rest_size -= psize;
-                while rest_size > 0 {
-                    let (psize, _) = self.parse_chunk(strmgr, end_tag, rest_size, depth+1)?;
-                    if psize > rest_size { return Err(InvalidData); }
-                    rest_size -= psize;
-                    if !self.odd_offset && ((psize & 1) == 1) && (rest_size > 0) {
-                        rest_size -= 1;
-                    }
-                }
-
-                return Ok((size + 8, false));
-            }
-        }
-        if !is_list {
-            self.src.read_skip(size)?;
-        } else {
-            if size < 4 { return Err(InvalidData); }
-            self.src.read_skip(size - 4)?;
-        }
-        if !self.odd_offset && (size & 1) == 1 { self.src.read_skip(1)?; }
-        Ok((size + 8, false))
-    }
-
-    fn read_header(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
-        let riff_tag = self.src.read_u32be()?;
-        let size     = self.src.read_u32le()? as usize;
-        self.odml_riff.push(RIFFSegment { pos: self.src.tell() - 8, size: size + 8, movi_pos: 0, movi_size: 0});
-        let avi_tag  = self.src.read_u32be()?;
-        let mut matches = false;
-        for rt in RIFF_TAGS.iter() {
-            if rt[0] == riff_tag && rt[1] == avi_tag {
-                matches = true;
-                break;
-            }
-        }
-        if !matches {
-            return Err(InvalidData);
-        }
-        self.size = size;
-        let mut rest_size = size;
-        loop {
-            let (csz, end) = self.parse_chunk(strmgr, RIFFTag::List(mktag!(b"LIST"), mktag!(b"movi")), rest_size,0)?;
-            if end {
-                self.movi_size = csz - 4;
-                self.movi_orig = self.movi_size;
-                self.movi_pos = self.src.tell();
-
-                self.odml_riff[0].movi_pos  = self.movi_pos;
-                self.odml_riff[0].movi_size = self.movi_size;
-                break;
-            }
-            rest_size -= csz;
-        }
-        if !seek_idx.skip_index {
-            if !self.odml || self.odml_idx.is_empty() {
-                self.src.read_skip(self.movi_size)?;
-                let mut seen_idx1 = false;
-                while rest_size > 0 {
-                    let ret = self.parse_chunk(strmgr, RIFFTag::Chunk(mktag!(b"idx1")), rest_size,0);
-                    if ret.is_err() { break; }
-                    let (csz, end) = ret.unwrap();
-                    if end {
-                        let _res = parse_idx1(self.src, strmgr, seek_idx, csz, self.movi_pos, &mut self.key_offs);
-                        seen_idx1 = true;
-                        break;
-                    }
-                    rest_size -= csz;
-                }
-                if !seen_idx1 && self.iddx_pos > 0 {
-                    self.src.seek(SeekFrom::Start(self.iddx_pos - 4))?;
-                    let iddx_size = self.src.read_u32le()? as usize;
-                    if let Ok((_size, odd_offset)) = parse_iddx_data(self.src, strmgr, seek_idx, iddx_size, self.movi_pos, &mut self.key_offs) {
-                        self.odd_offset = odd_offset;
-                    }
-                }
-            } else {
-                let mut start = 0;
-                let mut last_strm_no = 255;
-                for &offset in self.odml_idx.iter() {
-                    if self.src.seek(SeekFrom::Start(offset)).is_err() {
-                        break;
-                    }
-                    let ret = self.src.read_tag();
-                    if ret.is_err() { break; }
-                    let tag = ret.unwrap();
-                    let ret = self.src.read_u32le();
-                    if ret.is_err() { break; }
-                    let size = ret.unwrap() as usize;
-                    if &tag[..2] != b"ix" || tag[2] < b'0' || tag[2] > b'9' || tag[3] < b'0' || tag[3] > b'9'{
-                        break;
-                    }
-                    let stream_no = ((tag[2] - b'0') * 10 + (tag[3] - b'0')) as usize;
-
-                    if last_strm_no != stream_no {
-                        start = 0;
-                        last_strm_no = stream_no;
-                    }
-                    let ret = parse_odml_ix(self.src, strmgr, seek_idx, stream_no, size, start);
-                    if let Ok(new_start) = ret {
-                        start = new_start;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-        if self.movi_pos != 0 {
-            self.src.seek(SeekFrom::Start(self.movi_pos))?;
-        } else {
-            return Err(InvalidData);
-        }
-        if !self.sstate.valid_state() || self.sstate.strm_no != self.num_streams {
-            return Err(InvalidData);
-        }
-        Ok(())
-    }
-
-    fn read_extradata(&mut self, size: usize) -> DemuxerResult<Option<Vec<u8>>> {
-        if size == 0 { return Ok(None); }
-        let mut edvec: Vec<u8> = vec![0; size];
-        self.src.read_buf(&mut edvec)?;
-        Ok(Some(edvec))
-    }
-
-    fn parse_palette_change(&mut self, stream_no: usize, size: usize) -> DemuxerResult<()> {
-        for pe in self.pal.iter_mut() {
-            if pe.stream_no == stream_no {
-                let mut newpal = *pe.pal;
-                let mut data_left = size;
-                while data_left > 0 {
-                    validate!(data_left >= 8);
-                    let start_clr       = self.src.read_byte()? as usize;
-                    let len             = self.src.read_byte()? as usize;
-                    let len = if len == 0 { 256 } else { len };
-                    let _flags          = self.src.read_u16le()?;
-                    validate!(start_clr + len <= 256);
-                    let change_size = len * 4 + 4;
-                    validate!(change_size <= data_left);
-                    for i in start_clr..(start_clr + len) {
-                        newpal[i * 4]       = self.src.read_byte()?;
-                        newpal[i * 4 + 1]   = self.src.read_byte()?;
-                        newpal[i * 4 + 2]   = self.src.read_byte()?;
-                        newpal[i * 4 + 3]   = 0;
-                                          self.src.read_byte()?; // flags
-                    }
-                    data_left -= change_size;
-                }
-                pe.pal = Arc::new(newpal);
-                pe.changed = true;
-                return Ok(());
-            }
-        }
-        self.src.read_skip(size)?;
-        Ok(())
-    }
     fn try_next_odml_chunk(&mut self) -> DemuxerResult<()> {
-        let last_seg = self.odml_riff.last().unwrap();
+        let last_seg = self.state.odml_riff.last().unwrap();
         if self.src.tell() < last_seg.get_end() {
-            for riff_seg in self.odml_riff.iter() {
+            for riff_seg in self.state.odml_riff.iter() {
                 if riff_seg.pos >= self.src.tell() {
                     self.src.seek(SeekFrom::Start(riff_seg.movi_pos))?;
-                    self.movi_pos = riff_seg.movi_pos;
-                    self.movi_size = riff_seg.movi_size;
+                    self.state.movi_pos = riff_seg.movi_pos;
+                    self.state.movi_size = riff_seg.movi_size;
                     return Ok(());
                 }
             }
@@ -498,185 +652,20 @@ impl<'a> AVIDemuxer<'a> {
         validate!(list_size >= 4);
         let tag = self.src.read_tag()?;
         validate!(&tag == b"movi");
-        self.odml_riff.push(RIFFSegment{ pos: riff_pos, size: riff_size + 8, movi_pos: riff_pos + 24, movi_size: list_size - 4});
-        self.movi_pos = riff_pos + 24;
-        self.movi_size = list_size - 4;
-        self.movi_orig = self.movi_size;
+        self.state.odml_riff.push(RIFFSegment{ pos: riff_pos, size: riff_size + 8, movi_pos: riff_pos + 24, movi_size: list_size - 4});
+        self.state.movi_pos = riff_pos + 24;
+        self.state.movi_size = list_size - 4;
+        self.state.movi_orig = self.state.movi_size;
 
         Ok(())
     }
 }
 
-const RIFF_TAGS: &[[u32; 2]] = &[
-    [ mktag!(b"RIFF"), mktag!(b"AVI ") ],
-    [ mktag!(b"RIFF"), mktag!(b"AVIX") ],
-    [ mktag!(b"ON2 "), mktag!(b"ON2f") ],
+const AVI_HEADER_TAGS: &[(&[u8; 4], &[u8; 4])] = &[
+    ( b"RIFF", b"AVI " ),
+    ( b"RIFF", b"AVIX" ),
+    ( b"ON2 ", b"ON2f" ),
 ];
-
-const CHUNKS: &[RIFFParser] = &[
-    RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"hdrl")), parse: parse_hdrl },
-    RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"strl")), parse: parse_strl },
-    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"avih")), parse: parse_avih },
-    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"ON2h")), parse: parse_avih },
-    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"strf")), parse: parse_strf },
-    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"strh")), parse: parse_strh },
-    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"indx")), parse: parse_indx },
-    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"JUNK")), parse: parse_junk },
-    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"iddx")), parse: parse_iddx },
-    RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"odml")), parse: parse_odml },
-    RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"rec ")), parse: parse_rec },
-];
-
-fn is_list_tag(tag: u32) -> bool {
-    for chunk in CHUNKS.iter() {
-        if let RIFFTag::List(ltag, _) = chunk.tag {
-            if tag == ltag {
-                return true;
-            }
-        }
-    }
-    false
-}
-
-fn parse_hdrl(_dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
-    Ok(0)
-}
-
-fn parse_strl(_dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
-    Ok(0)
-}
-
-fn parse_odml(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
-    dmx.odml = true;
-    Ok(0)
-}
-
-fn parse_rec(_dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, _size: usize) -> DemuxerResult<usize> {
-    Ok(0)
-}
-
-fn parse_iddx(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    dmx.iddx_pos = dmx.src.tell();
-    dmx.src.read_skip(size)?;
-    Ok(size)
-}
-
-fn parse_strh(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    if size < 0x38 { return Err(InvalidData); }
-    let tag = dmx.src.read_u32be()?; //stream type
-    let handler = dmx.src.read_tag()?; //handler(fourcc)
-    dmx.cur_handler = handler;
-    dmx.src.read_u32le()?; //flags
-    dmx.src.read_skip(2)?; //priority
-    dmx.src.read_skip(2)?; //language
-    dmx.src.read_skip(4)?; //initial frames
-    dmx.tb_num = dmx.src.read_u32le()?; //scale
-    dmx.tb_den = dmx.src.read_u32le()?; //rate
-    dmx.src.read_skip(4)?; //start
-    dmx.strm_duration = dmx.src.read_u32le()?;
-    dmx.src.read_skip(4)?; //buf size
-    dmx.src.read_skip(4)?; //quality
-    dmx.src.read_skip(4)?; //sample size
-    let _a = dmx.src.read_u16le()?;
-    let _b = dmx.src.read_u16le()?;
-    let _c = dmx.src.read_u16le()?;
-    let _d = dmx.src.read_u16le()?;
-
-    dmx.src.read_skip(size - 0x38)?;
-
-    // padding streams should be ignored
-    if tag == mktag!(b"pads") {
-        return Ok(size);
-    }
-
-    if !dmx.sstate.valid_state() || dmx.sstate.strm_no >= dmx.num_streams {
-        return Err(InvalidData);
-    }
-    if tag == mktag!(b"vids") {
-        dmx.sstate.strm_type = Some(StreamType::Video);
-    } else if tag == mktag!(b"auds") {
-        dmx.sstate.strm_type = Some(StreamType::Audio);
-    } else {
-        dmx.sstate.strm_type = Some(StreamType::Data);
-    }
-    dmx.sstate.got_strf = false;
-
-    Ok(size)
-}
-
-fn parse_strf(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    if dmx.sstate.strm_type.is_none() { return Err(InvalidData); }
-    match dmx.sstate.strm_type.unwrap() {
-        StreamType::Video    => parse_strf_vids(dmx, strmgr, size),
-        StreamType::Audio    => parse_strf_auds(dmx, strmgr, size),
-        _                    => parse_strf_xxxx(dmx, strmgr, size),
-    }
-}
-
-fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    if size < 40 { return Err(InvalidData); }
-    let bi_size         = dmx.src.read_u32le()?;
-    if (bi_size as usize) < 40 { return Err(InvalidData); }
-    let width           = dmx.src.read_u32le()?;
-    let height          = dmx.src.read_u32le()? as i32;
-    let planes          = dmx.src.read_u16le()?;
-    let bitcount        = dmx.src.read_u16le()?;
-    let mut compression: [u8; 4] = [0; 4];
-                          dmx.src.read_buf(&mut compression)?;
-    let _img_size       = dmx.src.read_u32le()?;
-    let _xdpi           = dmx.src.read_u32le()?;
-    let _ydpi           = dmx.src.read_u32le()?;
-    let colors          = dmx.src.read_u32le()?;
-    validate!(colors <= 256);
-    let _imp_colors     = dmx.src.read_u32le()?;
-
-    let flip = height < 0;
-    let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
-    let mut vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, format);
-    vhdr.bits = (planes as u8) * (bitcount as u8);
-    let is_mvi = matches!(&dmx.cur_handler, b"MVI1" | b"mvi1" | b"MVI2" | b"mvi2");
-    let cname = if is_mvi {
-            if dmx.cur_handler[3] == b'1' { "mvi1" } else { "mvi2" }
-        } else if find_raw_rgb_fmt(&compression, planes, bitcount, flip, &mut vhdr) {
-            "rawvideo-ms"
-        } else if find_raw_yuv_fmt(&compression, &mut vhdr) {
-            "rawvideo"
-        } else {
-            match register::find_codec_from_avi_fourcc(&compression) {
-                None => "unknown",
-                Some(name) => name,
-            }
-        };
-    let vci = NACodecTypeInfo::Video(vhdr);
-    let mut edata = dmx.read_extradata(size - 40)?;
-    if is_mvi {
-        if let Some(ref mut dta) = edata {
-            for (i, &c) in compression.iter().enumerate() {
-                dta.insert(i, c);
-            }
-        } else {
-            edata = Some(compression.to_vec());
-        }
-    }
-    if colors > 0 {
-        if let Some(ref buf) = edata {
-            let mut pal = [0u8; 1024];
-            for (dpal, spal) in pal.chunks_mut(4).take(colors as usize).zip(buf.chunks(4)) {
-                dpal[0] = spal[2];
-                dpal[1] = spal[1];
-                dpal[2] = spal[0];
-                dpal[3] = 0;
-            }
-            let pal = PalInfo { pal: Arc::new(pal), changed: true, stream_no: strmgr.get_num_streams() };
-            dmx.pal.push(pal);
-        }
-    }
-    let vinfo = NACodecInfo::new(cname, vci, edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Video, u32::from(dmx.sstate.strm_no), vinfo, dmx.tb_num, dmx.tb_den, u64::from(dmx.strm_duration)));
-    if res.is_none() { return Err(MemoryError); }
-    dmx.sstate.reset();
-    Ok(size)
-}
 
 fn find_raw_rgb_fmt(compr: &[u8; 4], planes: u16, bitcount: u16, flip: bool, vhdr: &mut NAVideoInfo) -> bool {
     match compr {
@@ -720,100 +709,6 @@ fn find_raw_yuv_fmt(compr: &[u8; 4], vhdr: &mut NAVideoInfo) -> bool {
     } else {
         false
     }
-}
-
-fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    if size < 16 { return Err(InvalidData); }
-    let w_format_tag        = dmx.src.read_u16le()?;
-    let channels            = dmx.src.read_u16le()?;
-    let samplespersec       = dmx.src.read_u32le()?;
-    let _avgbytespersec     = dmx.src.read_u32le()?;
-    let block_align         = dmx.src.read_u16le()?;
-    let bits_per_sample     = dmx.src.read_u16le()?;
-
-    let signed = bits_per_sample > 8;
-    let soniton = NASoniton::new(bits_per_sample as u8, if signed { SONITON_FLAG_SIGNED } else { 0 });
-    let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
-    let edata = if size > 18 {
-            let edata_size  = dmx.src.read_u16le()? as usize;
-            validate!(edata_size + 18 <= size);
-            dmx.read_extradata(size - 18)?
-        } else if size > 16 {
-                              dmx.src.read_skip(size - 16)?;
-            None
-        } else {
-            None
-        };
-    let cname = match register::find_codec_from_wav_twocc(w_format_tag) {
-                    None => "unknown",
-                    Some(name) => name,
-                };
-    let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, u32::from(dmx.sstate.strm_no), ainfo, dmx.tb_num, dmx.tb_den, u64::from(dmx.strm_duration)));
-    if res.is_none() { return Err(MemoryError); }
-    dmx.sstate.reset();
-    Ok(size)
-}
-
-fn parse_strf_xxxx(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    let edata = dmx.read_extradata(size)?;
-    let info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Data, u32::from(dmx.sstate.strm_no), info, dmx.tb_num, dmx.tb_den, u64::from(dmx.strm_duration)));
-    if res.is_none() { return Err(MemoryError); }
-    dmx.sstate.reset();
-    Ok(size)
-}
-
-fn parse_avih(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    if size < 0x38 { return Err(InvalidData); }
-    let _timebase = dmx.src.read_u32le()?; //microsec per frame
-    dmx.src.read_skip(4)?; //max frame size
-    dmx.src.read_skip(4)?; //padding
-    dmx.src.read_u32le()?; //flags
-    let _frames = dmx.src.read_u32le()?; //frames
-    dmx.src.read_skip(4)?; //initial frames
-    let streams = dmx.src.read_u32le()?; //streams
-    if streams > 100 { return Err(InvalidData); }
-    dmx.num_streams = streams as u8;
-
-    dmx.src.read_skip(4)?; //buf size
-    let _width = dmx.src.read_u32le()?; //width
-    let _height = dmx.src.read_u32le()? as i32; //height
-    dmx.src.read_skip(16)?; //reserved
-
-    dmx.cur_frame.resize(streams as usize, 0);
-    dmx.src.read_skip(size - 0x38)?;
-    Ok(size)
-}
-
-fn parse_indx(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    dmx.odml = true;
-    validate!(size >= 24);
-    let entry_size = dmx.src.read_u16le()? as usize;
-    if entry_size != 4 {
-        dmx.src.read_skip(size - 2)?;
-        return Ok(size);
-    }
-    let sub_type = dmx.src.read_byte()?;
-    let idx_type = dmx.src.read_byte()?;
-    validate!(sub_type == 0 && idx_type == 0);
-    let entries = dmx.src.read_u32le()? as usize;
-    validate!(size >= 24 + entries * 4 * entry_size);
-    dmx.src.read_tag()?; //chunk id
-    dmx.src.read_skip(12)?; // reserved
-    for _ in 0..entries {
-        let offset = dmx.src.read_u64le()?;
-        let _idx_len = dmx.src.read_u32le()?;
-        let _nframes = dmx.src.read_u32le()?;
-        dmx.odml_idx.push(offset);
-    }
-    dmx.src.read_skip(size - 24 - entries * 4 * entry_size)?;
-    Ok(size)
-}
-
-fn parse_junk(dmx: &mut AVIDemuxer, _strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    dmx.src.read_skip(size)?;
-    Ok(size)
 }
 
 fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<usize> {
