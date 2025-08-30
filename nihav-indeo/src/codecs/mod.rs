@@ -21,6 +21,8 @@ mod indeo3data;
 mod indeo4;
 #[cfg(feature="decoder_indeo5")]
 mod indeo5;
+#[cfg(feature="decoder_yv92")]
+mod yv92;
 
 #[cfg(any(feature="decoder_indeo4", feature="decoder_indeo5"))]
 #[allow(clippy::too_many_arguments)]
@@ -53,6 +55,8 @@ const INDEO_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "indeo5s", get_decoder: indeo5::get_decoder_scalable },
 #[cfg(feature="decoder_intel263")]
     DecoderInfo { name: "intel263", get_decoder: intel263::get_decoder },
+#[cfg(feature="decoder_yv92")]
+    DecoderInfo { name: "yv92", get_decoder: yv92::get_decoder },
 
 #[cfg(feature="decoder_imc")]
     DecoderInfo { name: "imc", get_decoder: imc::get_decoder_imc },

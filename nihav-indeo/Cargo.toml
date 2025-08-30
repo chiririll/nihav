@@ -18,7 +18,7 @@ nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, feature
 default = ["all_decoders", "all_demuxers", "all_encoders"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
-all_video_decoders = ["decoder_indeo2", "decoder_indeo3", "decoder_indeo4", "decoder_indeo5", "decoder_intel263"]
+all_video_decoders = ["decoder_indeo2", "decoder_indeo3", "decoder_indeo4", "decoder_indeo5", "decoder_intel263", "decoder_yv92"]
 all_audio_decoders = ["decoder_imc"]
 decoders = []
 
@@ -28,6 +28,7 @@ decoder_indeo3 = ["decoders"]
 decoder_indeo4 = ["decoders"]
 decoder_indeo5 = ["decoders"]
 decoder_intel263 = ["decoders"]
+decoder_yv92 = ["decoders"]
 
 all_demuxers = ["demuxer_dvi", "demuxer_ivf"]
 demuxers = []
