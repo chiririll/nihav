@@ -152,6 +152,8 @@ struct JPEGDecoder {
     width:      usize,
     height:     usize,
     depth:      u8,
+    max_h:      u8,
+    max_v:      u8,
     buf:        Vec<u8>,
 }
 
@@ -224,6 +226,8 @@ impl JPEGDecoder {
             width:      0,
             height:     0,
             depth:      0,
+            max_h:      0,
+            max_v:      0,
             buf:        Vec::new(),
         }
     }
@@ -260,8 +264,8 @@ impl JPEGDecoder {
         if nf > MAX_CHROMATONS {
             return Err(DecoderError::NotImplemented);
         }
-        let mut max_h = 0;
-        let mut max_v = 0;
+        self.max_h = 0;
+        self.max_v = 0;
         for i in 0..nf {
             let c                       = br.read_byte()?;
             self.comp_id[i] = c;
@@ -271,22 +275,25 @@ impl JPEGDecoder {
             self.qselect[i] = t;
             self.subsamp[i] = hv;
             let hs = hv >> 4;
-            validate!(hs == 1 || hs == 2);
+
+            validate!(hs == 1 || hs == 2 || (i == 0 && hs == 4));
             let vs = hv & 0xF;
-            validate!(vs == 1 || vs == 2);
-            max_h = max_h.max(hs);
-            max_v = max_v.max(vs);
+            validate!(vs == 1 || vs == 2 || (i == 0 && vs == 4));
+            self.max_h = self.max_h.max(hs);
+            self.max_v = self.max_v.max(vs);
         }
         let mut chromatons = [None; MAX_CHROMATONS];
         for (i, chr) in chromatons[..nf].iter_mut().enumerate() {
-            let h_ss = match max_h / (self.subsamp[i] >> 4) {
+            let h_ss = match self.max_h / (self.subsamp[i] >> 4) {
                     1 => 0,
                     2 => 1,
+                    4 => 2,
                     _ => unreachable!(),
                 };
-            let v_ss = match max_v / (self.subsamp[i] & 0xF) {
+            let v_ss = match self.max_v / (self.subsamp[i] & 0xF) {
                     1 => 0,
                     2 => 1,
+                    4 => 2,
                     _ => return Err(DecoderError::InvalidData),
                 };
 
@@ -337,20 +344,34 @@ impl JPEGDecoder {
 
         let mut br = BitReader::new(src, BitReaderMode::BE);
 
-        let mut offs = frm.offset;
+        let mut offs = [0; MAX_CHROMATONS];
+        let mut stride = [0; MAX_CHROMATONS];
+        for ((doff, stride), ci) in offs.iter_mut().zip(stride.iter_mut()).zip(ci.iter()) {
+            *doff = frm.offset[ci.component_id];
+            *stride = frm.stride[ci.component_id];
+        }
         let mut nblks = [0; MAX_CHROMATONS];
         let mut xstep = [0; MAX_CHROMATONS];
         let mut ystep = [0; MAX_CHROMATONS];
         let mut hstep = 8;
         let mut vstep = 8;
-        for i in 0..num_components {
-            let hs = (self.subsamp[i] >> 4)  as usize;
-            let vs = (self.subsamp[i] & 0xF) as usize;
-            hstep = hstep.max(hs * 8);
-            vstep = vstep.max(vs * 8);
-            nblks[i] = hs * vs;
-            xstep[i] = hs * 8;
-            ystep[i] = vs * 8;
+        if num_components > 1 {
+            for (i, cinfo) in ci.iter().enumerate() {
+                let hs = (self.subsamp[cinfo.component_id] >> 4)  as usize;
+                let vs = (self.subsamp[cinfo.component_id] & 0xF) as usize;
+                hstep = hstep.max(hs * 8);
+                vstep = vstep.max(vs * 8);
+                nblks[i] = hs * vs;
+                xstep[i] = hs * 8;
+                ystep[i] = vs * 8;
+            }
+        } else {
+            let subsamp = self.subsamp[ci[0].component_id];
+            nblks[0] = 1;
+            hstep = usize::from(8 * self.max_h / (subsamp >> 4));
+            vstep = usize::from(8 * self.max_h / (subsamp & 0xF));
+            xstep[0] = 8;
+            ystep[0] = 8;
         }
 
         let mut blocks;
@@ -365,21 +386,21 @@ impl JPEGDecoder {
                         idct(blk);
                     }
                     match self.subsamp[i] {
-                        0x11 => {
-                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 8..], frm.stride[i]);
+                        0x11 | 0x44 => {
+                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 8..], stride[i]);
                         },
                         0x21 => {
-                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 16..], frm.stride[i]);
-                            put_block(&blocks[1], &mut frm.data[offs[i] + x * 16 + 8..], frm.stride[i]);
+                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 16..], stride[i]);
+                            put_block(&blocks[1], &mut frm.data[offs[i] + x * 16 + 8..], stride[i]);
                         },
                         0x12 => {
-                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 8..], frm.stride[i]);
-                            put_block(&blocks[1], &mut frm.data[offs[i] + x * 8 + frm.stride[i] * 8..], frm.stride[i]);
+                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 8..], stride[i]);
+                            put_block(&blocks[1], &mut frm.data[offs[i] + x * 8 + stride[i] * 8..], stride[i]);
                         },
                         0x22 => {
                             #[allow(clippy::needless_range_loop)]
                             for j in 0..4 {
-                                put_block(&blocks[j], &mut frm.data[offs[i] + x * 16 + (j & 1) * 8 + (j >> 1) * 8 * frm.stride[i]..], frm.stride[i]);
+                                put_block(&blocks[j], &mut frm.data[offs[i] + x * 16 + (j & 1) * 8 + (j >> 1) * 8 * stride[i]..], stride[i]);
                             }
                         },
                         _ => unreachable!(),
@@ -387,7 +408,7 @@ impl JPEGDecoder {
                 }
             }
             for i in 0..num_components {
-                offs[i] += frm.stride[i] * ystep[i];
+                offs[i] += stride[i] * ystep[i];
             }
         }
 
@@ -650,7 +671,7 @@ impl NADecoder for JPEGDecoder {
                         _ => return Err(DecoderError::NotImplemented),
                     };
                     let tag             = br.peek_u16be()?;
-                    validate!((tag >= 0xFFD0 && tag <= 0xFFD7) || (tag == 0xFFD9));
+                    validate!((tag == 0xFFC4) || (tag >= 0xFFD0 && tag <= 0xFFD7) || (tag == 0xFFD9));
                 },
                 0xFFDB => { //quant tables
                     let mut len         = br.read_u16be()? as usize;
