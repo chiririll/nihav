@@ -73,14 +73,13 @@ impl<'a> DemuxCore<'a> for DVIDemuxer<'a> {
         let first_frame_offset          = br.read_u32le()?;
         let end_of_frame_data           = br.read_u32le()?;
         let frame_hdr_size              = br.read_u16le()? as usize;
-        if frame_hdr_size != 16 { return Err(DemuxerError::NotImplemented); }
+        if frame_hdr_size < 16 { return Err(DemuxerError::NotImplemented); }
         let frame_dir_size              = br.read_u16le()? as usize;
         if frame_dir_size != 4 { return Err(DemuxerError::NotImplemented); }
-        let frame_dir_offset            = br.read_u32le()?;
-        validate!((frame_dir_offset >= data_start && frame_dir_offset < first_frame_offset) || (frame_dir_offset >= end_of_frame_data));
+        let _frame_dir_offset           = br.read_u32le()?;
         let _frame_dir_version          = br.read_u16le()?;
-        let fps                         = br.read_u16le()?;
-        validate!(fps > 0);
+        let fps                         = br.read_u16le()?.max(1);
+        //validate!(fps > 0);
         let _update_flag                = br.read_u32le()?;
         let _free_block_offset          = br.read_u32le()?;
                                           br.read_skip(32)?; // patch - unused
@@ -110,15 +109,45 @@ impl<'a> DemuxCore<'a> for DVIDemuxer<'a> {
                     let tag             = br.read_tag()?;
                     validate!(&tag == b"IDUA");
                     let size            = br.read_u16le()? as usize;
-                    validate!(size >= 168);
-                    // TODO support PCM or IMA ADPCM if there are any samples
-                                          br.read_skip(size - 6)?;
+                    validate!(size >= 162);
+                    let _header_version = br.read_u16le()?;
+                                          br.read_skip(80)?; // original file name
+                    let _orig_frame     = br.read_u32le()?;
+                    let _orig_id        = br.read_u16le()?;
+                                          br.read_skip(2)?; // pad
+                    let _frame_count    = br.read_u32le()? as usize;
+                    let _next_offset    = br.read_u32le()?;
+                                          br.read_skip(16)?; // lib
+                    let mut alg = [0; 16];
+                                          br.read_buf(&mut alg)?;
+                    let _data_rate      = br.read_u32le()?;
+                    let _cutoff_freq    = br.read_u16le()?;
+                    let _parm3          = br.read_u16le()?;
+                    let _left_vol       = br.read_u16le()?;
+                    let _right_vol      = br.read_u16le()?;
+                    let _loop_offset    = br.read_u32le()?;
+                    let _start_frm      = br.read_u32le()?;
+                    let flags           = br.read_u32le()?;
+                    let _parm4          = br.read_u16le()?;
+                                          br.read_skip(size - 162)?;
+
+                    let cname = if &alg[..8] == b"dvaud44\0" || &alg[..8] == b"adpcm4e\0" {
+                            "dvi-adpcm"
+                        } else {
+                            "unknown"
+                        };
+                    let srate = 22050;
+                    let ahdr = NAAudioInfo::new(srate, if flags == 0 { 1 } else { 2 }, SND_U8_FORMAT, 1);
+                    let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), None);
+                    if strmgr.add_stream(NAStream::new(StreamType::Audio, stream_id as u32, ainfo, 1, srate, 0)).is_none() {
+                        return Err(DemuxerError::MemoryError);
+                    }
                 },
                 3 => { // video
                     let tag             = br.read_tag()?;
                     validate!(&tag == b"GMIC");
                     let size            = br.read_u16le()? as usize;
-                    validate!(size >= 136);
+                    validate!(size >= 132);
                     let _header_version = br.read_u16le()?;
                                           br.read_skip(80)?; // original file name
                     let _orig_frame     = br.read_u32le()?;
@@ -140,8 +169,7 @@ impl<'a> DemuxCore<'a> for DVIDemuxer<'a> {
                     let _buf_max        = br.read_u16le()? as usize;
                     let codec_id        = br.read_u16le()?;
                                           br.read_skip(2)?; // pad
-                    let _dcfid          = br.read_u32le()?;
-                                          br.read_skip(size - 136)?;
+                                          br.read_skip(size - 132)?;
 
                     let cname = match codec_id {
                             0x01 | 0x02 | 0x80 => "ima-pic",
@@ -178,6 +206,10 @@ impl<'a> DemuxCore<'a> for DVIDemuxer<'a> {
         }
         br.seek(SeekFrom::Start(u64::from(first_frame_offset)))?;
         self.data_end = u64::from(end_of_frame_data);
+        if self.data_end == 0 {
+            println!("no data end provided, demuxing will end abruptly");
+            self.data_end = 0xFFFFFFFF;
+        }
         Ok(())
     }
 
@@ -199,6 +231,11 @@ impl<'a> DemuxCore<'a> for DVIDemuxer<'a> {
                     buf[..12].copy_from_slice(&hdr);
                     write_u32le(&mut buf[12..16], size as u32).unwrap();
                                       self.src.read_buf(&mut buf[16..])?;
+
+                    if stream.get_info().get_name() == "jpeg" {
+                        validate!(buf.len() > 32);
+                        buf.drain(..32);
+                    }
 
                     let ts = stream.make_ts(Some(u64::from(frame_id)), None, None);
                     let pkt = NAPacket::new_from_refbuf(stream, ts, frame_id == 0, NABufferRef::new(buf));
