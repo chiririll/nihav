@@ -166,6 +166,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video-im; "yv92",   "Intel Indeo YVU9 Compressed"),
     desc!(audio;    "iac",    "Intel Indeo audio"),
     desc!(audio;    "imc",    "Intel Music Coder"),
+    desc!(audio;    "dvi-adpcm", "Intel DVI ADPCM"),
 
     desc!(video;    "realvideo1", "Real Video 1"),
     desc!(video;    "realvideo2", "Real Video 2", CODEC_CAP_REORDER),

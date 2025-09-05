@@ -36,6 +36,9 @@ mod ivibr;
 #[allow(clippy::too_many_arguments)]
 mod ividsp;
 
+#[cfg(feature="decoder_dvi_adpcm")]
+mod dviadpcm;
+
 #[cfg(feature="decoder_imc")]
 #[allow(clippy::excessive_precision)]
 mod imc;
@@ -58,6 +61,8 @@ const INDEO_CODECS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_yv92")]
     DecoderInfo { name: "yv92", get_decoder: yv92::get_decoder },
 
+#[cfg(feature="decoder_dvi_adpcm")]
+    DecoderInfo { name: "dvi-adpcm", get_decoder: dviadpcm::get_decoder },
 #[cfg(feature="decoder_imc")]
     DecoderInfo { name: "imc", get_decoder: imc::get_decoder_imc },
 #[cfg(feature="decoder_imc")]

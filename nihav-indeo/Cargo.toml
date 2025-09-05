@@ -19,9 +19,10 @@ default = ["all_decoders", "all_demuxers", "all_encoders"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 all_video_decoders = ["decoder_indeo2", "decoder_indeo3", "decoder_indeo4", "decoder_indeo5", "decoder_intel263", "decoder_yv92"]
-all_audio_decoders = ["decoder_imc"]
+all_audio_decoders = ["decoder_dvi_adpcm", "decoder_imc"]
 decoders = []
 
+decoder_dvi_adpcm = ["decoders"]
 decoder_imc = ["decoders"]
 decoder_indeo2 = ["decoders"]
 decoder_indeo3 = ["decoders"]
