@@ -837,7 +837,7 @@ unimplemented!();
                     mb.mvs = [ZERO_MV; 4];
                 }
             } else {
-                mb.mb_type = MBType::Forward;
+                mb.mb_type = MBType::Skip;
                 mb.cbp = 0;
                 mb.mvs = [ZERO_MV; 4];
             }
