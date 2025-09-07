@@ -46,14 +46,16 @@ impl RateControl {
         let is_intra = self.key_int == 0 || (frameno % self.key_int) == 0;
         (is_intra, self.quality)
     }
-    pub fn advance(&mut self, size: u32) {
+    pub fn advance(&mut self, size: u32, skipped: bool) {
         if self.bitrate != 0 {
-            let expected = self.get_expected_size();
-            let cur_quant = self.quality.unwrap_or(0);
-            if (size > expected + expected / 10) && (cur_quant < 7) {
-                self.quality = Some(cur_quant + 1);
-            } else if (size < expected - expected / 10) && (cur_quant > 0) {
-                self.quality = Some(cur_quant - 1);
+            if !skipped {
+                let expected = self.get_expected_size();
+                let cur_quant = self.quality.unwrap_or(0);
+                if (size > expected + expected / 10) && (cur_quant < 7) {
+                    self.quality = Some(cur_quant + 1);
+                } else if (size < expected - expected / 10) && (cur_quant > 0) {
+                    self.quality = Some(cur_quant - 1);
+                }
             }
 
             self.f_pos += self.tb_num;

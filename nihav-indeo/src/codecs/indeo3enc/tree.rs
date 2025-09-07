@@ -143,6 +143,7 @@ pub struct Plane {
     pub height: usize,
     pub stripw: u8,
     pub mvs:    Vec<(MV, u16)>,
+    pub zero:   bool,
 }
 
 fn ssd(a: u8, b: u8) -> u32 {
@@ -359,6 +360,7 @@ impl Plane {
     }
     pub fn encode_tree(&mut self, iw: &mut Indeo3Writer, tree: &Indeo3PrimaryTree, cenc: &mut CellEncoder, refp: &Plane) {
         let cell = Indeo3Cell::new(self.width, self.height);
+        self.zero = true;
         self.encode_pri(iw, cell, tree, cenc, refp);
     }
     fn encode_pri(&mut self, iw: &mut Indeo3Writer, mut cell: Indeo3Cell, tree: &Indeo3PrimaryTree, cenc: &mut CellEncoder, refp: &Plane) {
@@ -378,6 +380,7 @@ impl Plane {
             Indeo3PrimaryTree::AbsFill(sec) => {
                 iw.put_2bits(2);
                 cell.intra = true;
+                self.zero = false;
                 self.encode_sec(iw, cell, sec, cenc);
             }
             Indeo3PrimaryTree::RelFill(mv, sec) => {
@@ -390,6 +393,7 @@ impl Plane {
                 } else {
                     iw.put_2bits(2);
                     cell.intra = true;
+                    self.zero = false;
                     self.encode_sec(iw, cell, sec, cenc);
                 }
             },
@@ -415,6 +419,7 @@ impl Plane {
             },
             Indeo3SecondaryTree::VQData(mode) => {
                 iw.put_2bits(3);
+                self.zero = false;
                 self.encode_cell_data_intra(iw, cell, cenc, *mode);
             },
         }
@@ -431,11 +436,15 @@ impl Plane {
                 iw.put_2bits(2);
                 iw.put_2bits(*mode);
                 cenc.read_mv_buffer(refp, cell, mv);
+                if mv.x != 0 || mv.y != 0 {
+                    self.zero = false;
+                }
                 cenc.null_mv();
                 cenc.put_buffer(self);
             },
             Indeo3SecondaryTree::VQData(_mode) => {
                 iw.put_2bits(3);
+                self.zero = false;
                 self.encode_cell_data_inter(iw, cell, cenc, mv, refp);
             },
         }

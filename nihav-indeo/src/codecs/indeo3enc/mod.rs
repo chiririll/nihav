@@ -133,7 +133,8 @@ impl Indeo3Encoder {
             try_again:  false,
         }
     }
-    fn encode_planes(&mut self, dbuf: &mut Vec<u8>, trees: &[Box<Indeo3PrimaryTree>], is_intra: bool) -> EncoderResult<()> {
+    fn encode_planes(&mut self, dbuf: &mut Vec<u8>, trees: &[Box<Indeo3PrimaryTree>], is_intra: bool) -> EncoderResult<bool> {
+        let mut zero = true;
         for (&planeno, tree) in PLANE_ORDER.iter().zip(trees.iter()) {
             let offset = dbuf.len();
             let ref_plane = &self.pframe.plane[planeno];
@@ -149,6 +150,7 @@ impl Indeo3Encoder {
 
             let mut iw = Indeo3Writer::new(dbuf);
             self.cframe.plane[planeno].encode_tree(&mut iw, tree, &mut self.cenc, ref_plane);
+            zero &= self.cframe.plane[planeno].zero;
             drop(iw);
             while (dbuf.len() & 3) != 0 {
                 dbuf.push(0);
@@ -157,17 +159,21 @@ impl Indeo3Encoder {
             let plane_off = PLANE_OFFSETS + 4 * if planeno > 0 { planeno ^ 3 } else { 0 };
             write_u32le(&mut dbuf[plane_off..], (offset - OS_HEADER_SIZE) as u32)?;
         }
-
-        let mut checksum = 0;
-        for plane in self.cframe.plane.iter() {
-            checksum ^= plane.checksum();
+        if zero {
+            // skip frame
+            dbuf.truncate(48);
+        } else {
+            let mut checksum = 0;
+            for plane in self.cframe.plane.iter() {
+                checksum ^= plane.checksum();
+            }
+            write_u16le(&mut dbuf[26..], checksum * 2)?;
         }
-        write_u16le(&mut dbuf[26..], checksum * 2)?;
 
         let size = (dbuf.len() - OS_HEADER_SIZE) as u32;
         write_u32le(&mut dbuf[8..], self.frameno ^ HDR_FIELD_2 ^ FRMH_TAG ^ size)?;
         write_u32le(&mut dbuf[12..], size)?;
-        write_u32le(&mut dbuf[20..], size * 8)?;
+        write_u32le(&mut dbuf[20..], if !zero { size * 8 } else { 0x80 })?;
 
         if is_intra {
             dbuf.extend_from_slice(b"\x0d\x0aVer 3.99.00.00\x0d\x0a\x00");
@@ -176,7 +182,7 @@ impl Indeo3Encoder {
             }
         }
 
-        Ok(())
+        Ok(zero)
     }
 }
 
@@ -272,7 +278,7 @@ impl NAEncoder for Indeo3Encoder {
             write_u32le(&mut dbuf[20..], size * 8)?;
 
             let fsize = dbuf.len() as u32;
-            self.rc.advance(fsize);
+            self.rc.advance(fsize, true);
             self.frameno += 1;
 
             self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, false, dbuf));
@@ -352,7 +358,7 @@ impl NAEncoder for Indeo3Encoder {
                 trees.push(tree);
             }
 
-            self.encode_planes(&mut dbuf, &trees, is_intra)?;
+            let mut skipped = self.encode_planes(&mut dbuf, &trees, is_intra)?;
 
             let cur_quant = self.cenc.quant.unwrap_or(42);
             if self.try_again && !is_intra && cur_quant < 8 {
@@ -369,7 +375,7 @@ impl NAEncoder for Indeo3Encoder {
                             };
                         self.cenc.quant = Some(new_quant);
                         dbuf.truncate(OS_HEADER_SIZE + BITSTREAM_HEADER_SIZE);
-                        self.encode_planes(&mut dbuf, &trees, is_intra)?;
+                        skipped = self.encode_planes(&mut dbuf, &trees, is_intra)?;
                     }
                 }
             }
@@ -389,7 +395,7 @@ impl NAEncoder for Indeo3Encoder {
             self.frameno += 1;
 
             let fsize = dbuf.len() as u32;
-            self.rc.advance(fsize);
+            self.rc.advance(fsize, skipped);
 
             self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, is_intra, dbuf));
             Ok(())
