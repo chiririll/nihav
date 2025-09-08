@@ -69,9 +69,16 @@ impl RateControl {
             self.br_pool = self.br_pool.saturating_sub(size).min(self.bitrate * 3);
         }
     }
+    pub fn increase_quant(&mut self) {
+        if let Some(q) = self.quality {
+            if q < 8 {
+                self.quality = Some(q + 1);
+            }
+        }
+    }
     pub fn get_expected_size(&self) -> u32 {
         if self.bitrate != 0 {
-            self.br_pool * self.tb_num / self.fracs
+            (u64::from(self.br_pool) * u64::from(self.tb_num) / u64::from(self.fracs)) as u32
         } else {
             0
         }

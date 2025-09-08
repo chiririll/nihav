@@ -361,19 +361,15 @@ impl NAEncoder for Indeo3Encoder {
             let mut skipped = self.encode_planes(&mut dbuf, &trees, is_intra)?;
 
             let cur_quant = self.cenc.quant.unwrap_or(42);
-            if self.try_again && !is_intra && cur_quant < 8 {
+            if self.try_again && !is_intra && cur_quant < 7 {
                 let expected_size = self.rc.get_expected_size();
                 if expected_size > 0 {
                     let cur_size = dbuf.len() as u32;
                     // try re-encoding frame if possible
                     if cur_size > expected_size * 3 / 2 {
                         self.cframe.fill(vbuf);
-                        let new_quant = if cur_quant < 7 {
-                                cur_quant + 1
-                            } else {
-                                cur_quant - 1
-                            };
-                        self.cenc.quant = Some(new_quant);
+                        self.cenc.quant = Some(cur_quant + 1);
+                        self.rc.increase_quant();
                         dbuf.truncate(OS_HEADER_SIZE + BITSTREAM_HEADER_SIZE);
                         skipped = self.encode_planes(&mut dbuf, &trees, is_intra)?;
                     }
@@ -596,7 +592,7 @@ mod test {
         let enc_options = &[
                 NAOption { name: super::TRY_AGAIN_OPTION, value: NAValue::Bool(true) },
             ];
-        encode_test("indeo3.avi", enc_options, Some(4), &[0x17d742bc, 0x6f4c1200, 0x79422bac, 0xc46b5dd0]);
+        encode_test("indeo3.avi", enc_options, Some(4), &[0xb7a78851, 0x194f8842, 0x3d05071d, 0x3029ab72]);
     }
     /*#[test]
     fn test_indeo3_roundtrip() {
