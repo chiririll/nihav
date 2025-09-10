@@ -803,7 +803,7 @@ fn col_pred_even_mvi2(mpf: &mut MPFrame) -> DecoderResult<()> {
     for (y, (dst, (mline, fline))) in mpf.col_pred.iter_mut()
             .zip(mpf.map.chunks_exact(mpf.width)
                     .zip(mpf.frame.chunks_exact_mut(mpf.width)))
-            .enumerate() {
+            .skip(mpf.ytop).enumerate() {
         if mline[0] != 0 {
             pix = YuvPixel::from(fline[0]);
         } else {
@@ -942,12 +942,13 @@ fn line_pred_2x1_mvi2(mpf: &mut MPFrame) -> DecoderResult<()> {
     Ok(())
 }
 fn line_pred_2x2_mvi2(mpf: &mut MPFrame) -> DecoderResult<()> {
-    for y in 0..mpf.height {
-        let fline = &mut mpf.frame[(y ^ 1) * mpf.width..][..mpf.width];
-        let mline = &mpf.map[(y ^ 1) * mpf.width..][..mpf.width];
-        let eline = &mpf.lrmap[(y ^ 1) * mpf.width..][..mpf.width];
+    for y in 0..(mpf.height - mpf.ytop - mpf.ybot) {
+        let ysrc = (y ^ 1) + mpf.ytop;
+        let fline = &mut mpf.frame[ysrc * mpf.width..][..mpf.width];
+        let mline = &mpf.map[ysrc * mpf.width..][..mpf.width];
+        let eline = &mpf.lrmap[ysrc * mpf.width..][..mpf.width];
 
-        let mut pix = mpf.col_pred[y ^ 1];
+        let mut pix = mpf.col_pred[ysrc];
         let mut x = if mline[0] == 0 { 1 } else { 0 };
         while x < mpf.width {
             let mp = usize::from(mline[x]);
