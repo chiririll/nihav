@@ -15,7 +15,7 @@ path = "../nihav-codec-support"
 nihav_commonfmt = { path = "../nihav-commonfmt" }
 
 [features]
-default = ["all_decoders", "all_encoders"]
+default = ["all_decoders", "all_encoders", "all_demuxers"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
@@ -32,3 +32,7 @@ encoder_msvideo1 = ["encoders"]
 encoder_ms_adpcm = ["encoders"]
 encoder_ima_adpcm_ms = ["encoders"]
 encoders = []
+
+all_demuxers = ["demuxer_avi_dib"]
+demuxer_avi_dib = ["demuxers"]
+demuxers = []
