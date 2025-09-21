@@ -68,8 +68,7 @@ impl AudioTrack {
 struct SmackerVideoDemuxer<'a> {
     src:            &'a mut dyn ByteIO,
     frames:         usize,
-    pts_inc:        u64,
-    cur_pts:        u64,
+    tb_num:         u32,
     ainfo:          [AudioTrack; NUM_AUDIO_TRACKS],
     frame_sizes:    Vec<u32>,
     frame_flags:    Vec<u8>,
@@ -93,7 +92,7 @@ fn get_pts_inc(val: i32) -> u64 {
     match val.cmp(&0) {
         Ordering::Greater => (val as u64) * 100,
         Ordering::Less    => -val as u64,
-        Ordering::Equal   => 1,
+        Ordering::Equal   => 10000,
     }
 }
 
@@ -109,7 +108,9 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
         let pts_inc                         = src.read_u32le()? as i32;
         let flags                           = src.read_u32le()?;
         validate!((width > 0) && (height > 0) && (self.frames > 0));
-        self.pts_inc = get_pts_inc(pts_inc);
+        let tb_num = get_pts_inc(pts_inc);
+        validate!((1..=10000000).contains(&tb_num));
+        self.tb_num = tb_num as u32;
 
         if (flags & SMK_FLAG_LOOP_FRAME) != 0 {
             self.frames += 1;
@@ -151,7 +152,7 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
 
         let vhdr = NAVideoInfo::new(width, height, false, PAL8_FORMAT);
         let vinfo = NACodecInfo::new("smacker-video", NACodecTypeInfo::Video(vhdr), Some(treedata));
-        let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 100000, 0));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, self.tb_num, 100000, self.frames as u64));
         validate!(res.is_some());
         self.video_id = res.unwrap();
 
@@ -214,7 +215,7 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
             }
         }
 
-        let ts = NATimeInfo::new(Some(self.cur_pts), None, None, 1, 100000);
+        let ts = NATimeInfo::new(Some(self.cur_frame as u64), None, None, self.tb_num, 100000);
         for i in 0..NUM_AUDIO_TRACKS {
             if ((frame_flags >> (i + 1)) & 1) == 0 { continue; }
             let size                            = self.src.read_u32le()? as usize;
@@ -248,7 +249,6 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
         let pkt = NAPacket::new(stream, ts, keyframe, buf);
 
         self.cur_frame += 1;
-        self.cur_pts += self.pts_inc;
 
         Ok(pkt)
     }
@@ -258,13 +258,12 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
             let start = self.start;
             self.src.seek(SeekFrom::Start(start))?;
             self.cur_frame = 0;
-            self.cur_pts = 0;
             self.reset_state();
             return Ok(());
         }
         Err(DemuxerError::NotImplemented)
     }
-    fn get_duration(&self) -> u64 { self.frames as u64 * self.pts_inc / 100 }
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for SmackerVideoDemuxer<'a> {
@@ -278,8 +277,7 @@ impl<'a> SmackerVideoDemuxer<'a> {
         SmackerVideoDemuxer {
             src:            io,
             frames:         0,
-            pts_inc:        0,
-            cur_pts:        0,
+            tb_num:         0,
             ainfo:          [AudioTrack::new(); NUM_AUDIO_TRACKS],
             frame_sizes:    Vec::new(),
             frame_flags:    Vec::new(),
