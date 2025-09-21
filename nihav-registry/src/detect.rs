@@ -199,20 +199,21 @@ struct DetectConditions<'a> {
 
 const DETECTORS: &[DetectConditions] = &[
     DetectConditions {
-        demux_name: "avi-dib",
-        extensions: ".avi",
-        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"RIFF") },
-                      CheckItem{offs: 8, cond: &CC::Str(b"AVI LIST")},
-                      CheckItem{offs: 20, cond: &CC::Str(b"hdrlhdra")},
-                     ]
-    },
-    DetectConditions {
         demux_name: "avi",
         extensions: ".avi",
         conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b"RIFF"), &CC::Str(b"ON2 ")) },
                       CheckItem{offs: 8, cond: &CC::Or(&CC::Or(&CC::Str(b"AVI LIST"),
                                                                &CC::Str(b"AVIXLIST")),
                                                                &CC::Str(b"ON2fLIST")) },
+                      CheckItem{offs: 20, cond: &CC::Str(b"hdrlavih")},
+                     ]
+    },
+    DetectConditions {
+        demux_name: "avi-dib",
+        extensions: ".avi",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"RIFF") },
+                      CheckItem{offs: 8, cond: &CC::Str(b"AVI LIST")},
+                      CheckItem{offs: 20, cond: &CC::Str(b"hdrlhdra")},
                      ]
     },
     DetectConditions {
