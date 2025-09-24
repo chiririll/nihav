@@ -11,6 +11,25 @@ macro_rules! mktag {
     });
 }
 
+const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton {
+        model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+        comp_info: [
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: 10, comp_offs: 0, next_elem: 2 }),
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  5, comp_offs: 0, next_elem: 2 }),
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  0, comp_offs: 0, next_elem: 2 }),
+            None, None],
+        elem_size: 2, be: false, alpha: false, palette: false };
+
+pub const ARGB_FORMAT: NAPixelFormaton = NAPixelFormaton {
+        model: ColorModel::RGB(RGBSubmodel::RGB), components: 4,
+        comp_info: [
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 4 }),
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 4 }),
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 3, next_elem: 4 }),
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 4 }),
+            None ],
+        elem_size: 4, be: false, alpha: true, palette: false };
+
 #[derive(Clone,Copy,Debug,PartialEq)]
 enum DemuxMode {
     Normal,
@@ -676,7 +695,22 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 } else {
                     "unknown"
                 };
-            let format = if depth > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
+            let format = if cname == "rawvideo" {
+                    match depth {
+                        1..=8 | 33..=40 => PAL8_FORMAT,
+                        15 | 16 => RGB555_FORMAT,
+                        24 => RGB24_FORMAT,
+                        32 => ARGB_FORMAT,
+                        _ => {
+                            println!("unknown depth {depth}");
+                            return Err(DemuxerError::NotImplemented);
+                        }
+                    }
+                } else if depth > 8 && depth <= 32 {
+                    RGB24_FORMAT
+                } else {
+                    PAL8_FORMAT
+                };
             let mut vhdr = NAVideoInfo::new(width, height, false, format);
             vhdr.bits = depth as u8;
             //skip various common atoms
