@@ -323,6 +323,9 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "mvi1",          "MotionPixels 1"),
     desc!(video;    "mvi2",          "MotionPixels 2"),
 
+    desc!(video; "gryphon-arbc-vfw", "Gryphon Software ARBC in AVI"),
+    desc!(video; "gryphon-arbc-qt",  "Gryphon Software ARBC in MOV"),
+
     desc!(video-im; "mwv1",          "Aware MotionWavelets"),
 
     desc!(video-llp; "pivideo",      "PI-Video"),
@@ -389,6 +392,7 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"pivc", "pivideo"),
 
+    (b"ARBC", "gryphon-arbc-vfw"),
     (b"azpr", "apple-video"),
     (b"PGVV", "pgvv"),
 
@@ -441,6 +445,7 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"IV32", "indeo3"),
     (b"iv32", "indeo3"),
 
+    (b"arbc", "gryphon-arbc-qt"),
     (b"UCOD", "clearvideo"),
 
     (b"VP30", "vp3"),
