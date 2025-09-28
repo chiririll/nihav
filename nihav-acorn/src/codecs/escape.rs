@@ -577,7 +577,7 @@ impl NADecoder for Escape130Decoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, YUV420_FORMAT));
-            validate!((vinfo.get_width() | vinfo.get_height()) & 7 == 0);
+            validate!((vinfo.get_width() | vinfo.get_height()) & 1 == 0);
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.width  = vinfo.get_width();
             self.blocks = vec![E130Block::default(); vinfo.get_width() * vinfo.get_height() / 4];
@@ -740,7 +740,6 @@ impl NADecoder for EscapeAnyDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, YUV420_FORMAT));
-            validate!((vinfo.get_width() | vinfo.get_height()) & 7 == 0);
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             Ok(())
         } else {
