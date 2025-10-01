@@ -77,6 +77,7 @@ struct SmackerVideoDemuxer<'a> {
     cur_frame:      usize,
     queued_packets: Vec<NAPacket>,
     pal:            [u8; PAL_SIZE],
+    force_seek:     bool,
 }
 
 /*macro_rules! mktag {
@@ -253,23 +254,48 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
         Ok(pkt)
     }
     fn seek(&mut self, time: NATimePoint, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
-        let seek_to_start = matches!(time, NATimePoint::Milliseconds(0) | NATimePoint::PTS(0));
-        if seek_to_start {
-            let start = self.start;
-            self.src.seek(SeekFrom::Start(start))?;
-            self.cur_frame = 0;
-            self.reset_state();
-            return Ok(());
+        let ts = match time {
+                NATimePoint::Milliseconds(ms) => ms * 100 / u64::from(self.tb_num),
+                NATimePoint::PTS(pts) => pts,
+                _ => return Err(DemuxerError::SeekError),
+            };
+        if ts >= (self.frames as u64) || (!self.force_seek && ts > 0) {
+            return Err(DemuxerError::SeekError);
         }
-        Err(DemuxerError::NotImplemented)
+        let ts = ts as usize;
+
+        let start_pos = self.frame_sizes[..ts].iter()
+                .fold(self.start, |acc, &sz| acc + u64::from(sz & !3));
+        self.src.seek(SeekFrom::Start(start_pos))?;
+        self.cur_frame = ts;
+        self.reset_state();
+        Ok(())
     }
     fn get_duration(&self) -> u64 { 0 }
 }
 
+const DEMUXER_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: FORCE_SEEK_OPTION, description: FORCE_SEEK_OPTION_DESC,
+        opt_type: NAOptionDefinitionType::Bool },
+];
+
 impl<'a> NAOptionHandler for SmackerVideoDemuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { DEMUXER_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            if let NAOption { name: FORCE_SEEK_OPTION, value: NAValue::Bool(ref bval) } = option {
+                self.force_seek = *bval;
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        if name == FORCE_SEEK_OPTION {
+            Some(NAValue::Bool(self.force_seek))
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> SmackerVideoDemuxer<'a> {
@@ -286,6 +312,7 @@ impl<'a> SmackerVideoDemuxer<'a> {
             cur_frame:      0,
             queued_packets: Vec::new(),
             pal:            [0; PAL_SIZE],
+            force_seek:     false,
         }
     }
     fn reset_state(&mut self) {
