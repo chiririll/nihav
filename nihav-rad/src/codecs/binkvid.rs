@@ -469,6 +469,8 @@ struct BinkDecoder {
     trees:      BinkTrees,
 
     qmat_b:     QuantMats,
+
+    strict_mode: bool,
 }
 
 fn calc_len(size: usize) -> u8 {
@@ -596,6 +598,13 @@ impl BinkDecoder {
                 out.copy_from_slice(src);
                 off += stride;
                 poff += pstride;
+            }
+            Ok(())
+        } else if !self.strict_mode {
+            for line in dst[off..].chunks_mut(stride).take(8) {
+                for pix in line[..8].iter_mut() {
+                    *pix = 0x80;
+                }
             }
             Ok(())
         } else {
@@ -1205,10 +1214,30 @@ impl NADecoder for BinkDecoder {
     }
 }
 
+const STRICT_MODE_OPTION: &str = "strict_mode";
+
+const BINK_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: STRICT_MODE_OPTION, description: "Error out on recoverable errors",
+        opt_type: NAOptionDefinitionType::Bool },
+];
+
 impl NAOptionHandler for BinkDecoder {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { BINK_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            if let NAOption { name: STRICT_MODE_OPTION, value: NAValue::Bool(ref bval) } = option {
+                self.strict_mode = *bval;
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        if name == STRICT_MODE_OPTION {
+            Some(NAValue::Bool(self.strict_mode))
+        } else {
+            None
+        }
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
