@@ -37,6 +37,7 @@ struct BinkDemuxer<'a> {
     ainfo:          Vec<AudioTrack>,
     queued_packets: Vec<NAPacket>,
     frame_pos:      Vec<u32>,
+    force_seek:     bool,
 }
 
 macro_rules! mktag {
@@ -153,23 +154,55 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         Ok(pkt)
     }
     fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
-        let ret = seek_idx.find_pos(time);
-        if ret.is_none() {
+        let seek_ts = match time {
+                NATimePoint::Milliseconds(ms) => NATimeInfo::time_to_ts(ms, 1000, self.tb_num, self.tb_den),
+                NATimePoint::PTS(ts) => ts,
+                _ => return Err(DemuxerError::SeekError),
+            };
+        if seek_ts >= (self.frames as u64) {
             return Err(DemuxerError::SeekError);
         }
-        let seek_info = ret.unwrap();
-        self.src.seek(SeekFrom::Start(seek_info.pos))?;
+        if let Some(seek_info) = seek_idx.find_pos(time) {
+            if !self.force_seek || seek_info.pts.abs_diff(seek_ts) <= u64::from(self.tb_den * 2) {
+                self.src.seek(SeekFrom::Start(seek_info.pos))?;
+                self.queued_packets.clear();
+                self.cur_frame = seek_info.pts as usize;
+                return Ok(());
+            }
+        }
+        if !self.force_seek {
+            return Err(DemuxerError::SeekError);
+        }
+        self.cur_frame = seek_ts as usize;
+        self.src.seek(SeekFrom::Start(u64::from(self.frame_pos[self.cur_frame] & !1)))?;
         self.queued_packets.clear();
-        self.cur_frame = seek_info.pts as usize;
         Ok(())
     }
     fn get_duration(&self) -> u64 { 0 }
 }
 
+const DEMUXER_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: FORCE_SEEK_OPTION, description: FORCE_SEEK_OPTION_DESC,
+        opt_type: NAOptionDefinitionType::Bool },
+];
+
 impl<'a> NAOptionHandler for BinkDemuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { DEMUXER_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            if let NAOption { name: FORCE_SEEK_OPTION, value: NAValue::Bool(ref bval) } = option {
+                self.force_seek = *bval;
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        if name == FORCE_SEEK_OPTION {
+            Some(NAValue::Bool(self.force_seek))
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> BinkDemuxer<'a> {
@@ -184,6 +217,7 @@ impl<'a> BinkDemuxer<'a> {
             ainfo:          Vec::new(),
             queued_packets: Vec::new(),
             frame_pos:      Vec::new(),
+            force_seek:     false,
         }
     }
 }
