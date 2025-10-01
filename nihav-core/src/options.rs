@@ -26,6 +26,11 @@ pub const FRAME_SKIP_OPTION_VAL_KEYFRAME: &str = "keyframes";
 /// Frame skipping option value for decoding only intra frames.
 pub const FRAME_SKIP_OPTION_VAL_INTRA: &str = "intra";
 
+/// Common name for forcing seek outside defined seekpoints.
+pub const FORCE_SEEK_OPTION: &str = "force_seek";
+/// Common description for forcing seek outside defined seekpoints.
+pub const FORCE_SEEK_OPTION_DESC: &str = "Allow seeking to arbitrary positions";
+
 /// A list specifying option parsing and validating errors.
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum OptionError {
