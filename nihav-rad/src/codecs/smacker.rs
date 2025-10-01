@@ -470,6 +470,9 @@ impl NADecoder for SmackerVideoDecoder {
         Ok(frm.into_ref())
     }
     fn flush(&mut self) {
+        for el in self.frame.iter_mut() {
+            *el = 0;
+        }
     }
 }
 
