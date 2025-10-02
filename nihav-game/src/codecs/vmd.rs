@@ -329,6 +329,9 @@ impl NADecoder for VMDVideoDecoder {
         Ok(frm.into_ref())
     }
     fn flush(&mut self) {
+        for el in self.framebuf.iter_mut() {
+            *el = 0;
+        }
     }
 }
 

@@ -28,6 +28,7 @@ struct VMDDemuxer<'a> {
     is_indeo:   bool,
     is_lhaud:   bool,
     frames:     Vec<FrameRec>,
+    force_seek: bool,
 }
 
 impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
@@ -178,17 +179,55 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         Ok(pkt)
     }
 
-    fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
-        Err(DemuxerError::NotPossible)
+    fn seek(&mut self, time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+        if !self.force_seek {
+            Err(DemuxerError::NotPossible)
+        } else {
+            let seek_ts = match time {
+                    NATimePoint::Milliseconds(ms) => ms * 12 / 1000,
+                    NATimePoint::PTS(ts) => ts,
+                    _ => return Err(DemuxerError::SeekError),
+                };
+            let mut fno = 0;
+            for frame in self.frames.iter() {
+                if frame.chtype == CHTYPE_VIDEO && u64::from(frame.ts) >= seek_ts {
+                    break;
+                }
+                fno += 1;
+            }
+            if fno >= self.frames.len() {
+                return Err(DemuxerError::SeekError);
+            }
+            self.fno = fno;
+            Ok(())
+        }
     }
 
     fn get_duration(&self) -> u64 { 0 }
 }
 
+const DEMUXER_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: FORCE_SEEK_OPTION, description: FORCE_SEEK_OPTION_DESC,
+        opt_type: NAOptionDefinitionType::Bool },
+];
+
 impl<'a> NAOptionHandler for VMDDemuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { DEMUXER_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            if let NAOption { name: FORCE_SEEK_OPTION, value: NAValue::Bool(ref bval) } = option {
+                self.force_seek = *bval;
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        if name == FORCE_SEEK_OPTION {
+            Some(NAValue::Bool(self.force_seek))
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> VMDDemuxer<'a> {
@@ -201,6 +240,7 @@ impl<'a> VMDDemuxer<'a> {
             is_indeo:   false,
             is_lhaud:   false,
             frames:     Vec::new(),
+            force_seek: false,
         }
     }
 }
