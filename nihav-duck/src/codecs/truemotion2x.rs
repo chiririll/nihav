@@ -189,9 +189,9 @@ impl TM2XDecoder {
                 let y = self.cur_frame.ydata[pos + x];
                 let u = self.cur_frame.udata[pos + x];
                 let v = self.cur_frame.vdata[pos + x];
-                dst[offs[0] + x] = y.max(0).min(255) as u8;
-                dst[offs[1] + x] = u.max(0).min(255) as u8;
-                dst[offs[2] + x] = v.max(0).min(255) as u8;
+                dst[offs[0] + x] = y.clamp(0, 255) as u8;
+                dst[offs[1] + x] = u.clamp(0, 255) as u8;
+                dst[offs[2] + x] = v.clamp(0, 255) as u8;
             }
             for c in 0..3 {
                 offs[c] += strides[c];

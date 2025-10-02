@@ -104,8 +104,7 @@ impl<'a> SparkBR<'a> {
                 } else {
                     level = (level * q) - q_add;
                 }
-                if level < -2048 { level = -2048; }
-                if level >  2047 { level =  2047; }
+                level = level.clamp(-2048, 2047);
             } else {
                 let fmt_bit = br.read_bool()?;
                 last  = br.read_bool()?;
@@ -122,8 +121,7 @@ impl<'a> SparkBR<'a> {
                 } else {
                     level = (level * q) - q_add;
                 }
-                if level < -2048 { level = -2048; }
-                if level >  2047 { level =  2047; }
+                level = level.clamp(-2048, 2047);
             }
             idx += run;
             validate!(idx < 64);

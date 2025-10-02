@@ -423,14 +423,14 @@ fn decode_token_huff(br: &mut BitReader, huff: &VP6Huff) -> DecoderResult<(i16, 
     let tok                                     = br.read_huff(huff)?;
     match tok {
         0   => Ok((0, false)),
-        1 | 2 | 3 | 4 => {
+        1..=4 => {
             if !br.read_bool()? {
                 Ok((i16::from(tok), false))
             } else {
                 Ok((-i16::from(tok), false))
             }
         },
-        5 | 6 | 7 | 8 | 9 | 10 => {
+        5..=10 => {
             let base = (tok - 5) as usize;
             let add_bits                        = br.read(VP6_COEF_ADD_BITS[base])? as i16;
             let val = VP56_COEF_BASE[base] + add_bits;

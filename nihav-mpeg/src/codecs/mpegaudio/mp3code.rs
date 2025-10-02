@@ -263,7 +263,7 @@ impl MP3Data {
             - 8 * i32::from(sblk_gain)
             - if gr.scalefac_scale { 4 } else { 2 } * (i32::from(gr.scalefac[ssb])
                 + if gr.preflag { i32::from(MP3_PREEMP_SCALES[sb]) } else { 0 })
-        ).min(127).max(-124) as i8
+        ).clamp(-124, 127) as i8
     }
     fn read_mp3_coeffs(&mut self, br: &mut BitReader, end: usize, gr_no: usize, ch: usize, coeffs: &mut [f32]) -> DecoderResult<()> {
         let mut scales = [0; SAMPLES / 2];

@@ -450,8 +450,8 @@ fn rescale_qmat_vp4(dst_qmat: &mut [i16; 64], base_qmat: &[i16; 64], dc_quant: i
 fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, token: u8) -> DecoderResult<()> {
     match token {
         // EOBs
-        0 | 1 | 2 => { *eob_run = (token as usize) + 1; },
-        3 | 4 | 5 => {
+        0..=2 => { *eob_run = (token as usize) + 1; },
+        3..=5 => {
             let bits = token - 1;
             *eob_run                            = (br.read(bits)? as usize) + (1 << bits);
         },
@@ -464,7 +464,7 @@ fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, token:
             validate!(blk.idx <= 64);
         },
         // single coefficients
-        9 | 10 | 11 | 12 => {
+        9..=12 => {
             let val = (i16::from(token) - 7) >> 1;
             if (token & 1) == 1 {
                 blk.coeffs[ZIGZAG[blk.idx]] = val;
@@ -473,7 +473,7 @@ fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, token:
             }
             blk.idx += 1;
         },
-        13 | 14 | 15 | 16 => {
+        13..= 16 => {
             let val = i16::from(token) - 10;
             if !br.read_bool()? {
                 blk.coeffs[ZIGZAG[blk.idx]] = val;
@@ -482,7 +482,7 @@ fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, token:
             }
             blk.idx += 1;
         },
-        17 | 18 | 19 | 20 | 21 | 22 => {
+        17..=22 => {
             let add_bits = if token == 22 { 9 } else { token - 16 };
             let sign                            = br.read_bool()?;
             let val                             = (br.read(add_bits)? as i16) + VP3_LITERAL_BASE[(token - 17) as usize];
@@ -494,7 +494,7 @@ fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, token:
             blk.idx += 1;
         }
         // zero run plus coefficient
-        23 | 24 | 25 | 26 | 27 => {
+        23..=27 => {
             blk.idx += (token - 22) as usize;
             validate!(blk.idx < 64);
             if !br.read_bool()? {
@@ -1841,7 +1841,7 @@ impl NADecoder for VP34Decoder {
     #[allow(clippy::collapsible_else_if)]
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        validate!(src.len() > 0);
+        validate!(!src.is_empty());
         let mut br = BitReader::new(&src, BitReaderMode::BE);
 
         self.parse_header(&mut br)?;

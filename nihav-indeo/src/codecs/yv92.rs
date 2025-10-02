@@ -75,7 +75,7 @@ impl YV92Decoder {
                 if delta == ESCAPE {
                     delta = br.read(8)? as u8;
                 }
-                pred = ((i16::from(*top) - last_top + i16::from(pred)).max(0).min(255) as u8).wrapping_add(delta << 1);
+                pred = ((i16::from(*top) - last_top + i16::from(pred)).clamp(0, 255) as u8).wrapping_add(delta << 1);
                 last_top = i16::from(*top);
                 *dst = pred;
                 *top = pred;

@@ -616,7 +616,7 @@ impl NADecoder for Escape130Decoder {
                 let step_idx = br.read(2)? as usize;
                 blk.y_avg = br.read(5)? as u8 * 2;
                 for (dst, &sign) in blk.y.iter_mut().zip(E130_Y_SIGNS[sign_idx].iter()) {
-                    *dst = (i16::from(blk.y_avg) + i16::from(sign) * Y_STEPS[step_idx]).max(0).min(0x3F) as u8;
+                    *dst = (i16::from(blk.y_avg) + i16::from(sign) * Y_STEPS[step_idx]).clamp(0, 0x3F) as u8;
                 }
             } else if br.read_bool()? {
                 blk.y_avg = if br.read_bool()? {

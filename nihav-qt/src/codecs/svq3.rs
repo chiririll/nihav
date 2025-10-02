@@ -1090,7 +1090,7 @@ impl NADecoder for SVQ3Decoder {
     }
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        validate!(src.len() > 0);
+        validate!(!src.is_empty());
 
         if src.len() == 1 {
             validate!(src[0] == 0xFF);

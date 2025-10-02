@@ -356,7 +356,7 @@ impl CookChannelPair {
             } else {
                 pos >>= 1;
             }
-            let ipos = ((pos as i8) - 1).max(0).min(12);
+            let ipos = ((pos as i8) - 1).clamp(0, 12);
             let cb = &codebooks.quant_cb[ipos as usize];
             self.qindex[i]                              = (br.read_cb(cb)? as i8) + self.qindex[i - 1] - 12;
             validate!((self.qindex[i] >= -63) && (self.qindex[i] <= 63));

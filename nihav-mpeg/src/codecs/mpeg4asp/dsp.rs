@@ -93,7 +93,7 @@ trait Clip8 {
 }
 
 impl Clip8 for i16 {
-    fn clip8(self) -> u8 { self.max(0).min(255) as u8 }
+    fn clip8(self) -> u8 { self.clamp(0, 255) as u8 }
 }
 
 trait ClipCoef {
@@ -101,7 +101,7 @@ trait ClipCoef {
 }
 
 impl ClipCoef for i32 {
-    fn clip_coef(self) -> i16 { self.max(-2048).min(2047) as i16 }
+    fn clip_coef(self) -> i16 { self.clamp(-2048, 2047) as i16 }
 }
 
 pub fn get_dc_scales(quant: u8) -> [u8; 2] {

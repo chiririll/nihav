@@ -4,18 +4,18 @@ pub trait MVClipPixel {
 }
 
 impl MVClipPixel for i8 {
-    fn clip_y(self) -> Self { self.max(0).min(31) }
-    fn clip_c(self) -> Self { self.max(-31).min(31) }
+    fn clip_y(self) -> Self { self.clamp(0, 31) }
+    fn clip_c(self) -> Self { self.clamp(-31, 31) }
 }
 
 impl MVClipPixel for i16 {
-    fn clip_y(self) -> Self { self.max(0).min(31) }
-    fn clip_c(self) -> Self { self.max(-31).min(31) }
+    fn clip_y(self) -> Self { self.clamp(0, 31) }
+    fn clip_c(self) -> Self { self.clamp(-31, 31) }
 }
 
 impl MVClipPixel for i32 {
-    fn clip_y(self) -> Self { self.max(0).min(31) }
-    fn clip_c(self) -> Self { self.max(-31).min(31) }
+    fn clip_y(self) -> Self { self.clamp(0, 31) }
+    fn clip_c(self) -> Self { self.clamp(-31, 31) }
 }
 
 #[derive(Clone,Copy,Debug,Default)]
@@ -102,7 +102,7 @@ void main() {
     printf("];\n");
 }
 */
-const RGB2YUV: [YuvPixel; 32768] = [
+static RGB2YUV: [YuvPixel; 32768] = [
  pix!( 0, -1, -1), pix!( 0,  2, -1), pix!( 0,  3, -1), pix!( 0,  4, -1),
  pix!( 0,  5, -1), pix!( 0,  6, -1), pix!( 0,  7, -1), pix!( 1,  7, -2),
  pix!( 1,  8, -2), pix!( 1, 10, -2), pix!( 1, 11, -2), pix!( 1, 12, -2),

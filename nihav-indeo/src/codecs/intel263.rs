@@ -165,8 +165,8 @@ fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usiz
             let d1a = (diff.abs() - 2 * (diff.abs() - i16::from(strength)).max(0)).max(0);
             let d1  = if diff < 0 { -d1a } else { d1a };
 
-            buf[off - 1 * stride + x] = (b + d1).max(0).min(255) as u8;
-            buf[off + 0 * stride + x] = (c - d1).max(0).min(255) as u8;
+            buf[off - 1 * stride + x] = (b + d1).clamp(0, 255) as u8;
+            buf[off + 0 * stride + x] = (c - d1).clamp(0, 255) as u8;
         }
     }
 }
@@ -186,8 +186,8 @@ fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usiz
             let d1a = (diff.abs() - 2 * (diff.abs() - i16::from(strength)).max(0)).max(0);
             let d1  = if diff < 0 { -d1a } else { d1a };
 
-            buf[off - 1 + y * stride] = (b + d1).max(0).min(255) as u8;
-            buf[off     + y * stride] = (c - d1).max(0).min(255) as u8;
+            buf[off - 1 + y * stride] = (b + d1).clamp(0, 255) as u8;
+            buf[off     + y * stride] = (c - d1).clamp(0, 255) as u8;
         }
     }
 }
@@ -390,8 +390,7 @@ impl<'a> Intel263BR<'a> {
                 } else {
                     level = (level * q) - q_add;
                 }
-                if level < -2048 { level = -2048; }
-                if level >  2047 { level =  2047; }
+                level = level.clamp(-2048, 2047);
             }
             idx += run;
             validate!(idx < 64);

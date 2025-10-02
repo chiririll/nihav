@@ -36,7 +36,7 @@ pub trait VP7ProbCounter {
 impl VP7ProbCounter for ProbCounter {
     fn to_prob8(self) -> u8 {
         if self.total > 0 {
-            ((self.zeroes << 8) / self.total).min(255).max(1) as u8
+            ((self.zeroes << 8) / self.total).clamp(1, 255) as u8
         } else {
             128
         }

@@ -388,7 +388,7 @@ impl NAEncoder for BinkAudioEncoder {
             NACodecTypeInfo::Video(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Audio(ainfo) => {
                 let mut outinfo = ainfo;
-                outinfo.channels = if !self.use_dct { 2 } else { ainfo.channels.min(2).max(1) };
+                outinfo.channels = if !self.use_dct { 2 } else { ainfo.channels.clamp(1, 2) };
                 outinfo.format = SND_F32P_FORMAT;
                 let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Audio(outinfo);

@@ -79,7 +79,7 @@ fn gen_sinc_coeffs(order: usize, num: usize, den: usize, norm: f32) -> Vec<f32> 
             *coef = norm;
             continue;
         }
-        let wval = f64::from((pos * win_scale).max(-1.0).min(1.0));
+        let wval = f64::from((pos * win_scale).clamp(-1.0, 1.0));
         let win = bessel_i0(BESSEL_BETA - (1.0 - wval * wval).sqrt()) as f32;
         *coef = norm * (pos * sinc_scale).sinc() * win;
     }

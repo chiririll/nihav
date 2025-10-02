@@ -63,8 +63,8 @@ fn deblock_hor(buf: &mut [u8], stride: usize, off: usize, clip_tab: &[i16; 64]) 
         let diff = (3 * (p1 - q1) + 8 * (q0 - p0)) >> 4;
         if (diff != 0) && (diff > -32) && (diff < 32) {
             let delta = clip_tab[(diff + 32) as usize];
-            buf[off - 1 * stride + x] = (p0 + delta).max(0).min(255) as u8;
-            buf[off + 0 * stride + x] = (q0 - delta).max(0).min(255) as u8;
+            buf[off - 1 * stride + x] = (p0 + delta).clamp(0, 255) as u8;
+            buf[off + 0 * stride + x] = (q0 - delta).clamp(0, 255) as u8;
         }
     }
 }
@@ -79,8 +79,8 @@ fn deblock_ver(buf: &mut [u8], stride: usize, off: usize, clip_tab: &[i16; 64]) 
         let diff = (3 * (p1 - q1) + 8 * (q0 - p0)) >> 4;
         if (diff != 0) && (diff > -32) && (diff < 32) {
             let delta = clip_tab[(diff + 32) as usize];
-            buf[off - 1 + y * stride] = (p0 + delta).max(0).min(255) as u8;
-            buf[off     + y * stride] = (q0 - delta).max(0).min(255) as u8;
+            buf[off - 1 + y * stride] = (p0 + delta).clamp(0, 255) as u8;
+            buf[off     + y * stride] = (q0 - delta).clamp(0, 255) as u8;
         }
     }
 }
@@ -342,8 +342,7 @@ impl<'a> VivoBR<'a> {
                     } else {
                         level = (level * q) - q_add;
                     }
-                    if level < -2048 { level = -2048; }
-                    if level >  2047 { level =  2047; }
+                    level = level.clamp(-2048, 2047);
                 }
             }
             idx += run;
@@ -653,7 +652,7 @@ impl NADecoder for VivoDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
-        if src.len() == 0 {
+        if src.is_empty() {
             let buftype;
             let ftype;
             if self.lastframe.is_none() {

@@ -264,9 +264,9 @@ impl Kernel for RgbToYuv {
                     let b = f32::from(src[boff + x]);
                     let (y, u, v) = matrix_mul(&self.matrix, r, g, b);
 
-                    dst[yoff + x] = (y as i16).max(0).min(255) as u8;
-                    dst[uoff + x] = ((u as i16).max(-128).min(127) + 128) as u8;
-                    dst[voff + x] = ((v as i16).max(-128).min(127) + 128) as u8;
+                    dst[yoff + x] = (y as i16).clamp(0, 255) as u8;
+                    dst[uoff + x] = ((u as i16).clamp(-128, 127) + 128) as u8;
+                    dst[voff + x] = ((v as i16).clamp(-128, 127) + 128) as u8;
                 }
                 roff += istrides[0];
                 goff += istrides[1];
@@ -298,7 +298,7 @@ impl RgbToYuv {
                 let b = f32::from(src[boff + x]);
                 let (y, _u, _v) = matrix_mul(&self.matrix, r, g, b);
 
-                dst[yoff + x] = (y as i16).max(0).min(255) as u8;
+                dst[yoff + x] = (y as i16).clamp(0, 255) as u8;
             }
             roff += istrides[0];
             goff += istrides[1];
@@ -439,9 +439,9 @@ impl Kernel for YuvToRgb {
                         let r = y + self.r_chr[v];
                         let g = y + self.g_u[u] + self.g_v[v];
                         let b = y + self.b_chr[u];
-                        dst[roff + x] = r.max(0).min(255) as u8;
-                        dst[goff + x] = g.max(0).min(255) as u8;
-                        dst[boff + x] = b.max(0).min(255) as u8;
+                        dst[roff + x] = r.clamp(0, 255) as u8;
+                        dst[goff + x] = g.clamp(0, 255) as u8;
+                        dst[boff + x] = b.clamp(0, 255) as u8;
                     }
                     roff += dstrides[0];
                     goff += dstrides[1];
@@ -463,9 +463,9 @@ impl Kernel for YuvToRgb {
                     let v = f32::from(i16::from(src[voff + (x >> sv1)]) - 128);
 
                     let (r, g, b) = matrix_mul(&self.matrix, y, u, v);
-                    dst[roff + x] = (r as i16).max(0).min(255) as u8;
-                    dst[goff + x] = (g as i16).max(0).min(255) as u8;
-                    dst[boff + x] = (b as i16).max(0).min(255) as u8;
+                    dst[roff + x] = (r as i16).clamp(0, 255) as u8;
+                    dst[goff + x] = (g as i16).clamp(0, 255) as u8;
+                    dst[boff + x] = (b as i16).clamp(0, 255) as u8;
                 }
                 roff += dstrides[0];
                 goff += dstrides[1];
@@ -500,9 +500,9 @@ impl YuvToRgb {
                     let r = y + self.r_chr[128];
                     let g = y + self.g_u[128] + self.g_v[128];
                     let b = y + self.b_chr[128];
-                    dst[roff + x] = r.max(0).min(255) as u8;
-                    dst[goff + x] = g.max(0).min(255) as u8;
-                    dst[boff + x] = b.max(0).min(255) as u8;
+                    dst[roff + x] = r.clamp(0, 255) as u8;
+                    dst[goff + x] = g.clamp(0, 255) as u8;
+                    dst[boff + x] = b.clamp(0, 255) as u8;
                 }
                 roff += dstrides[0];
                 goff += dstrides[1];
@@ -514,9 +514,9 @@ impl YuvToRgb {
                 for x in 0..w {
                     let y = f32::from(src[yoff + x]);
                     let (r, g, b) = matrix_mul(&self.matrix, y, 0.0, 0.0);
-                    dst[roff + x] = (r as i16).max(0).min(255) as u8;
-                    dst[goff + x] = (g as i16).max(0).min(255) as u8;
-                    dst[boff + x] = (b as i16).max(0).min(255) as u8;
+                    dst[roff + x] = (r as i16).clamp(0, 255) as u8;
+                    dst[goff + x] = (g as i16).clamp(0, 255) as u8;
+                    dst[boff + x] = (b as i16).clamp(0, 255) as u8;
                 }
                 roff += dstrides[0];
                 goff += dstrides[1];

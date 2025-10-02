@@ -44,7 +44,7 @@ impl VQElement for YUVCode {
         let mut counts = [0; 256];
         for entry in arr.iter() {
             let idx = match component {
-                    0 | 1 | 2 | 3 => entry.y[component],
+                    0..=3 => entry.y[component],
                     4 => entry.u,
                     _ => entry.v,
                 } as usize;
@@ -57,7 +57,7 @@ impl VQElement for YUVCode {
         let mut dst = vec![YUVCode::default(); arr.len()];
         for entry in arr.iter() {
             let idx = match component {
-                    0 | 1 | 2 | 3 => entry.y[component],
+                    0..=3 => entry.y[component],
                     4 => entry.u,
                     _ => entry.v,
                 } as usize;
@@ -1211,7 +1211,7 @@ impl NAEncoder for CinepakEncoder {
         if let Some(ref vbuf) = buf.get_vbuf() {
             if self.nstrips == 0 {
                 let (w, h) = vbuf.get_dimensions(0);
-                self.nstrips = ((((w * h) >> 4) + 1200) / 2400).max(1).min(3);
+                self.nstrips = ((((w * h) >> 4) + 1200) / 2400).clamp(1, 3);
                 let strip_h = ((h + self.nstrips - 1) / self.nstrips + 3) & !3;
                 self.nstrips = (h + strip_h - 1) / strip_h;
             }

@@ -79,7 +79,7 @@ impl TMRTEncoder {
 
                 bw.write(idx as u32, self.dbits);
                 hor_pred += ndelta;
-                *pred = (i16::from(*pred) + hor_pred).max(0).min(255) as u8;
+                *pred = (i16::from(*pred) + hor_pred).clamp(0, 255) as u8;
             }
         }
 
@@ -119,7 +119,7 @@ impl TMRTEncoder {
                         if src.err == ERR_MAX {
                             continue;
                         }
-                        let nval = i32::from((top_val + src.hpred + delta).max(0).min(255));
+                        let nval = i32::from((top_val + src.hpred + delta).clamp(0, 255));
                         let new_err = src.err + (((nval - pix_val) * (nval - pix_val)) as u32);
                         if new_err < dst.err {
                             dst.err = new_err;
@@ -154,7 +154,7 @@ impl TMRTEncoder {
             for (pred, &idx) in self.top_line.iter_mut().step_by(step).zip(self.indices.iter()) {
                 bw.write(u32::from(idx), self.dbits);
                 hor_pred += delta_tab[usize::from(idx)];
-                *pred = (i16::from(*pred) + hor_pred).max(0).min(255) as u8;
+                *pred = (i16::from(*pred) + hor_pred).clamp(0, 255) as u8;
             }
         }
 

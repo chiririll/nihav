@@ -92,10 +92,10 @@ impl CustomFrom<u16> for usize {
     fn cvt_from(val: u16) -> Self { usize::from(val) }
 }
 impl CustomFrom<f32> for u8 {
-    fn cvt_from(val: f32) -> Self { val.max(0.0).min(255.0) as u8 }
+    fn cvt_from(val: f32) -> Self { val.clamp(0.0, 255.0) as u8 }
 }
 impl CustomFrom<f32> for u16 {
-    fn cvt_from(val: f32) -> Self { val.max(0.0).min(65535.0) as u16 }
+    fn cvt_from(val: f32) -> Self { val.clamp(0.0, 65535.0) as u16 }
 }
 impl CustomFrom<u8> for f32 {
     fn cvt_from(val: u8) -> Self { val as f32 }

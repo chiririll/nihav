@@ -117,7 +117,7 @@ fn idct(blk: &mut [i16; 64]) {
 fn put_block(blk: &[i16; 64], dst: &mut [u8], stride: usize) {
     for (drow, srow) in dst.chunks_mut(stride).zip(blk.chunks(8)) {
         for (del, &pix) in drow.iter_mut().zip(srow.iter()) {
-            *del = pix.max(0).min(255) as u8;
+            *del = pix.clamp(0, 255) as u8;
         }
     }
 }

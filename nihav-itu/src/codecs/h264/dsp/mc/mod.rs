@@ -30,7 +30,7 @@ module_selector! (
 
 type MCFunc = fn (dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, h: usize);
 
-fn clip_u8(val: i16) -> u8 { val.max(0).min(255) as u8 }
+fn clip_u8(val: i16) -> u8 { val.clamp(0, 255) as u8 }
 
 trait RegisterSIMD {
     fn register_simd(&mut self);

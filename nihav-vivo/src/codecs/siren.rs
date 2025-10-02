@@ -115,7 +115,7 @@ impl SirenDecoder {
 
         for i in 1..NUM_REGIONS {
             let diff                    = br.read_cb(&self.diff_cb[i - 1])?;
-            self.pow_index[i] = (self.pow_index[i - 1] + i32::from(diff)).max(-24).min(39);
+            self.pow_index[i] = (self.pow_index[i - 1] + i32::from(diff)).clamp(-24, 39);
         }
         for i in 0..NUM_REGIONS {
             self.region_quant[i]        = self.quant_tab[(self.pow_index[i] + 24) as usize];
@@ -132,7 +132,7 @@ impl SirenDecoder {
         while delta > 0 {
             let mut bitpool = 0;
             for reg in 0..NUM_REGIONS {
-                let cat = ((delta + offset - self.pow_index[reg]) >> 1).max(0).min(7) as usize;
+                let cat = ((delta + offset - self.pow_index[reg]) >> 1).clamp(0, 7) as usize;
                 //self.power_cat[reg] = cat;
                 bitpool += CATEGORY_BITS[cat];
             }
@@ -146,7 +146,7 @@ impl SirenDecoder {
         let mut max_rate_cat = [0; NUM_REGIONS];
         let mut min_rate_cat = [0; NUM_REGIONS];
         for reg in 0..NUM_REGIONS {
-            let cat = ((offset - self.pow_index[reg]) >> 1).max(0).min(7) as usize;
+            let cat = ((offset - self.pow_index[reg]) >> 1).clamp(0, 7) as usize;
             max_rate_cat[reg] = cat;
             min_rate_cat[reg] = cat;
             self.power_cat[reg] = cat;

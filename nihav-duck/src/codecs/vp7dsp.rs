@@ -1,7 +1,7 @@
 use nihav_core::frame::*;
 
 fn clip_u8(val: i16) -> u8 {
-    val.max(0).min(255) as u8
+    val.clamp(0, 255) as u8
 }
 
 const DCT_COEFFS: [i32; 16] = [
@@ -145,7 +145,7 @@ pub fn fade_frame(srcfrm: NAVideoBufferRef<u8>, dstfrm: &mut NASimpleVideoFrame<
     let mut fade_lut = [0u8; 256];
     for (i, el) in fade_lut.iter_mut().enumerate() {
         let y = i as u16;
-        *el = (y + ((y * beta) >> 8) + alpha).max(0).min(255) as u8;
+        *el = (y + ((y * beta) >> 8) + alpha).clamp(0, 255) as u8;
     }
 
     let (w, h)  = srcfrm.get_dimensions(0);

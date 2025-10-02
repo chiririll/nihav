@@ -687,7 +687,7 @@ fn calc_psnr(pic1: &NAVideoBuffer<u8>, pic2: &NAVideoBuffer<u8>) -> f64 {
     if size > 0 {
         48.13080360867910341240 - 10.0 * ((sum as f64) / (size as f64)).log10()
     } else {
-        std::f64::INFINITY
+        f64::INFINITY
     }
 }
 

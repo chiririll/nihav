@@ -62,7 +62,7 @@ impl BlockOps for Block {
         for (i, el) in self.coeffs.iter_mut().enumerate() {
             if *el != 0 {
                 let q = if matches!(i, 0 | 1 | 4) { q_dc } else { q_ac };
-                *el = (i32::from(*el) * 16 / q).max(-511).min(511) as i16;
+                *el = (i32::from(*el) * 16 / q).clamp(-511, 511) as i16;
             }
         }
     }

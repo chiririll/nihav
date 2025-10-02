@@ -157,9 +157,7 @@ impl BitAlloc {
             cur_bits = 0;
             let mut acc = 0;
             for band in start..BANDS {
-                let mut len = (ch_data.bit_est[band] * 0.5 - pool + 0.5) as i32;
-                if len < 0 { len = 0; }
-                if len > 6 { len = 6; }
+                let len = ((ch_data.bit_est[band] * 0.5 - pool + 0.5) as i32).clamp(0, 6);
                 self.band_bits[band] = len as u8;
                 cur_bits += (self.band_width[band] as i32) * len;
                 if len > 0 {

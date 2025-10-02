@@ -241,7 +241,7 @@ impl SiproDecoder {
                 }
             } else {
                 if idx < 62 {
-                    (self.prev_pitch - 10).max(30).min(281 - 19) * 3 + idx - 2
+                    (self.prev_pitch - 10).clamp(30, 281 - 19) * 3 + idx - 2
                 } else {
                     self.prev_pitch * 3
                 }
@@ -270,7 +270,7 @@ impl SiproDecoder {
                     idx * 3 - 335
                 }
             } else {
-                idx + (self.prev_pitch - 5).max(20).min(134) * 3 - 1
+                idx + (self.prev_pitch - 5).clamp(20, 134) * 3 - 1
             };
         self.pitch_int = (pitch_idx * 10923) >> 15;
         let pitch_frac = (pitch_idx as i32) - (self.pitch_int as i32) * 3 - 1;

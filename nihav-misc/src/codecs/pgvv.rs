@@ -121,7 +121,7 @@ fn idct(blk: &mut [i16; 64]) {
 fn put_block(blk: &[i16; 64], dst: &mut [u8], stride: usize) {
     for (drow, srow) in dst.chunks_mut(stride).zip(blk.chunks(8)) {
         for (del, &pix) in drow.iter_mut().zip(srow.iter()) {
-            *del = pix.max(0).min(255) as u8;
+            *del = pix.clamp(0, 255) as u8;
         }
     }
 }
@@ -449,8 +449,8 @@ impl NADecoder for RadiusStudioDecoder {
         ];
 
         for (i, (&luma_q, &chroma_q)) in DEF_LUMA_QUANT.iter().zip(DEF_CHROMA_QUANT.iter()).enumerate() {
-            self.quant[0][ZIGZAG[i]] = ((i16::from(quant) * i16::from(luma_q) + 25) / 50).max(1).min(255);
-            self.quant[1][ZIGZAG[i]] = ((i16::from(quant) * i16::from(chroma_q) + 25) / 50).max(1).min(255);
+            self.quant[0][ZIGZAG[i]] = ((i16::from(quant) * i16::from(luma_q) + 25) / 50).clamp(1, 255);
+            self.quant[1][ZIGZAG[i]] = ((i16::from(quant) * i16::from(chroma_q) + 25) / 50).clamp(1, 255);
         }
 
         if let Some(buf) = bufinfo.get_vbuf() {

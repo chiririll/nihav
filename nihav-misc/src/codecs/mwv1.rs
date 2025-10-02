@@ -88,7 +88,7 @@ fn decode_band(br: &mut BitReader, cb: &Codebook<u8>, dst: &mut [f32], w: usize,
                             esc + 0x8FC
                         }
                     },
-                    0xFC | 0xFD | 0xFE | 0xFF => {
+                    0xFC..=0xFF => {
                         zero_run = u32::from(val - 0xFC);
                         if zero_skip {
                             continue;
@@ -242,7 +242,7 @@ impl MWV1Decoder {
             let dst = &mut frm.data[frm.offset[plane]..];
             for (drow, srow) in dst.chunks_mut(frm.stride[plane]).zip(self.plane[plane].chunks(self.stride[plane])) {
                 for (dst, &src) in drow.iter_mut().zip(srow.iter()) {
-                    *dst = (src + 128.0).max(0.0).min(255.0) as u8;
+                    *dst = (src + 128.0).clamp(0.0, 255.0) as u8;
                 }
             }
         }

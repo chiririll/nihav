@@ -112,7 +112,7 @@ impl<'a> DemuxCore<'a> for RawH264Demuxer<'a> {
 
         let vhdr = NAVideoInfo::new(width, height, false, YUV420_FORMAT);
         let vinfo = NACodecInfo::new("h264", NACodecTypeInfo::Video(vhdr), Some(edata));
-        if let None = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 25, 0)) {
+        if strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 25, 0)).is_none() {
             return Err(DemuxerError::InvalidData);
         }
         self.cur_frame = 0;

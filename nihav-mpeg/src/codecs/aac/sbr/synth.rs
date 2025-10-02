@@ -349,7 +349,6 @@ impl SBRChannel {
         match self.qmode {
             QuantMode::Single => {
                 for (env_no, &env_end) in self.env_border[1..=self.num_env].iter().enumerate() {
-                    let env_end = env_end;
                     let mut noise_env_no = 0;
                     for nenv in 0..self.num_noise {
                         if (start >= noise_env[nenv]) && (env_end <= noise_env[nenv + 1]) {
@@ -370,7 +369,6 @@ impl SBRChannel {
             },
             QuantMode::Left => {
                 for (env_no, &env_end) in self.env_border[1..=self.num_env].iter().enumerate() {
-                    let env_end = env_end;
                     let mut noise_env_no = 0;
                     for nenv in 0..self.num_noise {
                         if (start >= noise_env[nenv]) && (env_end <= noise_env[nenv + 1]) {
@@ -391,7 +389,6 @@ impl SBRChannel {
             },
             QuantMode::Right => {
                 for (env_no, &env_end) in self.env_border[1..=self.num_env].iter().enumerate() {
-                    let env_end = env_end;
                     let mut noise_env_no = 0;
                     for nenv in 0..self.num_noise {
                         if (start >= noise_env[nenv]) && (env_end <= noise_env[nenv + 1]) {

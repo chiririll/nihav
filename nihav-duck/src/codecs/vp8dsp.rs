@@ -2,11 +2,11 @@ use nihav_core::frame::NAVideoBufferRef;
 use nihav_codec_support::codecs::blockdsp::edge_emu;
 
 fn clip_u8(val: i16) -> u8 {
-    val.max(0).min(255) as u8
+    val.clamp(0, 255) as u8
 }
 
 fn delta(p1: i16, p0: i16, q0: i16, q1: i16) -> i16 {
-    ((p1 - q1).max(-128).min(127) + 3 * (q0 - p0)).max(-128).min(127)
+    ((p1 - q1).clamp(-128, 127) + 3 * (q0 - p0)).clamp(-128, 127)
 }
 
 pub type LoopFilterFunc = fn(buf: &mut [u8], off: usize, step: usize, stride: usize, len: usize, thr: i16, thr_inner: i16, thr_hev: i16);
@@ -71,7 +71,7 @@ fn normal_loop_filter(buf: &mut [u8], mut off: usize, step: usize, stride: usize
                     buf[off - step * 3] = clip_u8(p2 + diff2);
                     buf[off + step * 2] = clip_u8(q2 - diff2);
                 } else {
-                    let diff = (3 * (q0 - p0)).max(-128).min(127);
+                    let diff = (3 * (q0 - p0)).clamp(-128, 127);
                     let diffq0 = (diff + 4).min(127) >> 3;
                     let diffp0 = (diff + 3).min(127) >> 3;
                     buf[off - step * 1] = clip_u8(p0 + diffp0);
@@ -167,7 +167,7 @@ macro_rules! interpolate {
         let s1 = i32::from($src[$off + 1 * $step]);
         let a = (8 - $mode) as i32;
         let b = $mode as i32;
-        ((a * s0 + b * s1 + 4) >> 3).max(0).min(255) as u8
+        ((a * s0 + b * s1 + 4) >> 3).clamp(0, 255) as u8
     }}
 }
 

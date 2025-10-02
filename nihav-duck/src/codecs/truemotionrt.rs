@@ -24,7 +24,7 @@ impl TMRTDecoder {
                 let delta                       = delta_tab[br.read(dbits)? as usize];
                 diff += delta;
                 let pred = if y > 0 { dst[off + x - stride].into() } else if !is_chroma { 0 } else { 0x80 };
-                dst[off + x] = (pred + diff).min(255).max(0) as u8;
+                dst[off + x] = (pred + diff).clamp(0, 255) as u8;
                 if hscale {
                     dst[off + x + 1] = dst[off + x];
                 }

@@ -287,8 +287,7 @@ impl<'a> RealVideo20BR<'a> {
                 } else {
                     level = (level * q) - q_add;
                 }
-                if level < -2048 { level = -2048; }
-                if level >  2047 { level =  2047; }
+                level = level.clamp(-2048, 2047);
             }
             idx += run;
             validate!(idx < 64);

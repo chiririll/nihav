@@ -356,9 +356,9 @@ println!("PAFF?");
         let pps = &self.pps[self.cur_pps];
 
         let qp_y = mb_info.qp_y;
-        let qpr = ((qp_y as i8) + pps.chroma_qp_index_offset).max(0).min(51) as usize;
+        let qpr = ((qp_y as i8) + pps.chroma_qp_index_offset).clamp(0, 51) as usize;
         let qp_u = CHROMA_QUANTS[qpr];
-        let qpb = ((qp_y as i8) + pps.second_chroma_qp_index_offset).max(0).min(51) as usize;
+        let qpb = ((qp_y as i8) + pps.second_chroma_qp_index_offset).clamp(0, 51) as usize;
         let qp_v = CHROMA_QUANTS[qpb];
 
         let tx_bypass = qp_y == 0 && self.sps[self.cur_sps].qpprime_y_zero_transform_bypass;

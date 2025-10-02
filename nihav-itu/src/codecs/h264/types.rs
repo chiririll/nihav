@@ -843,13 +843,13 @@ impl SliceState {
             };
         let (col_ref, r0_long) = frame_refs.map_ref0(r0_poc);
         if temporal_mv {
-            let td = (i32::from(r1_poc) - i32::from(r0_poc)).max(-128).min(127);
+            let td = (i32::from(r1_poc) - i32::from(r0_poc)).clamp(-128, 127);
             if r0_long || td == 0 {
                 (col_mv, col_ref, ZERO_MV, ZERO_REF)
             } else {
                 let tx = (16384 + (td / 2).abs()) / td;
-                let tb = (i32::from(cur_id) - i32::from(r0_poc)).max(-128).min(127);
-                let scale = ((tb * tx + 32) >> 6).max(-1024).min(1023);
+                let tb = (i32::from(cur_id) - i32::from(r0_poc)).clamp(-128, 127);
+                let scale = ((tb * tx + 32) >> 6).clamp(-1024, 1023);
                 let mv0 = MV {
                         x: ((i32::from(col_mv.x) * scale + 128) >> 8) as i16,
                         y: ((i32::from(col_mv.y) * scale + 128) >> 8) as i16,

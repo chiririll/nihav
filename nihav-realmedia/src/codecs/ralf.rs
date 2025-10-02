@@ -207,7 +207,7 @@ impl Channel {
 
         let code_params                                 = br.read_cb(&cset.coding_mode_cb).unwrap();
         let (add_bits, range, range2, codes_cb) = if code_params >= 15 {
-                let mut add_bits = ((code_params / 5 - 3) / 2).max(0).min(10) as u8;
+                let mut add_bits = ((code_params / 5 - 3) / 2).clamp(0, 10) as u8;
                 if add_bits > 9 && ((code_params % 5) != 2) {
                     add_bits -= 1;
                 }
@@ -507,7 +507,7 @@ const RALF_FILTER_COEFFS_LEN: usize =  43;
 const RALF_SHORT_CODES_LEN: usize =   169;
 const RALF_LONG_CODES_LEN: usize =    441;
 
-const RALF_FILTER_PARAM_TAB: [[u8; 324]; 3] = [
+static RALF_FILTER_PARAM_TAB: [[u8; 324]; 3] = [
   [
     0x48, 0x86, 0x66, 0x8A, 0xBB, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -595,7 +595,7 @@ const RALF_FILTER_PARAM_TAB: [[u8; 324]; 3] = [
   ]
 ];
 
-const RALF_BIAS_TAB: [[u8; 128]; 3] = [
+static RALF_BIAS_TAB: [[u8; 128]; 3] = [
   [
     0x4A, 0xAA, 0xAA, 0xAA, 0xBA, 0xBA, 0xBA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
     0xAA, 0xAA, 0xAA, 0xAB, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0x9A, 0xA9, 0xA9,
@@ -635,7 +635,7 @@ const RALF_BIAS_TAB: [[u8; 128]; 3] = [
   ]
 ];
 
-const RALF_CODING_MODE_TAB: [[u8; 72]; 3] = [
+static RALF_CODING_MODE_TAB: [[u8; 72]; 3] = [
   [
     0xAA, 0x99, 0xAC, 0xB9, 0xBD, 0xAA, 0x7A, 0xA8, 0xA8, 0xA8, 0x79, 0x79,
     0x77, 0xA8, 0x97, 0x79, 0x89, 0x77, 0x87, 0x87, 0x68, 0x78, 0x66, 0x86,
@@ -660,7 +660,7 @@ const RALF_CODING_MODE_TAB: [[u8; 72]; 3] = [
   ]
 ];
 
-const RALF_FILTER_COEFFS_TAB: [[[[u8; 24]; 11]; 10]; 3] = [
+static RALF_FILTER_COEFFS_TAB: [[[[u8; 24]; 11]; 10]; 3] = [
  [
   [
    [
@@ -2049,7 +2049,7 @@ const RALF_FILTER_COEFFS_TAB: [[[[u8; 24]; 11]; 10]; 3] = [
  ],
 ];
 
-const RALF_SHORT_CODES_TAB: [[[u8; 88]; 15]; 3] = [
+static RALF_SHORT_CODES_TAB: [[[u8; 88]; 15]; 3] = [
  [
   [
     0xDF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD, 0xCF, 0xFF,
@@ -2508,7 +2508,7 @@ const RALF_SHORT_CODES_TAB: [[[u8; 88]; 15]; 3] = [
  ],
 ];
 
-const RALF_LONG_CODES_TAB: [[[u8; 224]; 125]; 3] = [
+static RALF_LONG_CODES_TAB: [[[u8; 224]; 125]; 3] = [
  [
   [
     0xBE, 0xED, 0xDD, 0xDD, 0xDD, 0xDD, 0xFF, 0xFF, 0xFF, 0xFF, 0xBF, 0xFF,

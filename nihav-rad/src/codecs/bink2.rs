@@ -109,7 +109,7 @@ fn bink2_idct_old(coeffs: &mut [f32; 64]) {
 struct Bink2DSP { }
 
 fn clip8(val: i32) -> u8 {
-    val.min(255).max(0) as u8
+    val.clamp(0, 255) as u8
 }
 
 macro_rules! el {

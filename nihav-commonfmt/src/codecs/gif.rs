@@ -210,7 +210,7 @@ impl NADecoder for GIFDecoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        validate!(src.len() > 0);
+        validate!(!src.is_empty());
 
         for sd in pkt.side_data.iter() {
             if let NASideData::Palette(true, ref pal) = sd {

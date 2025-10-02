@@ -70,7 +70,7 @@ impl NAEncoder for ADPCMEncoder {
             NACodecTypeInfo::Video(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Audio(ainfo) => {
                 let mut outinfo = ainfo;
-                outinfo.channels = outinfo.channels.max(1).min(2);
+                outinfo.channels = outinfo.channels.clamp(1, 2);
                 if outinfo.format != SND_S16P_FORMAT && outinfo.format != SND_S16_FORMAT {
                     outinfo.format = SND_S16_FORMAT;
                 }

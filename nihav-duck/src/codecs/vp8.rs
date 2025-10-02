@@ -416,7 +416,7 @@ impl VP8Decoder {
         let loop_str = if self.dstate.seg_feature_mode {
                 segment.lf as u8
             } else {
-                (i16::from(self.dstate.loop_filter_level) + i16::from(segment.lf)).max(0).min(63) as u8
+                (i16::from(self.dstate.loop_filter_level) + i16::from(segment.lf)).clamp(0, 63) as u8
             };
         self.dstate.force_loop_str = Some(loop_str);
     }
@@ -536,7 +536,7 @@ impl VP8Decoder {
                 let q = if self.dstate.seg_feature_mode {
                         seg.quant.max(0) as usize
                     } else {
-                        ((y_ac_q as i16) + i16::from(seg.quant)).max(0).min(127) as usize
+                        ((y_ac_q as i16) + i16::from(seg.quant)).clamp(0, 127) as usize
                     };
                 Self::set_single_qmat(qmat, q, q, q, q, q, q);
             }
@@ -1452,7 +1452,7 @@ impl NADecoder for VP8Decoder {
                         if self.mb_info[mb_idx].mb_type != VPMBType::Intra || self.mb_info[mb_idx].ymode == PredMode::BPred {
                             loop_str += self.dstate.lf_mode_delta[idx];
                         }
-                        self.mb_info[mb_idx].loop_str = loop_str.max(0).min(63) as u8;
+                        self.mb_info[mb_idx].loop_str = loop_str.clamp(0, 63) as u8;
                     }
                     self.mb_info[mb_idx].inner_filt = has_coeffs || (self.mb_info[mb_idx].ymode == PredMode::BPred) || (self.mb_info[mb_idx].mb_type == VPMBType::InterFourMV);
                 }

@@ -436,10 +436,10 @@ fn get_weights(slice_hdr: &SliceHeader, frame_refs: &SimplifiedSliceRefs, mode: 
             return (DEF_WEIGHT_INFO, DEF_WEIGHT_INFO);
         }
 
-        let td = (i32::from(r1_poc) - i32::from(r0_poc)).max(-128).min(127);
+        let td = (i32::from(r1_poc) - i32::from(r0_poc)).clamp(-128, 127);
         let tx = (16384 + (td / 2).abs()) / td;
-        let tb = (i32::from(cur_id) - i32::from(r0_poc)).max(-128).min(127);
-        let scale = ((tb * tx + 32) >> 6).max(-1024).min(1023);
+        let tb = (i32::from(cur_id) - i32::from(r0_poc)).clamp(-128, 127);
+        let scale = ((tb * tx + 32) >> 6).clamp(-1024, 1023);
         if scale == 128 || (scale >> 2) < -64 || (scale >> 2) > 128 {
             return (DEF_WEIGHT_INFO, DEF_WEIGHT_INFO);
         }

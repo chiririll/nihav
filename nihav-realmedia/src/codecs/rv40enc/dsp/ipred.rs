@@ -50,7 +50,7 @@ impl IntraPred16x16 {
                 for line in dst.chunks_mut(stride).take(16) {
                     let mut oval = a;
                     for el in line[..16].iter_mut() {
-                        *el = (oval >> 5).max(0).min(255) as u8;
+                        *el = (oval >> 5).clamp(0, 255) as u8;
                         oval += b;
                     }
                     a += c;

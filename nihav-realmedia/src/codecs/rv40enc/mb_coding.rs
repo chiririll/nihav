@@ -755,7 +755,7 @@ impl MacroblockDecider {
         let mut dist = 0u32;
         for (diffs, (pred, refsrc)) in blk.coeffs.chunks(4).zip(pred.chunks(stride).zip(refsrc.chunks(stride))) {
             for (&diff, (&p, &r)) in diffs.iter().zip(pred.iter().zip(refsrc.iter())) {
-                let new = (i32::from(p) + i32::from(diff)).max(0).min(255);
+                let new = (i32::from(p) + i32::from(diff)).clamp(0, 255);
                 let expected = i32::from(r);
                 dist += ((new - expected) * (new - expected)) as u32;
             }

@@ -184,7 +184,7 @@ impl BitRateControl {
                     }
                     q
                 } else {
-                    ((((800.0 - nits_per_mb) / 155.0).exp() + 6.0) as usize).max(10).min(127)
+                    ((((800.0 - nits_per_mb) / 155.0).exp() + 6.0) as usize).clamp(10, 127)
                 }
             }
         }

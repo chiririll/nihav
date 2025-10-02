@@ -24,7 +24,7 @@ impl Predictor {
     fn expand_nibble(&mut self, nibble: u8) -> i16 {
         let mul = if (nibble & 8) == 0 { i32::from(nibble) } else { i32::from(nibble) - 16 };
         let pred = self.calc_pred() + self.delta.wrapping_mul(mul);
-        self.update(pred.max(-0x8000).min(0x7FFF));
+        self.update(pred.clamp(-0x8000, 0x7FFF));
         self.delta = (ADAPT_TABLE[nibble as usize].wrapping_mul(self.delta) >> 8).max(16);
         self.sample1 as i16
     }
@@ -294,7 +294,7 @@ impl MSADPCMEncoder {
         dist
     }
     fn calculate_mul(delta: i32, diff: i32) -> u8 {
-        ((diff / delta).max(-8).min(7) & 0xF) as u8
+        ((diff / delta).clamp(-8, 7) & 0xF) as u8
     }
     fn calc_block_size(nsamps: usize, channels: usize) -> usize {
         (nsamps - 2) * channels / 2 + 7 * channels

@@ -19,7 +19,7 @@ fn clip(val: i32) -> i16 {
 }
 
 fn to_sample(val: i32) -> u8 {
-    ((val >> 8) + 128).max(0).min(255) as u8
+    ((val >> 8) + 128).clamp(0, 255) as u8
 }
 
 impl ChannelPredictor {

@@ -403,14 +403,14 @@ impl NAEncoder for FLACEncoder {
             NACodecTypeInfo::Video(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Audio(ainfo) => {
                 let mut outinfo = ainfo;
-                outinfo.channels = outinfo.channels.max(1).min(8);
+                outinfo.channels = outinfo.channels.clamp(1, 8);
                 if outinfo.format != SND_S16P_FORMAT && outinfo.format != SND_S16_FORMAT {
                     outinfo.format = SND_S16P_FORMAT;
                 }
                 if outinfo.block_len == 0 {
                     outinfo.block_len = DEFAULT_BLOCK_LEN;
                 }
-                outinfo.block_len = outinfo.block_len.max(2).min(65535);
+                outinfo.block_len = outinfo.block_len.clamp(2, 65535);
                 let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Audio(outinfo);
                 Ok(ofmt)

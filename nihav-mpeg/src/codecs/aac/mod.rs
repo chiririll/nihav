@@ -276,7 +276,7 @@ impl ICS {
                 let mut bottom = self.get_num_bands();
                 for f in 0..tns_data.n_filt[w] {
                     let top = bottom;
-                    bottom = if top >= tns_data.coeffs[w][f].length { top - tns_data.coeffs[w][f].length } else { 0 };
+                    bottom = top.saturating_sub(tns_data.coeffs[w][f].length);
                     let order = tns_data.coeffs[w][f].order;
                     if order == 0 { continue; }
                     let start = w * 128 + self.get_band_start(tns_max_bands.min(bottom));

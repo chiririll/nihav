@@ -113,7 +113,7 @@ impl NADecoder for VIMADecoder {
                                 diff = -diff;
                             }
 
-                            (sample + diff).max(-32768).min(32767)
+                            (sample + diff).clamp(-32768, 32767)
                         } else {
                                           br.read_s(16)?
                         };

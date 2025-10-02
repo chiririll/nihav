@@ -112,7 +112,7 @@ pub fn try_i4x4_pred(mut src: LumaIterator, modes: &mut [PredMode; 16], res: &mu
             let nblk = &mut new[x * 4 + y * 4 * 16..];
             for (dst, (src, res)) in nblk.chunks_mut(16).zip(yblk.chunks(4).zip(diff.chunks(4))) {
                 for (del, (&sel, &rel)) in dst.iter_mut().zip(src.iter().zip(res.iter())) {
-                    *del = (i16::from(sel) + rel).max(0).min(255) as u8;
+                    *del = (i16::from(sel) + rel).clamp(0, 255) as u8;
                 }
             }
 

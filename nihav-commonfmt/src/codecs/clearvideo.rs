@@ -214,41 +214,29 @@ fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i32
 
     for j in 0..8 {
         for k in 0..8 {
-            let mut v = blk[0][k + j * 8] + 128;
-            if v < 0 { v = 0; } else if v > 255 { v = 255; }
-            framebuf[idxy + k] = v as u8;
+            framebuf[idxy + k] = (blk[0][k + j * 8] + 128).clamp(0, 255) as u8;
         }
         for k in 0..8 {
-            let mut v = blk[1][k + j * 8] + 128;
-            if v < 0 { v = 0; } else if v > 255 { v = 255; }
-            framebuf[idxy + k + 8] = v as u8;
+            framebuf[idxy + k + 8] = (blk[1][k + j * 8] + 128).clamp(0, 255) as u8;
         }
         idxy += stridey;
     }
     for j in 0..8 {
         for k in 0..8 {
-            let mut v = blk[2][k + j * 8] + 128;
-            if v < 0 { v = 0; } else if v > 255 { v = 255; }
-            framebuf[idxy + k] = v as u8;
+            framebuf[idxy + k] = (blk[2][k + j * 8] + 128).clamp(0, 255) as u8;
         }
         for k in 0..8 {
-            let mut v = blk[3][k + j * 8] + 128;
-            if v < 0 { v = 0; } else if v > 255 { v = 255; }
-            framebuf[idxy + k + 8] = v as u8;
+            framebuf[idxy + k + 8] = (blk[3][k + j * 8] + 128).clamp(0, 255) as u8;
         }
         idxy += stridey;
     }
 
     for j in 0..8 {
         for k in 0..8 {
-            let mut v = blk[4][k + j * 8] + 128;
-            if v < 0 { v = 0; } else if v > 255 { v = 255; }
-            framebuf[idxu + k] = v as u8;
+            framebuf[idxu + k] = (blk[4][k + j * 8] + 128).clamp(0, 255) as u8;
         }
         for k in 0..8 {
-            let mut v = blk[5][k + j * 8] + 128;
-            if v < 0 { v = 0; } else if v > 255 { v = 255; }
-            framebuf[idxv + k] = v as u8;
+            framebuf[idxv + k] = (blk[5][k + j * 8] + 128).clamp(0, 255) as u8;
         }
         idxu += strideu;
         idxv += stridev;
@@ -382,7 +370,7 @@ fn copyadd_block_w(dst: &mut WFrame, src: &NAVideoBuffer<u8>,
     for _y in 0..blk_h {
         for x in 0..blk_w {
             let scale = u32::from(*cur_w.next().unwrap());
-            let val = (i16::from(sbuf[soff + x]) + bias).max(0).min(255) as u32;
+            let val = (i16::from(sbuf[soff + x]) + bias).clamp(0, 255) as u32;
             dbuf[doff + x] += scale | ((val * scale) << 8);
         }
         soff += sstride;

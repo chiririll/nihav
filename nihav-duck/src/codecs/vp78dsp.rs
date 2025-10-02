@@ -3,7 +3,7 @@ use nihav_core::frame::*;
 use nihav_codec_support::codecs::blockdsp::edge_emu;
 
 fn clip_u8(val: i16) -> u8 {
-    val.max(0).min(255) as u8
+    val.clamp(0, 255) as u8
 }
 
 pub struct IPredContext {

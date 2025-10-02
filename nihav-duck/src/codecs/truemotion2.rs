@@ -233,7 +233,7 @@ impl DeltaState {
             for x in 0..4 {
                 d += ydeltas[x + y * 4];
                 last[x] += d;
-                dst[yoff + x] = last[x].max(0).min(255) as u8;
+                dst[yoff + x] = last[x].clamp(0, 255) as u8;
             }
             self.dy[y] = d;
             yoff += ystride;
@@ -516,9 +516,9 @@ impl TM2Decoder {
                 let y = i16::from(self.cur_frame.ydata[ysrc + x]);
                 let u = self.cur_frame.udata[csrc + (x >> 1)];
                 let v = self.cur_frame.vdata[csrc + (x >> 1)];
-                pic[offs[0]] = (y + u).max(0).min(255) as u8;
-                pic[offs[1]] = y.max(0).min(255) as u8;
-                pic[offs[2]] = (y + v).max(0).min(255) as u8;
+                pic[offs[0]] = (y + u).clamp(0, 255) as u8;
+                pic[offs[1]] = y.clamp(0, 255) as u8;
+                pic[offs[2]] = (y + v).clamp(0, 255) as u8;
             }
             off += stride;
             ysrc += self.cur_frame.ystride;

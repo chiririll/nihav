@@ -46,7 +46,7 @@ pub fn get_block_difference(dst: &mut [i16; 16], src1: &[u8; 16], src2: &[u8; 16
 pub fn get_difference_dist(old: &[u8; 16], new: &[u8; 16], diff: &[i16; 16]) -> u32 {
     let mut dist = 0;
     for ((&old, &new), &diff) in old.iter().zip(new.iter()).zip(diff.iter()) {
-        let nval = (i16::from(new) + diff).max(0).min(255);
+        let nval = (i16::from(new) + diff).clamp(0, 255);
         let oval = i16::from(old);
         dist += (i32::from(nval - oval) * i32::from(nval - oval)) as u32;
     }
@@ -324,7 +324,7 @@ impl Residue {
             for (x, blk) in src.iter().enumerate() {
                 for (drow, srow) in dst[x * 4..].chunks_mut(16).zip(blk.chunks(4)) {
                     for (del, &sel) in drow.iter_mut().zip(srow.iter()) {
-                        *del = (i16::from(*del) + sel).max(0).min(255) as u8;
+                        *del = (i16::from(*del) + sel).clamp(0, 255) as u8;
                     }
                 }
             }
@@ -334,7 +334,7 @@ impl Residue {
                 for (x, blk) in src.iter().enumerate() {
                     for (drow, srow) in dst[x * 4..].chunks_mut(8).zip(blk.chunks(4)) {
                         for (del, &sel) in drow.iter_mut().zip(srow.iter()) {
-                            *del = (i16::from(*del) + sel).max(0).min(255) as u8;
+                            *del = (i16::from(*del) + sel).clamp(0, 255) as u8;
                         }
                     }
                 }
@@ -355,7 +355,7 @@ impl Residue {
                     blk.idct();
                     for (drow, srow) in dst[x * 4..].chunks_mut(8).zip(blk.chunks(4)) {
                         for (del, &sel) in drow.iter_mut().zip(srow.iter()) {
-                            *del = (i16::from(*del) + sel).max(0).min(255) as u8;
+                            *del = (i16::from(*del) + sel).clamp(0, 255) as u8;
                         }
                     }
                 }

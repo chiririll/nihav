@@ -127,9 +127,9 @@ impl NeuQuantQuantiser {
     }
     pub fn make_pal(&self, pal: &mut [[u8; 3]; 256]) {
         for (pal, node) in pal.iter_mut().zip(self.weights.iter()) {
-            pal[0] = (node[0] + 0.5).max(0.0).min(255.0) as u8;
-            pal[1] = (node[1] + 0.5).max(0.0).min(255.0) as u8;
-            pal[2] = (node[2] + 0.5).max(0.0).min(255.0) as u8;
+            pal[0] = (node[0] + 0.5).clamp(0.0, 255.0) as u8;
+            pal[1] = (node[1] + 0.5).clamp(0.0, 255.0) as u8;
+            pal[2] = (node[2] + 0.5).clamp(0.0, 255.0) as u8;
         }
     }
 }

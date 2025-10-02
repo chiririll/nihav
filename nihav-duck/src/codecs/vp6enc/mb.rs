@@ -255,7 +255,7 @@ impl FrameEncoder {
                 if mb_type.is_intra() {
                     for (dblk, sblk) in blocks.iter_mut().zip(mb.coeffs.iter()) {
                         for (dcoef, &scoef) in dblk.iter_mut().zip(sblk.iter()) {
-                            *dcoef = (scoef + 128).max(0).min(255) as u8;
+                            *dcoef = (scoef + 128).clamp(0, 255) as u8;
                         }
                     }
                 } else {
@@ -271,7 +271,7 @@ impl FrameEncoder {
 
                     for (dblk, (sblk1, sblk2)) in blocks.iter_mut().zip(mb.coeffs.iter().zip(res_mb.iter())) {
                         for (dcoef, (&scoef1, &scoef2)) in dblk.iter_mut().zip(sblk1.iter().zip(sblk2.iter())) {
-                            *dcoef = (scoef1 + scoef2).max(0).min(255) as u8;
+                            *dcoef = (scoef1 + scoef2).clamp(0, 255) as u8;
                         }
                     }
                 }
@@ -440,7 +440,7 @@ impl FrameEncoder {
             tmp_mb.idct();
             for blk in tmp_mb.coeffs.iter_mut() {
                 for coef in blk.iter_mut() {
-                    *coef = (*coef + 128).max(0).min(255);
+                    *coef = (*coef + 128).clamp(0, 255);
                 }
             }
             let intra_dist = calc_mb_dist(&self.src_mbs[mb_idx], &tmp_mb);
@@ -451,7 +451,7 @@ impl FrameEncoder {
             tmp_mb.idct();
             for (blk, res) in tmp_mb.coeffs.iter_mut().zip(self.inter_mbs[mb_idx].reference.iter()) {
                 for (coef, add) in blk.iter_mut().zip(res.iter()) {
-                    *coef = (*coef + add).max(0).min(255);
+                    *coef = (*coef + add).clamp(0, 255);
                 }
             }
             let inter_dist = calc_mb_dist(&self.src_mbs[mb_idx], &tmp_mb);
@@ -473,7 +473,7 @@ impl FrameEncoder {
                     tmp_mb.idct();
                     for (blk, res) in tmp_mb.coeffs.iter_mut().zip(self.fourmv_mbs[mb_idx].reference.iter()) {
                         for (coef, add) in blk.iter_mut().zip(res.iter()) {
-                            *coef = (*coef + add).max(0).min(255);
+                            *coef = (*coef + add).clamp(0, 255);
                         }
                     }
                     let fourmv_dist = calc_mb_dist(&self.src_mbs[mb_idx], &tmp_mb);
@@ -491,7 +491,7 @@ impl FrameEncoder {
                 tmp_mb.idct();
                 for (blk, res) in tmp_mb.coeffs.iter_mut().zip(self.golden_mbs[mb_idx].reference.iter()) {
                     for (coef, add) in blk.iter_mut().zip(res.iter()) {
-                        *coef = (*coef + add).max(0).min(255);
+                        *coef = (*coef + add).clamp(0, 255);
                     }
                 }
                 let golden_dist = calc_mb_dist(&self.src_mbs[mb_idx], &tmp_mb);
@@ -567,7 +567,7 @@ impl FrameEncoder {
                 tmp_mb.idct();
                 for (blk, res) in tmp_mb.coeffs.iter_mut().zip(inter_mb.reference.iter()) {
                     for (coef, add) in blk.iter_mut().zip(res.iter()) {
-                        *coef = (*coef + add).max(0).min(255);
+                        *coef = (*coef + add).clamp(0, 255);
                     }
                 }
                 let mut best_dist = calc_mb_dist(smb, &tmp_mb);
@@ -586,7 +586,7 @@ impl FrameEncoder {
                     tmp_mb.idct();
                     for (blk, res) in tmp_mb.coeffs.iter_mut().zip(self.fourmv_mbs[mb_idx].reference.iter()) {
                         for (coef, add) in blk.iter_mut().zip(res.iter()) {
-                            *coef = (*coef + add).max(0).min(255);
+                            *coef = (*coef + add).clamp(0, 255);
                         }
                     }
                     let fourmv_dist = calc_mb_dist(smb, &tmp_mb);
@@ -610,7 +610,7 @@ impl FrameEncoder {
                         tmp_mb.idct();
                         for (blk, res) in tmp_mb.coeffs.iter_mut().zip(gold_mb.reference.iter()) {
                             for (coef, add) in blk.iter_mut().zip(res.iter()) {
-                                *coef = (*coef + add).max(0).min(255);
+                                *coef = (*coef + add).clamp(0, 255);
                             }
                         }
                         let golden_dist = calc_mb_dist(smb, &tmp_mb);
@@ -636,7 +636,7 @@ impl FrameEncoder {
                     tmp_mb.idct();
                     for blk in tmp_mb.coeffs.iter_mut() {
                         for coef in blk.iter_mut() {
-                            *coef = (*coef + 128).max(0).min(255);
+                            *coef = (*coef + 128).clamp(0, 255);
                         }
                     }
                     let intra_dist = calc_mb_dist(smb, &tmp_mb);

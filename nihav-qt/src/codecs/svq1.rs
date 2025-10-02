@@ -226,7 +226,7 @@ impl SVQ1Decoder {
                     }
                     for (dline, sline) in dst[off..].chunks_mut(dstride).zip(blk.chunks_exact(w)).take(h) {
                         for (dst, &src) in dline.iter_mut().zip(sline.iter()) {
-                            *dst = src.max(0).min(255) as u8;
+                            *dst = src.clamp(0, 255) as u8;
                         }
                     }
                 } else {
@@ -295,7 +295,7 @@ impl SVQ1Decoder {
 
                     for (dline, sline) in dst[off..].chunks_mut(dstride).zip(blk.chunks_exact(w)).take(h) {
                         for (dst, &src) in dline.iter_mut().zip(sline.iter()) {
-                            *dst = src.max(0).min(255) as u8;
+                            *dst = src.clamp(0, 255) as u8;
                         }
                     }
                 }

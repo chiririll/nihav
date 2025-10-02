@@ -217,9 +217,7 @@ impl<'a> VivoDemuxer<'a> {
                     };
                 },
                 b"Duration" => {
-                    self.duration = if let Ok(val) = valstr.parse() {
-                            val
-                        } else { 0 };
+                    self.duration = valstr.parse().unwrap_or_default();
                 },
 /*                b"TimeUnitNumerator" => {
                     self.v_num = if let Ok(val) = valstr.parse() {

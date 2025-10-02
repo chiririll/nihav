@@ -20,7 +20,7 @@ pub struct CABAC<'a> {
 
 impl<'a> CABAC<'a> {
     fn calc_state(qp: u8, m: i8, n: i8) -> u8 {
-        let pre_ctx_state = (((i16::from(m) * i16::from(qp)) >> 4) + i16::from(n)).max(1).min(126) as u8;
+        let pre_ctx_state = (((i16::from(m) * i16::from(qp)) >> 4) + i16::from(n)).clamp(1, 126) as u8;
         if pre_ctx_state < 64 {
             63 - pre_ctx_state
         } else {

@@ -274,7 +274,7 @@ pub fn vp_put_block(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, 
     let mut off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
     for y in 0..8 {
         for x in 0..8 {
-            frm.data[off + x] = (coeffs[x + y * 8] + 128).min(255).max(0) as u8;
+            frm.data[off + x] = (coeffs[x + y * 8] + 128).clamp(0, 255) as u8;
         }
         off += frm.stride[plane];
     }
@@ -285,7 +285,7 @@ pub fn vp_put_block_ilace(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: u
     let mut off = frm.offset[plane] + bx * 8 + ((by & !1) * 8 + (by & 1)) * frm.stride[plane];
     for y in 0..8 {
         for x in 0..8 {
-            frm.data[off + x] = (coeffs[x + y * 8] + 128).min(255).max(0) as u8;
+            frm.data[off + x] = (coeffs[x + y * 8] + 128).clamp(0, 255) as u8;
         }
         off += frm.stride[plane] * 2;
     }
@@ -293,7 +293,7 @@ pub fn vp_put_block_ilace(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: u
 
 pub fn vp_put_block_dc(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, frm: &mut NASimpleVideoFrame<u8>) {
     vp_idct_dc(coeffs);
-    let dc = (coeffs[0] + 128).min(255).max(0) as u8;
+    let dc = (coeffs[0] + 128).clamp(0, 255) as u8;
     let mut off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
     for _ in 0..8 {
         for x in 0..8 {
@@ -308,7 +308,7 @@ pub fn vp_add_block(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, 
     let mut off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
     for y in 0..8 {
         for x in 0..8 {
-            frm.data[off + x] = (coeffs[x + y * 8] + i16::from(frm.data[off + x])).min(255).max(0) as u8;
+            frm.data[off + x] = (coeffs[x + y * 8] + i16::from(frm.data[off + x])).clamp(0, 255) as u8;
         }
         off += frm.stride[plane];
     }
@@ -319,7 +319,7 @@ pub fn vp_add_block_ilace(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: u
     let mut off = frm.offset[plane] + bx * 8 + ((by & !1) * 8 + (by & 1)) * frm.stride[plane];
     for y in 0..8 {
         for x in 0..8 {
-            frm.data[off + x] = (coeffs[x + y * 8] + i16::from(frm.data[off + x])).min(255).max(0) as u8;
+            frm.data[off + x] = (coeffs[x + y * 8] + i16::from(frm.data[off + x])).clamp(0, 255) as u8;
         }
         off += frm.stride[plane] * 2;
     }
@@ -331,7 +331,7 @@ pub fn vp_add_block_dc(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usiz
     let mut off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
     for _ in 0..8 {
         for x in 0..8 {
-            frm.data[off + x] = (dc + i16::from(frm.data[off + x])).min(255).max(0) as u8;
+            frm.data[off + x] = (dc + i16::from(frm.data[off + x])).clamp(0, 255) as u8;
         }
         off += frm.stride[plane];
     }
@@ -355,8 +355,8 @@ pub fn vp31_loop_filter(data: &mut [u8], mut off: usize, step: usize, stride: us
             }
         }
         if diff != 0 {
-            data[off - step] = (b + diff).max(0).min(255) as u8;
-            data[off]        = (c - diff).max(0).min(255) as u8;
+            data[off - step] = (b + diff).clamp(0, 255) as u8;
+            data[off]        = (c - diff).clamp(0, 255) as u8;
         }
 
         off += stride;

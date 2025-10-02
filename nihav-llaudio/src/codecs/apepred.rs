@@ -196,7 +196,7 @@ impl NFilterContext {
             let pred = (sum + (1 << (self.bits - 1))) >> self.bits;
             let val = *el + pred;
             *el = val;
-            self.buf[delay_pos] = val.min(32767).max(-32768) as i16;
+            self.buf[delay_pos] = val.clamp(-32768, 32767) as i16;
             if self.new {
                 let aval = val.abs();
                 let sign = val2sign(val) as i16;

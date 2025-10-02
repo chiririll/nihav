@@ -264,7 +264,7 @@ pub fn add_coeffs(dst: &mut [u8], offset: usize, stride: usize, coeffs: &[i16]) 
     let out = &mut dst[offset..][..stride * 3 + 4];
     for (line, src) in out.chunks_mut(stride).take(4).zip(coeffs.chunks_exact(4)) {
         for (dst, src) in line.iter_mut().take(4).zip(src.iter()) {
-            *dst = (i32::from(*dst) + i32::from(*src)).max(0).min(255) as u8;
+            *dst = (i32::from(*dst) + i32::from(*src)).clamp(0, 255) as u8;
         }
     }
 }
@@ -273,12 +273,12 @@ pub fn add_coeffs8(dst: &mut [u8], offset: usize, stride: usize, coeffs: &[i16; 
     let out = &mut dst[offset..];
     for (line, src) in out.chunks_mut(stride).take(8).zip(coeffs.chunks_exact(8)) {
         for (dst, src) in line.iter_mut().take(8).zip(src.iter()) {
-            *dst = (i32::from(*dst) + i32::from(*src)).max(0).min(255) as u8;
+            *dst = (i32::from(*dst) + i32::from(*src)).clamp(0, 255) as u8;
         }
     }
 }
 
-fn clip8(val: i16) -> u8 { val.max(0).min(255) as u8 }
+fn clip8(val: i16) -> u8 { val.clamp(0, 255) as u8 }
 
 fn ipred_dc128(buf: &mut [u8], stride: usize, bsize: usize) {
     for row in buf.chunks_mut(stride).take(bsize) {

@@ -668,7 +668,7 @@ impl ChannelData {
             mask[band] = (mask[band] - self.snroffset - i32::from(floor)).max(0) & 0x1FE0;
             mask[band] += i32::from(floor);
             while bin < lastbin {
-                let addr = ((i32::from(self.psd[bin]) - mask[band]) >> 5).min(63).max(0) as usize;
+                let addr = ((i32::from(self.psd[bin]) - mask[band]) >> 5).clamp(0, 63) as usize;
                 self.bap[bin] = TS102366_BAPTAB[addr];
                 bin += 1;
             }

@@ -32,7 +32,7 @@ const TC0: [[u8; 3]; 52] = [
 ];
 
 fn get_lf_idx(qp0: u8, qp1: u8, off: i8) -> usize {
-    (i16::from((qp0 + qp1 + 1) >> 1) + i16::from(off)).max(0).min(51) as usize
+    (i16::from((qp0 + qp1 + 1) >> 1) + i16::from(off)).clamp(0, 51) as usize
 }
 
 macro_rules! filter_edge_func {

@@ -232,7 +232,7 @@ fn eval_reflection(coeffs: &[i16; LPC_ORDER]) -> Option<u32> {
 }
 
 fn clip_out(sample: i16) -> i16 {
-    sample.max(-16384 >> 2).min(16383 >> 2)
+    sample.clamp(-16384 >> 2, 16383 >> 2)
 }
 
 impl NADecoder for RA144Decoder {

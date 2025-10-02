@@ -298,7 +298,7 @@ fn calc_qindex(nrg: f32) -> i8 {
     } else {
         nrg0 *= std::f32::consts::SQRT_2;
     }
-    nrg0.log2().max(-31.0).min(47.0) as i8
+    nrg0.log2().clamp(-31.0, 47.0) as i8
 }
 
 impl CookChannelPair {
@@ -357,7 +357,7 @@ impl CookChannelPair {
         if params.js_bits == 0 {
             for (i, qscale) in qindex[..total_bands].iter_mut().enumerate().skip(1) {
                 let cb_idx = (i - 1).min(12);
-                let diff = (*qscale - last_q).max(-12).min(11);
+                let diff = (*qscale - last_q).clamp(-12, 11);
                 *qscale = last_q + diff;
                 last_q = *qscale;
 
@@ -368,7 +368,7 @@ impl CookChannelPair {
             for (i, qscale) in qindex[..total_bands].iter_mut().enumerate().skip(1) {
                 let band_no = if i < params.js_start * 2 { i >> 1 } else { i - params.js_start };
                 let cb_idx = band_no.saturating_sub(1).min(12);
-                let diff = (*qscale - last_q).max(-12).min(11);
+                let diff = (*qscale - last_q).clamp(-12, 11);
                 *qscale = last_q + diff;
                 last_q = *qscale;
 

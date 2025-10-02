@@ -634,7 +634,7 @@ fn decode_block(cabac: &mut CABAC, coeffs: &mut [i16], cat: usize, ctx_off: usiz
                         1
                     } else {
                         let cur_ctx = 227 + coef_off + (coef_ctx + 2).max(5);
-                        coef_ctx = (coef_ctx + 1).max(4).min(7);
+                        coef_ctx = (coef_ctx + 1).clamp(4, 7);
 
                         let mut coef = 2;
                         while coef < 15 && cabac.decode_bit(cur_ctx) {
@@ -703,7 +703,7 @@ fn decode_block8x8(cabac: &mut CABAC, coeffs: &mut [i16; 64], _cat: usize) {
                     1
                 } else {
                     let cur_ctx = 426 + coef_off + (coef_ctx + 2).max(5);
-                    coef_ctx = (coef_ctx + 1).max(4).min(7);
+                    coef_ctx = (coef_ctx + 1).clamp(4, 7);
 
                     let mut coef = 2;
                     while coef < 15 && cabac.decode_bit(cur_ctx) {

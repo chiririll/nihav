@@ -107,7 +107,7 @@ impl FromFmt<u8> for f32 {
 }
 
 impl FromFmt<i16> for u8 {
-    fn cvt_from(val: i16) -> u8 { ((val >> 8) + 128).min(255).max(0) as u8 }
+    fn cvt_from(val: i16) -> u8 { ((val >> 8) + 128).clamp(0, 255) as u8 }
 }
 impl FromFmt<i16> for i16 {
     fn cvt_from(val: i16) -> i16 { val }
@@ -120,7 +120,7 @@ impl FromFmt<i16> for f32 {
 }
 
 impl FromFmt<i32> for u8 {
-    fn cvt_from(val: i32) -> u8 { ((val >> 24) + 128).min(255).max(0) as u8 }
+    fn cvt_from(val: i32) -> u8 { ((val >> 24) + 128).clamp(0, 255) as u8 }
 }
 impl FromFmt<i32> for i16 {
     fn cvt_from(val: i32) -> i16 { (val >> 16) as i16 }
@@ -133,10 +133,10 @@ impl FromFmt<i32> for f32 {
 }
 
 impl FromFmt<f32> for u8 {
-    fn cvt_from(val: f32) -> u8 { ((val * 128.0) + 128.0).min(255.0).max(0.0) as u8 }
+    fn cvt_from(val: f32) -> u8 { ((val * 128.0) + 128.0).clamp(0.0, 255.0) as u8 }
 }
 impl FromFmt<f32> for i16 {
-    fn cvt_from(val: f32) -> i16 { (val * 32768.0).min(32767.0).max(-32768.0) as i16 }
+    fn cvt_from(val: f32) -> i16 { (val * 32768.0).clamp(-32768.0, 32767.0) as i16 }
 }
 impl FromFmt<f32> for i32 {
     fn cvt_from(val: f32) -> i32 {

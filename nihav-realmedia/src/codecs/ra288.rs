@@ -129,7 +129,7 @@ impl RA288Decoder {
         let sum = self.gain_hist[GAIN_START..].iter().rev()
                 .zip(self.gain_lpc.iter())
                 .fold(32.0f32, |acc, (&a, &b)| acc - a * b)
-                .max(0.0).min(60.0);
+                .clamp(0.0, 60.0);
 
         let scale = (sum * 0.1151292546497).exp() * gain * (1.0 / ((1 << 23) as f32));
         let mut buf: [f32; BLOCKSIZE] = [0.0; BLOCKSIZE];

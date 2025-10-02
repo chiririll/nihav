@@ -619,7 +619,7 @@ impl G7231Decoder {
                     }
                 };
             let shift = shift + 1;
-            let x = (if shift >= 0 { x << shift } else { x >> -shift }).min(10000).max(-10000);
+            let x = (if shift >= 0 { x << shift } else { x >> -shift }).clamp(-10000, 10000);
             for j in 0..11 {
                 let val = (x * signs[i / 2][j]) >> 15;
                 buf[pos[i / 2 * 11 + j]] = buf[pos[i / 2 * 11 + j]].saturating_add(val as i16);
@@ -838,7 +838,7 @@ impl G7231Decoder {
             let bits2 = norm_bits(den, 31);
             num = num << bits1 >> 1;
             den <<= bits2;
-            let shift = (5 + bits1 - bits2).max(0);
+            let shift = (5 + bits1).saturating_sub(bits2);
 
             gain = square_root_i32(((num >> 1) / (den >> 16)) << 16 >> shift);
         } else {

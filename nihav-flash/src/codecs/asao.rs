@@ -71,7 +71,7 @@ fn sum_bits(src: &[i32; 128], shift: i8, off: i32) -> i32 {
     let mut sum = 0;
     for &el in src[..CODED_LEN].iter() {
         let val = (((el - off) >> (shift - 1)) + 1) >> 1;
-        sum += val.max(0).min(MAX_CBITS);
+        sum += val.clamp(0, MAX_CBITS);
     }
     sum
 }
@@ -151,7 +151,7 @@ fn bitalloc(bits: &mut [i8; 128], scales: &[i32; 128]) {
     }
 
     for (bits, &val) in bits.iter_mut().zip(tmp.iter()).take(CODED_LEN) {
-        *bits = ((((val - offset) >> (ref_shift - 1)) + 1) >> 1).max(0).min(MAX_CBITS) as i8;
+        *bits = ((((val - offset) >> (ref_shift - 1)) + 1) >> 1).clamp(0, MAX_CBITS) as i8;
     }
     if bitsum > SUBPART_BITS {
         let mut sum = 0;
