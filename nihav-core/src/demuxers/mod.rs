@@ -125,7 +125,7 @@ impl StreamManager {
     /// Reports whether the stream is marked as ignored.
     pub fn is_ignored(&self, idx: usize) -> bool {
         if self.no_ign {
-            true
+            false
         } else if idx < self.ignored.len() {
             self.ignored[idx]
         } else {
