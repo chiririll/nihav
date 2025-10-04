@@ -8,6 +8,20 @@ struct PalInfo {
     changed:    bool,
 }
 
+#[derive(Clone,Copy,Debug,Default, PartialEq)]
+enum DemuxingMode {
+    #[default]
+    Linear,
+    NonInterleaved,
+    SaturnAVI,
+}
+
+#[derive(Clone,Copy,Default)]
+struct ChunkIndex {
+    time:   u64,
+    offset: u64,
+}
+
 #[derive(Clone,Copy,Default)]
 struct RIFFSegment {
     pos:        u64,
@@ -37,6 +51,9 @@ struct AVIStream {
     strm_duration:  u32,
     tb_num:         u32,
     tb_den:         u32,
+    aud_brate:      u32,
+
+    index:          Vec<ChunkIndex>,
 }
 
 impl AVIStream {
@@ -155,9 +172,10 @@ impl AVIStream {
         let w_format_tag        = src.read_u16le()?;
         let channels            = src.read_u16le()?;
         let samplespersec       = src.read_u32le()?;
-        let _avgbytespersec     = src.read_u32le()?;
+        let avgbytespersec      = src.read_u32le()?;
         let block_align         = src.read_u16le()?;
         let bits_per_sample     = src.read_u16le()?;
+        self.aud_brate = avgbytespersec;
 
         let signed = bits_per_sample > 8;
         let soniton = NASoniton::new(bits_per_sample as u8, if signed { SONITON_FLAG_SIGNED } else { 0 });
@@ -262,7 +280,8 @@ struct AVIState {
     streams:        Vec<AVIStream>,
     nom_streams:    usize,
 
-    is_saturn:      bool,
+    demux_mode:     DemuxingMode,
+
     chunk_offs:     Vec<u64>,
     cur_chunk:      usize,
     iddx_pos:       u64,
@@ -291,13 +310,17 @@ impl AVIState {
     }
     fn parse_idx1(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
         if seek_index.skip_index { return Ok(()); }
-        let _res = parse_idx1(src, strmgr, seek_index, size, self.movi_pos, &mut self.key_offs);
+        if let Ok((_size, ni)) = parse_idx1(src, strmgr, seek_index, size, self.movi_pos, &mut self.key_offs, &mut self.streams) {
+            if ni {
+                self.demux_mode = DemuxingMode::NonInterleaved;
+            }
+        }
         Ok(())
     }
     fn parse_iddx(&mut self, src: &mut dyn ByteIO, _strmgr: &mut StreamManager, _seek_index: &mut SeekIndex, iddx_size: usize) -> DemuxerResult<()> {
-        self.is_saturn = true;
-        self.iddx_pos = src.tell();
-        self.iddx_size = iddx_size;
+        self.demux_mode = DemuxingMode::SaturnAVI;
+        self.iddx_pos   = src.tell();
+        self.iddx_size  = iddx_size;
         Ok(())
     }
 
@@ -455,7 +478,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             }
         }
 
-        if self.state.is_saturn {
+        if self.state.demux_mode == DemuxingMode::SaturnAVI {
             validate!(self.state.iddx_pos > 0);
             self.src.seek(SeekFrom::Start(self.state.iddx_pos))?;
             parse_iddx_data(self.src, strmgr, seek_index, self.state.iddx_size, self.state.movi_pos, &mut self.state.key_offs, &mut self.state.chunk_offs)?;
@@ -474,25 +497,53 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             self.try_next_odml_chunk()?;
         }
         loop {
-            if self.state.is_saturn {
-                if self.state.cur_chunk >= self.state.chunk_offs.len() {
-                    return Err(EOF);
-                }
-                let off = self.state.chunk_offs[self.state.cur_chunk];
-                let mov_end = self.state.movi_pos + (self.state.movi_orig as u64);
-                validate!(off >= self.state.movi_pos && off < mov_end);
-                self.src.seek(SeekFrom::Start(off))?;
-                self.state.movi_size = (mov_end - off) as usize;
-                self.state.cur_chunk += 1;
-            } else if (self.src.tell() & 1) == 1 {
-                self.src.read_skip(1)?;
-                self.state.movi_size -= 1;
-                if self.state.movi_size == 0 {
-                    if !self.state.odml {
+            match self.state.demux_mode {
+                DemuxingMode::Linear => {
+                    if (self.src.tell() & 1) == 1 {
+                        self.src.read_skip(1)?;
+                        self.state.movi_size -= 1;
+                        if self.state.movi_size == 0 {
+                            if !self.state.odml {
+                                return Err(EOF);
+                            }
+                            self.try_next_odml_chunk()?;
+                        }
+                    }
+                },
+                DemuxingMode::NonInterleaved => {
+                    let mut best_idx = usize::MAX;
+                    let mut best_time = u64::MAX;
+                    let mut offset = 0;
+                    for (n, avi_str) in self.state.streams.iter().enumerate() {
+                        if strmgr.is_ignored(n) {
+                            continue;
+                        }
+                        let fno = avi_str.cur_frame as usize;
+                        if fno < avi_str.index.len() && avi_str.index[fno].time < best_time {
+                            best_idx  = n;
+                            best_time = avi_str.index[fno].time;
+                            offset    = avi_str.index[fno].offset;
+                        }
+                    }
+                    if best_idx == usize::MAX {
                         return Err(EOF);
                     }
-                    self.try_next_odml_chunk()?;
-                }
+                    let mov_end = self.state.movi_pos + (self.state.movi_orig as u64);
+                    validate!(offset >= self.state.movi_pos && offset < mov_end);
+                    self.src.seek(SeekFrom::Start(offset))?;
+                    self.state.movi_size = (mov_end - offset) as usize;
+                },
+                DemuxingMode::SaturnAVI => {
+                    if self.state.cur_chunk >= self.state.chunk_offs.len() {
+                        return Err(EOF);
+                    }
+                    let off = self.state.chunk_offs[self.state.cur_chunk];
+                    let mov_end = self.state.movi_pos + (self.state.movi_orig as u64);
+                    validate!(off >= self.state.movi_pos && off < mov_end);
+                    self.src.seek(SeekFrom::Start(off))?;
+                    self.state.movi_size = (mov_end - off) as usize;
+                    self.state.cur_chunk += 1;
+                },
             }
             let is_keyframe = self.state.key_offs.binary_search(&self.src.tell()).is_ok();
             let tag = self.src.read_tag()?;
@@ -628,14 +679,38 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
         self.state.movi_size = self.state.movi_orig - skip_size;
 
         self.state.streams[seek_info.str_id as usize].cur_frame = seek_info.pts;
-        self.src.seek(SeekFrom::Start(seek_info.pos))?;
-        if self.state.is_saturn {
-            for (n, &offset) in self.state.chunk_offs.iter().enumerate() {
-                if offset == seek_info.pos {
-                    self.state.cur_chunk = n;
-                    break;
+
+        match self.state.demux_mode {
+            DemuxingMode::Linear => {
+                self.src.seek(SeekFrom::Start(seek_info.pos))?;
+            },
+            DemuxingMode::NonInterleaved => {
+                let mut real_time = 0;
+                for avi_stream in self.state.streams.iter() {
+                    if u32::from(avi_stream.strm_no) == seek_info.str_id {
+                        real_time = avi_stream.index[seek_info.pts as usize].time;
+                        break;
+                    }
                 }
-            }
+                for avi_stream in self.state.streams.iter_mut() {
+                    avi_stream.cur_frame = 0;
+                    for frm in avi_stream.index.iter() {
+                        if frm.time < real_time {
+                            avi_stream.cur_frame += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            },
+            DemuxingMode::SaturnAVI => {
+                for (n, &offset) in self.state.chunk_offs.iter().enumerate() {
+                    if offset == seek_info.pos {
+                        self.state.cur_chunk = n;
+                        break;
+                    }
+                }
+            },
         }
 
         Ok(())
@@ -745,18 +820,20 @@ fn find_raw_yuv_fmt(compr: &[u8; 4], vhdr: &mut NAVideoInfo) -> bool {
     }
 }
 
-fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<usize> {
+fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>, avi_streams: &mut [AVIStream]) -> DemuxerResult<(usize, bool)> {
     validate!((size & 15) == 0);
     let mut tag = [0u8; 4];
     let num_entries = size >> 4;
     let mut counter = [0u64; 100];
+    let mut tb_nums = [0u32; 100];
+    let mut tb_dens = [0u32; 100];
     let mut add_offset = 0;
     let mut set_offset = false;
     for _ in 0..num_entries {
                               src.read_buf(&mut tag)?;
         let flags           = src.read_u32le()?;
         let mut offset      = src.read_u32le()? as u64;
-        let _length         = src.read_u32le()?;
+        let length          = src.read_u32le()?;
 
         if !set_offset && offset < movi_pos {
             add_offset = movi_pos - offset;
@@ -770,22 +847,77 @@ fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut S
         }
         let stream_no = ((tag[0] - b'0') * 10 + (tag[1] - b'0')) as usize;
 
-        if (flags & 0x10) != 0 {
-            if let Some(stream) = strmgr.get_stream(stream_no) {
+        if let Some(stream) = strmgr.get_stream(stream_no) {
+            let (stb_num, stb_den) = stream.get_timebase();
+            let pts = counter[stream_no];
+            if tb_nums[stream_no] == 0 {
+                if stream.get_media_type() != StreamType::Audio {
+                    tb_nums[stream_no] = stb_num;
+                    tb_dens[stream_no] = stb_den;
+                } else {
+                    let info = stream.get_info();
+                    let ainfo = info.get_properties().get_audio_info().unwrap();
+                    if info.get_name() == "pcm" {
+                        validate!(length > 0);
+                        tb_nums[stream_no] = length / (ainfo.block_len as u32);
+                        tb_dens[stream_no] = stb_den;
+                    } else {
+                        let mut abr = 0;
+                        for avi_str in avi_streams.iter_mut() {
+                            if avi_str.strm_no == (stream_no as u8) {
+                                abr = avi_str.aud_brate;
+                                break;
+                            }
+                        }
+                        validate!(length > 0 && abr > 0);
+                        tb_nums[stream_no] = length;
+                        tb_dens[stream_no] = abr;
+                    }
+                }
+            }
+            let time = NATimeInfo::ts_to_time(pts, 1000, tb_nums[stream_no], tb_dens[stream_no]);
+
+            for avi_str in avi_streams.iter_mut() {
+                if avi_str.strm_no == (stream_no as u8) {
+                    avi_str.index.push(ChunkIndex { time, offset });
+                    break;
+                }
+            }
+
+            if (flags & 0x10) != 0 {
                 if stream.get_media_type() == StreamType::Video {
-                    let (tb_num, tb_den) = stream.get_timebase();
-                    let pts = counter[stream_no];
-                    let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
                     validate!(offset >= movi_pos);
                     seek_idx.add_entry(stream_no as u32, SeekEntry { time, pts, pos: offset });
                 }
                 key_offs.push(offset);
             }
         }
-        counter[stream_no] += 1;
+        if (flags & 0x100) == 0 {
+            counter[stream_no] += 1;
+        }
     }
     key_offs.sort_unstable();
-    Ok(size)
+
+    // check for non-interleaved AVIs
+    let mut non_interleaved = false;
+    let mut range0 = (0, 0);
+    for avi_str in avi_streams.iter() {
+        if avi_str.index.len() >= 10 {
+            let cur_range = (avi_str.index[0].offset, avi_str.index[avi_str.index.len() - 1].offset);
+            if cur_range.0 > cur_range.1 {
+                non_interleaved = true;
+                break;
+            }
+            if range0 == (0, 0) {
+                range0 = cur_range;
+            } else if cur_range.0 > range0.1 || cur_range.1 < range0.0 {
+                non_interleaved = true;
+                break;
+            }
+        }
+    }
+
+    Ok((size, non_interleaved))
 }
 
 fn parse_iddx_data(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>, chunk_offs: &mut Vec<u64>) -> DemuxerResult<usize> {
