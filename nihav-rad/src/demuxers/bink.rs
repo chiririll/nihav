@@ -163,7 +163,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
             return Err(DemuxerError::SeekError);
         }
         if let Some(seek_info) = seek_idx.find_pos(time) {
-            if !self.force_seek || seek_info.pts.abs_diff(seek_ts) <= u64::from(self.tb_den * 2) {
+            if !self.force_seek || seek_info.pts.abs_diff(seek_ts) <= u64::from(self.tb_den * 2 / self.tb_num.max(1)) {
                 self.src.seek(SeekFrom::Start(seek_info.pos))?;
                 self.queued_packets.clear();
                 self.cur_frame = seek_info.pts as usize;
