@@ -287,10 +287,10 @@ impl SrcBlock {
         self.chroma[1].ipred8(8, mode, ipred_v);
     }
 
-    pub fn luma_blocks(&self) -> LumaIterator {
+    pub fn luma_blocks(&self) -> LumaIterator<'_> {
         LumaIterator{ luma: &self.luma, blkno: 0 }
     }
-    pub fn chroma_blocks(&self, plane: usize) -> ChromaIterator {
+    pub fn chroma_blocks(&self, plane: usize) -> ChromaIterator<'_> {
         ChromaIterator{ chroma: &self.chroma[plane], blkno: 0 }
     }
 }

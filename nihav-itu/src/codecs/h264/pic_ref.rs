@@ -199,7 +199,7 @@ impl<'a> SimplifiedSliceRefs<'a> {
             None
         }
     }
-    pub fn select_ref_pic(&self, list_id: u8, ref_id: usize) -> Option<&SimpleFrame> {
+    pub fn select_ref_pic(&self, list_id: u8, ref_id: usize) -> Option<&SimpleFrame<'_>> {
         let ref_list = if list_id == 0 { &self.ref_list0 } else { &self.ref_list1 };
         if ref_list.len() > ref_id {
             ref_list[ref_id].as_ref().map(|pic| &pic.buf)

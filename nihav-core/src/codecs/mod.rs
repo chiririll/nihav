@@ -129,7 +129,7 @@ impl RegisteredDecoders {
         None
     }
     /// Provides an iterator over currently registered decoders.
-    pub fn iter(&self) -> std::slice::Iter<DecoderInfo> {
+    pub fn iter(&self) -> std::slice::Iter<'_, DecoderInfo> {
         self.decs.iter()
     }
 }
@@ -197,7 +197,7 @@ impl RegisteredMTDecoders {
         None
     }
     /// Provides an iterator over currently registered decoders.
-    pub fn iter(&self) -> std::slice::Iter<MTDecoderInfo> {
+    pub fn iter(&self) -> std::slice::Iter<'_, MTDecoderInfo> {
         self.decs.iter()
     }
 }
@@ -424,7 +424,7 @@ impl RegisteredEncoders {
         None
     }
     /// Provides an iterator over currently registered encoders.
-    pub fn iter(&self) -> std::slice::Iter<EncoderInfo> {
+    pub fn iter(&self) -> std::slice::Iter<'_, EncoderInfo> {
         self.encs.iter()
     }
 }
@@ -498,7 +498,7 @@ impl RegisteredPacketisers {
         None
     }
     /// Provides an iterator over currently registered packetiser.
-    pub fn iter(&self) -> std::slice::Iter<PacketiserInfo> {
+    pub fn iter(&self) -> std::slice::Iter<'_, PacketiserInfo> {
         self.packs.iter()
     }
 }

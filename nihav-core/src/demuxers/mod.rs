@@ -85,7 +85,7 @@ impl StreamManager {
         }
     }
     /// Returns stream iterator.
-    pub fn iter(&self) -> StreamIter { StreamIter::new(&self.streams) }
+    pub fn iter(&self) -> StreamIter<'_> { StreamIter::new(&self.streams) }
 
     /// Adds a new stream.
     pub fn add_stream(&mut self, stream: NAStream) -> Option<usize> {
@@ -370,7 +370,7 @@ impl<'a> Demuxer<'a> {
         &self.streams
     }
     /// Returns an iterator over streams.
-    pub fn get_streams(&self) -> StreamIter {
+    pub fn get_streams(&self) -> StreamIter<'_> {
         self.streams.iter()
     }
     /// Returns 'ignored' marker for requested stream.
@@ -493,7 +493,7 @@ impl RegisteredDemuxers {
         self.dmxs.iter().find(|&&dmx| dmx.get_name() == name).copied()
     }
     /// Provides an iterator over currently registered demuxers.
-    pub fn iter(&self) -> std::slice::Iter<&dyn DemuxerCreator> {
+    pub fn iter(&self) -> std::slice::Iter<'_, &dyn DemuxerCreator> {
         self.dmxs.iter()
     }
 }
@@ -543,7 +543,7 @@ impl<'a> RawDemuxer<'a> {
         &self.streams
     }
     /// Returns an iterator over streams.
-    pub fn get_streams(&self) -> StreamIter {
+    pub fn get_streams(&self) -> StreamIter<'_> {
         self.streams.iter()
     }
     /// Returns 'ignored' marker for requested stream.
@@ -664,7 +664,7 @@ impl RegisteredRawDemuxers {
         self.dmxs.iter().find(|&&dmx| dmx.get_name() == name).copied()
     }
     /// Provides an iterator over currently registered demuxers.
-    pub fn iter(&self) -> std::slice::Iter<&dyn RawDemuxerCreator> {
+    pub fn iter(&self) -> std::slice::Iter<'_, &dyn RawDemuxerCreator> {
         self.dmxs.iter()
     }
 }

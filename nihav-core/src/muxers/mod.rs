@@ -132,7 +132,7 @@ impl<'a> Muxer<'a> {
         self.streams.get_num_streams()
     }
     /// Returns an iterator over streams.
-    pub fn get_streams(&self) -> StreamIter {
+    pub fn get_streams(&self) -> StreamIter<'_> {
         self.streams.iter()
     }
 
@@ -201,7 +201,7 @@ impl RegisteredMuxers {
         self.muxes.iter().find(|&&mux| mux.get_name() == name).copied()
     }
     /// Provides an iterator over currently registered muxers.
-    pub fn iter(&self) -> std::slice::Iter<&dyn MuxerCreator> {
+    pub fn iter(&self) -> std::slice::Iter<'_, &dyn MuxerCreator> {
         self.muxes.iter()
     }
 }
