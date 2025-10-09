@@ -10,6 +10,7 @@ macro_rules! validate {
 }
 
 #[cfg(any(feature="decoder_smkaud", feature="decoder_smkvid"))]
+#[allow(dead_code)]
 mod smacker;
 #[cfg(feature="decoder_binkaud")]
 mod binkaud;
