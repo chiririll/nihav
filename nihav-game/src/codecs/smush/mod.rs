@@ -81,7 +81,7 @@ fn make_glyph_47(dst: &mut [u8], xi: usize, yi: usize, xj: usize, yj: usize, siz
     let edge0 = GlyphEdge::get(xi, yi, size);
     let edge1 = GlyphEdge::get(xj, yj, size);
     let dir = GlyphDir::get(edge0, edge1);
-    let npoints = if xi > xj { xi - xj } else { xj - xi }.max(if yi > yj { yi - yj } else { yj - yi });
+    let npoints = xi.abs_diff(xj).max(yi.abs_diff(yj));
     for ipoint in 0..=npoints {
         let (p0, p1) = if npoints > 0 {
                 (interpolate(xi, xj, ipoint, npoints),
