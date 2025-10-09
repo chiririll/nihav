@@ -22,9 +22,7 @@ fn write_s32(wr: &mut dyn ByteIO, sample: i32) -> ByteIOResult<()> {
 }
 
 fn write_f32(wr: &mut dyn ByteIO, sample: f32) -> ByteIOResult<()> {
-    let mut out = (sample * 32768.0) as i32;
-    if out < -32768 { out = -32768; }
-    if out >  32767 { out =  32767; }
+    let mut out = ((sample * 32768.0) as i32).clamp(-32768, 32767);
     if out < 0 { out += 65536; }
     wr.write_u16le(out as u16)
 }
