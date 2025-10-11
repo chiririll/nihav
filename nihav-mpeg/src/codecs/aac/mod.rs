@@ -742,7 +742,7 @@ impl NADecoder for AACDecoder {
             }
 
             //println!("{}", self.m4ainfo);
-            if (self.m4ainfo.otype != M4AType::LC) || (self.m4ainfo.channels > 2) || (self.m4ainfo.samples != 1024) {
+            if (self.m4ainfo.otype != M4AType::LC) || (self.m4ainfo.channels > 8) || (self.m4ainfo.samples != 1024) {
                 return Err(DecoderError::NotImplemented);
             }
             self.sbinfo = GASubbandInfo::find(self.m4ainfo.srate);
