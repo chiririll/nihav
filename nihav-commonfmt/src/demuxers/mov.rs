@@ -335,6 +335,18 @@ fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
     if !track.stsd_found {
         track.stream = Some(NAStream::new(StreamType::Data, track.track_no, DUMMY_CODEC_INFO, track.tb_num, track.tb_den, 0));
     }
+    // invent keyframes for video stream if none were reported
+    if !track.stss_found && track.stream_type == StreamType::Video {
+        track.keyframes.reserve(track.time_to_sample.len());
+        if !track.time_to_sample.is_empty() {
+            let mut abs_csamp = 1u64;
+            for &(count, _scount) in track.time_to_sample.iter() {
+                let count = u64::from(count);
+                track.keyframes.push(abs_csamp as u32);
+                abs_csamp += count;
+            }
+        }
+    }
     validate!(strmgr.get_stream_by_id(track.track_id).is_none());
     dmx.cur_track += 1;
     dmx.tracks.push(track);
@@ -873,6 +885,7 @@ fn read_stss(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
         track.keyframes.push(sample_no);
         last_sample_no = sample_no;
     }
+    track.stss_found = true;
     Ok(size)
 }
 
@@ -1163,6 +1176,7 @@ struct Track {
     depth:          u8,
     tkhd_found:     bool,
     stsd_found:     bool,
+    stss_found:     bool,
     stream_type:    StreamType,
     width:          usize,
     height:         usize,
@@ -1300,6 +1314,7 @@ impl Track {
         Self {
             tkhd_found:     false,
             stsd_found:     false,
+            stss_found:     false,
             track_id:       0,
             track_str_id:   0,
             track_no,
