@@ -12,6 +12,9 @@ macro_rules! validate {
 #[cfg(feature="decoder_arbc")]
 mod arbc;
 
+#[cfg(feature="decoder_fif")]
+mod fif;
+
 #[cfg(feature="decoder_mvi")]
 mod motionpixels;
 
@@ -35,6 +38,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "gryphon-arbc-vfw", get_decoder: arbc::get_decoder_vfw },
 #[cfg(feature="decoder_arbc")]
     DecoderInfo { name: "gryphon-arbc-qt", get_decoder: arbc::get_decoder_qt },
+#[cfg(feature="decoder_fif")]
+    DecoderInfo { name: "fif", get_decoder: fif::get_decoder },
 #[cfg(feature="decoder_mvi")]
     DecoderInfo { name: "mvi0", get_decoder: motionpixels::get_decoder0 },
 #[cfg(feature="decoder_mvi")]
