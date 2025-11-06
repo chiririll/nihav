@@ -370,7 +370,7 @@ impl NADecoder for RadiusStudioDecoder {
             return Err(DecoderError::NotImplemented);
         }
         let version             = br.read_u16be()?;
-        validate!(version < 2);
+        validate!(version <= 2);
         let hdr_size = if version == 0 { 16 } else { 32 };
                                   br.read_skip(1)?;
         let quant               = br.read_byte()?;
