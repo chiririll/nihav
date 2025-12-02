@@ -155,6 +155,7 @@ impl Kernel for UnpackKernel {
         df.comp_info[..self.ncomps].clone_from_slice(&chr[..self.ncomps]);
         df.components = self.ncomps as u8;
         df.palette = false;
+        df.alpha = in_fmt.fmt.alpha && dest_fmt.fmt.alpha;
         if debug {
             println!(" [intermediate format {}]", df);
         }
