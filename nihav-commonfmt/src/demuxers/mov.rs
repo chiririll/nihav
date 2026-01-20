@@ -733,7 +733,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 let tag = &buf[4..8];
                 validate!(tsize >= 8);
                 match tag {
-                    b"pasp" | b"clap" => {
+                    b"pasp" | b"clap" | b"gama" => {
                         br.read_skip(tsize)?;
                     },
                     _ => break,
