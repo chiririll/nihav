@@ -708,14 +708,19 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                     "unknown"
                 };
             let format = if cname == "rawvideo" {
-                    match depth {
-                        1..=8 | 33..=40 => PAL8_FORMAT,
-                        15 | 16 => RGB555_FORMAT,
-                        24 => RGB24_FORMAT,
-                        32 => ARGB_FORMAT,
-                        _ => {
-                            println!("unknown depth {depth}");
-                            return Err(DemuxerError::NotImplemented);
+                    if &fcc == b"j420" {
+                        validate!(depth == 12);
+                        YUV420_FORMAT
+                    } else {
+                        match depth {
+                            1..=8 | 33..=40 => PAL8_FORMAT,
+                            15 | 16 => RGB555_FORMAT,
+                            24 => RGB24_FORMAT,
+                            32 => ARGB_FORMAT,
+                            _ => {
+                                println!("unknown depth {depth}");
+                                return Err(DemuxerError::NotImplemented);
+                            }
                         }
                     }
                 } else if depth > 8 && depth <= 32 {

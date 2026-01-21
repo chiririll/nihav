@@ -459,6 +459,8 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"mp4v", "mpeg4asp"),
     (b"avc1", "h264"),
+
+    (b"j420", "rawvideo"),
 ];
 
 static MOV_AUDIO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
