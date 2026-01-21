@@ -277,7 +277,11 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                         } else {
                             self.bw.write_u16le(1)?;
                         }
-                        self.bw.write_u16le(vinfo.format.get_total_depth() as u16)?;
+                        let mut depth = vinfo.format.get_total_depth();
+                        if depth == 15 {
+                            depth = 16;
+                        }
+                        self.bw.write_u16le(depth.into())?;
                     } else {
                         self.bw.write_u16le(1)?;
                         self.bw.write_u16le(8)?;
