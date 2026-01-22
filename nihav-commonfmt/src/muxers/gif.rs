@@ -100,7 +100,7 @@ impl<'a> MuxCore<'a> for GIFMuxer<'a> {
             if !self.single {
                 let vstr = strmgr.get_stream(0).unwrap();
 
-                let delay = NATimeInfo::ts_to_time(1, 100, vstr.tb_num, vstr.tb_den) as u16;
+                let delay = NATimeInfo::rescale_ts(1, vstr.tb_num, vstr.tb_den, 1, 100) as u16;
                 self.bw.write_byte(0x21)?; // graphic control
                 self.bw.write_byte(0xF9)?; // graphic control extension
                 self.bw.write_byte(4)?;    // block size

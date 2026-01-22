@@ -332,7 +332,7 @@ fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut S
             if &tag == b"dibc" {
                 let (tb_num, tb_den) = stream.get_timebase();
                 let pts = counter;
-                let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
+                let time = NATimeInfo::rescale_ts(pts, tb_num, tb_den, 1, 1000);
                 validate!(offset >= movi_pos);
                 seek_idx.add_entry(0, SeekEntry { time, pts, pos: offset });
                 key_offs.push(offset);

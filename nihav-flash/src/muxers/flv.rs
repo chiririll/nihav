@@ -228,7 +228,7 @@ impl<'a> MuxCore<'a> for FLVMuxer<'a> {
     fn mux_frame(&mut self, _strmgr: &StreamManager, pkt: NAPacket) -> MuxerResult<()> {
         let stream = pkt.get_stream();
         let pts = pkt.get_pts().unwrap_or(0);
-        let ms = NATimeInfo::ts_to_time(pts, 1000, pkt.ts.tb_num, pkt.ts.tb_den) as u32;
+        let ms = NATimeInfo::rescale_ts(pts, pkt.ts.tb_num, pkt.ts.tb_den, 1, 1000) as u32;
         self.time = self.time.max(ms);
         match stream.get_media_type() {
             StreamType::Video => {
@@ -241,7 +241,7 @@ impl<'a> MuxCore<'a> for FLVMuxer<'a> {
                         },
                         AVC_ID => {
                             self.bw.write_byte(1)?;
-                            let cms = NATimeInfo::ts_to_time(pkt.get_pts().unwrap_or(pts), 1000, pkt.ts.tb_num, pkt.ts.tb_den) as u32;
+                            let cms = NATimeInfo::rescale_ts(pkt.get_pts().unwrap_or(pts), pkt.ts.tb_num, pkt.ts.tb_den, 1, 1000) as u32;
                             let cts = cms.wrapping_sub(ms) << 8 >> 8;
                             self.bw.write_u24be(cts)?;
                         },

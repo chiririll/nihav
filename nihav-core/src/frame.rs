@@ -956,58 +956,41 @@ impl NATimeInfo {
     /// Sets new duration.
     pub fn set_duration(&mut self, dur: Option<u64>) { self.duration = dur; }
 
-    /// Converts time in given scale into timestamp in given base.
-    #[allow(clippy::collapsible_if)]
-    #[allow(clippy::collapsible_else_if)]
-    pub fn time_to_ts(time: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
-        let tb_num = u64::from(tb_num);
-        let tb_den = u64::from(tb_den);
-        let tmp = time.checked_mul(tb_den);
-        if let Some(tmp) = tmp {
-            tmp / base / tb_num
-        } else {
-            if tb_num < base {
-                let coarse = time / tb_num;
-                if let Some(tmp) = coarse.checked_mul(tb_den) {
-                    tmp / base
-                } else {
-                    (coarse / base) * tb_den
-                }
-            } else {
-                let coarse = time / base;
-                if let Some(tmp) = coarse.checked_mul(tb_den) {
-                    tmp / tb_num
-                } else {
-                    (coarse / tb_num) * tb_den
-                }
+    /// Converts time in one given scale into another base.
+    ///
+    /// For instance, converting timestamp from 2/25 rate to milliseconds can be done as
+    /// ```
+    /// let pts = 42;
+    /// let time = NATimeInfo::rescale_ts(pts, 2, 25, 1, 1000);
+    /// ```
+    ///
+    /// while back conversion is equally simple:
+    /// ```
+    /// let millis = 42;
+    /// let ts = NATimeInfo::rescale_ts(millis, 1, 1000, 2, 25);
+    /// ```
+    pub fn rescale_ts(ts: u64, src_tb_num: u32, src_tb_den: u32, dst_tb_num: u32, dst_tb_den: u32) -> u64 {
+        let src_tb_num = u64::from(src_tb_num);
+        let src_tb_den = u64::from(src_tb_den);
+        let dst_tb_num = u64::from(dst_tb_num);
+        let dst_tb_den = u64::from(dst_tb_den);
+
+        // ts * (src_tb_num / src_tb_den) / (dst_tb_num / dst_tb_den)
+        // reordered to retain the maximum precision, so multiplications go first
+        if let Some(nval) = ts.checked_mul(dst_tb_den) {
+            if let Some(nnval) = nval.checked_mul(src_tb_num) {
+                nnval / src_tb_den / dst_tb_num
+            } else { // intermediate result is too large, use coarse approximation
+                (nval / dst_tb_num).saturating_mul(src_tb_num) / src_tb_den
             }
-        }
-    }
-    /// Converts timestamp in given base into time in given scale.
-    pub fn ts_to_time(ts: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
-        let tb_num = u64::from(tb_num);
-        let tb_den = u64::from(tb_den);
-        let tmp = ts.checked_mul(base);
-        if let Some(tmp) = tmp {
-            let tmp2 = tmp.checked_mul(tb_num);
-            if let Some(tmp2) = tmp2 {
-                tmp2 / tb_den
-            } else {
-                (tmp / tb_den) * tb_num
-            }
-        } else {
-            let tmp = ts.checked_mul(tb_num);
-            if let Some(tmp) = tmp {
-                (tmp / tb_den) * base
-            } else {
-                (ts / tb_den) * base * tb_num
-            }
+        } else { // intermediate result is too large, use coarse approximation
+            (ts.saturating_mul(src_tb_num) / src_tb_den).saturating_mul(dst_tb_num) / dst_tb_den
         }
     }
     fn get_cur_ts(&self) -> u64 { self.pts.unwrap_or_else(|| self.dts.unwrap_or(0)) }
     fn get_cur_millis(&self) -> u64 {
         let ts = self.get_cur_ts();
-        Self::ts_to_time(ts, 1000, self.tb_num, self.tb_den)
+        Self::rescale_ts(ts, self.tb_num, self.tb_den, 1, 1000)
     }
     /// Checks whether the current time information is earler than provided reference time.
     pub fn less_than(&self, time: NATimePoint) -> bool {

@@ -875,7 +875,7 @@ fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut S
                     }
                 }
             }
-            let time = NATimeInfo::ts_to_time(pts, 1000, tb_nums[stream_no], tb_dens[stream_no]);
+            let time = NATimeInfo::rescale_ts(pts, tb_nums[stream_no], tb_dens[stream_no], 1, 1000);
 
             for avi_str in avi_streams.iter_mut() {
                 if avi_str.strm_no == (stream_no as u8) {
@@ -951,7 +951,7 @@ fn parse_iddx_data(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &
                 if stream.get_media_type() == StreamType::Video {
                     let (tb_num, tb_den) = stream.get_timebase();
                     let pts = counter[stream_no];
-                    let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
+                    let time = NATimeInfo::rescale_ts(pts, tb_num, tb_den, 1, 1000);
                     validate!(offset >= movi_pos);
                     seek_idx.add_entry(stream_no as u32, SeekEntry { time, pts, pos: offset });
                 }
@@ -990,7 +990,7 @@ fn parse_odml_ix(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mu
                 let _size  = src.read_u32le()?;
 
                 let pts = start + (i as u64);
-                let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
+                let time = NATimeInfo::rescale_ts(pts, tb_num, tb_den, 1, 1000);
                 seek_idx.add_entry(stream_no as u32, SeekEntry { time, pts, pos: base_offset + u64::from(offset - 8) });
             }
 

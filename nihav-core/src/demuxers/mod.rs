@@ -420,7 +420,7 @@ impl<'a> Demuxer<'a> {
         let mut duration = 0;
         for stream in self.streams.iter() {
             if stream.duration > 0 {
-                let dur = NATimeInfo::ts_to_time(stream.duration, 1000, stream.tb_num, stream.tb_den);
+                let dur = NATimeInfo::rescale_ts(stream.duration, stream.tb_num, stream.tb_den, 1, 1000);
                 if duration < dur {
                     duration = dur;
                 }
@@ -593,7 +593,7 @@ impl<'a> RawDemuxer<'a> {
         let mut duration = 0;
         for stream in self.streams.iter() {
             if stream.duration > 0 {
-                let dur = NATimeInfo::ts_to_time(stream.duration, 1000, stream.tb_num, stream.tb_den);
+                let dur = NATimeInfo::rescale_ts(stream.duration, stream.tb_num, stream.tb_den, 1, 1000);
                 if duration < dur {
                     duration = dur;
                 }

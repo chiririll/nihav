@@ -417,7 +417,7 @@ impl RV40Encoder {
         let buf = frm.get_buffer();
 
         let tinfo = frm.get_time_information();
-        let pts = NATimeInfo::ts_to_time(tinfo.pts.unwrap_or(0), 1000, tinfo.tb_num, tinfo.tb_den);
+        let pts = NATimeInfo::rescale_ts(tinfo.pts.unwrap_or(0), tinfo.tb_num, tinfo.tb_den, 1, 1000);
         let fpts = (pts & 0x1FFF) as u32;
 
         let ts_diff = if ftype == FrameType::B {

@@ -155,7 +155,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
     }
     fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         let seek_ts = match time {
-                NATimePoint::Milliseconds(ms) => NATimeInfo::time_to_ts(ms, 1000, self.tb_num, self.tb_den),
+                NATimePoint::Milliseconds(ms) => NATimeInfo::rescale_ts(ms, 1, 1000, self.tb_num, self.tb_den),
                 NATimePoint::PTS(ts) => ts,
                 _ => return Err(DemuxerError::SeekError),
             };

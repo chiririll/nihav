@@ -176,7 +176,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         let hdrl_pos = self.bw.tell() + 20;
         self.bw.write_buf(b"RIFF\0\0\0\0AVI LIST\0\0\0\0hdrlavih")?;
         self.bw.write_u32le(56)?; // avih size
-        let ms_per_frame = NATimeInfo::ts_to_time(1, 1000000, tb_num, tb_den);
+        let ms_per_frame = NATimeInfo::rescale_ts(1, tb_num, tb_den, 1, 1000000);
         self.bw.write_u32le(ms_per_frame as u32)?;
         self.bw.write_u32le(0)?; // max transfer rate
         self.bw.write_u32le(0)?; // padding granularity

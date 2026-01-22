@@ -52,7 +52,7 @@ impl<'a> DemuxCore<'a> for Y4MDemuxer<'a> {
                     if (self.fps_num == 0) || (self.fps_den == 0) {
                         return Err(DemuxerError::SeekError);
                     }
-                    NATimeInfo::time_to_ts(ms, 1000, self.fps_num, self.fps_den)
+                    NATimeInfo::rescale_ts(ms, 1, 1000, self.fps_num, self.fps_den)
                 },
                 NATimePoint::None => return Err(DemuxerError::SeekError),
             };

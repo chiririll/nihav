@@ -1385,7 +1385,7 @@ impl Track {
         let mut tsearch = TimeSearcher::new();
         for kf_time in self.keyframes.iter() {
             let pts = tsearch.map_time(*kf_time - 1, &self.time_to_sample);
-            let time = NATimeInfo::ts_to_time(pts, 1000, self.tb_num, self.tb_den);
+            let time = NATimeInfo::rescale_ts(pts, self.tb_num, self.tb_den, 1, 1000);
             seek_index.add_entry(self.track_no, SeekEntry { time, pts: u64::from(*kf_time - 1), pos: 0 });
         }
     }
@@ -1526,7 +1526,7 @@ impl Track {
         self.cur_ts = None;
         if self.stream_type == StreamType::Audio {
             if let NATimePoint::Milliseconds(ms) = tpoint {
-                let exp_pts = NATimeInfo::time_to_ts(ms, 1000, self.tb_num, self.tb_den);
+                let exp_pts = NATimeInfo::rescale_ts(ms, 1, 1000, self.tb_num, self.tb_den);
                 if self.raw_audio {
                     if self.frame_samples != 0 {
                         self.raw_apos = exp_pts / (self.frame_samples as u64);
@@ -1689,14 +1689,14 @@ impl Track {
             self.cur_chunk += 1;
         }
         let cur_pts = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
-        let cur_time = NATimeInfo::ts_to_time(cur_pts, 1000, self.tb_num, self.tb_den);
+        let cur_time = NATimeInfo::rescale_ts(cur_pts, self.tb_num, self.tb_den, 1, 1000);
         Ok(cur_time)
     }
 }
 
 fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Track, pts: NATimeInfo, offset: u64, size: usize, first: bool) -> DemuxerResult<NAPacket> {
     if let Some(cpts) = pts.get_pts() {
-        let ts = NATimeInfo::ts_to_time(cpts, 1000, pts.tb_num, pts.tb_den);
+        let ts = NATimeInfo::rescale_ts(cpts, pts.tb_num, pts.tb_den, 1, 1000);
         track.cur_ts = Some(ts);
     } else {
         track.cur_ts = None;
@@ -1911,7 +1911,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             if vtime.max(atime) - vtime.min(atime) > 500 && atime != 0 {
                 for track in self.tracks.iter_mut() {
                     if track.stream_type == StreamType::Audio {
-                        let new_pts = NATimeInfo::time_to_ts(vtime, 1000, track.tb_num, track.tb_den);
+                        let new_pts = NATimeInfo::rescale_ts(vtime, 1, 1000, track.tb_num, track.tb_den);
                         track.seek(new_pts, NATimePoint::Milliseconds(vtime))?;
                     }
                 }

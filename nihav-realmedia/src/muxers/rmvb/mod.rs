@@ -126,7 +126,7 @@ impl RMStream {
     fn write_packet(&mut self, bw: &mut dyn ByteIO, pkt: NAPacket, pkt_no: &mut u32) -> MuxerResult<()> {
         if let Some(pts) = pkt.get_pts() {
             let (tb_num, tb_den) = pkt.get_stream().get_timebase();
-            let ms = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den) as u32;
+            let ms = NATimeInfo::rescale_ts(pts, tb_num, tb_den, 1, 1000) as u32;
             self.time = self.time.max(ms);
             self.cur_time = ms;
         }
