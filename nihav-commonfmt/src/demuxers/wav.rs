@@ -112,8 +112,23 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
             }
             buf.truncate(tot_size);
             Ok(NAPacket::new(stream, ts, true, buf))
-        } else {
+        } else if self.block_size != 1 {
             self.src.read_packet(stream, ts, true, self.block_size)
+        } else {
+            let to_read = (self.data_end - self.src.tell()).min(1024) as usize;
+            let mut buf = vec![0; to_read];
+            let mut pos = 0;
+            while pos < buf.len() {
+                if let Ok(rsize) = self.src.read_buf_some(&mut buf[pos..]) {
+                    pos += rsize;
+                } else {
+                    break;
+                }
+            }
+            if pos == 0 {
+                return Err(DemuxerError::IOError);
+            }
+            Ok(NAPacket::new(stream, ts, false, buf))
         }
     }
 
