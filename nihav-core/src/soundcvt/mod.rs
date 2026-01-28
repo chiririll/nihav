@@ -576,10 +576,17 @@ fn is_stereo(chmap: &NAChannelMap) -> bool {
 
 /// Calculates matrix of remixing coefficients for converting input channel layout into destination one.
 pub fn calculate_remix_matrix(src: &NAChannelMap, dst: &NAChannelMap) -> Vec<f32> {
+    // common case: stereo -> mono downmix
     if is_stereo(src) && dst.num_channels() == 1 &&
         (dst.get_channel(0) == NAChannelType::L || dst.get_channel(0) == NAChannelType::C) {
         return vec![0.5, 0.5];
     }
+    // common case: mono -> stereo upmix
+    if src.num_channels() == 1 && is_stereo(dst) &&
+        (src.get_channel(0) == NAChannelType::L || src.get_channel(0) == NAChannelType::C) {
+        return vec![1.0, 1.0];
+    }
+    // still rather common case: 5.x/6.x -> stereo downmix
     if src.num_channels() >= 5 && is_stereo(dst) {
         let src_nch = src.num_channels();
         let mut mat = vec![0.0f32; src_nch * 2];
@@ -596,7 +603,67 @@ pub fn calculate_remix_matrix(src: &NAChannelMap, dst: &NAChannelMap) -> Vec<f32
         }
         return mat;
     }
+    // rather specific case: multichannel -> C
+    // use L+R -> C in this case instead as some files have nothing in centre channel
+    if src.num_channels() > 2 && dst.num_channels() == 1 && dst.get_channel(0) == NAChannelType::C {
+        if let (Some(lidx), Some(ridx)) = (src.find_channel_id(NAChannelType::L), src.find_channel_id(NAChannelType::R)) {
+            let mut remix = vec![0.0; src.num_channels()];
+            remix[lidx] = SQRT_2 / 2.0;
+            remix[ridx] = SQRT_2 / 2.0;
+            return remix;
+        }
+    }
+    // generic possible case: target includes all channels from source
+    let dst_ch = dst.num_channels();
+    let mut remix = vec![0.0; src.num_channels() * dst_ch];
+    let mut mapped = vec![false; dst_ch];
+
+    for (&sch, mix_coeffs) in src.iter().zip(remix.chunks_exact_mut(dst_ch)) {
+        for ((coef, &dch), mapped_ch) in mix_coeffs.iter_mut().zip(dst.iter())
+                .zip(mapped.iter_mut()) {
+            if dch == sch && !*mapped_ch {
+                *coef = 1.0;
+                *mapped_ch = true;
+            }
+        }
+    }
+    if !mapped.contains(&false) {
+        return remix;
+    }
+    // try to fill gaps by mono <-> stereo conversions
+    for (didx, (&dch, mapped_ch)) in dst.iter().zip(mapped.iter_mut()).enumerate() {
+        if *mapped_ch {
+            continue;
+        }
+        if let Some((lch, rch)) = dch.get_pair() {
+            if let (Some(lidx), Some(ridx)) = (src.find_channel_id(lch), src.find_channel_id(rch)) {
+                remix[lidx * dst_ch + didx] = SQRT_2 / 2.0;
+                remix[ridx * dst_ch + didx] = SQRT_2 / 2.0;
+                *mapped_ch = true;
+            }
+        }
+    }
+    for (&sch, mix_coef) in src.iter().zip(remix.chunks_exact_mut(dst_ch)) {
+        if let Some((lch, rch)) = sch.get_pair() {
+            if let (Some(lidx), Some(ridx)) = (dst.find_channel_id(lch), src.find_channel_id(rch)) {
+                if !mapped[lidx] && !mapped[ridx] {
+                    mix_coef[lidx] = 1.0;
+                    mix_coef[ridx] = 1.0;
+                    mapped[lidx] = true;
+                    mapped[ridx] = true;
+                }
+            }
+        }
+    }
+    if !mapped.contains(&true) {
+        print!("failed to find any map from");
+        for ch in src.iter() { print!(" {ch}"); }
+        print!(" to");
+        for ch in dst.iter() { print!(" {ch}"); }
+        println!();
 unimplemented!();
+    }
+    remix
 }
 
 #[cfg(test)]
