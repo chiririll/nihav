@@ -9,6 +9,9 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
+#[cfg(feature="decoder_qdraw")]
+mod qdraw;
+
 #[cfg(feature="decoder_rle")]
 mod rle;
 
@@ -61,6 +64,8 @@ mod qdm2qmf;
 mod qdm2;
 
 const QT_CODECS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_qdraw")]
+    DecoderInfo { name: "qdraw", get_decoder: qdraw::get_decoder },
 #[cfg(feature="decoder_rle")]
     DecoderInfo { name: "qt-rle", get_decoder: rle::get_decoder },
 #[cfg(feature="decoder_rpza")]

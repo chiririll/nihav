@@ -20,10 +20,11 @@ default = ["all_decoders"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
-all_video_decoders = ["decoder_rle", "decoder_smc", "decoder_rpza", "decoder_svq1", "decoder_svq3"]
+all_video_decoders = ["decoder_rle", "decoder_smc", "decoder_rpza", "decoder_qdraw", "decoder_svq1", "decoder_svq3"]
 decoder_rle = ["decoders"]
 decoder_smc = ["decoders"]
 decoder_rpza = ["decoders"]
+decoder_qdraw = ["decoders"]
 decoder_svq1 = ["decoders"]
 decoder_svq3 = ["decoders"]
 
