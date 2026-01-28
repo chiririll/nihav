@@ -292,11 +292,8 @@ impl NAChannelMap {
         self.ids[idx]
     }
     /// Tries to find position of the channel with requested type.
-    pub fn find_channel_id(&self, t: NAChannelType) -> Option<u8> {
-        for i in 0..self.ids.len() {
-            if self.ids[i] as i32 == t as i32 { return Some(i as u8); }
-        }
-        None
+    pub fn find_channel_id(&self, t: NAChannelType) -> Option<usize> {
+        (0..self.ids.len()).find(|&i| self.ids[i] as i32 == t as i32)
     }
     /// Creates a new `NAChannelMap` using the channel mapping flags from WAVE format.
     pub fn from_ms_mapping(chmap: u32) -> Self {
