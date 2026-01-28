@@ -960,12 +960,16 @@ impl NATimeInfo {
     ///
     /// For instance, converting timestamp from 2/25 rate to milliseconds can be done as
     /// ```
+    /// use nihav_core::frame::NATimeInfo;
+    ///
     /// let pts = 42;
     /// let time = NATimeInfo::rescale_ts(pts, 2, 25, 1, 1000);
     /// ```
     ///
     /// while back conversion is equally simple:
     /// ```
+    /// use nihav_core::frame::NATimeInfo;
+    ///
     /// let millis = 42;
     /// let ts = NATimeInfo::rescale_ts(millis, 1, 1000, 2, 25);
     /// ```
