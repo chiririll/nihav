@@ -172,6 +172,17 @@ impl NAChannelType {
             NAChannelType::Rhs | NAChannelType::Rl |
             NAChannelType::Rt  | NAChannelType::Ro)
     }
+    /// Returns binaural channel pair corresponding to the provided centre channel (or `None` otherwise).
+    pub fn get_pair(self) -> Option<(Self, Self)> {
+        match self {
+            NAChannelType::C => Some((NAChannelType::L, NAChannelType::R)),
+            NAChannelType::Ch => Some((NAChannelType::Lh, NAChannelType::Rh)),
+            NAChannelType::Cl => Some((NAChannelType::Ll, NAChannelType::Rl)),
+            NAChannelType::Cs => Some((NAChannelType::Ls, NAChannelType::Rs)),
+            NAChannelType::Chs => Some((NAChannelType::Lhs, NAChannelType::Rhs)),
+            _ => None
+        }
+    }
 }
 
 impl FromStr for NAChannelType {
