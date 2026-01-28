@@ -146,8 +146,8 @@ pub enum NAChannelType {
 }
 
 impl NAChannelType {
-    /// Reports whether this is some center channel.
-    pub fn is_center(self) -> bool {
+    /// Reports whether this is some centre channel.
+    pub fn is_centre(self) -> bool {
         matches!(self,
             NAChannelType::C   | NAChannelType::Ch |
             NAChannelType::Cl  | NAChannelType::Ov |
