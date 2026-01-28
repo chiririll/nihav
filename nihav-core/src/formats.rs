@@ -305,6 +305,8 @@ impl NAChannelMap {
         }
         cm
     }
+    /// Returns an iterator over channels.
+    pub fn iter(&self) -> std::slice::Iter<'_, NAChannelType> { self.ids.iter() }
 }
 
 impl fmt::Display for NAChannelMap {
