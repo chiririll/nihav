@@ -31,6 +31,8 @@ pub struct FullRegister {
     pub pkt_reg:    RegisteredPacketisers,
     /// Registered decoders
     pub dec_reg:    RegisteredDecoders,
+    /// Registered multi-threaded decoders
+    pub mtdec_reg:  RegisteredMTDecoders,
     /// Registered muxers
     pub mux_reg:    RegisteredMuxers,
     /// Registered encoders
