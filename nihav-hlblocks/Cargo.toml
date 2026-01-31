@@ -1,0 +1,17 @@
+[package]
+name = "nihav_hlblocks"
+version = "0.1.0"
+authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
+edition = "2018"
+
+[dependencies.nihav_core]
+path = "../nihav-core"
+
+[dependencies.nihav_registry]
+path = "../nihav-registry"
+
+[features]
+default = []
+
+demuxer = []
+imgseq_dec = []
