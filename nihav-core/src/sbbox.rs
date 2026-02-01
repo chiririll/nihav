@@ -89,10 +89,10 @@ impl<T: Unpin, U: Unpin> SelfBorrow<T, U> {
     pub fn end(mut boxed: SBBox<T, U>) -> T {
         boxed.dst = None;
         unsafe {
-            let mut unboxed = Pin::into_inner(boxed);
-            let ret_ = std::mem::MaybeUninit::uninit();
-            let mut ret = ret_.assume_init();
-            std::mem::swap(&mut ret, &mut unboxed.bval);
+            let mut cval = std::mem::MaybeUninit::uninit();
+            std::ptr::copy_nonoverlapping(&boxed.bval as *const T, cval.as_mut_ptr(), 1);
+            let ret = cval.assume_init();
+            let unboxed = Pin::into_inner(boxed);
             dealloc(Box::into_raw(unboxed) as *mut u8, Layout::new::<SelfBorrow<T, U>>());
             ret
         }
