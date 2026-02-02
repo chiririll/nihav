@@ -251,7 +251,7 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 0x41, cond: &CC::Str(b"MooV")},
                       CheckItem{offs: 0x7A, cond: &CC::Eq(Arg::Byte(0x81))},
                       CheckItem{offs: 0x7B, cond: &CC::Eq(Arg::Byte(0x81))},
-                      CheckItem{offs: 0x84, cond: &CC::Str(b"mdat")}],
+                      CheckItem{offs: 0x84, cond: &CC::Or(&CC::Str(b"mdat"), &CC::Str(b"moov"))}],
     },
     DetectConditions {
         demux_name: "mov-resfork",
