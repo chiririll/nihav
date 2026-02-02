@@ -1765,6 +1765,28 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                     }
                                               self.src.read_skip(cur_size as usize)?;
                 }
+                // if moov/mdat is not found, it may be in data part
+                if self.tracks.is_empty() || self.mdat_pos == 0 {
+                                              self.src.seek(SeekFrom::Start(0x80))?;
+                    let end_pos = u64::from(data_length) + 0x80;
+                    while self.src.tell() < end_pos && (self.mdat_pos == 0 || self.tracks.is_empty()) {
+                        let size            = self.src.read_u32be()?;
+                        let tag             = self.src.read_tag()?;
+                        validate!(size >= 8);
+                        match &tag {
+                            b"moov" => {
+                                self.read_moov(strmgr, u64::from(size - 8))?;
+                            },
+                            b"mdat" => {
+                                self.mdat_pos = self.src.tell() - 0x80;
+                                              self.src.read_skip(size as usize - 8)?;
+                            },
+                            _ => {
+                                              self.src.read_skip(size as usize - 8)?;
+                            },
+                        }
+                    }
+                }
             },
             DemuxMode::ResFork => {
                 let res_data_offset         = self.src.read_u32be()?;
