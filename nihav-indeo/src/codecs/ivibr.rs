@@ -918,7 +918,7 @@ br.skip(skip_part as u32)?;
                         }
                         self.decode_band(&pic_hdr, dec, br, plane, band)?;
                         *band_decoded = true;
-                        num_decoded += 1;
+                        //num_decoded += 1;
                     }
                 }
             }
