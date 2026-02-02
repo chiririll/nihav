@@ -58,7 +58,7 @@ impl NADecoder for RawDecoder {
                         is_unsigned = true;
                     }
                 }
-                self.codec_type = if is_vidc {
+                self.codec_type = if is_vidc && bits != 16 {
                         CodecType::Logarithmic
                     } else if bits == 8 {
                         if is_unsigned {
