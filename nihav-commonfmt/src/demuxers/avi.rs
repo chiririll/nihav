@@ -399,6 +399,17 @@ fn parse_chunks<T>(obj: &mut T, src: &mut dyn ByteIO, strmgr: &mut StreamManager
             let b                   = src.peek_byte()?;
             if b == 0 {
                                       src.read_byte()?;
+            } else {
+                let mut peekbuf = [0; 9];
+                if src.peek_buf(&mut peekbuf).is_ok() {
+                    let size1 = read_u32le(&peekbuf[4..]).unwrap_or_default();
+                    let size2 = read_u32le(&peekbuf[5..]).unwrap_or_default();
+                    let end1 = src.tell() + u64::from(size1);
+                    let end2 = src.tell() + u64::from(size2);
+                    if end1 > parse_end && end2 <= parse_end {
+                                      src.read_byte()?;
+                    }
+                }
             }
         }
     }
