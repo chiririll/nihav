@@ -1146,6 +1146,7 @@ fn read_trun(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             }
         }
     }
+    track.ctts_map.reset();
 
     Ok(size)
 }
