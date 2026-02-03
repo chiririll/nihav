@@ -20,12 +20,12 @@ enum CompressionLevel {
     Best
 }
 
-impl std::string::ToString for CompressionLevel {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for CompressionLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match *self {
-            CompressionLevel::None => "none".to_string(),
-            CompressionLevel::Fast => "fast".to_string(),
-            CompressionLevel::Best => "best".to_string(),
+            CompressionLevel::None => write!(f, "none"),
+            CompressionLevel::Fast => write!(f, "fast"),
+            CompressionLevel::Best => write!(f, "best"),
         }
     }
 }

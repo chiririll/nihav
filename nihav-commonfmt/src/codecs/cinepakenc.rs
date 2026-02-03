@@ -218,12 +218,12 @@ enum QuantMode {
     MedianCut,
 }
 
-impl std::string::ToString for QuantMode {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for QuantMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match *self {
-            QuantMode::ELBG => "elbg".to_string(),
-            QuantMode::Fast => "fast".to_string(),
-            QuantMode::MedianCut => "mediancut".to_string(),
+            QuantMode::ELBG => write!(f, "elbg"),
+            QuantMode::Fast => write!(f, "fast"),
+            QuantMode::MedianCut => write!(f, "mediancut"),
         }
     }
 }

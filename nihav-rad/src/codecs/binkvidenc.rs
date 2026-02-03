@@ -26,15 +26,15 @@ enum DoublingMode {
     Width2XIlace
 }
 
-impl std::string::ToString for DoublingMode {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for DoublingMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match *self {
-            DoublingMode::None => "none".to_string(),
-            DoublingMode::Height2X => "height2x".to_string(),
-            DoublingMode::HeightIlace => "height_il".to_string(),
-            DoublingMode::Scale2X => "scale2x".to_string(),
-            DoublingMode::Width2X => "width2x".to_string(),
-            DoublingMode::Width2XIlace => "width2x_il".to_string(),
+            DoublingMode::None => write!(f, "none"),
+            DoublingMode::Height2X => write!(f, "height2x"),
+            DoublingMode::HeightIlace => write!(f, "height_il"),
+            DoublingMode::Scale2X => write!(f, "scale2x"),
+            DoublingMode::Width2X => write!(f, "width2x"),
+            DoublingMode::Width2XIlace => write!(f, "width2x_il"),
         }
     }
 }
@@ -93,8 +93,10 @@ impl std::str::FromStr for BlockMode {
     }
 }
 
-impl std::string::ToString for BlockMode {
-    fn to_string(&self) -> String { BLOCK_MODE_NAMES[usize::from(*self)].to_string() }
+impl std::fmt::Display for BlockMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", BLOCK_MODE_NAMES[usize::from(*self)])
+    }
 }
 
 impl BlockMode {

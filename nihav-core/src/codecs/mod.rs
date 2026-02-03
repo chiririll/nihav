@@ -227,12 +227,12 @@ impl FromStr for FrameSkipMode {
     }
 }
 
-impl ToString for FrameSkipMode {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for FrameSkipMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match *self {
-            FrameSkipMode::None             => FRAME_SKIP_OPTION_VAL_NONE.to_string(),
-            FrameSkipMode::KeyframesOnly    => FRAME_SKIP_OPTION_VAL_KEYFRAME.to_string(),
-            FrameSkipMode::IntraOnly        => FRAME_SKIP_OPTION_VAL_INTRA.to_string(),
+            FrameSkipMode::None             => write!(f, "{FRAME_SKIP_OPTION_VAL_NONE}"),
+            FrameSkipMode::KeyframesOnly    => write!(f, "{FRAME_SKIP_OPTION_VAL_KEYFRAME}"),
+            FrameSkipMode::IntraOnly        => write!(f, "{FRAME_SKIP_OPTION_VAL_INTRA}"),
         }
     }
 }

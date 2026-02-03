@@ -1955,13 +1955,13 @@ impl std::str::FromStr for DeflateMode {
     }
 }
 
-impl ToString for DeflateMode {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for DeflateMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match *self {
-            DeflateMode::NoCompr    => DEFLATE_MODE_NONE.to_string(),
-            DeflateMode::Fast       => DEFLATE_MODE_FAST.to_string(),
-            DeflateMode::Better     => DEFLATE_MODE_BETTER.to_string(),
-            DeflateMode::Best       => DEFLATE_MODE_BEST.to_string(),
+            DeflateMode::NoCompr    => write!(f, "{DEFLATE_MODE_NONE}"),
+            DeflateMode::Fast       => write!(f, "{DEFLATE_MODE_FAST}"),
+            DeflateMode::Better     => write!(f, "{DEFLATE_MODE_BETTER}"),
+            DeflateMode::Best       => write!(f, "{DEFLATE_MODE_BEST}"),
         }
     }
 }

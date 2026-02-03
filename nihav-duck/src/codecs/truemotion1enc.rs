@@ -25,13 +25,13 @@ impl FromStr for BlockMode {
     }
 }
 
-impl ToString for BlockMode {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for BlockMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match *self {
-            BlockMode::FourByFour => "4x4".to_string(),
-            BlockMode::FourByTwo  => "4x2".to_string(),
-            BlockMode::TwoByFour  => "2x4".to_string(),
-            BlockMode::TwoByTwo   => "2x2".to_string(),
+            BlockMode::FourByFour => write!(f, "4x4"),
+            BlockMode::FourByTwo  => write!(f, "4x2"),
+            BlockMode::TwoByFour  => write!(f, "2x4"),
+            BlockMode::TwoByTwo   => write!(f, "2x2"),
         }
     }
 }
@@ -56,12 +56,12 @@ impl FromStr for OptionMode {
     }
 }
 
-impl ToString for OptionMode {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for OptionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match *self {
-            OptionMode::Off  => "off".to_string(),
-            OptionMode::On   => "on".to_string(),
-            OptionMode::Auto => "auto".to_string(),
+            OptionMode::Off  => write!(f, "off"),
+            OptionMode::On   => write!(f, "on"),
+            OptionMode::Auto => write!(f, "auto"),
         }
     }
 }
