@@ -363,6 +363,7 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"UCOD", "clearvideo"),
     (b"cvid", "cinepak"),
     (b"savi", "cinepak"),
+    (b"tony", "cinepak"),
     (b"ZMBV", "zmbv"),
 
     (b"Ipma", "ipma"),
