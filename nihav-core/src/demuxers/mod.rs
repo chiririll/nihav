@@ -369,6 +369,10 @@ impl<'a> Demuxer<'a> {
     pub fn get_stream_manager(&self) -> &StreamManager {
         &self.streams
     }
+    /// Returns a mutable reference to the internal stream manager.
+    pub fn get_stream_manager_mut(&mut self) -> &mut StreamManager {
+        &mut self.streams
+    }
     /// Returns an iterator over streams.
     pub fn get_streams(&self) -> StreamIter<'_> {
         self.streams.iter()
