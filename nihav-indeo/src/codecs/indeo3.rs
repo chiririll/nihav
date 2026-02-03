@@ -839,7 +839,7 @@ struct Indeo3Decoder {
     frame1:     IV3Frame,
     requant_tab: RequantTab,
     do_crc:     bool,
-    ign_size:   bool,
+    ign_size:   Option<bool>,
 }
 
 impl Indeo3Decoder {
@@ -875,7 +875,7 @@ impl Indeo3Decoder {
             frame0:     IV3Frame::new(),
             frame1:     IV3Frame::new(),
             do_crc:     false,
-            ign_size:   false,
+            ign_size:   None,
             requant_tab
         }
     }
@@ -939,7 +939,12 @@ impl NADecoder for Indeo3Decoder {
         validate!((width  >= 16) && (width  <= 640));
         validate!((height >= 16) && (height <= 480));
         validate!(((width & 3) == 0) && ((height & 3) == 0));
-        if !self.ign_size && (width != self.width || height != self.height) {
+        let mut change_size = (width != self.width || height != self.height) && self.ign_size != Some(true);
+        // some Indeo3 files claim double height in the frame headers than they code in reality
+        if self.ign_size.is_none() && width == self.width && height == self.height * 2 {
+            change_size = false;
+        }
+        if change_size {
             self.width  = width;
             self.height = height;
             self.frame0.alloc(width as usize, height as usize);
@@ -1018,7 +1023,7 @@ const DECODER_OPTS: &[NAOptionDefinition] = &[
         opt_type: NAOptionDefinitionType::Bool },
     NAOptionDefinition {
         name: IGNORE_SIZE_OPTION, description: "Ignore dimensions provided in the frame header",
-        opt_type: NAOptionDefinitionType::Bool },
+        opt_type: NAOptionDefinitionType::String(Some(&["yes", "no", "auto"])) },
 ];
 
 impl NAOptionHandler for Indeo3Decoder {
@@ -1034,8 +1039,19 @@ impl NAOptionHandler for Indeo3Decoder {
                             }
                         },
                         IGNORE_SIZE_OPTION => {
-                            if let NAValue::Bool(val) = option.value {
-                                self.ign_size = val;
+                            if let NAValue::String(ref strval) = option.value {
+                                match strval.as_str() {
+                                    "yes" => {
+                                        self.ign_size = Some(true);
+                                    },
+                                    "no" => {
+                                        self.ign_size = Some(false);
+                                    },
+                                    "auto" => {
+                                        self.ign_size = None;
+                                    },
+                                    _ => {},
+                                }
                             }
                         },
                         _ => {},
@@ -1047,7 +1063,13 @@ impl NAOptionHandler for Indeo3Decoder {
     fn query_option_value(&self, name: &str) -> Option<NAValue> {
         match name {
             DO_CRC_OPTION => Some(NAValue::Bool(self.do_crc)),
-            IGNORE_SIZE_OPTION => Some(NAValue::Bool(self.ign_size)),
+            IGNORE_SIZE_OPTION => {
+                match self.ign_size {
+                    Some(true) => Some(NAValue::String("yes".to_string())),
+                    Some(false) => Some(NAValue::String("no".to_string())),
+                    None => Some(NAValue::String("auto".to_string())),
+                }
+            },
             _ => None,
         }
     }
