@@ -1852,7 +1852,10 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
         }
         let mut has_all_time = true;
         let mut min_ts = u64::MAX;
-        for trk in self.tracks.iter() {
+        for (trk_no, trk) in self.tracks.iter().enumerate() {
+            if strmgr.is_ignored(trk_no) {
+                continue;
+            }
             if let Some(ts) = trk.cur_ts {
                 min_ts = min_ts.min(ts);
             } else {
@@ -1880,6 +1883,9 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             }
             let track = &mut self.tracks[self.cur_track];
             self.cur_track += 1;
+            if strmgr.is_ignored(self.cur_track - 1) {
+                continue;
+            }
             let first = track.cur_sample == 0;
             if let Some((pts, offset, size)) = track.get_next_chunk() {
                 return process_packet(self.src, strmgr, track, pts, offset, size, first);
