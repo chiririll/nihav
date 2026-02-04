@@ -138,10 +138,10 @@ pub enum DemuxerObject<'a> {
 }
 
 impl<'a> DemuxerObject<'a> {
-    fn new_demuxer(mut br: ReaderBox, reg: &FullRegister, name: &str, dmx_name: &str, opts: &[NAOption], verbose: bool, forced: bool) -> Result<DemuxerObject<'a>, ReaderBox> {
+    fn new_demuxer(mut br: ReaderBox, reg: &FullRegister, dmx_name: &str, opts: &[NAOption], verbose: bool, forced: bool) -> Result<DemuxerObject<'a>, ReaderBox> {
         if let Some(dmx_fact) = reg.dmx_reg.find_demuxer(dmx_name) {
             if verbose {
-                println!("{} demuxer {} on {}", if forced { "forcing" } else { "trying" }, dmx_name, name);
+                println!(" {} demuxer {dmx_name}", if forced { "forcing" } else { "trying" });
             }
             br.seek(SeekFrom::Start(0)).unwrap();
             SelfBorrow::try_new(br, |br_| {
@@ -153,10 +153,10 @@ impl<'a> DemuxerObject<'a> {
             Err(br)
         }
     }
-    fn new_raw_demuxer(mut br: ReaderBox, reg: &FullRegister, name: &str, dmx_name: &str, opts: &[NAOption], verbose: bool, forced: bool) -> Result<DemuxerObject<'a>, ReaderBox> {
+    fn new_raw_demuxer(mut br: ReaderBox, reg: &FullRegister, dmx_name: &str, opts: &[NAOption], verbose: bool, forced: bool) -> Result<DemuxerObject<'a>, ReaderBox> {
         if let Some(rdmx_fact) = reg.rdmx_reg.find_demuxer(dmx_name) {
             if verbose {
-                println!("{} raw demuxer {} on {}", if forced { "forcing" } else { "trying" }, dmx_name, name);
+                println!(" {} raw demuxer {dmx_name}", if forced { "forcing" } else { "trying" });
             }
             br.seek(SeekFrom::Start(0)).unwrap();
             let dmx = SelfBorrow::try_new(br, |br_| {
@@ -193,11 +193,11 @@ impl<'a> DemuxerObject<'a> {
     pub fn create(mut br: ReaderBox, reg: &FullRegister, name: &str, force_dmx: Option<&str>, is_raw: bool, opts: &[NAOption], verbose: bool) -> DemuxerObject<'a> {
         if !is_raw {
             if let Some(dmx_name) = force_dmx {
-                match Self::new_demuxer(br, reg, name, dmx_name, opts, verbose, true) {
+                match Self::new_demuxer(br, reg, dmx_name, opts, verbose, true) {
                     Ok(dmx) => return dmx,
                     Err(nbr) => br = nbr,
                 };
-                if let Ok(dmx) = Self::new_raw_demuxer(br, reg, name, dmx_name, opts, verbose, true) {
+                if let Ok(dmx) = Self::new_raw_demuxer(br, reg, dmx_name, opts, verbose, true) {
                     return dmx;
                 } else {
                     return DemuxerObject::None;
@@ -206,13 +206,13 @@ impl<'a> DemuxerObject<'a> {
             let res = detect::detect_format(name, &mut *br);
             let (dmx_name, _) = res.unwrap_or(("", detect::DetectionScore::No));
             if !dmx_name.is_empty() {
-                match Self::new_demuxer(br, reg, name, dmx_name, opts, verbose, false) {
+                match Self::new_demuxer(br, reg, dmx_name, opts, verbose, false) {
                     Ok(dmx) => return dmx,
                     Err(nbr) => br = nbr,
                 }
             }
             if !dmx_name.is_empty() {
-                match Self::new_raw_demuxer(br, reg, name, dmx_name, opts, verbose, false) {
+                match Self::new_raw_demuxer(br, reg, dmx_name, opts, verbose, false) {
                     Ok(dmx) => return dmx,
                     Err(nbr) => br = nbr,
                 }
@@ -220,9 +220,9 @@ impl<'a> DemuxerObject<'a> {
             for rdmx in reg.rdmx_reg.iter() {
                 if rdmx.check_format(&mut *br) {
                     if verbose {
-                        println!("detected {} as {}", name, rdmx.get_name());
+                        println!(" detected as {}", rdmx.get_name());
                     }
-                    match Self::new_raw_demuxer(br, reg, name, rdmx.get_name(), opts, false, false) {
+                    match Self::new_raw_demuxer(br, reg, rdmx.get_name(), opts, false, false) {
                         Ok(dmx) => return dmx,
                         Err(nbr) => br = nbr,
                     }
@@ -245,7 +245,7 @@ impl<'a> DemuxerObject<'a> {
         }
         if !pname.is_empty() {
             if verbose {
-                println!("found raw stream of type {} for {}", pname, name);
+                println!(" found raw stream of type {pname}");
             }
             let pcreate = reg.pkt_reg.find_packetiser(pname).unwrap();
             let rctx = SelfBorrow::new(br, |br_| {
