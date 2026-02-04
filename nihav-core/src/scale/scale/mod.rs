@@ -515,8 +515,13 @@ impl Kernel for Scaler {
         let ncomp = in_fmt.fmt.get_num_comp().min(dest_fmt.fmt.get_num_comp());
         for comp in 0..ncomp {
             if let (Some(sfmt), Some(dfmt)) = (in_fmt.fmt.get_chromaton(comp), dest_fmt.fmt.get_chromaton(comp)) {
+                let sw = sfmt.get_width(in_fmt.width);
                 let sh = sfmt.get_height(in_fmt.height);
                 let dw = dfmt.get_width(dest_fmt.width);
+                let dh = dfmt.get_height(dest_fmt.height);
+                if sw * 2 != dw || sh * 2 != dh {
+                    self.is_nn = false;
+                }
                 let tmp_size = sh * ((dw + 15) & !15);
                 max_size = max_size.max(tmp_size);
             }
