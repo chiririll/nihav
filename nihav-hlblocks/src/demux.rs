@@ -318,6 +318,50 @@ impl<'a> DemuxerObject<'a> {
             _ => unreachable!(),
         }
     }
+    /// Returns mutable reference to the stream manager associated with the demuxer.
+    pub fn get_stream_manager_mut(&mut self) -> &mut StreamManager {
+        match *self {
+            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().get_stream_manager_mut(),
+            DemuxerObject::Raw(ref mut dmxs) => dmxs.dmx.get_object_mut().get_stream_manager_mut(),
+            DemuxerObject::RawStream(ref mut ctx) => &mut ctx.get_object_mut().sm,
+            #[cfg(feature="imgseq_dec")]
+            DemuxerObject::ImageSequence(ref mut ctx) => &mut ctx.sm,
+            _ => unreachable!(),
+        }
+    }
+    /// Returns 'ignored' marker for requested stream.
+    pub fn is_ignored_stream(&self, idx: usize) -> bool {
+        match *self {
+            DemuxerObject::Normal(ref dmx) => dmx.get_object().is_ignored_stream(idx),
+            DemuxerObject::Raw(ref dmxs) => dmxs.dmx.get_object().is_ignored_stream(idx),
+            DemuxerObject::RawStream(ref ctx) => ctx.get_object().sm.is_ignored(idx),
+            #[cfg(feature="imgseq_dec")]
+            DemuxerObject::ImageSequence(ref ctx) => ctx.sm.is_ignored(idx),
+            _ => unreachable!(),
+        }
+    }
+    /// Sets 'ignored' marker for requested stream.
+    pub fn set_ignored_stream(&mut self, idx: usize) {
+        match *self {
+            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().set_ignored_stream(idx),
+            DemuxerObject::Raw(ref mut dmxs) => dmxs.dmx.get_object_mut().set_ignored_stream(idx),
+            DemuxerObject::RawStream(ref mut ctx) => ctx.get_object_mut().sm.set_ignored(idx),
+            #[cfg(feature="imgseq_dec")]
+            DemuxerObject::ImageSequence(ref mut ctx) => ctx.sm.set_ignored(idx),
+            _ => unreachable!(),
+        }
+    }
+    /// Clears 'ignored' marker for requested stream.
+    pub fn set_unignored_stream(&mut self, idx: usize) {
+        match *self {
+            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().set_unignored_stream(idx),
+            DemuxerObject::Raw(ref mut dmxs) => dmxs.dmx.get_object_mut().set_unignored_stream(idx),
+            DemuxerObject::RawStream(ref mut ctx) => ctx.get_object_mut().sm.set_unignored(idx),
+            #[cfg(feature="imgseq_dec")]
+            DemuxerObject::ImageSequence(ref mut ctx) => ctx.sm.set_unignored(idx),
+            _ => unreachable!(),
+        }
+    }
     /// Demuxes a packet.
     pub fn get_frame(&mut self) -> DemuxerResult<NAPacket> {
         match *self {
