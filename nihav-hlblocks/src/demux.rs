@@ -117,6 +117,7 @@ pub struct RawDemuxerState<'a> {
     dmx:    SBBox<ReaderBox, RawDemuxer<'a>>,
     pkts:   Vec<Option<Box<dyn NAPacketiser + Send>>>,
     eof:    bool,
+    dname:  String,
 }
 
 /// Alias for input source
@@ -127,11 +128,11 @@ pub enum DemuxerObject<'a> {
     /// Nothing created yet
     None,
     /// Ordinary demuxer
-    Normal(SBBox<ReaderBox, Demuxer<'a>>),
+    Normal(SBBox<ReaderBox, Demuxer<'a>>, String),
     /// Raw stream demuxer with individual stream contexts
     Raw(RawDemuxerState<'a>),
     /// Elementary stream
-    RawStream(SBBox<ReaderBox, RawStreamCtx<'a>>),
+    RawStream(SBBox<ReaderBox, RawStreamCtx<'a>>, String),
     #[cfg(feature="imgseq_dec")]
     /// Image sequence
     ImageSequence(ImgSeqDemuxer),
@@ -148,7 +149,7 @@ impl<'a> DemuxerObject<'a> {
                 unsafe {
                     create_demuxer_with_options(dmx_fact, (*br_).as_mut(), opts).ok()
                 }
-            }).map(DemuxerObject::Normal)
+            }).map(|dmx| DemuxerObject::Normal(dmx, dmx_name.to_string()))
         } else {
             Err(br)
         }
@@ -174,7 +175,7 @@ impl<'a> DemuxerObject<'a> {
                     pkts.push(None);
                 }
             }
-            Ok(DemuxerObject::Raw(RawDemuxerState{ dmx, pkts, eof: false }))
+            Ok(DemuxerObject::Raw(RawDemuxerState{ dmx, pkts, eof: false, dname: rdmx_fact.get_name().to_string() }))
         } else {
             Err(br)
         }
@@ -257,7 +258,7 @@ impl<'a> DemuxerObject<'a> {
                         RawStreamCtx::new(stream, packetiser, (*br_).as_mut())
                     }
                 });
-            DemuxerObject::RawStream(rctx)
+            DemuxerObject::RawStream(rctx, pname.to_string())
         } else {
             DemuxerObject::None
         }
@@ -274,9 +275,9 @@ impl<'a> DemuxerObject<'a> {
     /// Returns total file duration (or 0 if unknown).
     pub fn get_duration(&self) -> u64 {
         match *self {
-            DemuxerObject::Normal(ref dmx) => dmx.get_object().get_duration(),
+            DemuxerObject::Normal(ref dmx, _) => dmx.get_object().get_duration(),
             DemuxerObject::Raw(ref dmxs) => dmxs.dmx.get_object().get_duration(),
-            DemuxerObject::RawStream(ref ctx) => {
+            DemuxerObject::RawStream(ref ctx, _) => {
                 let stream = &ctx.get_object().stream;
                 NATimeInfo::rescale_ts(stream.duration, stream.tb_num, stream.tb_den, 1, 1000)
             },
@@ -289,9 +290,9 @@ impl<'a> DemuxerObject<'a> {
     pub fn get_num_streams(&self) -> usize {
         match *self {
             DemuxerObject::None => 0,
-            DemuxerObject::Normal(ref dmx) => dmx.get_object().get_num_streams(),
+            DemuxerObject::Normal(ref dmx, _) => dmx.get_object().get_num_streams(),
             DemuxerObject::Raw(ref dmxs) => dmxs.dmx.get_object().get_num_streams(),
-            DemuxerObject::RawStream(_) => 1,
+            DemuxerObject::RawStream(_, _) => 1,
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(_) => 1,
         }
@@ -299,9 +300,9 @@ impl<'a> DemuxerObject<'a> {
     /// Returns stream with the requested index.
     pub fn get_stream(&self, idx: usize) -> Option<NAStreamRef> {
         match *self {
-            DemuxerObject::Normal(ref dmx) => dmx.get_object().get_stream(idx),
+            DemuxerObject::Normal(ref dmx, _) => dmx.get_object().get_stream(idx),
             DemuxerObject::Raw(ref dmxs) => dmxs.dmx.get_object().get_stream(idx),
-            DemuxerObject::RawStream(ref ctx) if idx == 0 => Some(ctx.get_object().stream.clone()),
+            DemuxerObject::RawStream(ref ctx, _) if idx == 0 => Some(ctx.get_object().stream.clone()),
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref ctx) if idx == 0 => Some(ctx.stream.clone()),
             _ => None,
@@ -310,9 +311,9 @@ impl<'a> DemuxerObject<'a> {
     /// Returns stream manager associated with the demuxer.
     pub fn get_stream_manager(&self) -> &StreamManager {
         match *self {
-            DemuxerObject::Normal(ref dmx) => dmx.get_object().get_stream_manager(),
+            DemuxerObject::Normal(ref dmx, _) => dmx.get_object().get_stream_manager(),
             DemuxerObject::Raw(ref dmxs) => dmxs.dmx.get_object().get_stream_manager(),
-            DemuxerObject::RawStream(ref ctx) => &ctx.get_object().sm,
+            DemuxerObject::RawStream(ref ctx, _) => &ctx.get_object().sm,
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref ctx) => &ctx.sm,
             _ => unreachable!(),
@@ -321,9 +322,9 @@ impl<'a> DemuxerObject<'a> {
     /// Returns mutable reference to the stream manager associated with the demuxer.
     pub fn get_stream_manager_mut(&mut self) -> &mut StreamManager {
         match *self {
-            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().get_stream_manager_mut(),
+            DemuxerObject::Normal(ref mut dmx, _) => dmx.get_object_mut().get_stream_manager_mut(),
             DemuxerObject::Raw(ref mut dmxs) => dmxs.dmx.get_object_mut().get_stream_manager_mut(),
-            DemuxerObject::RawStream(ref mut ctx) => &mut ctx.get_object_mut().sm,
+            DemuxerObject::RawStream(ref mut ctx, _) => &mut ctx.get_object_mut().sm,
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref mut ctx) => &mut ctx.sm,
             _ => unreachable!(),
@@ -332,9 +333,9 @@ impl<'a> DemuxerObject<'a> {
     /// Returns 'ignored' marker for requested stream.
     pub fn is_ignored_stream(&self, idx: usize) -> bool {
         match *self {
-            DemuxerObject::Normal(ref dmx) => dmx.get_object().is_ignored_stream(idx),
+            DemuxerObject::Normal(ref dmx, _) => dmx.get_object().is_ignored_stream(idx),
             DemuxerObject::Raw(ref dmxs) => dmxs.dmx.get_object().is_ignored_stream(idx),
-            DemuxerObject::RawStream(ref ctx) => ctx.get_object().sm.is_ignored(idx),
+            DemuxerObject::RawStream(ref ctx, _) => ctx.get_object().sm.is_ignored(idx),
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref ctx) => ctx.sm.is_ignored(idx),
             _ => unreachable!(),
@@ -343,9 +344,9 @@ impl<'a> DemuxerObject<'a> {
     /// Sets 'ignored' marker for requested stream.
     pub fn set_ignored_stream(&mut self, idx: usize) {
         match *self {
-            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().set_ignored_stream(idx),
+            DemuxerObject::Normal(ref mut dmx, _) => dmx.get_object_mut().set_ignored_stream(idx),
             DemuxerObject::Raw(ref mut dmxs) => dmxs.dmx.get_object_mut().set_ignored_stream(idx),
-            DemuxerObject::RawStream(ref mut ctx) => ctx.get_object_mut().sm.set_ignored(idx),
+            DemuxerObject::RawStream(ref mut ctx, _) => ctx.get_object_mut().sm.set_ignored(idx),
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref mut ctx) => ctx.sm.set_ignored(idx),
             _ => unreachable!(),
@@ -354,9 +355,9 @@ impl<'a> DemuxerObject<'a> {
     /// Clears 'ignored' marker for requested stream.
     pub fn set_unignored_stream(&mut self, idx: usize) {
         match *self {
-            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().set_unignored_stream(idx),
+            DemuxerObject::Normal(ref mut dmx, _) => dmx.get_object_mut().set_unignored_stream(idx),
             DemuxerObject::Raw(ref mut dmxs) => dmxs.dmx.get_object_mut().set_unignored_stream(idx),
-            DemuxerObject::RawStream(ref mut ctx) => ctx.get_object_mut().sm.set_unignored(idx),
+            DemuxerObject::RawStream(ref mut ctx, _) => ctx.get_object_mut().sm.set_unignored(idx),
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref mut ctx) => ctx.sm.set_unignored(idx),
             _ => unreachable!(),
@@ -365,7 +366,7 @@ impl<'a> DemuxerObject<'a> {
     /// Demuxes a packet.
     pub fn get_frame(&mut self) -> DemuxerResult<NAPacket> {
         match *self {
-            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().get_frame(),
+            DemuxerObject::Normal(ref mut dmx, _) => dmx.get_object_mut().get_frame(),
             DemuxerObject::Raw(ref mut dmxs) => {
                 loop {
                     let mut has_some = false;
@@ -404,7 +405,7 @@ impl<'a> DemuxerObject<'a> {
                     }
                 }
             },
-            DemuxerObject::RawStream(ref mut ctx) => ctx.get_object_mut().get_frame(),
+            DemuxerObject::RawStream(ref mut ctx, _) => ctx.get_object_mut().get_frame(),
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref mut ctx) => ctx.get_frame(),
             _ => unreachable!(),
@@ -413,9 +414,9 @@ impl<'a> DemuxerObject<'a> {
     /// Seeks to the specified time.
     pub fn seek(&mut self, seek_time: NATimePoint) -> DemuxerResult<()> {
         match *self {
-            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().seek(seek_time),
+            DemuxerObject::Normal(ref mut dmx, _) => dmx.get_object_mut().seek(seek_time),
             DemuxerObject::Raw(ref mut dmxs) => dmxs.dmx.get_object_mut().seek(seek_time),
-            DemuxerObject::RawStream(ref mut ctxobj) => {
+            DemuxerObject::RawStream(ref mut ctxobj, _) => {
                 let ctx = ctxobj.get_object_mut();
                 if seek_time == NATimePoint::None {
                     return Err(DemuxerError::SeekError);
@@ -462,11 +463,23 @@ impl<'a> DemuxerObject<'a> {
     }
 }
 
+impl<'a> std::fmt::Display for DemuxerObject<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match *self {
+            DemuxerObject::None => write!(f, "none"),
+            DemuxerObject::Normal(_, ref dtype) => write!(f, "{dtype}"),
+            DemuxerObject::Raw(ref dmxs) => write!(f, "{}(raw)", dmxs.dname),
+            DemuxerObject::RawStream(_, ref dtype) => write!(f, "{dtype}(raw stream)"),
+            #[cfg(feature="imgseq_dec")]
+            DemuxerObject::ImageSequence(_) => write!(f, "image sequence"),
+        }
+    }
+}
 
 impl<'a> NAOptionHandler for DemuxerObject<'a> {
     fn get_supported_options(&self) -> &[NAOptionDefinition] {
         match *self {
-            DemuxerObject::Normal(ref dmx) => dmx.get_object().get_supported_options(),
+            DemuxerObject::Normal(ref dmx, _) => dmx.get_object().get_supported_options(),
             DemuxerObject::Raw(ref dmxs) => dmxs.dmx.get_object().get_supported_options(),
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref ctx) => ctx.get_supported_options(),
@@ -475,7 +488,7 @@ impl<'a> NAOptionHandler for DemuxerObject<'a> {
     }
     fn set_options(&mut self, options: &[NAOption]) {
         match *self {
-            DemuxerObject::Normal(ref mut dmx) => dmx.get_object_mut().set_options(options),
+            DemuxerObject::Normal(ref mut dmx, _) => dmx.get_object_mut().set_options(options),
             DemuxerObject::Raw(ref mut dmxs) => dmxs.dmx.get_object_mut().set_options(options),
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref mut ctx) => ctx.set_options(options),
@@ -484,7 +497,7 @@ impl<'a> NAOptionHandler for DemuxerObject<'a> {
     }
     fn query_option_value(&self, name: &str) -> Option<NAValue> {
         match *self {
-            DemuxerObject::Normal(ref dmx) => dmx.get_object().query_option_value(name),
+            DemuxerObject::Normal(ref dmx, _) => dmx.get_object().query_option_value(name),
             DemuxerObject::Raw(ref dmxs) => dmxs.dmx.get_object().query_option_value(name),
             #[cfg(feature="imgseq_dec")]
             DemuxerObject::ImageSequence(ref ctx) => ctx.query_option_value(name),
