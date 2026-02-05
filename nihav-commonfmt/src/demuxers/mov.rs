@@ -1167,6 +1167,8 @@ struct MOVDemuxer<'a> {
     print_chunks:   bool,
 
     demux_mode:     DemuxMode,
+
+    force_seek:     bool,
 }
 
 struct Track {
@@ -1422,6 +1424,11 @@ impl Track {
             }
         }
     }
+    fn reset(&mut self) {
+        self.cur_chunk = self.chunk_offsets.len();
+        self.samples_left = 0;
+        self.cur_sample = self.chunk_sizes.len();
+    }
     fn get_next_chunk(&mut self) -> Option<(NATimeInfo, u64, usize)> {
         let pts_val = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
         let dts = if let Some(dts_corr) = self.ctts_map.map(self.cur_sample as u64) {
@@ -1521,10 +1528,18 @@ impl Track {
             self.bsize
         }
     }
-    fn seek(&mut self, pts: u64, tpoint: NATimePoint) -> DemuxerResult<u64> {
+    fn seek(&mut self, pts: u64, tpoint: NATimePoint, forced: bool) -> DemuxerResult<u64> {
+        let tgt_pts = match tpoint {
+            NATimePoint::Milliseconds(ms) => NATimeInfo::rescale_ts(ms, 1, 1000, self.tb_num, self.tb_den),
+            NATimePoint::PTS(ts) => ts,
+            _ => 0,
+        };
         self.cur_sample = pts as usize;
         self.samples_left = 0;
         self.cur_ts = None;
+        if forced && pts.abs_diff(tgt_pts) > 5 * u64::from(self.tb_den) {
+            self.cur_sample = tgt_pts as usize;
+        }
         if self.stream_type == StreamType::Audio {
             if let NATimePoint::Milliseconds(ms) = tpoint {
                 let exp_pts = NATimeInfo::rescale_ts(ms, 1, 1000, self.tb_num, self.tb_den);
@@ -1907,10 +1922,25 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 }
                 if aonly {
                     for track in self.tracks.iter_mut() {
-                        track.seek(0, time)?;
+                        track.seek(0, time, false)?;
                     }
                     return Ok(());
                 }
+            }
+            if self.force_seek {
+                let mut ret = Ok(());
+                for track in self.tracks.iter_mut() {
+                    if let Err(err) = track.seek(0, time, true) {
+                        ret = Err(err);
+                        break;
+                    }
+                }
+                if ret.is_err() {
+                    for track in self.tracks.iter_mut() {
+                        track.reset();
+                    }
+                }
+                return ret;
             }
             return Err(DemuxerError::SeekError);
         }
@@ -1925,7 +1955,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 } else {
                     seek_info.pts * u64::from(tbn) * u64::from(track.tb_den) / (u64::from(tbd) * u64::from(track.tb_num))
                 };
-            let actual_time = track.seek(cur_pts, time)?;
+            let actual_time = track.seek(cur_pts, time, false)?;
             match track.stream_type {
                 StreamType::Video => vpts = Some(actual_time),
                 StreamType::Audio => apts = Some(actual_time),
@@ -1941,7 +1971,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 for track in self.tracks.iter_mut() {
                     if track.stream_type == StreamType::Audio {
                         let new_pts = NATimeInfo::rescale_ts(vtime, 1, 1000, track.tb_num, track.tb_den);
-                        track.seek(new_pts, NATimePoint::Milliseconds(vtime))?;
+                        track.seek(new_pts, NATimePoint::Milliseconds(vtime), false)?;
                     }
                 }
             }
@@ -1965,6 +1995,10 @@ const DEMUXER_OPTIONS: &[NAOptionDefinition] = &[
         name:           PRINT_CHUNKS,
         description:    "Print parsed file structure",
         opt_type:       NAOptionDefinitionType::Bool },
+    NAOptionDefinition {
+        name:           FORCE_SEEK_OPTION,
+        description:    FORCE_SEEK_OPTION_DESC,
+        opt_type:       NAOptionDefinitionType::Bool },
 ];
 
 impl<'a> NAOptionHandler for MOVDemuxer<'a> {
@@ -1978,6 +2012,9 @@ impl<'a> NAOptionHandler for MOVDemuxer<'a> {
                         (PRINT_CHUNKS, NAValue::Bool(val)) => {
                             self.print_chunks = *val;
                         },
+                        (FORCE_SEEK_OPTION, NAValue::Bool(val)) => {
+                            self.force_seek = *val;
+                        },
                         _ => {},
                     }
                 }
@@ -1987,6 +2024,7 @@ impl<'a> NAOptionHandler for MOVDemuxer<'a> {
     fn query_option_value(&self, name: &str) -> Option<NAValue> {
         match name {
             PRINT_CHUNKS    => Some(NAValue::Bool(self.print_chunks)),
+            FORCE_SEEK_OPTION => Some(NAValue::Bool(self.force_seek)),
             _ => None,
         }
     }
@@ -2019,6 +2057,7 @@ impl<'a> MOVDemuxer<'a> {
             print_chunks:   false,
 
             demux_mode,
+            force_seek:     false,
         }
     }
     fn read_root(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
