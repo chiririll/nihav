@@ -54,6 +54,9 @@ struct AVIStream {
     aud_brate:      u32,
 
     index:          Vec<ChunkIndex>,
+
+    print_chunks:   bool,
+    depth:          u8,
 }
 
 impl AVIStream {
@@ -286,6 +289,9 @@ struct AVIState {
     cur_chunk:      usize,
     iddx_pos:       u64,
     iddx_size:      usize,
+
+    print_chunks:   bool,
+    depth:          u8,
 }
 
 impl AVIState {
@@ -349,6 +355,8 @@ impl AVIState {
         validate!(stream_no < 100);
         let mut stream = AVIStream { strm_no: stream_no as u8, ..Default::default() };
         let end = src.tell() + size as u64 - 4;
+        stream.print_chunks = self.print_chunks;
+        stream.depth = self.depth;
         parse_chunks(&mut stream, src, strmgr, seek_index, STRL_CHUNKS, end)?;
         validate!(stream.got_strf);
         if !stream.odml_idx.is_empty() {
@@ -362,6 +370,7 @@ impl AVIState {
 struct AVIDemuxer<'a> {
     src:            &'a mut dyn ByteIO,
     state:          AVIState,
+    print_chunks:   bool,
 }
 
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -375,10 +384,46 @@ struct ChunkHandler<T> {
     parse: fn(obj: &mut T, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()>,
 }
 
-fn parse_chunks<T>(obj: &mut T, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, handlers: &[ChunkHandler<T>], parse_end: u64) -> DemuxerResult<()> {
+trait DebugChunks {
+    fn inc_depth(&mut self);
+    fn dec_depth(&mut self);
+    fn get_depth(&self) -> u8;
+    fn is_debug(&self) -> bool;
+}
+
+impl DebugChunks for AVIState {
+    fn inc_depth(&mut self) { self.depth += 1; }
+    fn dec_depth(&mut self) { self.depth -= 1; }
+    fn get_depth(&self) -> u8 { self.depth }
+    fn is_debug(&self) -> bool { self.print_chunks }
+}
+
+impl DebugChunks for AVIStream {
+    fn inc_depth(&mut self) { self.depth += 1; }
+    fn dec_depth(&mut self) { self.depth -= 1; }
+    fn get_depth(&self) -> u8 { self.depth }
+    fn is_debug(&self) -> bool { self.print_chunks }
+}
+
+fn parse_chunks<T: DebugChunks>(obj: &mut T, src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_index: &mut SeekIndex, handlers: &[ChunkHandler<T>], parse_end: u64) -> DemuxerResult<()> {
+    obj.inc_depth();
     while src.tell() < parse_end {
         let tag                     = src.read_tag()?;
         let size                    = src.read_u32le()?;
+        if obj.is_debug() {
+            for _ in 0..obj.get_depth() {
+                print!("    ");
+            }
+            print!("{}{}{}{}", tag[0] as char, tag[1] as char, tag[2] as char, tag[3] as char);
+            if &tag == b"LIST" {
+                if let Ok(tag2) = src.peek_tag() {
+                    print!(" type {}{}{}{}", tag2[0] as char, tag2[1] as char, tag2[2] as char, tag2[3] as char);
+                } else {
+                    print!(" type ????");
+                }
+            }
+            println!(" size {size:X} @ {:X}", src.tell() - 8);
+        }
         let chunk_end = src.tell() + u64::from(size);
         validate!(chunk_end <= parse_end);
         if &tag == b"JUNK" {
@@ -413,6 +458,7 @@ fn parse_chunks<T>(obj: &mut T, src: &mut dyn ByteIO, strmgr: &mut StreamManager
             }
         }
     }
+    obj.dec_depth();
     Ok(())
 }
 
@@ -439,11 +485,15 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let riff_tag = self.src.read_tag()?;
         let size     = self.src.read_u32le()? as usize;
+        if self.print_chunks {
+            println!("{}{}{}{} size {size:X} @ {:X}", riff_tag[0] as char, riff_tag[1] as char, riff_tag[2] as char, riff_tag[3] as char, self.src.tell() - 8);
+        }
         self.state.odml_riff.push(RIFFSegment { pos: self.src.tell() - 8, size: size + 8, movi_pos: 0, movi_size: 0});
         let avi_tag  = self.src.read_tag()?;
         if !AVI_HEADER_TAGS.contains(&(&riff_tag, &avi_tag)) {
             return Err(InvalidData);
         }
+        self.state.print_chunks = self.print_chunks;
         self.state.size = size;
 
         match parse_chunks(&mut self.state, &mut *self.src, strmgr, seek_index, AVI_ROOT_CHUNKS, size as u64 + 8) {
@@ -729,10 +779,38 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
     fn get_duration(&self) -> u64 { 0 }
 }
 
+const PRINT_CHUNKS: &str = "print_chunks";
+
+const DEMUXER_OPTIONS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name:           PRINT_CHUNKS,
+        description:    "Print parsed file structure",
+        opt_type:       NAOptionDefinitionType::Bool },
+];
+
+#[allow(clippy::single_match)]
 impl<'a> NAOptionHandler for AVIDemuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { DEMUXER_OPTIONS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            for opt_def in DEMUXER_OPTIONS.iter() {
+                if opt_def.check(option).is_ok() {
+                    match (option.name, &option.value) {
+                        (PRINT_CHUNKS, NAValue::Bool(val)) => {
+                            self.print_chunks = *val;
+                        },
+                        _ => {},
+                    }
+                }
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        match name {
+            PRINT_CHUNKS    => Some(NAValue::Bool(self.print_chunks)),
+            _ => None,
+        }
+    }
 }
 
 impl<'a> AVIDemuxer<'a> {
@@ -740,6 +818,7 @@ impl<'a> AVIDemuxer<'a> {
         AVIDemuxer {
             src: io,
             state: AVIState::new(),
+            print_chunks: false,
         }
     }
 
@@ -765,6 +844,9 @@ impl<'a> AVIDemuxer<'a> {
         }
         let riff_size = self.src.read_u32le()? as usize;
         let tag = self.src.read_tag()?;
+        if self.print_chunks {
+            println!("RIFF extended {}{}{}{} size {riff_size:X} @ {:X}", tag[0] as char, tag[1] as char, tag[2] as char, tag[3] as char, self.src.tell() - 12);
+        }
         validate!(&tag == b"AVIX");
         let tag = self.src.read_tag()?;
         validate!(&tag == b"LIST");
