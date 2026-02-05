@@ -254,6 +254,14 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 0x84, cond: &CC::Or(&CC::Str(b"mdat"), &CC::Str(b"moov"))}],
     },
     DetectConditions {
+        demux_name: "mov-macbin",
+        extensions: ".mov,.bin",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::Byte(0))},
+                      CheckItem{offs: 0x41, cond: &CC::Str(b"MooVPrMr")},
+                      CheckItem{offs: 0x7A, cond: &CC::Eq(Arg::Byte(0x81))},
+                      CheckItem{offs: 0x7B, cond: &CC::Eq(Arg::Byte(0x81))}],
+    },
+    DetectConditions {
         demux_name: "mov-resfork",
         extensions: ".mov",
         conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U32BE(0x100))},
