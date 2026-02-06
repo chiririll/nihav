@@ -628,6 +628,7 @@ impl NADecoder for JPEGDecoder {
                     match jtype {
                         JPEGType::Baseline | JPEGType::Extended => {
                             if arith {
+                                println!("arithmetic coding!");
                                 return Err(DecoderError::NotImplemented);
                             }
                             validate!(ss == 0 && se == 63);
@@ -661,11 +662,13 @@ impl NADecoder for JPEGDecoder {
                         JPEGType::Progressive => {
                             validate!(ss < 64 && se < 64 && se >= ss);
                             validate!(ah < 14 && al < 14);
+                            println!("Progressive JPEG");
                             return Err(DecoderError::NotImplemented);
                         },
                         JPEGType::Lossless => {
                             validate!(ss >= 1 && ss < 8 && se == 0);
                             validate!(ah == 0);
+                            println!("LJPEG");
                             return Err(DecoderError::NotImplemented);
                         },
                         _ => return Err(DecoderError::NotImplemented),
@@ -720,6 +723,7 @@ impl NADecoder for JPEGDecoder {
                 0xFFF7 => {
                     //jtype = JPEGType::JPEGLS;
                     //arith = false;
+                    println!("JPEG-LS");
                     return Err(DecoderError::NotImplemented);
                 },
                 0xFFF8 => return Err(DecoderError::NotImplemented), //JPEG-LS parameters
