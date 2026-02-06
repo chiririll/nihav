@@ -236,9 +236,7 @@ impl TM2XDecoder {
         validate!(idx < self.deltas.tabs.len());
         let len                         = br.read_byte()? as usize;
         validate!(((len * 2) as i64) == br.left());
-        for i in 0..len {
-            self.deltas.tabs[idx][i]    = br.read_u16be()? as i16;
-        }
+                                          br.read_i16be_arr(&mut self.deltas.tabs[idx][..len])?;
 
         Ok(())
     }

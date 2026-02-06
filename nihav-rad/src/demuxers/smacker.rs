@@ -142,12 +142,8 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
 
         self.frame_sizes.resize(self.frames, 0);
         self.frame_flags.resize(self.frames, 0);
-        for i in 0..self.frames {
-            self.frame_sizes[i]             = src.read_u32le()?;
-        }
-        for i in 0..self.frames {
-            self.frame_flags[i]             = src.read_byte()?;
-        }
+                                              src.read_u32le_arr(&mut self.frame_sizes)?;
+                                              src.read_buf(&mut self.frame_flags)?;
 
         src.read_buf(&mut treedata[24..])?;
 

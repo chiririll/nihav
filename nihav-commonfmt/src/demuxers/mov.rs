@@ -928,24 +928,8 @@ fn read_stsz(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     } else {
         let entries             = br.read_u32be()? as usize;
         validate!((entries * 4 + 12) as u64 == size);
-        if entries < 1024 {
-            track.chunk_sizes = Vec::with_capacity(entries);
-            for _ in 0..entries {
-                let sample_size     = br.read_u32be()?;
-                track.chunk_sizes.push(sample_size);
-            }
-        } else {
-            // reading whole array at once and converting it later is much faster
-            track.chunk_sizes = vec![0; entries];
-            unsafe {
-                let ptr = track.chunk_sizes.as_mut_ptr() as *mut u8;
-                let dbuf = std::slice::from_raw_parts_mut(ptr, entries * 4);
-                br.read_buf(dbuf)?;
-            }
-            for el in track.chunk_sizes.iter_mut() {
-                *el = u32::from_be(*el);
-            }
-        }
+        track.chunk_sizes = vec![0; entries];
+                                  br.read_u32be_arr(&mut track.chunk_sizes)?;
         Ok(size)
     }
 }
