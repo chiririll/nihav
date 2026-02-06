@@ -232,7 +232,7 @@ impl<'a> DemuxerObject<'a> {
         }
         br.seek(SeekFrom::Start(0)).unwrap();
         let mut buf = vec![0; 1048576];
-        let size = br.read_buf_some(&mut buf).unwrap();
+        let size = br.read_buf_some(&mut buf).unwrap_or(0);
         br.seek(SeekFrom::Start(0)).unwrap();
         let mut pname = "";
 
@@ -549,7 +549,9 @@ pub fn detect_tags(br: &mut dyn ByteIO, verbose: bool) -> (bool, u64, Option<u64
         }
     }
     // check for ID3v1
-    br.seek(SeekFrom::End(-128)).unwrap();
+    if br.seek(SeekFrom::End(-128)).is_err() {
+        return (is_raw, start, None); // the stream is too short for tail tags
+    }
     let off = br.tell();
     br.peek_buf(&mut buf[..3]).unwrap();
     if &buf[0..3] == b"TAG" {
