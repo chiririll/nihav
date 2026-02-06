@@ -45,6 +45,20 @@ macro_rules! peek_int {
     })
 }
 
+macro_rules! read_int_array {
+    ($s: ident, $arr: expr, $inttype: ty, $which: ident) => ({
+        unsafe {
+            let len = $arr.len();
+            let ptr = $arr.as_mut_ptr() as *mut u8;
+            let dbuf = std::slice::from_raw_parts_mut(ptr, len * std::mem::size_of::<$inttype>());
+            $s.read_buf(dbuf)?;
+            for el in $arr.iter_mut() {
+                *el = <$inttype>::$which(*el);
+            }
+        }
+    })
+}
+
 /// Common trait for bytestream operations.
 ///
 /// User is supposed to create some reader/writer implementing this trait e.g. [`MemoryReader`] or [`MemoryWriter`] and use extended functions for reading or writing e.g. various integer types.
@@ -255,6 +269,59 @@ pub trait ByteIO {
     /// Reads 64-bit little-endian floating point number from the stream without advancing read position.
     fn peek_f64le(&mut self) -> ByteIOResult<f64> {
         Ok(f64::from_bits(self.peek_u64le()?))
+    }
+
+    /// Reads an array of 16-bit big-endian unsigned integers from the stream.
+    fn read_u16be_arr(&mut self, arr: &mut [u16]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, u16, from_be);
+        Ok(())
+    }
+    /// Reads an array of 16-bit little-endian unsigned integers from the stream.
+    fn read_u16le_arr(&mut self, arr: &mut [u16]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, u16, from_le);
+        Ok(())
+    }
+    /// Reads an array of 16-bit big-endian signed integers from the stream.
+    fn read_i16be_arr(&mut self, arr: &mut [i16]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, i16, from_be);
+        Ok(())
+    }
+    /// Reads an array of 16-bit little-endian signed integers from the stream.
+    fn read_i16le_arr(&mut self, arr: &mut [i16]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, i16, from_le);
+        Ok(())
+    }
+
+    /// Reads an array of 32-bit big-endian unsigned integers from the stream.
+    fn read_u32be_arr(&mut self, arr: &mut [u32]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, u32, from_be);
+        Ok(())
+    }
+    /// Reads an array of 32-bit little-endian unsigned integers from the stream.
+    fn read_u32le_arr(&mut self, arr: &mut [u32]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, u32, from_le);
+        Ok(())
+    }
+    /// Reads an array of 32-bit big-endian signed integers from the stream.
+    fn read_i32be_arr(&mut self, arr: &mut [i32]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, i32, from_be);
+        Ok(())
+    }
+    /// Reads an array of 32-bit little-endian signed integers from the stream.
+    fn read_i32le_arr(&mut self, arr: &mut [i32]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, i32, from_le);
+        Ok(())
+    }
+
+    /// Reads an array of 64-bit big-endian unsigned integers from the stream.
+    fn read_u64be_arr(&mut self, arr: &mut [u64]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, u64, from_be);
+        Ok(())
+    }
+    /// Reads an array of 32-bit little-endian unsigned integers from the stream.
+    fn read_u64le_arr(&mut self, arr: &mut [u64]) -> ByteIOResult<()> {
+        read_int_array!(self, arr, u64, from_le);
+        Ok(())
     }
 
     /// Skips requested number of bytes.
