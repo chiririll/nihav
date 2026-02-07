@@ -10,6 +10,9 @@ path = "../nihav-core"
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
 
+[dependencies.nihav_registry]
+path = "../nihav-registry"
+
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
 
@@ -32,7 +35,8 @@ decoder_tealvid = ["decoders"]
 
 all_audio_decoders = []
 
-all_demuxers = ["demuxer_mvi", "demuxer_qpeg", "demuxer_tealmov"]
+all_demuxers = ["demuxer_av", "demuxer_mvi", "demuxer_qpeg", "demuxer_tealmov"]
+demuxer_av = ["demuxers"]
 demuxer_mvi = ["demuxers"]
 demuxer_qpeg = ["demuxers"]
 demuxer_tealmov = ["demuxers"]

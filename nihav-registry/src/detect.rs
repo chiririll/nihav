@@ -199,6 +199,11 @@ struct DetectConditions<'a> {
 
 const DETECTORS: &[DetectConditions] = &[
     DetectConditions {
+        demux_name: "av",
+        extensions: ".av",
+        conditions: &[]
+    },
+    DetectConditions {
         demux_name: "avi",
         extensions: ".avi",
         conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b"RIFF"), &CC::Str(b"ON2 ")) },
