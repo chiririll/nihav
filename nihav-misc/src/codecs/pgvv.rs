@@ -141,6 +141,7 @@ struct RadiusStudioDecoder {
     codebook:   [[Option<Codebook<u8>>; 4]; 2],
     width:      usize,
     height:     usize,
+    ilaced:     bool,
 }
 
 fn read_dc(br: &mut BitReader, cb: &Codebook<u8>) -> DecoderResult<i16> {
@@ -210,11 +211,12 @@ impl RadiusStudioDecoder {
             codebook:   [[None, None, None, None], [None, None, None, None]],
             width:      0,
             height:     0,
+            ilaced:     false,
         }
     }
 
     #[allow(clippy::needless_range_loop)]
-    fn decode_scan(&mut self, src: &[u8], mut buf: NAVideoBufferRef<u8>, ci: &[ComponentInfo], ss: usize, se: usize) -> DecoderResult<usize> {
+    fn decode_scan(&mut self, src: &[u8], mut buf: NAVideoBufferRef<u8>, ci: &[ComponentInfo], ss: usize, se: usize, field2: bool) -> DecoderResult<usize> {
         let num_components = ci.len();
         let mut last_dc = [1024; MAX_CHROMATONS];
         let mut dc_cbs = Vec::with_capacity(num_components);
@@ -251,7 +253,17 @@ impl RadiusStudioDecoder {
         }
 
         let mut blocks;
-        for _y in (0..self.height).step_by(vstep) {
+        let height = if !self.ilaced { self.height } else { self.height / 2 };
+        let mut stride = frm.stride;
+        if self.ilaced {
+            for (strd, off) in stride.iter_mut().zip(offs.iter_mut()) {
+                if field2 {
+                    *off += *strd;
+                }
+                *strd <<= 1;
+            }
+        }
+        for _y in (0..height).step_by(vstep) {
             for x in 0..(self.width + hstep - 1) / hstep {
                 for i in 0..num_components {
                     blocks = [[0; 64]; 4];
@@ -268,19 +280,19 @@ impl RadiusStudioDecoder {
                     }
                     match self.subsamp[i] {
                         0x11 => {
-                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 8..], frm.stride[i]);
+                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 8..], stride[i]);
                         },
                         0x21 => {
-                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 16..], frm.stride[i]);
-                            put_block(&blocks[1], &mut frm.data[offs[i] + x * 16 + 8..], frm.stride[i]);
+                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 16..], stride[i]);
+                            put_block(&blocks[1], &mut frm.data[offs[i] + x * 16 + 8..], stride[i]);
                         },
                         0x12 => {
-                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 8..], frm.stride[i]);
-                            put_block(&blocks[1], &mut frm.data[offs[i] + x * 8 + frm.stride[i] * 8..], frm.stride[i]);
+                            put_block(&blocks[0], &mut frm.data[offs[i] + x * 8..], stride[i]);
+                            put_block(&blocks[1], &mut frm.data[offs[i] + x * 8 + stride[i] * 8..], stride[i]);
                         },
                         0x22 => {
                             for j in 0..4 {
-                                put_block(&blocks[j], &mut frm.data[offs[i] + x * 16 + (j & 1) * 8 + (j >> 1) * 8 * frm.stride[i]..], frm.stride[i]);
+                                put_block(&blocks[j], &mut frm.data[offs[i] + x * 16 + (j & 1) * 8 + (j >> 1) * 8 * stride[i]..], stride[i]);
                             }
                         },
                         _ => unreachable!(),
@@ -288,7 +300,7 @@ impl RadiusStudioDecoder {
                 }
             }
             for i in 0..num_components {
-                offs[i] += frm.stride[i] * ystep[i];
+                offs[i] += stride[i] * ystep[i];
             }
         }
 
@@ -367,7 +379,7 @@ impl NADecoder for RadiusStudioDecoder {
         let _size_v0            = br.read_u32be()? as usize;
         let field2_size         = br.read_u32be()? as usize;
         if field2_size != 0 {
-            return Err(DecoderError::NotImplemented);
+            self.ilaced = true;
         }
         let version             = br.read_u16be()?;
         validate!(version <= 2);
@@ -459,7 +471,10 @@ impl NADecoder for RadiusStudioDecoder {
                 ComponentInfo { component_id: 2, dc_table_id: 1, ac_table_id: 1 },
                 ComponentInfo { component_id: 3, dc_table_id: 1, ac_table_id: 1 },
             ];
-            self.decode_scan(&src[hdr_size..], buf, &ci, 0, 63)?;
+            self.decode_scan(&src[hdr_size..], buf.clone(), &ci, 0, 63, false)?;
+            if self.ilaced {
+                self.decode_scan(&src[hdr_size..], buf, &ci, 0, 63, true)?;
+            }
         } else { unreachable!(); }
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
