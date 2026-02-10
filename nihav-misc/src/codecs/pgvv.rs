@@ -376,7 +376,7 @@ impl NADecoder for RadiusStudioDecoder {
         let src = pkt.get_buffer();
         if src.len() < 2048 { return Err(DecoderError::ShortData); }
         let mut br = MemoryReader::new_read(&src);
-        let _size_v0            = br.read_u32be()? as usize;
+        let size_v0             = br.read_u32be()? as usize;
         let field2_size         = br.read_u32be()? as usize;
         if field2_size != 0 {
             self.ilaced = true;
@@ -386,6 +386,10 @@ impl NADecoder for RadiusStudioDecoder {
         let hdr_size = if version == 0 { 16 } else { 32 };
                                   br.read_skip(1)?;
         let quant               = br.read_byte()?;
+                                  br.read_skip(8)?;
+        let size_v1             = br.read_u32be()? as usize;
+
+        let field0_size = if version == 0 { size_v0 } else { size_v1 };
 
         let formaton = NAPixelFormaton {
                 model:      ColorModel::YUV(YUVSubmodel::YUVJ),
@@ -473,7 +477,9 @@ impl NADecoder for RadiusStudioDecoder {
             ];
             self.decode_scan(&src[hdr_size..], buf.clone(), &ci, 0, 63, false)?;
             if self.ilaced {
-                self.decode_scan(&src[hdr_size..], buf, &ci, 0, 63, true)?;
+                let field2_off = hdr_size + ((field0_size + 0x7FF) & !0x7FF);
+                validate!(field2_off < src.len());
+                self.decode_scan(&src[field2_off..], buf, &ci, 0, 63, true)?;
             }
         } else { unreachable!(); }
 
