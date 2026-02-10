@@ -985,7 +985,7 @@ fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut S
                 key_offs.push(offset);
             }
         }
-        if (flags & 0x100) == 0 {
+        if (flags & 0x100) == 0 && &tag[2..] != b"pc" {
             counter[stream_no] += 1;
         }
     }
