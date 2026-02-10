@@ -461,8 +461,8 @@ impl NADecoder for RadiusStudioDecoder {
         ];
 
         for (i, (&luma_q, &chroma_q)) in DEF_LUMA_QUANT.iter().zip(DEF_CHROMA_QUANT.iter()).enumerate() {
-            self.quant[0][ZIGZAG[i]] = ((i16::from(quant) * i16::from(luma_q) + 25) / 50).clamp(1, 255);
-            self.quant[1][ZIGZAG[i]] = ((i16::from(quant) * i16::from(chroma_q) + 25) / 50).clamp(1, 255);
+            self.quant[0][i] = ((i16::from(quant) * i16::from(luma_q) + 25) / 50).clamp(1, 255);
+            self.quant[1][i] = ((i16::from(quant) * i16::from(chroma_q) + 25) / 50).clamp(1, 255);
         }
 
         if let Some(buf) = bufinfo.get_vbuf() {
@@ -512,10 +512,10 @@ mod test {
         // sample: https://samples.mplayerhq.hu/V-codecs/PGVV-RadiusStudio/airfone.mov
         test_decoding("mov", "pgvv", "assets/Misc/airfone.mov", Some(6), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
-                            [0x84c27180, 0x1ae0ab09, 0x8cb668b5, 0xeba06638],
-                            [0x803eae91, 0x56618078, 0x95b8a98f, 0x7e718ad9],
-                            [0xd9543391, 0x339d9cc5, 0x100e868c, 0xa467eda1],
-                            [0x5f50f6a4, 0x20e88428, 0xb1f3a573, 0xd8ac5acf]]));
+                            [0x7fe38055, 0x55fdd28b, 0x5af93d05, 0x3950e603],
+                            [0x45968583, 0x8a9a8cfb, 0x7f6039ab, 0x43cd0df4],
+                            [0x3acba878, 0x87792a3b, 0x6a7dab48, 0x91b931d7],
+                            [0x68b4b35e, 0x8a918647, 0x9d997c5d, 0x4ec1bc34]]));
     }
 }
 
