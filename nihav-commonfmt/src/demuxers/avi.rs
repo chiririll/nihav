@@ -61,7 +61,7 @@ struct AVIStream {
 
 impl AVIStream {
     fn parse_strh(&mut self, src: &mut dyn ByteIO, _strmgr: &mut StreamManager, _seek_index: &mut SeekIndex, size: usize) -> DemuxerResult<()> {
-        if size < 0x38 { return Err(InvalidData); }
+        if size < 0x30 { return Err(InvalidData); }
         validate!(!self.got_strf);
         let tag                 = src.read_tag()?; //stream type
         self.handler            = src.read_tag()?; //handler(fourcc)
@@ -76,12 +76,12 @@ impl AVIStream {
                                   src.read_skip(4)?; //buf size
                                   src.read_skip(4)?; //quality
                                   src.read_skip(4)?; //sample size
-        let _a                  = src.read_u16le()?;
+        /*let _a                  = src.read_u16le()?;
         let _b                  = src.read_u16le()?;
         let _c                  = src.read_u16le()?;
-        let _d                  = src.read_u16le()?;
+        let _d                  = src.read_u16le()?;*/
 
-                                  src.read_skip(size - 0x38)?;
+                                  src.read_skip(size - 0x30)?;
 
         // padding streams should be ignored
         if &tag == b"pads" {
