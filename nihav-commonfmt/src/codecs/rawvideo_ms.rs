@@ -32,6 +32,8 @@ impl NADecoder for RawDecoder {
                 return Err(DecoderError::InvalidData);
             }
             let depth = if vinfo.format.is_paletted() { 8 } else { vinfo.format.get_total_depth() } as usize;
+            let stride = (width * depth + 31) / 32 * 4;
+            validate!(src.len() >= stride * height);
             let buf = match depth {
                     8 => {
                         for sd in pkt.side_data.iter() {
