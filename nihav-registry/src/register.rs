@@ -339,6 +339,8 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video;    "teal-video",    "TealMovie video"),
     desc!(audio;    "teal-audio",    "TealMovie audio"),
+
+    desc!(video;    "ultimotion",    "IBM Ultimotion"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
@@ -397,6 +399,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"FVF1", "fif"),
 
     (b"pivc", "pivideo"),
+
+    (b"ULTI", "ultimotion"),
 
     (b"ARBC", "gryphon-arbc-vfw"),
     (b"azpr", "apple-video"),

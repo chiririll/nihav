@@ -33,6 +33,9 @@ mod qpeg;
 #[cfg(feature="decoder_tealvid")]
 mod tealvid;
 
+#[cfg(feature="decoder_ultimotion")]
+mod ultimotion;
+
 const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_arbc")]
     DecoderInfo { name: "gryphon-arbc-vfw", get_decoder: arbc::get_decoder_vfw },
@@ -58,6 +61,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "teal-video", get_decoder: tealvid::get_decoder_video },
 #[cfg(feature="decoder_tealvid")]
     DecoderInfo { name: "teal-audio", get_decoder: tealvid::get_decoder_audio },
+#[cfg(feature="decoder_ultimotion")]
+    DecoderInfo { name: "ultimotion", get_decoder: ultimotion::get_decoder },
 ];
 
 /// Registers all available codecs provided by this crate.
