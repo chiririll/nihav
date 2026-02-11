@@ -916,7 +916,7 @@ impl NADecoder for Indeo3Decoder {
         if (frameno ^ hdr_2 ^ size ^ FRMH_TAG) != check {
             return Err(DecoderError::InvalidData);
         }
-        if i64::from(size) > br.left() {
+        if i64::from(size) > br.left() + 16 {
             return Err(DecoderError::InvalidData);
         }
 
