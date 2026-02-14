@@ -609,6 +609,10 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             let is_keyframe = self.state.key_offs.binary_search(&self.src.tell()).is_ok();
             let tag = self.src.read_tag()?;
             let size = self.src.read_u32le()? as usize;
+            if size > self.state.movi_size {
+                self.state.movi_size = 0;
+                return Err(InvalidData);
+            }
             match &tag {
                 b"JUNK" => {
                     self.state.movi_size -= size + 8;
