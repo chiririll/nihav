@@ -27,6 +27,8 @@ pub mod lhst500f22;
 pub mod midivid;
 #[cfg(feature="decoder_midivid3")]
 pub mod midivid3;
+#[cfg(feature="decoder_pdq2")]
+pub mod pdq2;
 #[cfg(feature="decoder_seq")]
 pub mod seq;
 #[cfg(feature="decoder_sga")]
@@ -77,6 +79,8 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "midivid", get_decoder: midivid::get_decoder_video },
 #[cfg(feature="decoder_midivid3")]
     DecoderInfo { name: "midivid3", get_decoder: midivid3::get_decoder_video },
+#[cfg(feature="decoder_pdq2")]
+    DecoderInfo { name: "pdq2", get_decoder: pdq2::get_decoder },
 ];
 
 /// Registers all available codecs provided by this crate.

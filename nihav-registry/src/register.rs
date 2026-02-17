@@ -281,6 +281,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "midivid",       "MidiVid"),
     desc!(video;    "midivid3",      "MidiVid 3"),
     desc!(video-ll; "midivid-ll",    "MidiVid Lossless"),
+    desc!(video-llp; "pdq2",         "PDQ2"),
     desc!(video-ll; "rbt-video",     "Sierra Robot video"),
     desc!(audio;    "rbt-audio",     "Sierra Robot audio"),
     desc!(video;    "seq-video",     "Sierra Sequence video"),
@@ -375,6 +376,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"MVDV", "midivid"),
     (b"MV30", "midivid3"),
     (b"MVLZ", "midivid-ll"),
+
+    (b"PDQ2", "pdq2"),
 
     (b"tmot", "truemotion1"),
     (b"DUCK", "truemotion1"),
