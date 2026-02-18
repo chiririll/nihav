@@ -486,7 +486,7 @@ impl QcelpDecoder {
                         validate!((lsp.data[i] - lsp.data[i - 4]).abs() >= 0.0931);
                     }
                 } else {
-                    validate!(lsp.data[9] > 0.80 && lsp.data[9] < 0.97);
+                    validate!(lsp.data[9] > 0.70 && lsp.data[9] < 0.97);
                     for i in 3..10 {
                         validate!((lsp.data[i] - lsp.data[i - 2]).abs() >= 0.08);
                     }
