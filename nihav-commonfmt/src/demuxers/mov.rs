@@ -1674,6 +1674,11 @@ impl Track {
                 csamp += cur_samps;
                 if csamp >= self.cur_sample {
                     if self.cur_chunk >= self.chunk_offsets.len() {
+                        if self.stream_type == StreamType::Data {
+                            self.cur_chunk = self.chunk_offsets.len();
+                            self.samples_left = 0;
+                            return Ok(NATimeInfo::rescale_ts(tgt_pts, self.tb_num, self.tb_den, 1, 1000));
+                        }
                         return Err(DemuxerError::SeekError);
                     }
                     self.last_offset = self.chunk_offsets[self.cur_chunk];
@@ -1950,8 +1955,10 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
            by more than half a second try to seek audio to a closer position
            to video.
         */
-        if let (true, Some(vtime), Some(atime)) = (self.tracks.len() == 2, vpts, apts) {
-            if vtime.max(atime) - vtime.min(atime) > 500 && atime != 0 {
+        if let (Some(vtime), Some(atime)) = (vpts, apts) {
+            let acount = self.tracks.iter().filter(|trk| trk.stream_type == StreamType::Audio).count();
+            let vcount = self.tracks.iter().filter(|trk| trk.stream_type == StreamType::Video).count();
+            if (vcount == 1 && acount == 1) && (vtime.max(atime) - vtime.min(atime) > 500) && (atime != 0) {
                 for track in self.tracks.iter_mut() {
                     if track.stream_type == StreamType::Audio {
                         let new_pts = NATimeInfo::rescale_ts(vtime, 1, 1000, track.tb_num, track.tb_den);
