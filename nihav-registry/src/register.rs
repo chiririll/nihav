@@ -204,6 +204,8 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "qdraw",                "Apple QuickDraw"),
     desc!(video;    "sorenson-video",       "Sorenson Video"),
     desc!(video;    "sorenson-video3",      "Sorenson Video 3", CODEC_CAP_REORDER),
+    desc!(video-ll; "qt-yuv2",              "Raw YUV"),
+    desc!(video-ll; "qt-yuv4",              "libquicktime YUV4"),
     desc!(audio-ll; "alac",                 "Apple Lossless Audio Codec"),
     desc!(audio;    "mace-3",               "MACE 3:1"),
     desc!(audio;    "mace-6",               "MACE 6:1"),
@@ -471,6 +473,8 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"avc1", "h264"),
 
     (b"j420", "rawvideo"),
+    (b"yuv2", "qt-yuv2"),
+    (b"yuv4", "qt-yuv4"),
 ];
 
 static MOV_AUDIO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[

@@ -36,6 +36,9 @@ mod svq3;
 #[allow(clippy::many_single_char_names)]
 mod svq3dsp;
 
+#[cfg(feature="decoder_rawvid")]
+mod rawvid;
+
 #[cfg(feature="decoder_alac")]
 mod alac;
 
@@ -76,6 +79,10 @@ const QT_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "sorenson-video", get_decoder: svq1::get_decoder },
 #[cfg(feature="decoder_svq3")]
     DecoderInfo { name: "sorenson-video3", get_decoder: svq3::get_decoder },
+#[cfg(feature="decoder_rawvid")]
+    DecoderInfo { name: "qt-yuv2", get_decoder: rawvid::get_decoder_yuv2 },
+#[cfg(feature="decoder_rawvid")]
+    DecoderInfo { name: "qt-yuv4", get_decoder: rawvid::get_decoder_yuv4 },
 #[cfg(feature="decoder_alac")]
     DecoderInfo { name: "alac", get_decoder: alac::get_decoder },
 #[cfg(feature="decoder_ima_adpcm_qt")]
