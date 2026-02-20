@@ -18,7 +18,7 @@ const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton {
             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  5, comp_offs: 0, next_elem: 2 }),
             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  0, comp_offs: 0, next_elem: 2 }),
             None, None],
-        elem_size: 2, be: false, alpha: false, palette: false };
+        elem_size: 2, be: true, alpha: false, palette: false };
 
 pub const ARGB_FORMAT: NAPixelFormaton = NAPixelFormaton {
         model: ColorModel::RGB(RGBSubmodel::RGB), components: 4,
