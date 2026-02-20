@@ -1,4 +1,5 @@
 use crate::formats::*;
+use crate::io::byteio::*;
 use super::*;
 use super::kernel::Kernel;
 
@@ -165,17 +166,18 @@ impl Kernel for UnpackKernel {
     }
     fn process(&mut self, pic_in: &NABufferType, pic_out: &mut NABufferType) {
         if let Some(ref buf) = pic_in.get_vbuf() {
-            let step = buf.get_info().get_format().elem_size as usize;
+            let ifmt = buf.get_info().get_format();
+            let step = ifmt.elem_size as usize;
             let mut soff: [usize; MAX_CHROMATONS] = [0; MAX_CHROMATONS];
             for (i, off) in soff[..self.ncomps].iter_mut().enumerate() {
-                *off = buf.get_info().get_format().get_chromaton(i).unwrap().get_offset() as usize;
+                *off = ifmt.get_chromaton(i).unwrap().get_offset() as usize;
             }
             let (w, h) = buf.get_dimensions(0);
             let ioff = buf.get_offset(0);
             let istride = buf.get_stride(0);
             let sdata1 = buf.get_data();
             let sdata = &sdata1[ioff..];
-            let ychr = buf.get_info().get_format().get_chromaton(0).unwrap();
+            let ychr = ifmt.get_chromaton(0).unwrap();
             if let Some(ref mut dbuf) = pic_out.get_vbuf() {
                 let mut ostride: [usize; MAX_CHROMATONS] = [0; MAX_CHROMATONS];
                 let mut offs: [usize; MAX_CHROMATONS] = [0; MAX_CHROMATONS];
@@ -184,7 +186,28 @@ impl Kernel for UnpackKernel {
                     offs[i]    = dbuf.get_offset(i);
                 }
                 let dst = dbuf.get_data_mut().unwrap();
-                if ychr.next_elem == 0 || usize::from(ychr.next_elem) == step {
+                if ifmt.get_max_depth() != 8 {
+                    for src in sdata.chunks(istride).take(h) {
+                        for (x, piece) in src.chunks(step).take(w).enumerate() {
+                            let elem = match (step, ifmt.is_be()) {
+                                (1, _)     => u32::from(piece[0]),
+                                (2, true)  => u32::from(read_u16be(piece).unwrap_or_default()),
+                                (2, false) => u32::from(read_u16le(piece).unwrap_or_default()),
+                                (3, true)  => read_u24be(piece).unwrap_or_default(),
+                                (3, false) => read_u24le(piece).unwrap_or_default(),
+                                (4, true)  => read_u32be(piece).unwrap_or_default(),
+                                (4, false) => read_u32le(piece).unwrap_or_default(),
+                                _ => unimplemented!(),
+                            };
+                            for i in 0..self.ncomps {
+                                dst[offs[i] + x] = convert_depth((elem >> self.shifts[i]) & self.masks[i], self.depths[i], self.osize[i]) as u8;
+                            }
+                        }
+                        for (off, &stride) in offs[..self.ncomps].iter_mut().zip(ostride.iter()) {
+                            *off += stride;
+                        }
+                    }
+                } else if ychr.next_elem == 0 || usize::from(ychr.next_elem) == step {
                     for src in sdata.chunks(istride).take(h) {
                         for x in 0..w {
                             for (&doff, &soff) in offs[..self.ncomps].iter().zip(soff.iter()) {
