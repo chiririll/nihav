@@ -59,6 +59,31 @@ macro_rules! read_int_array {
     })
 }
 
+macro_rules! write_int_array {
+    ($s: ident, $arr: expr, $inttype: ty, $is_be:expr) => ({
+        unsafe {
+            let len = $arr.len();
+            let esize = std::mem::size_of::<$inttype>();
+            let ptr = $arr.as_ptr() as *const u8;
+            let buf = std::slice::from_raw_parts(ptr, len * esize);
+            if (u16::from_be(0x0102) == 0x0102) ^ $is_be {
+                let mut tmp = [0; 1024];
+                for chunk in buf.chunks(tmp.len()) {
+                    tmp[..chunk.len()].copy_from_slice(chunk);
+                    for elem in tmp.chunks_exact_mut(esize).take(chunk.len() / esize) {
+                        for i in 0..(esize / 2) {
+                            elem.swap(i, esize - 1 - i);
+                        }
+                    }
+                    $s.write_buf(&tmp[..chunk.len()])?;
+                }
+            } else {
+                $s.write_buf(buf)?;
+            }
+        }
+    })
+}
+
 /// Common trait for bytestream operations.
 ///
 /// User is supposed to create some reader/writer implementing this trait e.g. [`MemoryReader`] or [`MemoryWriter`] and use extended functions for reading or writing e.g. various integer types.
@@ -423,6 +448,59 @@ pub trait ByteIO {
     /// Writes 64-bit little-endian floating point number to the output.
     fn write_f64le(&mut self, val: f64) -> ByteIOResult<()> {
         self.write_u64le(val.to_bits())
+    }
+
+    /// Writes an array of 16-bit big-endian unsigned integers to the output.
+    fn write_u16be_arr(&mut self, arr: &[u16]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, u16, true);
+        Ok(())
+    }
+    /// Writes an array of 16-bit little-endian unsigned integers to the output.
+    fn write_u16le_arr(&mut self, arr: &[u16]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, u16, false);
+        Ok(())
+    }
+    /// Writes an array of 16-bit big-endian signed integers to the output.
+    fn write_i16be_arr(&mut self, arr: &[i16]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, i16, true);
+        Ok(())
+    }
+    /// Writes an array of 16-bit little-endian signed integers to the output.
+    fn write_i16le_arr(&mut self, arr: &[i16]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, i16, false);
+        Ok(())
+    }
+
+    /// Writes an array of 32-bit big-endian unsigned integers to the output.
+    fn write_u32be_arr(&mut self, arr: &[u32]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, u32, true);
+        Ok(())
+    }
+    /// Writes an array of 32-bit little-endian unsigned integers to the output.
+    fn write_u32le_arr(&mut self, arr: &[u32]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, u32, false);
+        Ok(())
+    }
+    /// Writes an array of 32-bit big-endian signed integers to the output.
+    fn write_i32be_arr(&mut self, arr: &[i32]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, i32, true);
+        Ok(())
+    }
+    /// Writes an array of 32-bit little-endian signed integers to the output.
+    fn write_i32le_arr(&mut self, arr: &[i32]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, i32, false);
+        Ok(())
+    }
+
+    /// Writes an array of 32-bit big-endian floating point numbers to the output.
+    fn write_f32be_arr(&mut self, arr: &[f32]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, f32, true);
+        Ok(())
+    }
+    /// Writes an array of 32-bit little-endian floating point numbers to the output.
+    fn write_f32le_arr(&mut self, arr: &[f32]) -> ByteIOResult<()> {
+        write_int_array!(self, arr, f32, false);
+        Ok(())
     }
 
     /// Reports the amount of bytes the writer can still write (-1 if unknown).
@@ -1213,5 +1291,27 @@ mod test {
             assert_eq!(buf[(i + 0x00) as usize], i);
             assert_eq!(buf[(i + 0x12) as usize], i);
         }
+    }
+    #[test]
+    fn test_read_arr() {
+        let src: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7];
+        let mut br = MemoryReader::new_read(&src);
+        let mut dst = [0i16; 4];
+        br.read_i16le_arr(&mut dst).unwrap();
+        assert_eq!(dst, [0x100i16, 0x302, 0x504, 0x706]);
+        let mut br = MemoryReader::new_read(&src);
+        let mut dst = [0u32; 2];
+        br.read_u32be_arr(&mut dst).unwrap();
+        assert_eq!(dst, [0x00010203, 0x04050607]);
+    }
+    #[test]
+    fn test_write_arr() {
+        let mut dst = [0u8; 8];
+        let mut bw = MemoryWriter::new_write(&mut dst);
+        bw.write_i16le_arr(&[1, -1, 2, -2]).unwrap();
+        assert_eq!(dst, [0x01, 0x00, 0xFF, 0xFF, 0x02, 0x00, 0xFE, 0xFF]);
+        let mut bw = MemoryWriter::new_write(&mut dst);
+        bw.write_u32be_arr(&[0x01234567, 0x89ABCDEF]).unwrap();
+        assert_eq!(dst, [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF]);
     }
 }
