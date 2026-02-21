@@ -6,3 +6,6 @@ pub mod demux;
 #[cfg(feature="imgseq_dec")]
 pub mod imgseqdec;
 
+#[cfg(feature="template")]
+pub mod template;
+

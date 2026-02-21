@@ -14,4 +14,6 @@ path = "../nihav-registry"
 default = []
 
 demuxer = []
-imgseq_dec = []
+imgseq_dec = ["template"]
+
+template = []

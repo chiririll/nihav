@@ -6,93 +6,7 @@ use nihav_core::demuxers::*;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
-
-struct TemplateName {
-    prefix:         String,
-    pad_size:       usize,
-    suffix:         String,
-    single:         bool,
-}
-
-trait Deescape {
-    fn deescape(&mut self);
-}
-
-impl Deescape for String {
-    fn deescape(&mut self) {
-        while let Some(idx) = self.find("%%") {
-            self.remove(idx + 1);
-        }
-    }
-}
-
-impl TemplateName {
-    fn new(name: &str) -> Self {
-        let mut off = 0;
-        let mut tmpl_start = 0;
-        let mut tmpl_end = 0;
-        let mut pad_size = 0;
-        'parse_loop:
-        while let Some(idx) = name[off..].find('%') {
-            let idx = idx + off;
-            if idx + 1 == name.len() {
-                break;
-            }
-            if name[idx + 1..].starts_with('%') { // escape, skip it
-                off += 1;
-            }
-            if name[idx + 1..].starts_with('0') {
-                if let Some(end_idx) = name[idx + 2..].find('d') {
-                    if let Ok(val) = name[idx + 2..][..end_idx].parse::<usize>() {
-                        if val <= 32 {
-                            tmpl_start = idx;
-                            pad_size = val;
-                            tmpl_end = idx + 2 + end_idx + 1;
-                        }
-                    }
-                    break 'parse_loop;
-                }
-            }
-            if name[idx + 1..].starts_with('d') {
-                tmpl_start = idx;
-                tmpl_end = idx + 2;
-                break;
-            }
-            off += idx;
-        }
-
-        if tmpl_end == 0 {
-            let mut prefix = name.to_owned();
-            prefix.deescape();
-            Self {
-                prefix,
-                pad_size:   0,
-                suffix:     String::new(),
-                single:     true,
-            }
-        } else {
-            let mut prefix = name[..tmpl_start].to_string();
-            prefix.deescape();
-            let mut suffix = name[tmpl_end..].to_string();
-            suffix.deescape();
-            Self {
-                prefix, suffix, pad_size,
-                single: false,
-            }
-        }
-    }
-    fn format<T: Sized+ToString>(&self, id: T) -> String {
-        let mut number = id.to_string();
-        while number.len() < self.pad_size {
-            number.insert(0, '0');
-        }
-        let mut fname = String::with_capacity(self.prefix.len() + number.len() + self.suffix.len());
-        fname.push_str(&self.prefix);
-        fname.push_str(&number);
-        fname.push_str(&self.suffix);
-        fname
-    }
-}
+use crate::template::*;
 
 /// Image sequence demuxer
 ///
@@ -126,7 +40,7 @@ impl ImgSeqDemuxer {
     }
     /// Demuxes a packet.
     pub fn get_frame(&mut self) -> DemuxerResult<NAPacket> {
-        if self.cur_frame > 0 && self.template.single {
+        if self.cur_frame > 0 && self.template.is_single() {
             return Err(DemuxerError::EOF);
         }
         let fname = self.template.format(self.cur_frame);
