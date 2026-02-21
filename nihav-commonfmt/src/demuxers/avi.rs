@@ -52,6 +52,7 @@ struct AVIStream {
     tb_num:         u32,
     tb_den:         u32,
     aud_brate:      u32,
+    ts:             Option<u64>,
 
     index:          Vec<ChunkIndex>,
 
@@ -686,8 +687,15 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             }
             let (tb_num, _) = stream.get_timebase();
             let mut ts = stream.make_ts(Some(cur_stream.cur_frame), None, None);
-            if stream.get_media_type() == StreamType::Audio && tb_num == 1 && stream.get_info().get_name() == "pcm" && ts.pts != Some(0) {
-                ts.pts = None;
+            if stream.get_media_type() == StreamType::Audio && tb_num == 1 && stream.get_info().get_name() == "pcm" {
+                if cur_stream.cur_frame == 0 {
+                    cur_stream.ts = Some(0);
+                }
+                ts.pts = cur_stream.ts;
+                if let Some(ref mut ts) = cur_stream.ts {
+                    let info = stream.get_info().get_properties().get_audio_info().unwrap();
+                    *ts += (size / info.block_len) as u64;
+                }
             }
             let mut pkt = self.src.read_packet(stream, ts, is_keyframe, size)?;
             if let Some(ref mut pe) = cur_stream.pal {
@@ -745,6 +753,9 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
 
         self.state.streams[seek_info.str_id as usize].cur_frame = seek_info.pts;
 
+        for ss in self.state.streams.iter_mut() {
+            ss.ts = None;
+        }
         match self.state.demux_mode {
             DemuxingMode::Linear => {
                 self.src.seek(SeekFrom::Start(seek_info.pos))?;
