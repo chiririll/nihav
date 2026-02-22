@@ -347,7 +347,7 @@ fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
             }
         } else if let Some(ref stream) = track.stream {
             if let Some(desc) = get_codec_description(stream.get_info().get_name()) {
-                if (desc.caps & CODEC_CAP_INTRAONLY) != 0 && track.chunk_sizes.len() > 0 {
+                if (desc.caps & CODEC_CAP_INTRAONLY) != 0 && !track.chunk_sizes.is_empty() {
                     for samp in 0..track.chunk_sizes.len() {
                         track.keyframes.push((samp + 1) as u32);
                     }
@@ -1050,8 +1050,8 @@ fn read_tfhd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     if (flags & 0x000020) != 0 {
         let _default_sample_flags = br.read_u32be()?;
     }
-    if (flags & 0x010000) != 0 {
-    }
+    /*if (flags & 0x010000) != 0 { // duration is empty
+    }*/
     /*if (flags & 0x020000) != 0 { // base offset is moof start
     }*/
     Ok(br.tell() - start)

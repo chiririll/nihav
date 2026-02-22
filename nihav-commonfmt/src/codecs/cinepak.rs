@@ -264,11 +264,11 @@ impl NADecoder for CinepakDecoder {
             let ctype                   = br.read_byte()?;
             let csize                   = br.read_u24be()?;
             match ctype {
-                0x20 | 0x21 | 0x22 | 0x23 => {
+                0x20..=0x23 => {
                     mode = DecodeMode::YUV;
                     break;
                 },
-                0x24 | 0x25 | 0x26 | 0x27 => {
+                0x24..=0x27 => {
                     mode = DecodeMode::Gray;
                     break;
                 },

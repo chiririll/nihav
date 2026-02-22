@@ -878,7 +878,7 @@ impl NADecoder for ClearVideoDecoder {
             self.frmmgr.clear();
             let edata = info.get_extradata().unwrap_or(std::sync::Arc::new(vec![]));
 //todo detect simply by extradata contents?
-            if edata.len() == 0 || edata.len() < 0x60 { // no or short extradata probably comes from MOV
+            if edata.is_empty() || edata.len() < 0x60 { // no or short extradata probably comes from MOV
                 self.tsize = 4;
             } else if !self.is_rm {
                 let mut br = MemoryReader::new_read(edata.as_slice());
