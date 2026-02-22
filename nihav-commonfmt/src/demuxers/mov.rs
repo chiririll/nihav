@@ -791,6 +791,9 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             if &fcc == b"raw " && sample_size == 8 {
                 soniton.signed = false;
             }
+            if &fcc == b"sowt" {
+                soniton.be = false;
+            }
             let mut block_align = 1;
             match sver {
                 1 => {
