@@ -345,6 +345,14 @@ fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
                 track.keyframes.push(abs_csamp as u32);
                 abs_csamp += count;
             }
+        } else if let Some(ref stream) = track.stream {
+            if let Some(desc) = get_codec_description(stream.get_info().get_name()) {
+                if (desc.caps & CODEC_CAP_INTRAONLY) != 0 && track.chunk_sizes.len() > 0 {
+                    for samp in 0..track.chunk_sizes.len() {
+                        track.keyframes.push((samp + 1) as u32);
+                    }
+                }
+            }
         }
     }
     validate!(strmgr.get_stream_by_id(track.track_id).is_none());
