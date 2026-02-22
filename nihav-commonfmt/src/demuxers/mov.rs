@@ -1483,7 +1483,7 @@ impl Track {
                 self.samples_left -= 1;
             } else {
                 const BLOCK_SAMPLES: usize = 1024 * 6; // should be multiple of 64 and 6 to fit both IMA ADPCM and MACE 6:1 blocks
-                if size > 1 {
+                if size > self.calculate_chunk_size(1) {
                     let max_size = self.calculate_chunk_size(BLOCK_SAMPLES);
                     let cur_size = self.calculate_chunk_size(self.samples_left);
                     let add_off = (size - cur_size) as u64;
