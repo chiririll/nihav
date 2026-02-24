@@ -387,7 +387,12 @@ impl NAEncoder for Indeo3Encoder {
                 }
             }
 
-            std::mem::swap(&mut self.cframe, &mut self.pframe);
+            if !skipped {
+                std::mem::swap(&mut self.cframe, &mut self.pframe);
+            } else {
+                self.buf_sel = !self.buf_sel;
+                dbuf[19] ^= 1;
+            }
             self.frameno += 1;
 
             let fsize = dbuf.len() as u32;
