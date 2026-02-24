@@ -5,8 +5,8 @@ use super::{Indeo3Cell, Plane};
 
 pub const MAX_CELL_SIZE: usize = 2400;
 const DEFAULT_PIXEL: u8 = 0x40;
-const INTRA_FLAT_THRESHOLD: u32 = 8;
-const INTER_FLAT_THRESHOLD: u32 = 8;
+pub const INTRA_FLAT_THRESHOLD: u32 = 8;
+pub const INTER_FLAT_THRESHOLD: u32 = 8;
 
 struct IndexWriter<'a> {
     dst:    &'a mut [u8],

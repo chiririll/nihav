@@ -1,3 +1,5 @@
+use super::cell::{INTRA_FLAT_THRESHOLD, INTER_FLAT_THRESHOLD};
+
 #[derive(Default)]
 pub struct RateControl {
     bitrate:    u32,
@@ -14,7 +16,7 @@ impl RateControl {
     pub fn new() -> Self { Self{ key_int: 10, ..Default::default() } }
     pub fn set_quality(&mut self, quality: u8) {
         if quality > 0 {
-            self.quality = Some((quality - 1).min(15));
+            self.quality = Some((quality - 1).min(63));
         } else {
             self.quality = None;
         }
@@ -42,9 +44,20 @@ impl RateControl {
         self.fracs   = self.tb_den;
     }
     pub fn get_key_int(&self) -> u32 { self.key_int }
-    pub fn get_quant(&self, frameno: u32) -> (bool, Option<u8>) {
+    pub fn get_quant(&self, frameno: u32) -> (bool, Option<u8>, u32, u32) {
         let is_intra = self.key_int == 0 || (frameno % self.key_int) == 0;
-        (is_intra, self.quality)
+        if let Some(q) = self.quality {
+            // quality format mapping: LSB is altquant, then two bits of flat threshold, then three bits of quantiser
+            let quant = ((q >> 3) & 7) + (q & 1) * 8;
+            let qmul = (q >> 1) & 3;
+            const I_MULT: [u32; 4] = [ 8, 12, 16, 24 ];
+            const P_MULT: [u32; 4] = [ 8, 12, 16, 24 ];
+            let ft_i = INTRA_FLAT_THRESHOLD * I_MULT[usize::from(qmul)] / 8;
+            let ft_p = INTER_FLAT_THRESHOLD * P_MULT[usize::from(qmul)] / 8;
+            (is_intra, Some(quant), ft_i, ft_p)
+        } else {
+            (is_intra, None, INTRA_FLAT_THRESHOLD, INTER_FLAT_THRESHOLD)
+        }
     }
     pub fn advance(&mut self, size: u32, skipped: bool) {
         if self.bitrate != 0 {
@@ -71,7 +84,7 @@ impl RateControl {
     }
     pub fn increase_quant(&mut self) {
         if let Some(q) = self.quality {
-            if q < 8 {
+            if q < 63 {
                 self.quality = Some(q + 1);
             }
         }

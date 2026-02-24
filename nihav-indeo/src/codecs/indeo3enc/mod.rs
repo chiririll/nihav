@@ -107,6 +107,8 @@ struct Indeo3Encoder {
     buf_sel:    bool,
     width:      usize,
     height:     usize,
+    flat_thr_i: Option<u32>,
+    flat_thr_p: Option<u32>,
 
     debug_tree: bool,
     debug_frm:  bool,
@@ -127,6 +129,8 @@ impl Indeo3Encoder {
             buf_sel:    false,
             width:      0,
             height:     0,
+            flat_thr_i: None,
+            flat_thr_p: None,
 
             debug_tree: false,
             debug_frm:  false,
@@ -298,8 +302,10 @@ impl NAEncoder for Indeo3Encoder {
                 self.rc.reset();
             }
 
-            let (is_intra, quant) = self.rc.get_quant(self.frameno);
+            let (is_intra, quant, ft_i, ft_p) = self.rc.get_quant(self.frameno);
             self.cenc.quant = quant;
+            self.cenc.flat_thr_i = self.flat_thr_i.unwrap_or(ft_i);
+            self.cenc.flat_thr_p = self.flat_thr_i.unwrap_or(ft_p);
 
             if is_intra {
                 self.buf_sel = false;
@@ -496,12 +502,12 @@ impl NAOptionHandler for Indeo3Encoder {
                         },
                         CELL_I_THRESHOLD_OPTION => {
                             if let NAValue::Int(val) = option.value {
-                                self.cenc.flat_thr_i = val as u32;
+                                self.flat_thr_i = Some(val as u32);
                             }
                         },
                         CELL_P_THRESHOLD_OPTION => {
                             if let NAValue::Int(val) = option.value {
-                                self.cenc.flat_thr_p = val as u32;
+                                self.flat_thr_p = Some(val as u32);
                             }
                         },
                         DO_RLE_OPTION => {
@@ -528,8 +534,8 @@ impl NAOptionHandler for Indeo3Encoder {
             MV_RANGE_OPTION => Some(NAValue::Int(i64::from(self.mv_est.mv_range))),
             MV_FLAT_OPTION => Some(NAValue::Int(i64::from(self.mv_est.flat_thr))),
             MV_THRESHOLD_OPTION => Some(NAValue::Int(i64::from(self.mv_est.mv_thr))),
-            CELL_I_THRESHOLD_OPTION => Some(NAValue::Int(i64::from(self.cenc.flat_thr_i))),
-            CELL_P_THRESHOLD_OPTION => Some(NAValue::Int(i64::from(self.cenc.flat_thr_p))),
+            CELL_I_THRESHOLD_OPTION => Some(NAValue::Int(i64::from(self.flat_thr_i.unwrap_or(INTRA_FLAT_THRESHOLD)))),
+            CELL_P_THRESHOLD_OPTION => Some(NAValue::Int(i64::from(self.flat_thr_p.unwrap_or(INTER_FLAT_THRESHOLD)))),
             DO_RLE_OPTION => Some(NAValue::Bool(self.cenc.do_rle)),
             TRY_AGAIN_OPTION => Some(NAValue::Bool(self.try_again)),
             _ => None,
@@ -597,7 +603,7 @@ mod test {
         let enc_options = &[
                 NAOption { name: super::TRY_AGAIN_OPTION, value: NAValue::Bool(true) },
             ];
-        encode_test("indeo3.avi", enc_options, Some(4), &[0xb7a78851, 0x194f8842, 0x3d05071d, 0x3029ab72]);
+        encode_test("indeo3.avi", enc_options, Some(4), &[0xc5453ec1, 0xe84f0f76, 0x550ecf66, 0x31e24dec]);
     }
     /*#[test]
     fn test_indeo3_roundtrip() {
