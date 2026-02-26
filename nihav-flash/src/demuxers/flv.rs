@@ -351,8 +351,8 @@ impl<'a> FLVDemuxer<'a> {
 
                 if data_size > 0 {
                     let stream = strmgr.get_stream(self.vstream).unwrap();
-                    let pts = (u64::from(ext_time) << 24) | u64::from(time);
-                    let dts = ((pts as i64) + i64::from(cts)).max(0) as u64;
+                    let dts = (u64::from(ext_time) << 24) | u64::from(time);
+                    let pts = ((dts as i64) + i64::from(cts)).max(0) as u64;
                     let ts = stream.make_ts(Some(pts), Some(dts), None);
                     self.vpkts.push(self.src.read_packet(stream, ts, ftype == FrameType::I, data_size)?);
                 }

@@ -934,10 +934,10 @@ impl NADecoderMT for H264MTDecoder {
             Ok(cpic) => {
                 let bufinfo = NABufferType::Video(cpic.buf.clone());
                 let ftype = cpic.pic_type;
-                let dts = Some(u64::from(cpic.full_id));
+                let pts = Some(u64::from(cpic.full_id));
                 let mut frm = NAFrame::new(cpic.time, ftype, cpic.is_idr, self.info.clone(), bufinfo);
-                if let (Some(mydts), None) = (dts, frm.get_dts()) {
-                    frm.set_dts(Some(mydts));
+                if let (Some(mypts), None) = (pts, frm.get_pts()) {
+                    frm.set_pts(Some(mypts));
                 }
                 frm.set_id(cpic.user_id as i64);
                 (Ok(frm.into_ref()), cpic.user_id)

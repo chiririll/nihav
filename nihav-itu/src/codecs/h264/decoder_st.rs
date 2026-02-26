@@ -881,7 +881,7 @@ impl NADecoder for H264Decoder {
             unimplemented!();
         }
 
-        let (bufinfo, ftype, dts) = if self.has_pic && self.cur_pic.is_some() {
+        let (bufinfo, ftype, pts) = if self.has_pic && self.cur_pic.is_some() {
                 let mut npic = None;
                 std::mem::swap(&mut self.cur_pic, &mut npic);
                 let cpic = npic.unwrap();
@@ -899,11 +899,11 @@ impl NADecoder for H264Decoder {
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(ftype == FrameType::I);
-        if let (Some(mydts), None) = (dts, frm.get_dts()) {
-            frm.set_dts(Some(mydts));
+        if let (Some(mypts), None) = (pts, frm.get_pts()) {
+            frm.set_pts(Some(mypts));
         }
-        if let Some(dts) = dts {
-            frm.set_id(dts as i64);
+        if let Some(pts) = pts {
+            frm.set_id(pts as i64);
         }
         frm.set_frame_type(ftype);
         Ok(frm.into_ref())

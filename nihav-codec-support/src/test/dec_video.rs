@@ -467,10 +467,10 @@ const THREADS: usize = 3;
 fn check_frame(frm: NAFrameRef, test: &ExpectedTestResult, glbl_md5: &mut MD5, frameiter: &mut Option<std::slice::Iter<[u32; 4]>>, last_ts: &mut Option<u64>) -> bool {
     let frm_pts = frm.get_pts();
     let frm_dts = frm.get_dts();
-    if let (Some(lts), Some(cts)) = (*last_ts, frm_dts) {
+    if let (Some(lts), Some(cts)) = (*last_ts, frm_pts) {
         assert!(lts < cts);
     }
-    *last_ts = frm_dts;
+    *last_ts = frm_pts;
     match test {
         ExpectedTestResult::Decodes => {},
         ExpectedTestResult::MD5(_) => { frame_checksum(glbl_md5, frm); },

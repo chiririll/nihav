@@ -107,7 +107,7 @@ impl FrameReorderer for IPBReorderer {
 /// Frame reorderer for codecs with complex I/P/B frame structure like ITU H.26x.
 #[derive(Default)]
 pub struct ComplexReorderer {
-    last_ref_dts:   Option<u64>,
+    last_ref_pts:   Option<u64>,
     ready_idx:      usize,
     frames:         Vec<NAFrameRef>,
 }
@@ -124,14 +124,14 @@ impl FrameReorderer for ComplexReorderer {
         }
         let is_ref = fref.frame_type == FrameType::I || fref.frame_type == FrameType::P;
         if !is_ref {
-            if self.frames.is_empty() || fref.get_dts().is_none() {
+            if self.frames.is_empty() || fref.get_pts().is_none() {
                 self.frames.push(fref);
-            } else if let Some(new_dts) = fref.get_dts() {
+            } else if let Some(new_pts) = fref.get_pts() {
                 let mut idx = 0;
                 for (i, frm) in self.frames.iter().enumerate() {
                     idx = i;
-                    if let Some(dts) = frm.get_dts() {
-                        if dts > new_dts {
+                    if let Some(pts) = frm.get_pts() {
+                        if pts > new_pts {
                             break;
                         }
                     }
@@ -140,11 +140,11 @@ impl FrameReorderer for ComplexReorderer {
             }
         } else {
             for (i, frm) in self.frames.iter().enumerate() {
-                if frm.get_dts() == self.last_ref_dts {
+                if frm.get_pts() == self.last_ref_pts {
                     self.ready_idx = i + 1;
                 }
             }
-            self.last_ref_dts = fref.get_dts();
+            self.last_ref_pts = fref.get_pts();
             self.frames.push(fref);
         }
         true
@@ -158,7 +158,7 @@ impl FrameReorderer for ComplexReorderer {
         }
     }
     fn flush(&mut self) {
-        self.last_ref_dts = None;
+        self.last_ref_pts = None;
         self.ready_idx = 0;
         self.frames.clear();
     }
@@ -198,10 +198,10 @@ impl MTFrameReorderer {
     /// Puts a newly decoded frame into the internal queue.
     pub fn add_frame(&mut self, frm: NAFrameRef, id: u32) {
         //let ftype = frm.get_frame_type();
-        let frm_id = if let Some(ts) = frm.ts.dts { ts } else { u64::from(id) };
+        let frm_id = if let Some(ts) = frm.ts.pts { ts } else { u64::from(id) };
         let mut idx = 0;
         for (_, frm) in self.frames.iter() {
-            let cur_id = if let Some(ts) = frm.ts.dts { ts } else { frm.id as u64 };
+            let cur_id = if let Some(ts) = frm.ts.pts { ts } else { frm.id as u64 };
             if frm_id < cur_id {
                 break;
             }
@@ -221,7 +221,7 @@ impl MTFrameReorderer {
     fn get_first_frame(&mut self) -> Option<NAFrameRef> {
         let (id, frm) = self.frames.pop_front().unwrap();
         self.drop_frame(id);
-        self.last_ts = frm.get_dts();
+        self.last_ts = frm.get_pts();
         Some(frm)
     }
     /// Gets the next frame to be displayed (or `None` if that is not possible).
@@ -230,9 +230,9 @@ impl MTFrameReorderer {
     pub fn get_frame(&mut self) -> Option<NAFrameRef> {
         // check if we have consequent timestamps that we can output
         if !self.frames.is_empty() {
-            if let Some(dts) = self.frames[0].1.get_dts() {
+            if let Some(pts) = self.frames[0].1.get_pts() {
                 let last_ts = self.last_ts.unwrap_or(0);
-                if self.last_ts.is_none() || (dts == last_ts + 1) {
+                if self.last_ts.is_none() || (pts == last_ts + 1) {
                     self.output_to = None;
                     return self.get_first_frame();
                 }

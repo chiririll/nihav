@@ -1425,22 +1425,22 @@ impl Track {
         self.cur_sample = self.chunk_sizes.len();
     }
     fn get_next_chunk(&mut self) -> Option<(NATimeInfo, u64, usize)> {
-        let pts_val = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
-        let dts = if let Some(dts_corr) = self.ctts_map.map(self.cur_sample as u64) {
-                let dts = match self.ctts_version {
-                        0 => pts_val.wrapping_add(u64::from(dts_corr)),
-                        1 => pts_val.wrapping_add(i64::from(dts_corr as i32) as u64),
+        let dts_val = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
+        let pts = if let Some(dts_corr) = self.ctts_map.map(self.cur_sample as u64) {
+                let pts = match self.ctts_version {
+                        0 => dts_val.wrapping_add(u64::from(dts_corr)),
+                        1 => dts_val.wrapping_add(i64::from(dts_corr as i32) as u64),
                         _ => unimplemented!(),
                     };
-                if (dts as i64) < 0 {
+                if (pts as i64) < 0 {
                     None
                 } else {
-                    Some(dts)
+                    Some(pts)
                 }
             } else {
-                Some(pts_val)
+                Some(dts_val)
             };
-        let mut pts = NATimeInfo::new(Some(pts_val), dts, None, self.tb_num, self.tb_den);
+        let mut ts = NATimeInfo::new(pts, Some(dts_val), None, self.tb_num, self.tb_den);
         if self.chunk_offsets.len() == self.chunk_sizes.len() { // simple one-to-one mapping
             if self.cur_sample >= self.chunk_sizes.len() {
                 return None;
@@ -1448,7 +1448,7 @@ impl Track {
             let offset = self.chunk_offsets[self.cur_sample];
             let size   = self.chunk_sizes[self.cur_sample] as usize;
             self.cur_sample += 1;
-            Some((pts, offset, size))
+            Some((ts, offset, size))
         } else {
             if self.samples_left == 0 {
                 if self.cur_chunk >= self.chunk_offsets.len() {
@@ -1472,8 +1472,8 @@ impl Track {
             } else if self.frame_samples != 0 && self.bsize != 0 {
                 let nblocks = size / self.bsize;
                 if self.raw_audio {
-                    pts.pts = Some(self.raw_apos);
-                    pts.duration = Some(nblocks as u64);
+                    ts.pts = Some(self.raw_apos);
+                    ts.duration = Some(nblocks as u64);
                     self.raw_apos += nblocks as u64;
                 }
                 if nblocks > 0 {
@@ -1499,7 +1499,7 @@ impl Track {
                         self.cur_sample += self.samples_left;
                         self.samples_left = 0;
                     }
-                    return Some((pts, offset + add_off, dsize));
+                    return Some((ts, offset + add_off, dsize));
                 } else {
                     self.last_offset -= size as u64;
                     let samples = self.samples_left.min(BLOCK_SAMPLES);
@@ -1507,11 +1507,11 @@ impl Track {
                     self.cur_sample   += samples;
                     self.samples_left -= samples;
                     self.last_offset += cur_size as u64;
-                    return Some((pts, offset, cur_size));
+                    return Some((ts, offset, cur_size));
                 }
             }
             self.cur_sample += 1;
-            Some((pts, offset, size))
+            Some((ts, offset, size))
         }
     }
     fn get_size(&self, sample_no: usize) -> usize {
@@ -1720,10 +1720,10 @@ impl Track {
     }
 }
 
-fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Track, pts: NATimeInfo, offset: u64, size: usize, first: bool) -> DemuxerResult<NAPacket> {
-    if let Some(cpts) = pts.get_pts() {
-        let ts = NATimeInfo::rescale_ts(cpts, pts.tb_num, pts.tb_den, 1, 1000);
-        track.cur_ts = Some(ts);
+fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Track, ts: NATimeInfo, offset: u64, size: usize, first: bool) -> DemuxerResult<NAPacket> {
+    if let Some(cpts) = ts.get_pts() {
+        let cts = NATimeInfo::rescale_ts(cpts, ts.tb_num, ts.tb_den, 1, 1000);
+        track.cur_ts = Some(cts);
     } else {
         track.cur_ts = None;
     }
@@ -1731,7 +1731,7 @@ fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Trac
     if stream.is_none() { return Err(DemuxerError::InvalidData); }
     let stream = stream.unwrap();
     src.seek(SeekFrom::Start(offset))?;
-    let mut pkt = src.read_packet(stream, pts, false, size)?;
+    let mut pkt = src.read_packet(stream, ts, false, size)?;
     if let Some(ref pal) = track.pal {
         let side_data = NASideData::Palette(first, pal.clone());
         pkt.add_side_data(side_data);
@@ -1893,9 +1893,9 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 if let Some(ts) = track.cur_ts {
                     if ts == min_ts {
                         let first = track.cur_sample == 0;
-                        if let Some((pts, offset, size)) = track.get_next_chunk() {
+                        if let Some((cts, offset, size)) = track.get_next_chunk() {
                             self.cur_track = trk_no + 1;
-                            return process_packet(self.src, strmgr, track, pts, offset, size, first);
+                            return process_packet(self.src, strmgr, track, cts, offset, size, first);
                         }
                     }
                 }
@@ -1912,8 +1912,8 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 continue;
             }
             let first = track.cur_sample == 0;
-            if let Some((pts, offset, size)) = track.get_next_chunk() {
-                return process_packet(self.src, strmgr, track, pts, offset, size, first);
+            if let Some((cts, offset, size)) = track.get_next_chunk() {
+                return process_packet(self.src, strmgr, track, cts, offset, size, first);
             }
         }
         Err(DemuxerError::EOF)
