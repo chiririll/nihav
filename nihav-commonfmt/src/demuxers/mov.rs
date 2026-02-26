@@ -1486,29 +1486,13 @@ impl Track {
                 self.samples_left -= 1;
             } else {
                 const BLOCK_SAMPLES: usize = 1024 * 6; // should be multiple of 64 and 6 to fit both IMA ADPCM and MACE 6:1 blocks
-                if size > self.calculate_chunk_size(1) {
-                    let max_size = self.calculate_chunk_size(BLOCK_SAMPLES);
-                    let cur_size = self.calculate_chunk_size(self.samples_left);
-                    let add_off = (size - cur_size) as u64;
-                    let dsize = cur_size.min(max_size);
-                    if self.samples_left >= BLOCK_SAMPLES {
-                        self.cur_sample += BLOCK_SAMPLES;
-                        self.samples_left -= BLOCK_SAMPLES;
-                        self.last_offset -= size as u64;
-                    } else {
-                        self.cur_sample += self.samples_left;
-                        self.samples_left = 0;
-                    }
-                    return Some((ts, offset + add_off, dsize));
-                } else {
-                    self.last_offset -= size as u64;
-                    let samples = self.samples_left.min(BLOCK_SAMPLES);
-                    let cur_size = self.calculate_chunk_size(samples);
-                    self.cur_sample   += samples;
-                    self.samples_left -= samples;
-                    self.last_offset += cur_size as u64;
-                    return Some((ts, offset, cur_size));
-                }
+                self.last_offset -= size as u64;
+                let samples = self.samples_left.min(BLOCK_SAMPLES);
+                let cur_size = self.calculate_chunk_size(samples);
+                self.cur_sample   += samples;
+                self.samples_left -= samples;
+                self.last_offset += cur_size as u64;
+                return Some((ts, offset, cur_size));
             }
             self.cur_sample += 1;
             Some((ts, offset, size))
