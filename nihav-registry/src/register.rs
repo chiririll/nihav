@@ -409,6 +409,7 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"ARBC", "gryphon-arbc-vfw"),
     (b"azpr", "apple-video"),
+    (b" elr", "qt-rle"),
     (b"PGVV", "pgvv"),
 
     (b"ESCP", "escape-any"),
