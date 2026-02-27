@@ -435,6 +435,12 @@ pub struct SliceState {
 
 const BLK4_TO_D8: [usize; 16] = [ 0, 0, 3, 3, 0, 0, 3, 3, 12, 12, 15, 15, 12, 12, 15, 15 ];
 
+#[repr(align(8))]
+#[derive(Default)]
+struct MVCache {
+    data:   [[MV; 2]; 25]
+}
+
 impl SliceState {
     pub fn new() -> Self {
         Self {
@@ -515,7 +521,8 @@ impl SliceState {
         let mut top_intra = self.get_top_mb().mb_type.is_intra();
 
         let mut coded_cache  = [false; 25];
-        let mut mv_cache     = [[ZERO_MV; 2]; 25];
+        let mut mvc          = MVCache::default();
+        let mv_cache         = &mut mvc.data;
         let mut ref_cache    = [[INVALID_REF; 2]; 25];
 
         if self.mb_y != 0 || self.has_top {
