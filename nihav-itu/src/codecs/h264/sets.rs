@@ -355,6 +355,7 @@ pub fn parse_pps(src: &[u8], sps_arr: &[Arc<SeqParameterSet>], full_size: usize)
             _ => {},
         };
 println!("slice mode!");
+        let _ = pps; // silence unused assignments warning
         return Err(DecoderError::NotImplemented);
     }
     pps.num_ref_idx_l0_active                       = (br.read_ue()? + 1) as usize;
