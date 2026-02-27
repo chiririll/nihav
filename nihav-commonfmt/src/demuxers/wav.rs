@@ -1,6 +1,7 @@
 use nihav_core::demuxers::*;
 use nihav_registry::register;
 use nihav_core::demuxers::DemuxerError::*;
+use nihav_codec_support::codecs::msstructs::*;
 
 macro_rules! mktag {
     ($a:expr, $b:expr, $c:expr, $d:expr) => {
@@ -202,50 +203,37 @@ impl<'a> WAVDemuxer<'a> {
     }
     fn parse_fmt(&mut self, strmgr: &mut StreamManager, csize: usize) -> DemuxerResult<()> {
         validate!(csize >= 14);
-        let format_tag                  = self.src.read_u16le()?;
-        let channels                    = self.src.read_u16le()?;
-        validate!(channels < 256);
-        let samples_per_sec             = self.src.read_u32le()?;
-        let avg_bytes_per_sec           = self.src.read_u32le()?;
-        let block_align                 = self.src.read_u16le()? as usize;
-        if block_align == 0 {
+        let mut hdr = MSWaveFormat::read(self.src, csize)?;
+        if hdr.validate().is_err() {
+            return Err(DemuxerError::InvalidData);
+        }
+        if hdr.block_align == 0 {
             return Err(DemuxerError::NotImplemented);
         }
-        let bits_per_sample             = if csize >= 16 { self.src.read_u16le()? } else { 8 };
-        validate!(channels < 256);
 
-        let edata = if csize > 16 {
-                validate!(csize >= 18);
-                let cb_size             = self.src.read_u16le()? as usize;
-                let mut buf = vec![0; cb_size];
-                                          self.src.read_buf(buf.as_mut_slice())?;
-                Some(buf)
-            } else {
-                None
-            };
-
-        let cname = register::find_codec_from_wav_twocc(format_tag).unwrap_or("unknown");
+        let edata = hdr.take_extradata();
+        let cname = register::find_codec_from_wav_twocc(hdr.format_tag).unwrap_or("unknown");
         let soniton = if cname == "pcm" {
-                if format_tag != 0x0003 {
-                    if bits_per_sample == 8 {
+                if hdr.format_tag != 0x0003 {
+                    if hdr.bits_per_sample == 8 {
                         NASoniton::new(8, 0)
                     } else {
-                        NASoniton::new(bits_per_sample as u8, SONITON_FLAG_SIGNED)
+                        NASoniton::new(hdr.bits_per_sample as u8, SONITON_FLAG_SIGNED)
                     }
                 } else {
-                    NASoniton::new(bits_per_sample as u8, SONITON_FLAG_FLOAT)
+                    NASoniton::new(hdr.bits_per_sample as u8, SONITON_FLAG_FLOAT)
                 }
             } else {
-                NASoniton::new(bits_per_sample as u8, SONITON_FLAG_SIGNED)
+                NASoniton::new(hdr.bits_per_sample as u8, SONITON_FLAG_SIGNED)
             };
-        let ahdr = NAAudioInfo::new(samples_per_sec, channels as u8, soniton, block_align);
+        let ahdr = NAAudioInfo::new(hdr.sample_rate, hdr.channels as u8, soniton, hdr.block_align);
         let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, 1, samples_per_sec, 0));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, 1, hdr.sample_rate, 0));
         if res.is_none() { return Err(MemoryError); }
 
-        self.srate = samples_per_sec;
-        self.block_size = block_align;
-        self.avg_bytes = avg_bytes_per_sec;
+        self.srate = hdr.sample_rate;
+        self.block_size = hdr.block_align;
+        self.avg_bytes = hdr.avg_bytes_per_sec;
         self.is_pcm = cname == "pcm";
         if self.is_pcm && self.avg_bytes == 0 {
             self.avg_bytes = self.block_size as u32 * self.srate;
