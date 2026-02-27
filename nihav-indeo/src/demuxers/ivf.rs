@@ -1,4 +1,5 @@
 use nihav_core::demuxers::*;
+use nihav_codec_support::codecs::msstructs::*;
 
 struct IVFDemuxer<'a> {
     src:            &'a mut dyn ByteIO,
@@ -76,30 +77,19 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
 
         let vhdr_size                   = self.src.read_u32le()? as usize;
         validate!(vhdr_size >= 40);
-        let bmpi_size                   = self.src.read_u32le()? as usize;
-        validate!(bmpi_size == vhdr_size);
-        let width                       = self.src.read_u32le()? as usize;
-        let height                      = self.src.read_u32le()? as i32;
-        let planes                      = self.src.read_u16le()?;
-        let bitcount                    = self.src.read_u16le()?;
-        let fcc                         = self.src.read_tag()?;
-                                          self.src.read_skip(20)?;
+        let mut bm = MSBitmapInfo::read(self.src)?;
+        validate!(bm.get_size() == vhdr_size);
+        validate!(bm.validate().is_ok());
 
-        let mut vhdr = NAVideoInfo::new(width, height.unsigned_abs() as usize, height < 0, YUV420_FORMAT);
-        vhdr.bits = (planes as u8) * (bitcount as u8);
-        let cname = match &fcc {
+        let mut vhdr = NAVideoInfo::new(bm.width, bm.height, bm.flipped, YUV420_FORMAT);
+        vhdr.bits = (bm.planes as u8) * (bm.bitcount as u8);
+        let cname = match &bm.compression {
                 b"IV31" | b"IV32" => "indeo3",
                 b"IV41" => "indeo4",
                 b"IV50" => "indeo5s",
                 _ => "unknown",
             };
-        let edata = if vhdr_size > 40 {
-                let mut buf = vec![0; vhdr_size - 40];
-                                          self.src.read_buf(&mut buf)?;
-                Some(buf)
-            } else {
-                None
-            };
+        let edata = bm.take_extradata();
         let vinfo = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), edata);
         let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, tb_num, tb_den, u64::from(self.nframes)));
         if res.is_none() { return Err(DemuxerError::MemoryError); }
@@ -107,31 +97,12 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
         if (flags & 1) != 0 {
             let ahdr_size               = self.src.read_u32le()? as usize;
             validate!(ahdr_size >= 16);
-            let w_format_tag            = self.src.read_u16le()?;
-            let channels                = self.src.read_u16le()?;
-            let samplespersec           = self.src.read_u32le()?;
-            let _avgbytespersec         = self.src.read_u32le()?;
-            let block_align             = self.src.read_u16le()?;
-            let bits_per_sample         = self.src.read_u16le()?;
+            let mut wf = MSWaveFormat::read(self.src, ahdr_size)?;
+            validate!(wf.validate().is_ok());
+            let ahdr = wf.get_audio_info();
+            let edata = wf.take_extradata();
 
-            let signed = bits_per_sample > 8;
-            let soniton = NASoniton::new(bits_per_sample as u8, if signed { SONITON_FLAG_SIGNED } else { 0 });
-            let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
-            let edata = if ahdr_size > 16 {
-                    let edata_size      = self.src.read_u16le()? as usize;
-                    validate!(edata_size + 18 == ahdr_size);
-                    if edata_size > 0 {
-                        let mut buf = vec![0; edata_size];
-                                          self.src.read_buf(&mut buf)?;
-                        Some(buf)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-            let cname = match w_format_tag {
+            let cname = match wf.format_tag {
                     0x401 => "imc",
                     0x402 => "iac",
                     _ =>     "unknown",
