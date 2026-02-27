@@ -292,3 +292,5 @@ pub const ZIGZAG: [usize; 64] = [
 ];
 
 pub mod imaadpcm;
+
+pub mod msstructs;
