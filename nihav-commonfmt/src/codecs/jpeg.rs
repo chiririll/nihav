@@ -351,7 +351,6 @@ impl JPEGDecoder {
             *stride = frm.stride[ci.component_id];
         }
         let mut nblks = [0; MAX_CHROMATONS];
-        let mut xstep = [0; MAX_CHROMATONS];
         let mut ystep = [0; MAX_CHROMATONS];
         let mut hstep = 8;
         let mut vstep = 8;
@@ -362,7 +361,6 @@ impl JPEGDecoder {
                 hstep = hstep.max(hs * 8);
                 vstep = vstep.max(vs * 8);
                 nblks[i] = hs * vs;
-                xstep[i] = hs * 8;
                 ystep[i] = vs * 8;
             }
         } else {
@@ -370,7 +368,6 @@ impl JPEGDecoder {
             nblks[0] = 1;
             hstep = usize::from(8 * self.max_h / (subsamp >> 4));
             vstep = usize::from(8 * self.max_h / (subsamp & 0xF));
-            xstep[0] = 8;
             ystep[0] = 8;
         }
 
