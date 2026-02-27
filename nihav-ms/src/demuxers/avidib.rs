@@ -1,5 +1,6 @@
 use nihav_core::demuxers::*;
 use nihav_core::demuxers::DemuxerError::*;
+use nihav_codec_support::codecs::msstructs::*;
 use std::str::FromStr;
 
 struct PalInfo {
@@ -61,36 +62,21 @@ println!("index @ {:X}", src.tell());
         validate!(!self.got_vstream);
         if size < 40 { return Err(InvalidData); }
         validate!(self.tb_num > 0);
-        let bi_size         = src.read_u32le()?;
-        if (bi_size as usize) < 40 { return Err(InvalidData); }
-        let width           = src.read_u32le()?;
-        let height          = src.read_u32le()? as i32;
-        let planes          = src.read_u16le()?;
-        let bitcount        = src.read_u16le()?;
-        let compression     = src.read_tag()?;
-        let _img_size       = src.read_u32le()?;
-        let _xdpi           = src.read_u32le()?;
-        let _ydpi           = src.read_u32le()?;
-        let colors          = src.read_u32le()?;
-        validate!(colors <= 256);
-        let _imp_colors     = src.read_u32le()?;
-
-        let flip = height < 0;
-        let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
-        let mut vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, format);
-        vhdr.bits = (planes as u8) * (bitcount as u8);
-        let cname = if find_raw_rgb_fmt(&compression, planes, bitcount, flip, &mut vhdr) {
+        let bm = MSBitmapInfo::read(src)?;
+        validate!(bm.validate().is_ok());
+        let mut vhdr = bm.get_video_info();
+        let cname = if find_raw_rgb_fmt(&bm, &mut vhdr) {
                 "rawvideo-ms"
-            } else if compression == [1, 0, 0, 0] {
+            } else if bm.compression == [1, 0, 0, 0] {
                 "msrle"
             } else {
                 "unknown"
             };
         let vci = NACodecTypeInfo::Video(vhdr);
-        if colors > 0 {
+        if bm.colors > 0 {
             let mut pal = [0u8; 1024];
             let mut clr = [0; 4];
-            for dpal in pal.chunks_mut(4).take(colors as usize) {
+            for dpal in pal.chunks_mut(4).take(bm.colors) {
                 src.read_buf(&mut clr)?;
                 dpal[0] = clr[2];
                 dpal[1] = clr[1];
@@ -284,13 +270,13 @@ impl<'a> AVIDemuxer<'a> {
     }
 }
 
-fn find_raw_rgb_fmt(compr: &[u8; 4], planes: u16, bitcount: u16, flip: bool, vhdr: &mut NAVideoInfo) -> bool {
-    match compr {
+fn find_raw_rgb_fmt(bm: &MSBitmapInfo, vhdr: &mut NAVideoInfo) -> bool {
+    match &bm.compression {
         &[0, 0, 0, 0] | b"DIB " => {
-            if planes != 1 {
+            if bm.planes != 1 {
                 return false;
             }
-            let fmt_name = match bitcount {
+            let fmt_name = match bm.bitcount {
                      8 => "pal8",
                     16 => "bgr555",
                     24 => "bgr24",
@@ -299,7 +285,7 @@ fn find_raw_rgb_fmt(compr: &[u8; 4], planes: u16, bitcount: u16, flip: bool, vhd
                 };
             if let Ok(fmt) = NAPixelFormaton::from_str(fmt_name) {
                 vhdr.format = fmt;
-                vhdr.flipped = !flip;
+                vhdr.flipped = !bm.flipped;
                 true
             } else {
                 false
