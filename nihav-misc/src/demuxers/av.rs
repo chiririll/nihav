@@ -1,5 +1,6 @@
 use nihav_core::demuxers::*;
 use nihav_registry::register;
+use nihav_codec_support::codecs::msstructs::*;
 use std::str::FromStr;
 
 fn read_extradata(src: &mut dyn ByteIO, size: usize) -> DemuxerResult<Option<Vec<u8>>> {
@@ -11,34 +12,18 @@ fn read_extradata(src: &mut dyn ByteIO, size: usize) -> DemuxerResult<Option<Vec
 
 fn parse_audio_header(src: &mut dyn ByteIO, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<u32> {
     validate!(size >= 16);
-    let w_format_tag        = src.read_u16le()?;
-    let channels            = src.read_u16le()?;
-    let samplespersec       = src.read_u32le()?;
-    let _avgbytespersec     = src.read_u32le()?;
-    let block_align         = src.read_u16le()?;
-    let bits_per_sample     = src.read_u16le()?;
-
-    let signed = bits_per_sample > 8;
-    let soniton = NASoniton::new(bits_per_sample as u8, if signed { SONITON_FLAG_SIGNED } else { 0 });
-    let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
-    let edata = if size > 18 {
-            let edata_size  = src.read_u16le()? as usize;
-            validate!(edata_size + 18 <= size);
-            read_extradata(src, size - 18)?
-        } else if size > 16 {
-                              src.read_skip(size - 16)?;
-            None
-        } else {
-            None
-        };
-    let cname = match register::find_codec_from_wav_twocc(w_format_tag) {
+    let mut hdr = MSWaveFormat::read(src, size)?;
+    validate!(hdr.validate().is_ok());
+    let ahdr = hdr.get_audio_info();
+    let edata = hdr.take_extradata();
+    let cname = match register::find_codec_from_wav_twocc(hdr.format_tag) {
                     None => "unknown",
                     Some(name) => name,
                 };
     let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-    strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, samplespersec, 0))
+    strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, hdr.sample_rate, 0))
         .ok_or(DemuxerError::MemoryError)?;
-    Ok(u32::from(block_align))
+    Ok(hdr.block_align as u32)
 }
 
 #[derive(Clone,Copy)]
@@ -73,38 +58,24 @@ impl<'a> DemuxCore<'a> for AVDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let bh_size         = self.src.read_u32le()? as usize;
         validate!(bh_size >= 40);
-        let bi_size         = self.src.read_u32le()? as usize;
-        validate!(bi_size >= 40 && bi_size <= bh_size);
-        let width           = self.src.read_u32le()?;
-        let height          = self.src.read_u32le()? as i32;
-        let planes          = self.src.read_u16le()?;
-        let bitcount        = self.src.read_u16le()?;
-        let compression     = self.src.read_tag()?;
-        let _img_size       = self.src.read_u32le()?;
-        let _xdpi           = self.src.read_u32le()?;
-        let _ydpi           = self.src.read_u32le()?;
-        let colors          = self.src.read_u32le()?;
-        validate!(colors <= 256);
-        let _imp_colors     = self.src.read_u32le()?;
-
-        let flip = height < 0;
-        let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
-        let mut vhdr = NAVideoInfo::new(width as usize, height.unsigned_abs() as usize, flip, format);
-        vhdr.bits = (planes as u8) * (bitcount as u8);
-        let cname = if find_raw_rgb_fmt(&compression, planes, bitcount, flip, &mut vhdr) {
+        let mut bm = MSBitmapInfo::read(self.src)?;
+        validate!(bm.validate().is_ok());
+        validate!(bm.bi_size <= bh_size);
+        let mut vhdr = bm.get_video_info();
+        let cname = if find_raw_rgb_fmt(&bm, &mut vhdr) {
                 "rawvideo-ms"
             } else {
-                match register::find_codec_from_avi_fourcc(&compression) {
+                match register::find_codec_from_avi_fourcc(&bm.compression) {
                     None => "unknown",
                     Some(name) => name,
                 }
             };
         let vci = NACodecTypeInfo::Video(vhdr);
-        let edata = read_extradata(&mut *self.src, bh_size - 40)?;
-        if colors > 0 {
+        let mut edata = read_extradata(&mut *self.src, bh_size - bm.bi_size)?;
+        if bm.colors > 0 {
             if let Some(ref buf) = edata {
                 let mut pal = [0u8; 1024];
-                for (dpal, spal) in pal.chunks_mut(4).take(colors as usize).zip(buf.chunks(4)) {
+                for (dpal, spal) in pal.chunks_mut(4).take(bm.colors).zip(buf.chunks(4)) {
                     dpal[0] = spal[2];
                     dpal[1] = spal[1];
                     dpal[2] = spal[0];
@@ -112,6 +83,9 @@ impl<'a> DemuxCore<'a> for AVDemuxer<'a> {
                 }
                 self.pal = Some(Arc::new(pal));
             }
+        }
+        if edata.is_none() && bm.extradata.is_some() {
+            edata = bm.take_extradata();
         }
         let vinfo = NACodecInfo::new(cname, vci, edata);
 
@@ -231,13 +205,13 @@ impl<'a> NAOptionHandler for AVDemuxer<'a> {
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
-fn find_raw_rgb_fmt(compr: &[u8; 4], planes: u16, bitcount: u16, flip: bool, vhdr: &mut NAVideoInfo) -> bool {
-    match compr {
+fn find_raw_rgb_fmt(bm: &MSBitmapInfo, vhdr: &mut NAVideoInfo) -> bool {
+    match &bm.compression {
         &[0, 0, 0, 0] | b"DIB " => {
-            if planes != 1 {
+            if bm.planes != 1 {
                 return false;
             }
-            let fmt_name = match bitcount {
+            let fmt_name = match bm.bitcount {
                      8 => "pal8",
                     16 => "bgr555",
                     24 => "bgr24",
@@ -246,7 +220,7 @@ fn find_raw_rgb_fmt(compr: &[u8; 4], planes: u16, bitcount: u16, flip: bool, vhd
                 };
             if let Ok(fmt) = NAPixelFormaton::from_str(fmt_name) {
                 vhdr.format = fmt;
-                vhdr.flipped = !flip;
+                vhdr.flipped = !bm.flipped;
                 true
             } else {
                 false
