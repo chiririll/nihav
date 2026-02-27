@@ -1,6 +1,7 @@
 use nihav_core::demuxers::*;
 use nihav_registry::register;
 use nihav_core::demuxers::DemuxerError::*;
+use nihav_codec_support::codecs::msstructs::*;
 use std::str::FromStr;
 
 struct PalInfo {
@@ -112,60 +113,54 @@ impl AVIStream {
     }
     fn parse_strf_vids(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<()> {
         if size < 40 { return Err(InvalidData); }
-        let bi_size         = src.read_u32le()?;
-        if (bi_size as usize) < 40 { return Err(InvalidData); }
-        let width           = src.read_u32le()?;
-        let height          = src.read_u32le()? as i32;
-        let planes          = src.read_u16le()?;
-        let bitcount        = src.read_u16le()?;
-        let compression     = src.read_tag()?;
-        let _img_size       = src.read_u32le()?;
-        let _xdpi           = src.read_u32le()?;
-        let _ydpi           = src.read_u32le()?;
-        let colors          = src.read_u32le()?;
-        validate!(colors <= 256);
-        let _imp_colors     = src.read_u32le()?;
-
-        let flip = height < 0;
-        let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
-        let mut vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, format);
-        vhdr.bits = (planes as u8) * (bitcount as u8);
+        let strf_end = src.tell() + (size as u64);
+        let mut header = MSBitmapInfo::read(src)?;
+        if header.validate().is_err() { return Err(InvalidData); }
+        let mut vhdr = header.get_video_info();
         let is_mvi = matches!(&self.handler, b"MVI1" | b"mvi1" | b"MVI2" | b"mvi2");
         let cname = if is_mvi {
                 if self.handler[3] == b'1' { "mvi1" } else { "mvi2" }
-            } else if find_raw_rgb_fmt(&compression, planes, bitcount, flip, &mut vhdr) {
+            } else if find_raw_rgb_fmt(&header, &mut vhdr) {
                 "rawvideo-ms"
-            } else if find_raw_yuv_fmt(&compression, &mut vhdr) {
+            } else if find_raw_yuv_fmt(&header.compression, &mut vhdr) {
                 "rawvideo"
             } else {
-                match register::find_codec_from_avi_fourcc(&compression) {
+                match register::find_codec_from_avi_fourcc(&header.compression) {
                     None => "unknown",
                     Some(name) => name,
                 }
             };
         let vci = NACodecTypeInfo::Video(vhdr);
-        let mut edata = Self::read_extradata(src, size - 40)?;
+        let mut edata: Option<Vec<u8>> = None;
+        if src.tell() < strf_end {
+            let edata_size = (strf_end - src.tell()) as usize;
+            edata = Self::read_extradata(src, edata_size)?;
+            if header.colors > 0 {
+                if let Some(ref buf) = edata {
+                    let mut pal = [0u8; 1024];
+                    for (dpal, spal) in pal.chunks_mut(4).take(header.colors as usize).zip(buf.chunks(4)) {
+                        dpal[0] = spal[2];
+                        dpal[1] = spal[1];
+                        dpal[2] = spal[0];
+                        dpal[3] = 0;
+                    }
+                    self.pal = Some(PalInfo { pal: Arc::new(pal), changed: true });
+                }
+            }
+        }
         if is_mvi {
             if let Some(ref mut dta) = edata {
-                for (i, &c) in compression.iter().enumerate() {
+                for (i, &c) in header.compression.iter().enumerate() {
                     dta.insert(i, c);
                 }
             } else {
-                edata = Some(compression.to_vec());
+                edata = Some(header.compression.to_vec());
             }
+        } else if header.extradata.is_some() {
+            edata = header.take_extradata();
         }
-        if colors > 0 {
-            if let Some(ref buf) = edata {
-                let mut pal = [0u8; 1024];
-                for (dpal, spal) in pal.chunks_mut(4).take(colors as usize).zip(buf.chunks(4)) {
-                    dpal[0] = spal[2];
-                    dpal[1] = spal[1];
-                    dpal[2] = spal[0];
-                    dpal[3] = 0;
-                }
-                self.pal = Some(PalInfo { pal: Arc::new(pal), changed: true });
-            }
-        }
+        validate!(src.tell() <= strf_end);
+        src.seek(SeekFrom::Start(strf_end))?;
         let vinfo = NACodecInfo::new(cname, vci, edata);
         let res = strmgr.add_stream(NAStream::new(StreamType::Video, u32::from(self.strm_no), vinfo, self.tb_num, self.tb_den, u64::from(self.strm_duration)));
         if res.is_none() { return Err(MemoryError); }
@@ -173,28 +168,12 @@ impl AVIStream {
     }
     fn parse_strf_auds(&mut self, src: &mut dyn ByteIO, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<()> {
         if size < 16 { return Err(InvalidData); }
-        let w_format_tag        = src.read_u16le()?;
-        let channels            = src.read_u16le()?;
-        let samplespersec       = src.read_u32le()?;
-        let avgbytespersec      = src.read_u32le()?;
-        let block_align         = src.read_u16le()?;
-        let bits_per_sample     = src.read_u16le()?;
-        self.aud_brate = avgbytespersec;
+        let mut hdr = MSWaveFormat::read(src, size)?;
+        self.aud_brate = hdr.avg_bytes_per_sec;
 
-        let signed = bits_per_sample > 8;
-        let soniton = NASoniton::new(bits_per_sample as u8, if signed { SONITON_FLAG_SIGNED } else { 0 });
-        let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
-        let edata = if size > 18 {
-                let edata_size  = src.read_u16le()? as usize;
-                validate!(edata_size + 18 <= size);
-                Self::read_extradata(src, size - 18)?
-            } else if size > 16 {
-                                  src.read_skip(size - 16)?;
-                None
-            } else {
-                None
-            };
-        let cname = match register::find_codec_from_wav_twocc(w_format_tag) {
+        let ahdr = hdr.get_audio_info();
+        let edata = hdr.take_extradata();
+        let cname = match register::find_codec_from_wav_twocc(hdr.format_tag) {
                         None => "unknown",
                         Some(name) => name,
                     };
@@ -884,13 +863,13 @@ const AVI_HEADER_TAGS: &[(&[u8; 4], &[u8; 4])] = &[
     ( b"ON2 ", b"ON2f" ),
 ];
 
-fn find_raw_rgb_fmt(compr: &[u8; 4], planes: u16, bitcount: u16, flip: bool, vhdr: &mut NAVideoInfo) -> bool {
-    match compr {
+fn find_raw_rgb_fmt(hdr: &MSBitmapInfo, vhdr: &mut NAVideoInfo) -> bool {
+    match &hdr.compression {
         &[0, 0, 0, 0] | b"DIB " => {
-            if planes != 1 {
+            if hdr.planes != 1 {
                 return false;
             }
-            let fmt_name = match bitcount {
+            let fmt_name = match hdr.bitcount {
                      8 => "pal8",
                     16 => "bgr555",
                     24 => "bgr24",
@@ -899,7 +878,7 @@ fn find_raw_rgb_fmt(compr: &[u8; 4], planes: u16, bitcount: u16, flip: bool, vhd
                 };
             if let Ok(fmt) = NAPixelFormaton::from_str(fmt_name) {
                 vhdr.format = fmt;
-                vhdr.flipped = !flip;
+                vhdr.flipped = !hdr.flipped;
                 true
             } else {
                 false
