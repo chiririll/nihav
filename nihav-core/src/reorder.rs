@@ -182,6 +182,8 @@ pub struct MTFrameReorderer {
     last_ts:        Option<u64>,
 }
 
+const MT_REORDER_DEPTH: usize = 16;
+
 impl MTFrameReorderer {
     /// Constructs a new instance of `MTFrameReorderer`.
     pub fn new() -> Self { Self::default() }
@@ -225,57 +227,30 @@ impl MTFrameReorderer {
         Some(frm)
     }
     /// Gets the next frame to be displayed (or `None` if that is not possible).
-    #[allow(clippy::collapsible_if)]
-    #[allow(clippy::collapsible_else_if)]
     pub fn get_frame(&mut self) -> Option<NAFrameRef> {
+        if self.frames.is_empty() {
+            return None;
+        }
         // check if we have consequent timestamps that we can output
-        if !self.frames.is_empty() {
-            if let Some(pts) = self.frames[0].1.get_pts() {
-                let last_ts = self.last_ts.unwrap_or(0);
-                if self.last_ts.is_none() || (pts == last_ts + 1) {
-                    self.output_to = None;
-                    return self.get_first_frame();
-                }
+        if let Some(pts) = self.frames[0].1.get_pts() {
+            let next_ts = self.last_ts.map(|val| val + 1);
+            if (self.last_ts.is_none() && pts == 0) || (Some(pts) == next_ts) {
+                self.output_to = None;
+                return self.get_first_frame();
             }
         }
         if !self.flush_mode {
-            'out_loop: loop {
-                if let Some(last_id) = self.output_to {
-                    if self.frames[0].0 != last_id {
-                        return self.get_first_frame();
-                    } else {
-                        self.output_to = None;
-                    }
-                }
-                for (pos, (id, frm)) in self.frames.iter().enumerate() {
-                    if frm.is_keyframe() || (self.frames.len() > 32 && matches!(frm.get_frame_type(), FrameType::I | FrameType::P)) {
-                        let kf_id = *id;
-                        self.ids.sort();
-                        if pos == 0 && kf_id == self.ids[0] {
-                            return self.get_first_frame();
-                        }
-                        let end = self.ids.iter().position(|&id| id == kf_id).unwrap();
-                        for ref_id in self.ids[..end].iter() {
-                            if !self.frames.iter().any(|(id, _)| id == ref_id) {
-                                return None;
-                            }
-                        }
-                        self.output_to = if pos < self.frames.len() - 1 {
-                                Some(self.frames[pos + 1].0)
-                            } else {
-                                Some(kf_id)
-                            };
-                        continue 'out_loop;
-                    }
-                }
+            if self.ids.len() < MT_REORDER_DEPTH {
                 return None;
             }
-        } else {
-            if !self.frames.is_empty() {
-                Some(self.frames.pop_front().unwrap().1)
-            } else {
-                None
+            for &id in self.ids.iter().take(MT_REORDER_DEPTH) {
+                if !self.frames.iter().any(|frm| frm.0 == id) {
+                    return None;
+                }
             }
+            self.get_first_frame()
+        } else {
+            Some(self.frames.pop_front().unwrap().1)
         }
     }
     /// Retrieves the last frames stored by the reorderer.
