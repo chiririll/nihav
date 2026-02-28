@@ -409,8 +409,8 @@ mod test {
                             [0xf6c60411, 0x19ea2c49, 0x3512371a, 0xce6cb26a],
                             [0x50b9fd9a, 0x64393126, 0xd03162ec, 0xfb54172a],
                             [0xd80e8bf9, 0xe9190ab7, 0x2be8fa38, 0xb94182e8],
-                            [0x26078d38, 0xf6a59d57, 0xcd14eaf8, 0x8eb08259],
                             [0x80d1f58f, 0x12e454c0, 0x2140ca5c, 0xe19350ba],
+                            [0x26078d38, 0xf6a59d57, 0xcd14eaf8, 0x8eb08259],
                             [0x31494337, 0x6f8d3f52, 0x4bc9ff92, 0x0c601b1c]]));
     }
 }
