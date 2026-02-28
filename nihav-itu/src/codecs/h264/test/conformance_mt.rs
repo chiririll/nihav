@@ -31,8 +31,8 @@ const GENERAL_TEST_STREAMS: &[(&str, [u32; 4])] = &[
     ("SVA_BA1_B.264", [0xDAB92AA2, 0x145AB44A, 0xBAB2BEB2, 0x868DD326]),
     ("BA2_Sony_F.jsv", [0x124D2830, 0x7B057028, 0x12A374CF, 0xC9AAD615]),
     ("SVA_BA2_D.264", [0x66130B14, 0x295574BF, 0x35B725A8, 0xEADED3AE]),
-    ("BA_MW_D.264", [0x7d5d351a, 0xd0616402, 0x94bf43a4, 0x3150fbca]),
-    ("BANM_MW_D.264", [0xe637d38e, 0xd004df35, 0x40218e3d, 0x84b43e42]),
+    ("BA_MW_D.264", [0x7D5D351A, 0xD0616402, 0x94BF43A4, 0x3150FBCA]),
+    ("BANM_MW_D.264", [0xE637D38E, 0xD004DF35, 0x40218E3D, 0x84B43E42]),
     ("BA1_FT_C.264", [0x8598CFC0, 0x6EDE33D4, 0xF24D8552, 0x28E5C8BB]),
     ("NLMQ1_JVC_C.264", [0xFFCABB64, 0x192CED39, 0x90872B46, 0x70AF05EB]),
     ("NLMQ2_JVC_C.264", [0x90B70FBA, 0xA5CA679E, 0xC9BF5E01, 0x1DDBA8F9]),
@@ -44,20 +44,19 @@ const GENERAL_TEST_STREAMS: &[(&str, [u32; 4])] = &[
     /*"FM1_BT_B.h264",
     "FM2_SVA_C.264",
     "FM1_FT_E.264",*/ //special slice modes
-    ("CI_MW_D.264", [0x0eb95292, 0xad9fc21c, 0x89d93f8b, 0x049e451a]),
+    ("CI_MW_D.264", [0x0EB95292, 0xAD9FC21C, 0x89D93F8B, 0x049E451A]),
     ("SVA_CL1_E.264", [0x5723A151, 0x8DE9FADC, 0xA7499C5B, 0xA34DA7C4]),
     ("CI1_FT_B.264", [0x16F329D0, 0x196938FD, 0xB1AB2402, 0x5B208CFD]),
     ("CVFC1_Sony_C.jsv", [0x4A8F8461, 0xD42A83C5, 0x126C4E5E, 0x5B2060D6]),
-    ("AUD_MW_E.264", [0xe96fe505, 0x4de0329a, 0x8868d060, 0x03375cdb]),
-    ("MIDR_MW_D.264", [0xd87bff88, 0xb2c5b96c, 0xcb291ef6, 0x8a45bbc2]),
-    ("NRF_MW_E.264", [0xa8635615, 0xb50c5a16, 0xdecc555a, 0x3c6c81c8]),
-    ("MPS_MW_A.264", [0x88bb5a51, 0x3bd7f3cc, 0x8190c7c0, 0x3688ab22]),
-    ("CVBS3_Sony_C.jsv", [0xe3c16329, 0x88100491, 0xe8431c3c, 0x88ed4096]),
-    ("BA3_SVA_C.264", [0x7032210d, 0xc0fc4a59, 0x49a2c941, 0x6fde4c27]),
-    ("SL1_SVA_B.264", [0xc9d2c518, 0xca433636, 0x77e70a17, 0x213c82a2]),
-    ("NL3_SVA_E.264", [0x21fa010c, 0x3c4bbb63, 0x1d17c4aa, 0xecd95df1]),
-    ("cvmp_mot_frm0_full_B.26l", [0xcb065db3, 0xa27b4a52, 0xb31f6839, 0xa3ec590a]),
-
+    ("AUD_MW_E.264", [0xE96FE505, 0x4DE0329A, 0x8868D060, 0x03375CDB]),
+    ("MIDR_MW_D.264", [0xD87BFF88, 0xB2C5B96C, 0xCB291EF6, 0x8A45BBC2]),
+    ("NRF_MW_E.264", [0xA8635615, 0xB50C5A16, 0xDECC555A, 0x3C6C81C8]),
+    ("MPS_MW_A.264", [0x88BB5A51, 0x3BD7F3CC, 0x8190C7C0, 0x3688AB22]),
+    ("CVBS3_Sony_C.jsv", [0xC7794005, 0xC8DA6D8D, 0xEB435ECE, 0x07908055]),
+    ("BA3_SVA_C.264", [0xBF1AE77A, 0x094AA1E7, 0x5316BE72, 0x5B46EF1B]),
+    ("SL1_SVA_B.264", [0xA44D8BAF, 0x7290B175, 0xC59A308D, 0x5C0D1E4C]),
+    ("NL3_SVA_E.264", [0x428B0604, 0xFF02E0A0, 0x0DA08577, 0xDA0EEB76]),
+    ("cvmp_mot_frm0_full_B.26l", [0x9F43ED02, 0xC0C322E8, 0x9FCAB584, 0xC9B31EC4]),
     // no direct mention
     //"FM2_SVA_B.264", //special slice mode
 ];
@@ -81,13 +80,13 @@ const MMCO_TEST_STREAMS: &[(&str, [u32; 4])] = &[
     ("MR3_TANDBERG_B.264", [0xC8AAC175, 0xE5E73C68, 0x87EE02FF, 0x6DEA0F64]),
 //    ("MR4_TANDBERG_C.264", [0xA40042BC, 0xAB00C341, 0xA9651725, 0x46d31A2C]), // TODO later
 //    ("MR5_TANDBERG_C.264", [0x999EAE2E, 0x016DB374, 0x708B00E4, 0x335AE723]), //weird self-reference, TODO later
-    ("MR1_MW_A.264", [0xdd56dc8e, 0x403b18ec, 0x57eb5b3a, 0xd834ffde]),
-    ("MR2_MW_A.264", [0xe1e93e65, 0x96af2efd, 0x0e7d0fe5, 0x94d5be85]),
+    ("MR1_MW_A.264", [0xDD56DC8E, 0x403B18EC, 0x57EB5B3A, 0xD834FFDE]),
+    ("MR2_MW_A.264", [0xE1E93E65, 0x96AF2EFD, 0x0E7D0FE5, 0x94D5BE85]),
     /*"MR6_BT_B.h264",
     "MR7_BT_B.h264",
     "MR8_BT_B.h264",*/ // interlaced coding
-    ("HCBP1_HHI_A.264", [0x13022e79, 0x70d78f1d, 0xe4aaf1f7, 0xbd0e440b]),
-    ("HCBP2_HHI_A.264", [0x6c689d15, 0x41f97dcc, 0x1a17f5bd, 0xb6569cf1]),
+    ("HCBP1_HHI_A.264", [0x2AD73C01, 0x57EA7763, 0x0F0BDE82, 0x17E27DC2]),
+    ("HCBP2_HHI_A.264", [0x93F3C560, 0x42519B03, 0x1A4F03B1, 0xFD2C3A84]),
 ];
 #[test]
 fn test_h264_mmco() {
@@ -169,8 +168,8 @@ fn test_h264_long_sequence() {
 
 const SEI_VUI_TEST_STREAMS: &[(&str, [u32; 4])] = &[
     ("CVSE2_Sony_B.jsv", [0xDD660FB4, 0x07FEB42E, 0xCD3AF06B, 0x42FDA90D]),
-    ("CVSE3_Sony_H.jsv", [0xcec17e7e, 0xbe686bfc, 0xf234dece, 0x41f59179]),
-    ("CVSEFDFT3_Sony_E.jsv", [0xF44E4059, 0xD056AA37, 0x96F384A1, 0x1C894821]),
+    ("CVSE3_Sony_H.jsv", [0x14DBB021, 0x2CC75879, 0xAA2C6282, 0x14FD2FFE]),
+    ("CVSEFDFT3_Sony_E.jsv", [0xABEDFA7A, 0xAAAADE32, 0xE5E5CF35, 0x9A0DE4EA]),
 ];
 #[test]
 fn test_h264_sei_vui() {
@@ -181,19 +180,19 @@ const CABAC_TEST_STREAMS: &[(&str, [u32; 4])] = &[
     ("CANL1_TOSHIBA_G.264", [0xAFA07274, 0x6B16BD96, 0xF3152B45, 0xE2F2881E]),
     ("CANL1_Sony_E.jsv", [0x27F1D5D3, 0x89E110FC, 0x320788BF, 0x78006DB0]),
     ("CANL2_Sony_E.jsv", [0x3A28438E, 0x3E0795DE, 0xAED795FC, 0xFEFBC833]),
-    ("CANL3_Sony_C.jsv", [0xD8CE9D2F, 0xAA54CE32, 0x94AD1553, 0xC440CDE9]),
+    ("CANL3_Sony_C.jsv", [0xFE2DC3CB, 0xA055044C, 0x739911B0, 0xE6AA66BA]),
     ("CANL1_SVA_B.264", [0xB02DEFCB, 0x741C0E98, 0x2313C574, 0x9F2008ED]),
     ("CANL2_SVA_B.264", [0xB02DEFCB, 0x741C0E98, 0x2313C574, 0x9F2008ED]),
     ("CANL3_SVA_B.264", [0x04A6DE98, 0x4EF88D1B, 0x8C1B26FC, 0x8F33A425]),
-    ("CANL4_SVA_B.264", [0x8F50D54B, 0x809E3B13, 0xC4F25B83, 0xDAC9715E]),
+    ("CANL4_SVA_B.264", [0x19cee0ac, 0xcfbebacc, 0x57aa4cf0, 0x3e4ef26d]),
     ("CABA1_Sony_D.jsv", [0x24B155A4, 0x00DC10D1, 0x1D45A3AA, 0xDF61AE25]),
     ("CABA2_Sony_E.jsv", [0x3731F0F1, 0xACE3AD91, 0x76093A7B, 0x46347CEA]),
-    ("CABA3_Sony_C.jsv", [0x28C778FD, 0xCF189AFF, 0x70095DB5, 0x2572456B]),
+    ("CABA3_Sony_C.jsv", [0x873A96BF, 0x9359056B, 0x3BF8D878, 0x469B0106]),
     ("CABA3_TOSHIBA_E.264", [0x13651D01, 0xC5B533E6, 0xB7AA132B, 0xAE7669ED]),
     ("CABA1_SVA_B.264", [0x2F5CABD5, 0xBB4954C0, 0x386CAFD8, 0xA9AA782A]),
     ("CABA2_SVA_B.264", [0x6D4277A7, 0xFC70ED1F, 0xBE3C5F10, 0xB0A70671]),
-    ("CABA3_SVA_B.264", [0xA671891F, 0xACE44E55, 0x5C7CAF55, 0x94677EA8]),
-    ("camp_mot_frm0_full.26l", [0xA37697DB, 0x4DC220E5, 0x53E8BFCD, 0x3BA31463]),
+    ("CABA3_SVA_B.264", [0x0F6066DD, 0xFAED6801, 0x8B3FEE8C, 0xFE8A2E1D]),
+    ("camp_mot_frm0_full.26l", [0x22D837CA, 0x60037CC6, 0xA73AF607, 0x969E5422]),
 ];
 #[test]
 fn test_h264_cabac() {
@@ -201,7 +200,7 @@ fn test_h264_cabac() {
 }
 
 const CABAC_INIT_TEST_STREAMS: &[(&str, [u32; 4])] = &[
-    ("CABACI3_Sony_B.jsv", [0xB63FC9B1, 0x4CC4102C, 0xB3C09A73, 0x88E636B2]),
+    ("CABACI3_Sony_B.jsv", [0x5AFF6524, 0xAE5642C9, 0xE26D44CC, 0xE5BFBF02]),
 ];
 #[test]
 fn test_h264_cabac_init() {
@@ -210,7 +209,7 @@ fn test_h264_cabac_init() {
 
 const CABAC_MB_QPTEST_STREAMS: &[(&str, [u32; 4])] = &[
     ("CAQP1_Sony_B.jsv", [0xCAC07EAA, 0xBD141764, 0xD64CF9DE, 0x0230A92E]),
-    ("CACQP3_Sony_D.jsv", [0xDFC2C76E, 0x559E61C0, 0xE3E29220, 0x05DC805E]),
+    ("CACQP3_Sony_D.jsv", [0x9E3036F3, 0x79705C9C, 0x32E37D44, 0xF66E5B3A]),
 ];
 #[test]
 fn test_h264_cabac_mb_qp() {
@@ -218,8 +217,8 @@ fn test_h264_cabac_mb_qp() {
 }
 
 const CABAC_SLICE_TEST_STREAMS: &[(&str, [u32; 4])] = &[
-    ("CABAST3_Sony_E.jsv", [0xB4797DBC, 0x3CD95E50, 0x2C04F2DE, 0x629C61BA]),
-    ("CABASTBR3_Sony_B.jsv", [0xF8081465, 0xA02CF3C3, 0xC678671A, 0xC456D62C]),
+    ("CABAST3_Sony_E.jsv", [0xDDA7F376, 0xA040B262, 0x79F6C7FB, 0x04E078BA]),
+    ("CABASTBR3_Sony_B.jsv", [0xE3A61D43, 0xCED165BC, 0xB9A745E0, 0x52F9A2A6]),
 ];
 #[test]
 fn test_h264_cabac_slice() {
@@ -229,7 +228,7 @@ fn test_h264_cabac_slice() {
 const CABAC_I_PCM_TEST_STREAMS: &[(&str, [u32; 4])] = &[
     ("CAPCMNL1_Sand_E.264", [0xEE9968EE, 0xEFE935F0, 0x45C6B70B, 0xE51691EB]),
     ("CAPCM1_Sand_E.264", [0xCA073CA1, 0x06E70D5C, 0xD51F6748, 0x5846A5B1]),
-    ("CAPM3_Sony_D.jsv", [0x9ECC3BF5, 0xFF7CAC9A, 0x068A5BA5, 0x7BC87CB7]),
+    ("CAPM3_Sony_D.jsv", [0xEA5C66FB, 0xD81D8A80, 0xFC876482, 0xF6A2DEC7]),
 ];
 #[test]
 fn test_h264_cabac_ipcm() {
@@ -238,7 +237,7 @@ fn test_h264_cabac_ipcm() {
 
 const CABAC_MMCO_TEST_STREAMS: &[(&str, [u32; 4])] = &[
     /*"MR9_BT_B.h264",*/ //MBAFF
-    ("HCMP1_HHI_A.264", [0xF1550F70, 0x6762E865, 0x29FE9204, 0x7981C250]),
+    ("HCMP1_HHI_A.264", [0x18486B98, 0xA55E03D3, 0x8F57EF2B, 0x031FA660]),
 ];
 #[test]
 fn test_h264_cabac_mmco() {
@@ -307,7 +306,7 @@ fn test_h264_cabac_cavlc() {
 }*/ // contains MBAFF
 
 const CABAC_PRED_BW_TEST_STREAMS: &[(&str, [u32; 4])] = &[
-    ("src19td.IBP.264", [0xEE593F70, 0x57480500, 0xCE7D8768, 0xF1AA0E41]),
+    ("src19td.IBP.264", [0x45C0D420, 0x524779D5, 0xF5D8F8D1, 0xFB02218B]),
 ];
 #[test]
 fn test_h264_cabac_pred_bw() {
@@ -315,48 +314,47 @@ fn test_h264_cabac_pred_bw() {
 }
 
 const FREXT_420_8_TEST_STREAMS: &[(&str, [u32; 4])] = &[
-    ("FRext/FRExt1_Panasonic.avc", [0x224897db, 0xcb44b3a4, 0x09f779f1, 0x4ed4af76]),
-    ("FRext/FRExt3_Panasonic.avc", [0xC6AB33FD, 0xCC18BC98, 0x7FBF8B2C, 0xD240036D]),
-    ("FRext/HCAFR1_HHI.264", [0x662BB873, 0x3085753A, 0xC5E0D55E, 0x1D1A4A09]),
+    ("FRext/FRExt1_Panasonic.avc", [0x2383599D, 0xA01FAE95, 0xCEE2C970, 0xD88CFA93]),
+    ("FRext/FRExt3_Panasonic.avc", [0x3C85643C, 0xE98FD834, 0xA1DA2600, 0x0307F1AF]),
+    ("FRext/HCAFR1_HHI.264", [0xB5B74CA7, 0xBA23DFA4, 0xEF89E066, 0x299EC511]),
     //("FRext/HCAFF1_HHI.264", [0;4]), //PAFF
     //("FRext/HCAMFF1_HHI.264", [0;4]), //MBAFF
     //("FRext/FRExt2_Panasonic.avc", [0;4]), //PAFF
     //("FRext/FRExt4_Panasonic.avc", [0;4]), //MBAFF
-    ("FRext/HPCANL_BRCM_C.264", [0xB1660F91, 0xE5047ADA, 0xAE5204A5, 0x309D57B8]),
-    ("FRext/HPCA_BRCM_C.264", [0x7F14A1E8, 0x39AD8B19, 0xAE5B8E17, 0x6E3989A3]),
-
+    ("FRext/HPCANL_BRCM_C.264", [0x8B11529D, 0x9FF96CB8, 0xACC7EDCD, 0x81EDB1E6]),
+    ("FRext/HPCA_BRCM_C.264", [0xC38BCFE1, 0xC5A6A1BF, 0x54F08947, 0x23943FAE]),
     /*("FRext/HPCAFLNL_BRCM_C.264", [0;4]), //PAFF
     ("FRext/HPCAFL_BRCM_C.264", [0;4]),*/
-    ("FRext/HCAFR2_HHI.264", [0x63D67A2A, 0x105325E9, 0x20DB4882, 0x3BCA5E0B]),
-    ("FRext/HCAFR3_HHI.264", [0xead8442e, 0xc7c92029, 0xb4308393, 0x04429e08]),
-    ("FRext/HCAFR4_HHI.264", [0xe3c8636e, 0x4a39d44b, 0x37c008be, 0x055f023f]),
-    ("FRext/HPCADQ_BRCM_B.264", [0xbc418315, 0x190b9fbc, 0xf26b2b67, 0x74ec9e0c]),
-    ("FRext/HPCALQ_BRCM_B.264", [0xbc418315, 0x190b9fbc, 0xf26b2b67, 0x74ec9e0c]),
+    ("FRext/HCAFR2_HHI.264", [0x0CBD7BBF, 0xE29B3C53, 0x64CF3F10, 0x34B1FF5A]),
+    ("FRext/HCAFR3_HHI.264", [0x5842BBA0, 0x6C01267B, 0xB093FD66, 0xD36CBA66]),
+    ("FRext/HCAFR4_HHI.264", [0x6E80B189, 0xAAE83055, 0x6F51F4EE, 0xC3BEE5C8]),
+    ("FRext/HPCADQ_BRCM_B.264", [0x976A176F, 0x89296F2B, 0x14F2141D, 0x74D684BB]),
+    ("FRext/HPCALQ_BRCM_B.264", [0x976A176F, 0x89296F2B, 0x14F2141D, 0x74D684BB]),
     //("FRext/HPCAMAPALQ_BRCM_B.264", [0;4]), //MBAFF
-    ("FRext/HPCV_BRCM_A.264", [0x2c898d3b, 0xd5a0ce47, 0x59056977, 0x0efa615c]),
-    ("FRext/HPCVNL_BRCM_A.264", [0x5c03fbee, 0x3197c054, 0xd9bb8998, 0xc7ad74c0]),
+    ("FRext/HPCV_BRCM_A.264", [0xEB0EBC5D, 0xA5996EE1, 0x5F6B290F, 0x4F372F21]),
+    ("FRext/HPCVNL_BRCM_A.264", [0x441E6C4F, 0x861B69E6, 0xC007EEFB, 0x820D6494]),
     /*("FRext/HPCVFL_BRCM_A.264", [0;4]), //PAFF
     ("FRext/HPCVFLNL_BRCM_A.264", [0;4]),*/
     //("FRext/HPCVMOLQ_BRCM_B.264", [0;4]), //grayscale
     //("FRext/HPCAMOLQ_BRCM_B.264", [0;4]), //grayscale
-    ("FRext/HPCAQ2LQ_BRCM_B.264", [0x0548d695, 0x187a2dd9, 0x4019c881, 0xd50c37fe]),
-    ("FRext/Freh1_B.264", [0xdcbbcad3, 0xe236a00b, 0xe1634ab4, 0x10e18346]),
-    ("FRext/Freh2_B.264", [0x016d6d3f, 0xe4592072, 0x28352500, 0xd2997d1b]),
-    ("FRext/freh3.264", [0x1ec34cc7, 0x284a8778, 0x1a6fa64b, 0x71788926]),
+    ("FRext/HPCAQ2LQ_BRCM_B.264", [0xEF0F86EC, 0x8C1C79BA, 0xFA5DFB57, 0x85C2C4FC]),
+    ("FRext/Freh1_B.264", [0x852901B5, 0xC0F54669, 0xD32B9487, 0x40A2BAD9]),
+    ("FRext/Freh2_B.264", [0x28432234, 0x311A2C63, 0x6FE630A8, 0x007AA51E]),
+    ("FRext/freh3.264", [0x94A77E3E, 0xAE7391C7, 0x555071A9, 0xFD67FB69]),
     //("FRext/freh4.264", [0;4]), //PAFF
     //("FRext/freh5.264", [0;4]), //MBAFF
     //("FRext/freh6.264", [0;4]), //PAFF
     //("FRext/Freh7_B.264", [0;4]), //PAFF
-    ("FRext/freh8.264", [0x0be92564, 0x2ad3dbf6, 0xda89d9b6, 0xeebe66e3]),
-    ("FRext/freh9.264", [0xec630029, 0x953c309d, 0xa8813a35, 0x027fae05]),
+    ("FRext/freh8.264", [0x300C9E08, 0xED69F361, 0xF46A3BF5, 0x79D37EF1]),
+    ("FRext/freh9.264", [0x8B3C12A3, 0xC244D147, 0xD71A4F0E, 0x7109393D]),
     //("FRext/freh10.264", [0;4]), //PAFF
     //("FRext/freh11.264", [0;4]), //PAFF
-    ("FRext/Freh12_B.264", [0xa78649ab, 0x5d909a25, 0xf24e2ac6, 0xf6381467]),
+    ("FRext/Freh12_B.264", [0x73DEE4EE, 0x216B40CB, 0xF7647E2B, 0xCD2BBBD3]),
     /*("FRext/FREXT01_JVC_D.264", [0;4]), //MBAFF
     ("FRext/FREXT02_JVC_C.264", [0;4]),*/
-    ("FRext/FRExt_MMCO4_Sony_B.264", [0x47be1aa9, 0x61b2cc22, 0x83e55893, 0x696693b5]),
+    ("FRext/FRExt_MMCO4_Sony_B.264", [0xD4048185, 0xA358D7E7, 0x95EA950D, 0x27C66788]),
 
-    ("FRext/test8b43.264", [0x921c816c, 0x14170ead, 0x03c19c5c, 0x9ed3c0a4]),
+    ("FRext/test8b43.264", [0x921C816C, 0x14170EAD, 0x03C19C5C, 0x9ED3C0A4]),
 ];
 #[test]
 fn test_h264_frext_420_8() {
