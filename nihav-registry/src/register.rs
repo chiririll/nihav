@@ -336,6 +336,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video-llp; "pivideo",      "PI-Video"),
 
+    desc!(video-im; "moviepak",      "RasterOps MoviePak"),
     desc!(video-im; "pgvv",          "Radius Studio Video"),
 
     desc!(video-llp; "qpeg-dvc",          "QPEG video in DVC"),
@@ -463,6 +464,7 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"iv32", "indeo3"),
 
     (b"arbc", "gryphon-arbc-qt"),
+    (b"MPAK", "moviepak"),
     (b"UCOD", "clearvideo"),
 
     (b"VP30", "vp3"),
