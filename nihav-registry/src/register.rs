@@ -411,7 +411,6 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"ARBC", "gryphon-arbc-vfw"),
     (b"azpr", "apple-video"),
     (b" elr", "qt-rle"),
-    (b"PGVV", "pgvv"),
 
     (b"ESCP", "escape-any"),
 
@@ -465,6 +464,7 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"arbc", "gryphon-arbc-qt"),
     (b"MPAK", "moviepak"),
+    (b"PGVV", "pgvv"),
     (b"UCOD", "clearvideo"),
 
     (b"VP30", "vp3"),
