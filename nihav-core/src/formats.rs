@@ -552,14 +552,11 @@ pub const PAL8_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RG
                                             None, None],
                                         elem_size: 3, be: false, alpha: false, palette: true };
 
+/// Predefined format for RGB555 packed video.
+pub const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton::make_rgb16_fmt(5, 5, 5, true, false);
+
 /// Predefined format for RGB565 packed video.
-pub const RGB565_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
-                                        comp_info: [
-                                            chromaton!(packrgb; 5, 11, 0, 2),
-                                            chromaton!(packrgb; 6,  5, 0, 2),
-                                            chromaton!(packrgb; 5,  0, 0, 2),
-                                            None, None],
-                                        elem_size: 2, be: false, alpha: false, palette: false };
+pub const RGB565_FORMAT: NAPixelFormaton = NAPixelFormaton::make_rgb16_fmt(5, 6, 5, true, false);
 
 /// Predefined format for RGB24.
 pub const RGB24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
@@ -812,6 +809,21 @@ impl NAPixelFormaton {
             },
             _ => None,
         }
+    }
+    /// Constructs a 15/16-bit RGB `NAPixelFormaton` from a compact description.
+    pub const fn make_rgb16_fmt(rbits: u8, gbits: u8, bbits: u8, rtop: bool, be: bool) -> Self {
+        let (rshift, gshift, bshift) = if rtop { (gbits + bbits, bbits, 0) } else { (0, rbits, rbits + gbits) };
+        let chromatons = [
+            Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: rbits, shift: rshift, comp_offs: 0, next_elem: 2}),
+            Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: gbits, shift: gshift, comp_offs: 0, next_elem: 2}),
+            Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: bbits, shift: bshift, comp_offs: 0, next_elem: 2}),
+                None, None
+        ];
+        NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB),
+                          components: 3,
+                          comp_info: chromatons,
+                          elem_size: 2,
+                          be, alpha: false, palette: false }
     }
 }
 
