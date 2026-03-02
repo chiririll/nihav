@@ -273,6 +273,9 @@ impl fmt::Display for MV {
 #[cfg(any(feature="blockdsp"))]
 pub mod blockdsp;
 
+#[cfg(feature="jpeg")]
+pub mod jpeg;
+
 #[cfg(feature="h263")]
 #[allow(clippy::collapsible_if)]
 #[allow(clippy::manual_memcpy)]
