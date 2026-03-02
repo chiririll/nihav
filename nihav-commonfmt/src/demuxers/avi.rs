@@ -138,7 +138,7 @@ impl AVIStream {
             if header.colors > 0 {
                 if let Some(ref buf) = edata {
                     let mut pal = [0u8; 1024];
-                    for (dpal, spal) in pal.chunks_mut(4).take(header.colors as usize).zip(buf.chunks(4)) {
+                    for (dpal, spal) in pal.chunks_mut(4).take(header.colors).zip(buf.chunks(4)) {
                         dpal[0] = spal[2];
                         dpal[1] = spal[1];
                         dpal[2] = spal[0];
