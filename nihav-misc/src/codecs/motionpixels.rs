@@ -19,14 +19,6 @@ impl MPVersion {
     fn is_dos(self) -> bool { self == MPVersion::MotionPixelsDOS }
 }
 
-const BGR555_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
-                                        comp_info: [
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: 10, comp_offs: 0, next_elem: 2 }),
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  5, comp_offs: 0, next_elem: 2 }),
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  0, comp_offs: 0, next_elem: 2 }),
-                                            None, None],
-                                        elem_size: 2, be: false, alpha: false, palette: false };
-
 #[derive(Clone,Copy,Debug,Default)]
 struct MPFlags(u16);
 
@@ -540,7 +532,7 @@ impl NADecoder for MVIDecoder {
             }
             self.dec.init(w, h, mode, self.version.is_dos());
             let flipped = !self.version.is_dos() && self.flags.is_flipped();
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, flipped, BGR555_FORMAT));
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, flipped, RGB555_FORMAT));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             Ok(())
         } else {

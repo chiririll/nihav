@@ -2,7 +2,6 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_core::io::bitreader::*;
 
-use super::RGB555_FORMAT;
 use super::yuvtab::YUV2RGB;
 
 const YUV422_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::
@@ -72,7 +71,7 @@ impl NADecoder for RawDecoder {
             }
 
             let fmt = match self.codec_id {
-                    2 => RGB555_FORMAT,
+                    2 => super::BGR555_FORMAT,
                     3 if self.is_yuv => {
                         validate!((self.width  & 1) == 0);
                         YUV422_FORMAT

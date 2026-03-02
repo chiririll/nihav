@@ -1,7 +1,6 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 
-use super::RGB555_FORMAT;
 use super::yuvtab::YUV2RGB;
 
 const END_CODE: u16 = 0x7300;
@@ -22,7 +21,7 @@ impl MLDecoder {
 impl NADecoder for MLDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB555_FORMAT));
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, super::BGR555_FORMAT));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.cur_frm  = vec![0; vinfo.get_width() * vinfo.get_height()];
             self.prev_frm = vec![0; vinfo.get_width() * vinfo.get_height()];

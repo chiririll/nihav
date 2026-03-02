@@ -4,16 +4,7 @@ use nihav_core::io::bitreader::*;
 use nihav_codec_support::codecs::imaadpcm::*;
 use std::convert::TryFrom;
 use std::str::FromStr;
-use super::RGB555_FORMAT;
 use super::yuvtab::YUV2RGB;
-
-const BGR555_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
-                                        comp_info: [
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: 10, comp_offs: 0, next_elem: 2 }),
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  5, comp_offs: 0, next_elem: 2 }),
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  0, comp_offs: 0, next_elem: 2 }),
-                                            None, None],
-                                        elem_size: 2, be: false, alpha: false, palette: false };
 
 trait ReadECode {
     fn read_ecode(&mut self) -> DecoderResult<usize>;
@@ -85,7 +76,7 @@ impl Escape102Decoder {
 impl NADecoder for Escape102Decoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB555_FORMAT));
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, super::BGR555_FORMAT));
             validate!((vinfo.get_width() | vinfo.get_height()) & 1 == 0);
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.frame = vec![0; vinfo.get_width() * vinfo.get_height()];
@@ -384,7 +375,7 @@ impl Escape124Decoder {
 impl NADecoder for Escape124Decoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, BGR555_FORMAT));
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB555_FORMAT));
             validate!((vinfo.get_width() | vinfo.get_height()) & 7 == 0);
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.frame = vec![0; vinfo.get_width() * vinfo.get_height()];

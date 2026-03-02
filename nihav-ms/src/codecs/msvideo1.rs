@@ -2,15 +2,6 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_codec_support::codecs::HAMShuffler;
 
-const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton {
-        model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
-        comp_info: [
-            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: 10, comp_offs: 0, next_elem: 2 }),
-            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  5, comp_offs: 0, next_elem: 2 }),
-            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  0, comp_offs: 0, next_elem: 2 }),
-            None, None],
-        elem_size: 2, be: false, alpha: false, palette: false };
-
 #[derive(Default)]
 struct Video1Decoder {
     info:       NACodecInfoRef,

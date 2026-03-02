@@ -1,7 +1,6 @@
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 
-use super::RGB555_FORMAT;
 use super::yuvtab::YUV2RGB;
 
 fn get_mv(br: &mut BitReader, is_4x4: bool) -> DecoderResult<((i8, i8), bool)> {
@@ -42,7 +41,7 @@ impl MBDecoder {
 impl NADecoder for MBDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB555_FORMAT));
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, super::BGR555_FORMAT));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.cur_frm  = vec![0; vinfo.get_width() * vinfo.get_height()];
             self.prev_frm = vec![0; vinfo.get_width() * vinfo.get_height()];

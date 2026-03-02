@@ -793,7 +793,7 @@ mod test {
     use crate::*;
     use nihav_commonfmt::*;
     use nihav_codec_support::test::enc_video::*;
-    use super::super::truemotion1data::{RGB555_FORMAT, BGR0_FORMAT};
+    use super::super::truemotion1data::BGR0_FORMAT;
 
     #[allow(unused_variables)]
     fn encode_test(name: &'static str, enc_options: &[NAOption], hash: &[u32; 4], is16: bool) {

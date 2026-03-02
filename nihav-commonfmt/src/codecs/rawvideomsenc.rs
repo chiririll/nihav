@@ -1,14 +1,6 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 
-const BGR555_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
-                                        comp_info: [
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: 10, comp_offs: 0, next_elem: 2 }),
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  5, comp_offs: 0, next_elem: 2 }),
-                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  0, comp_offs: 0, next_elem: 2 }),
-                                            None, None],
-                                        elem_size: 2, be: false, alpha: false, palette: false };
-
 pub const BGR24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
                                         comp_info: [
                                             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 3 }),
@@ -60,7 +52,7 @@ impl NAEncoder for RawEncoder {
                         let depth = if vinfo.format.is_paletted() { 8 } else { vinfo.format.get_total_depth() } as usize;
                         vinfo.format = match depth {
                                 8 => PAL8_FORMAT,
-                                15 | 16 => BGR555_FORMAT,
+                                15 | 16 => RGB555_FORMAT,
                                 24 => BGR24_FORMAT,
                                 _ if vinfo.format.has_alpha() => BGR32_FORMAT,
                                 _ => BGR24_FORMAT,
