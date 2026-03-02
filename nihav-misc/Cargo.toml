@@ -9,6 +9,7 @@ path = "../nihav-core"
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
+features = ["jpeg"]
 
 [dependencies.nihav_registry]
 path = "../nihav-registry"
