@@ -959,7 +959,7 @@ fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
 
 fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
     match s {
-        "y8" | "y400" | "gray" => {
+        "y8" | "y400" | "grey" | "gray" => {
             return Ok(NAPixelFormaton {
                     model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 1,
                     comp_info: [
@@ -967,7 +967,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
                         None, None, None, None],
                     elem_size: 1, be: true, alpha: false, palette: false });
         },
-        "y8a" | "y400a" | "graya" => {
+        "y8a" | "y400a" | "greya" | "graya" => {
             return Ok(NAPixelFormaton {
                     model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 2,
                     comp_info: [
