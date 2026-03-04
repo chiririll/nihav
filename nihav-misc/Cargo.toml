@@ -24,7 +24,8 @@ demuxers = []
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_arbc", "decoder_fif", "decoder_moviepak", "decoder_mvi", "decoder_mwv1", "decoder_pgvv", "decoder_pivc", "decoder_qpeg", "decoder_tealvid", "decoder_ultimotion"]
+all_video_decoders = ["decoder_adorage", "decoder_arbc", "decoder_fif", "decoder_moviepak", "decoder_mvi", "decoder_mwv1", "decoder_pgvv", "decoder_pivc", "decoder_qpeg", "decoder_tealvid", "decoder_ultimotion"]
+decoder_adorage = ["decoders"]
 decoder_arbc = ["decoders"]
 decoder_fif = ["decoders"]
 decoder_moviepak = ["decoders"]

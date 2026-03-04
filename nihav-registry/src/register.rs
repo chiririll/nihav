@@ -336,6 +336,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video-llp; "pivideo",      "PI-Video"),
 
+    desc!(video-im; "adorage",      "proDAD Adorage"),
     desc!(video-im; "moviepak",      "RasterOps MoviePak"),
     desc!(video-im; "pgvv",          "Radius Studio Video"),
 
@@ -403,6 +404,8 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"MVI1", "mvi1"),
 
     (b"FVF1", "fif"),
+
+    (b"pDAD", "adorage"),
 
     (b"pivc", "pivideo"),
 

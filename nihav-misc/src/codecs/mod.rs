@@ -9,6 +9,9 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
+#[cfg(feature="decoder_adorage")]
+mod adorage;
+
 #[cfg(feature="decoder_arbc")]
 mod arbc;
 
@@ -40,6 +43,8 @@ mod tealvid;
 mod ultimotion;
 
 const DECODERS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_adorage")]
+    DecoderInfo { name: "adorage", get_decoder: adorage::get_decoder },
 #[cfg(feature="decoder_arbc")]
     DecoderInfo { name: "gryphon-arbc-vfw", get_decoder: arbc::get_decoder_vfw },
 #[cfg(feature="decoder_arbc")]
