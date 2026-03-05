@@ -663,8 +663,8 @@ pub fn recon_mb(frm: &mut NASimpleVideoFrame<u8>, slice_hdr: &SliceHeader, mb_in
 }
 
 pub fn wait_for_mb(disp: &Shareable<ThreadDispatcher>, sstate: &SliceState, xpos: usize, ypos: usize, mv: MV, ref_id: u32) -> DecoderResult<()> {
-    let xpos = xpos as isize + ((mv.x >> 2) as isize) + 4;
-    let ypos = ypos as isize + ((mv.y >> 2) as isize) + 4;
+    let xpos = xpos as isize + ((mv.x >> 2) as isize) + 6;
+    let ypos = ypos as isize + ((mv.y >> 2) as isize) + 6;
     let dst_mb_x = ((xpos.max(0) as usize) / 16).min(sstate.mb_w - 1);
     let dst_mb_y = ((ypos.max(0) as usize) / 16).min(sstate.mb_h - 1);
     let expected_mb = dst_mb_x + dst_mb_y * sstate.mb_w;
