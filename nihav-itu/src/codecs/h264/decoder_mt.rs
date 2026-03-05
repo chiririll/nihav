@@ -663,7 +663,7 @@ impl H264MTDecoder {
                 self.frame_refs.select_refs(sps, &slice_hdr, full_id);
 
                 if slice_hdr.adaptive_ref_pic_marking_mode {
-                    self.frame_refs.apply_adaptive_marking(&slice_hdr.adaptive_ref_pic_marking, slice_hdr.frame_num, 1 << self.sps[self.cur_sps].log2_max_frame_num)?;
+                    self.frame_refs.apply_adaptive_marking(&slice_hdr.adaptive_ref_pic_marking, slice_hdr.frame_num, ((1u32 << self.sps[self.cur_sps].log2_max_frame_num) - 1) as u16)?;
                 }
                 if let Some(ref mut fdec) = self.cur_fdec {
                     fdec.slices.push((slice_hdr, hdr_size, self.frame_refs.cur_refs.clone(), src));

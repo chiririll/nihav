@@ -413,13 +413,13 @@ impl FrameRefs {
             },
         }
     }
-    pub fn apply_adaptive_marking(&mut self, marking: &AdaptiveMarking, cur_id: u16, max_id: u16) -> DecoderResult<()> {
+    pub fn apply_adaptive_marking(&mut self, marking: &AdaptiveMarking, cur_id: u16, max_id_mask: u16) -> DecoderResult<()> {
         let all_ref_pics = self.ref_pics.clone();
 
         for (&op, (&arg1, &arg2)) in marking.memory_management_control_op.iter().zip(marking.operation_arg.iter().zip(marking.operation_arg2.iter())).take(marking.num_ops) {
             match op {
                 1 => {
-                    let src_id = cur_id.wrapping_sub(arg1) & (max_id - 1);
+                    let src_id = cur_id.wrapping_sub(arg1) & max_id_mask;
                     let mut found = false;
                     let mut idx = 0;
                     for (i, pic) in self.ref_pics.iter().enumerate() {
@@ -440,7 +440,7 @@ impl FrameRefs {
                     }
                 },
                 3 => {
-                    let src_id = cur_id.wrapping_sub(arg1) & (max_id - 1);
+                    let src_id = cur_id.wrapping_sub(arg1) & max_id_mask;
 
                     let didx = arg2 as usize;
                     for pic in all_ref_pics.iter() {
