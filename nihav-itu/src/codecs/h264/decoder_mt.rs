@@ -350,7 +350,7 @@ impl FrameDecoder {
             let cur_id = self.cur_pic.full_id as u16;
             // wait for the reference macroblock MV to be available
             if matches!(mb_info.mb_type, MBType::Direct | MBType::BSkip | MBType::B8x8) {
-                if let Some(ref_id) = refs.get_ref_id(0, mb_info.ref_l1[0].index()) {
+                if let Some(ref_id) = refs.get_ref_id(1, mb_info.ref_l1[0].index()) {
                     wait_for_mb(&self.dispatch, &self.sstate, self.sstate.mb_x * 16, self.sstate.mb_y * 16, ZERO_MV, ref_id)?;
                 }
             }
