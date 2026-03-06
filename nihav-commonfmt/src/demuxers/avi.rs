@@ -147,6 +147,17 @@ impl AVIStream {
                     self.pal = Some(PalInfo { pal: Arc::new(pal), changed: true });
                 }
             }
+        } else if header.colors > 0 {
+            if let Some(ref buf) = header.extradata {
+                let mut pal = [0u8; 1024];
+                for (dpal, spal) in pal.chunks_mut(4).take(header.colors).zip(buf.chunks(4)) {
+                    dpal[0] = spal[2];
+                    dpal[1] = spal[1];
+                    dpal[2] = spal[0];
+                    dpal[3] = 0;
+                }
+                self.pal = Some(PalInfo { pal: Arc::new(pal), changed: true });
+            }
         }
         if is_mvi {
             if let Some(ref mut dta) = edata {
