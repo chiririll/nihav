@@ -267,8 +267,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             match strm.get_media_type() {
                 StreamType::Video => {
                     let vinfo = strm.get_info().get_properties().get_video_info().unwrap();
-                    let hdr_pos = self.bw.tell();
-                    self.bw.write_u32le(0)?;
+                    self.bw.write_u32le(40)?;
                     self.bw.write_u32le(vinfo.width as u32)?;
                     self.bw.write_u32le(vinfo.height as u32)?;
                     if !vinfo.format.palette {
@@ -310,10 +309,6 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     if let Some(ref edata) = strm.get_info().get_extradata() {
                         self.bw.write_buf(edata.as_slice())?;
                     }
-                    let bisize = self.bw.tell() - hdr_pos;
-                    self.bw.seek(SeekFrom::Current(-(bisize as i64)))?;
-                    self.bw.write_u32le(bisize as u32)?;
-                    self.bw.seek(SeekFrom::End(0))?;
                 },
                 StreamType::Audio => {
                     let ainfo = strm.get_info().get_properties().get_audio_info().unwrap();
