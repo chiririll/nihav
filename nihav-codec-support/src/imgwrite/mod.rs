@@ -121,8 +121,96 @@ pub fn write_pgmyuv(name: &str, frm: NAFrameRef) -> ImgWriteResult<()> {
                 }
             }
         },
-        NABufferType::Video16(ref _buf) => {
-            return Err(ImgWriteError::NotImplemented);
+        NABufferType::Video16(ref buf) => {
+            let is_flipped = buf.get_info().is_flipped();
+            let (w, h) = buf.get_dimensions(0);
+            let (w2, h2) = buf.get_dimensions(1);
+            let full_w = w2 * 2 > w;
+            let has_alpha = buf.get_info().get_format().has_alpha();
+            let depth = buf.get_info().get_format().get_max_depth();
+            let mut tot_h = h + h2;
+            if has_alpha {
+                tot_h += h;
+            }
+            if full_w {
+                tot_h += h2;
+            }
+            let hdr = format!("P5\n{} {}\n{}\n", w, tot_h, (1 << depth) - 1);
+            fw.write_buf(hdr.as_bytes())?;
+            let dta = buf.get_data();
+            let ls = buf.get_stride(0);
+            let pad: Vec<u8> = vec![0xFF; if !full_w { w - w2 * 2 } else { (w - w2) * 2 } ];
+            if !is_flipped {
+                let ylines = dta.chunks(ls).take(h);
+                for line in ylines {
+                    fw.write_u16be_arr(&line[..w])?;
+                }
+            } else {
+                let ylines = dta[..h * ls].chunks(ls).rev();
+                for line in ylines {
+                    fw.write_u16be_arr(&line[..w])?;
+                }
+            }
+            let base1 = buf.get_offset(1);
+            let stride1 = buf.get_stride(1);
+            let base2 = buf.get_offset(2);
+            let stride2 = buf.get_stride(2);
+            let u = &dta[base1..][..h2*stride1];
+            let v = &dta[base2..][..h2*stride2];
+            let has_chroma = stride1 > 0 && stride2 > 0;
+            if !full_w && has_chroma {
+                if !is_flipped {
+                    for (uline, vline) in u.chunks(stride1).zip(v.chunks(stride2)) {
+                        fw.write_u16be_arr(&uline[..w2])?;
+                        fw.write_buf(pad.as_slice())?;
+
+                        fw.write_u16be_arr(&vline[..w2])?;
+                        fw.write_buf(pad.as_slice())?;
+                    }
+                } else {
+                    for (uline, vline) in u.chunks(stride1).rev().zip(v.chunks(stride2).rev()) {
+                        fw.write_u16be_arr(&uline[..w2])?;
+                        fw.write_buf(pad.as_slice())?;
+
+                        fw.write_u16be_arr(&vline[..w2])?;
+                        fw.write_buf(pad.as_slice())?;
+                    }
+                }
+            } else if has_chroma {
+                if !is_flipped {
+                    for uline in u.chunks(stride1) {
+                        fw.write_u16be_arr(&uline[..w2])?;
+                        fw.write_buf(pad.as_slice())?;
+                    }
+                    for vline in v.chunks(stride2) {
+                        fw.write_u16be_arr(&vline[..w2])?;
+                        fw.write_buf(pad.as_slice())?;
+                    }
+                } else {
+                    for uline in u.chunks(stride1).rev() {
+                        fw.write_u16be_arr(&uline[..w2])?;
+                        fw.write_buf(pad.as_slice())?;
+                    }
+                    for vline in v.chunks(stride2).rev() {
+                        fw.write_u16be_arr(&vline[..w2])?;
+                        fw.write_buf(pad.as_slice())?;
+                    }
+                }
+            }
+            if has_alpha {
+                let ls = buf.get_stride(3);
+                if !is_flipped {
+                    let alines = dta[buf.get_offset(3)..].chunks(ls).take(h);
+                    for line in alines {
+                        fw.write_u16be_arr(&line[..w])?;
+                    }
+                } else {
+                    let alines = dta[buf.get_offset(3)..].chunks(ls).take(h).rev();
+                    for line in alines {
+                        fw.write_u16be_arr(&line[..w])?;
+                    }
+                }
+            }
         },
         NABufferType::Video32(ref _buf) => {
             return Err(ImgWriteError::NotImplemented);
