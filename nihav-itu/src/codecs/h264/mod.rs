@@ -16,7 +16,6 @@ mod baseline;
 mod cabac_coder;
 mod common_types;
 use common_types::*;
-pub use baseline::{get_decoder, get_decoder_mt};
 mod sets;
 mod slice;
 use slice::*;
@@ -165,6 +164,83 @@ fn unescape_nal(src: &[u8], dst: &mut Vec<u8>) -> usize {
         off += 1;
     }
     off
+}
+
+struct STDecoderWrapper {
+    h264:       Box<baseline::decoder_st::H264Decoder>,
+}
+
+impl NADecoder for STDecoderWrapper {
+    fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
+        self.h264.init(supp, info)
+    }
+    fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+        self.h264.decode(supp, pkt)
+    }
+    fn flush(&mut self) {
+        self.h264.flush();
+    }
+}
+
+impl NAOptionHandler for STDecoderWrapper {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] {
+        self.h264.get_supported_options()
+    }
+    fn set_options(&mut self, options: &[NAOption]) {
+        self.h264.set_options(options);
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        self.h264.query_option_value(name)
+    }
+}
+
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
+    Box::new(STDecoderWrapper {
+        h264:       Box::new(baseline::decoder_st::H264Decoder::new()),
+    })
+}
+
+struct MTDecoderWrapper {
+    h264:       Box<baseline::decoder_mt::H264MTDecoder>,
+}
+
+impl NADecoderMT for MTDecoderWrapper {
+    fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef, nthreads: usize) -> DecoderResult<()> {
+        self.h264.init(supp, info, nthreads)
+    }
+    fn can_take_input(&mut self) -> bool {
+        self.h264.can_take_input()
+    }
+    fn queue_pkt(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket, user_id: u32) -> DecoderResult<bool> {
+        self.h264.queue_pkt(supp, pkt, user_id)
+    }
+    fn has_output(&mut self) -> bool {
+        self.h264.has_output()
+    }
+    fn get_frame(&mut self) -> (DecoderResult<NAFrameRef>, u32) {
+        self.h264.get_frame()
+    }
+    fn flush(&mut self) {
+        self.h264.flush();
+    }
+}
+
+impl NAOptionHandler for MTDecoderWrapper {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] {
+        self.h264.get_supported_options()
+    }
+    fn set_options(&mut self, options: &[NAOption]) {
+        self.h264.set_options(options);
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        self.h264.query_option_value(name)
+    }
+}
+
+pub fn get_decoder_mt() -> Box<dyn NADecoderMT + Send> {
+    Box::new(MTDecoderWrapper {
+        h264:       Box::new(baseline::decoder_mt::H264MTDecoder::new()),
+    })
 }
 
 const DEBLOCK_SKIP_OPTION: &str = "skip_deblock";

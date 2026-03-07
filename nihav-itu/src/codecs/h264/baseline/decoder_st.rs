@@ -6,7 +6,7 @@ use nihav_core::io::bitreader::*;
 use super::super::*;
 use super::*;
 
-struct H264Decoder {
+pub struct H264Decoder {
     info:       NACodecInfoRef,
     width:      usize,
     height:     usize,
@@ -47,7 +47,7 @@ struct H264Decoder {
 }
 
 impl H264Decoder {
-    fn new() -> Self {
+    pub fn new() -> Self {
         H264Decoder{
             info:       NACodecInfoRef::default(),
             width:      0,
@@ -941,8 +941,4 @@ impl NAOptionHandler for H264Decoder {
             _ => None,
         }
     }
-}
-
-pub fn get_decoder() -> Box<dyn NADecoder + Send> {
-    Box::new(H264Decoder::new())
 }

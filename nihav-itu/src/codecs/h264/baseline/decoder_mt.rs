@@ -472,7 +472,7 @@ impl FrameDecoder {
     }
 }
 
-struct H264MTDecoder {
+pub struct H264MTDecoder {
     info:           NACodecInfoRef,
     nal_len:        u8,
     dispatch:       Shareable<ThreadDispatcher>,
@@ -492,7 +492,7 @@ struct H264MTDecoder {
 }
 
 impl H264MTDecoder {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             info:           NACodecInfoRef::default(),
             nal_len:        0,
@@ -980,8 +980,4 @@ impl NAOptionHandler for H264MTDecoder {
             _ => None,
         }
     }
-}
-
-pub fn get_decoder_mt() -> Box<dyn NADecoderMT + Send> {
-    Box::new(H264MTDecoder::new())
 }

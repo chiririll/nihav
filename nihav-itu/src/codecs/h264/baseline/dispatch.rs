@@ -4,7 +4,8 @@ use std::thread;
 
 use nihav_core::codecs::{DecoderError, DecoderResult};
 
-use super::{FrameDecoder, PictureInfo};
+use super::PictureInfo;
+use super::decoder_mt::FrameDecoder;
 use super::super::Shareable;
 
 #[derive(Clone,Copy,Debug,PartialEq)]
