@@ -20,6 +20,7 @@ use crate::frame::*;
 mod kernel;
 
 mod colorcvt;
+mod depth;
 mod fill;
 mod repack;
 #[allow(clippy::module_inception)]
@@ -92,6 +93,7 @@ const KERNELS: &[KernelDesc] = &[
     KernelDesc { name: "depal",         create: repack::create_depal },
     KernelDesc { name: "palette",       create: palette::create_palettise },
     KernelDesc { name: "scale",         create: scale::create_scale },
+    KernelDesc { name: "shallow",       create: depth::create_shallow },
     KernelDesc { name: "fill",          create: fill::create_fill },
     KernelDesc { name: "rgb_to_yuv",    create: colorcvt::create_rgb2yuv },
     KernelDesc { name: "yuv_to_rgb",    create: colorcvt::create_yuv2rgb },
@@ -359,6 +361,16 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool, option
             println!("[adding scale]");
         }
         let new_stage = Stage::new("scale", &cur_fmt, ofmt, options)?;
+        cur_fmt = new_stage.fmt_out;
+        add_stage!(stages, new_stage);
+    }
+    let is_in_high_bd = cur_fmt.fmt.get_max_depth() > 8;
+    let is_out_high_bd = ofmt.fmt.get_max_depth() > 8;
+    if is_in_high_bd && !is_out_high_bd {
+        if debug {
+            println!("[adding shallow]");
+        }
+        let new_stage = Stage::new("shallow", &cur_fmt, ofmt, options)?;
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
