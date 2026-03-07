@@ -13,6 +13,8 @@ use nihav_core::io::intcode::*;
 use nihav_codec_support::codecs::{MV, ZERO_MV};
 
 mod baseline;
+mod high;
+
 mod cabac_coder;
 mod common_types;
 use common_types::*;
@@ -166,80 +168,223 @@ fn unescape_nal(src: &[u8], dst: &mut Vec<u8>) -> usize {
     off
 }
 
+fn is_high_bitdepth(edata: &[u8]) -> DecoderResult<bool> {
+    if edata.len() > 11 && &edata[0..4] == b"avcC" {
+        let mut br = MemoryReader::new_read(edata);
+        let mut nal_buf = Vec::new();
+
+                                  br.read_skip(4)?;
+        let version             = br.read_byte()?;
+        validate!(version == 1);
+        let profile             = br.read_byte()?;
+        let _compatibility      = br.read_byte()?;
+        let _level              = br.read_byte()?;
+        let _b                  = br.read_byte()?;
+        //validate!((b & 0xFC) == 0xFC);
+        //self.nal_len            = (b & 3) + 1;
+        let b                   = br.read_byte()?;
+        //validate!((b & 0xE0) == 0xE0);
+        let num_sps = (b & 0x1F) as usize;
+        for _ in 0..num_sps {
+            let len             = br.read_u16be()? as usize;
+            let offset = br.tell() as usize;
+            validate!((br.peek_byte()? & 0x1F) == 7);
+            let _size = unescape_nal(&edata[offset..][..len], &mut nal_buf);
+                                  br.read_skip(len)?;
+            let sps = sets::parse_sps(&nal_buf[1..])?;
+            if sps.bit_depth_luma > 8 {
+                return Ok(true);
+            }
+        }
+        let num_pps             = br.read_byte()? as usize;
+        for _ in 0..num_pps {
+            let len             = br.read_u16be()? as usize;
+            let offset = br.tell() as usize;
+            validate!((br.peek_byte()? & 0x1F) == 8);
+            let _size = unescape_nal(&edata[offset..][..len], &mut nal_buf);
+                                  br.read_skip(len)?;
+        }
+        if br.left() > 0 {
+            match profile {
+                100 | 110 | 122 | 144 => {
+                    let b       = br.read_byte()?;
+                    // some encoders put something different here
+                    if (b & 0xFC) != 0xFC {
+                        return Ok(false);
+                    }
+                    // b & 3 -> chroma format
+                    let b       = br.read_byte()?;
+                    validate!((b & 0xF8) == 0xF8);
+                    // b & 7 -> luma depth minus 8
+                    let b       = br.read_byte()?;
+                    validate!((b & 0xF8) == 0xF8);
+                    // b & 7 -> chroma depth minus 8
+                    let num_spsext  = br.read_byte()? as usize;
+                    for _ in 0..num_spsext {
+                        let len = br.read_u16be()? as usize;
+                        // parse spsext
+                                  br.read_skip(len)?;
+                    }
+                },
+                _ => {},
+            };
+        }
+    }
+    Ok(false)
+}
+
 struct STDecoderWrapper {
     h264:       Box<baseline::decoder_st::H264Decoder>,
+    h264_hi:    Option<Box<high::decoder_st::H264Decoder>>,
 }
 
 impl NADecoder for STDecoderWrapper {
     fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
-        self.h264.init(supp, info)
+        let is_high_depth = if let Some(ref edata) = info.get_extradata() {
+                is_high_bitdepth(edata).unwrap_or(false)
+            } else {
+                false
+            };
+        if !is_high_depth {
+            self.h264.init(supp, info)
+        } else {
+            let mut h264_hi = Box::new(high::decoder_st::H264Decoder::new());
+            h264_hi.init(supp, info)?;
+            self.h264_hi = Some(h264_hi);
+            Ok(())
+        }
     }
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
-        self.h264.decode(supp, pkt)
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.decode(supp, pkt)
+        } else {
+            self.h264.decode(supp, pkt)
+        }
     }
     fn flush(&mut self) {
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.flush()
+        }
         self.h264.flush();
     }
 }
 
 impl NAOptionHandler for STDecoderWrapper {
     fn get_supported_options(&self) -> &[NAOptionDefinition] {
-        self.h264.get_supported_options()
+        if let Some(ref h264_hi) = self.h264_hi {
+            h264_hi.get_supported_options()
+        } else {
+            self.h264.get_supported_options()
+        }
     }
     fn set_options(&mut self, options: &[NAOption]) {
-        self.h264.set_options(options);
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.set_options(options);
+        } else {
+            self.h264.set_options(options);
+        }
     }
     fn query_option_value(&self, name: &str) -> Option<NAValue> {
-        self.h264.query_option_value(name)
+        if let Some(ref h264_hi) = self.h264_hi {
+            h264_hi.query_option_value(name)
+        } else {
+            self.h264.query_option_value(name)
+        }
     }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(STDecoderWrapper {
         h264:       Box::new(baseline::decoder_st::H264Decoder::new()),
+        h264_hi:    None,
     })
 }
 
 struct MTDecoderWrapper {
     h264:       Box<baseline::decoder_mt::H264MTDecoder>,
+    h264_hi:    Option<Box<high::decoder_mt::H264MTDecoder>>,
 }
 
 impl NADecoderMT for MTDecoderWrapper {
     fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef, nthreads: usize) -> DecoderResult<()> {
-        self.h264.init(supp, info, nthreads)
+        let is_high_depth = if let Some(ref edata) = info.get_extradata() {
+                is_high_bitdepth(edata).unwrap_or(false)
+            } else {
+                false
+            };
+        if !is_high_depth {
+            self.h264.init(supp, info, nthreads)
+        } else {
+            let mut h264_hi = Box::new(high::decoder_mt::H264MTDecoder::new());
+            h264_hi.init(supp, info, nthreads)?;
+            self.h264_hi = Some(h264_hi);
+            Ok(())
+        }
     }
     fn can_take_input(&mut self) -> bool {
-        self.h264.can_take_input()
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.can_take_input()
+        } else {
+            self.h264.can_take_input()
+        }
     }
     fn queue_pkt(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket, user_id: u32) -> DecoderResult<bool> {
-        self.h264.queue_pkt(supp, pkt, user_id)
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.queue_pkt(supp, pkt, user_id)
+        } else {
+            self.h264.queue_pkt(supp, pkt, user_id)
+        }
     }
     fn has_output(&mut self) -> bool {
-        self.h264.has_output()
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.has_output()
+        } else {
+            self.h264.has_output()
+        }
     }
     fn get_frame(&mut self) -> (DecoderResult<NAFrameRef>, u32) {
-        self.h264.get_frame()
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.get_frame()
+        } else {
+            self.h264.get_frame()
+        }
     }
     fn flush(&mut self) {
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.flush();
+        }
         self.h264.flush();
     }
 }
 
 impl NAOptionHandler for MTDecoderWrapper {
     fn get_supported_options(&self) -> &[NAOptionDefinition] {
-        self.h264.get_supported_options()
+        if let Some(ref h264_hi) = self.h264_hi {
+            h264_hi.get_supported_options()
+        } else {
+            self.h264.get_supported_options()
+        }
     }
     fn set_options(&mut self, options: &[NAOption]) {
-        self.h264.set_options(options);
+        if let Some(ref mut h264_hi) = self.h264_hi {
+            h264_hi.set_options(options);
+        } else {
+            self.h264.set_options(options);
+        }
     }
     fn query_option_value(&self, name: &str) -> Option<NAValue> {
-        self.h264.query_option_value(name)
+        if let Some(ref h264_hi) = self.h264_hi {
+            h264_hi.query_option_value(name)
+        } else {
+            self.h264.query_option_value(name)
+        }
     }
 }
 
 pub fn get_decoder_mt() -> Box<dyn NADecoderMT + Send> {
     Box::new(MTDecoderWrapper {
         h264:       Box::new(baseline::decoder_mt::H264MTDecoder::new()),
+        h264_hi:    None,
     })
 }
 
@@ -466,6 +611,49 @@ mod test {
                             [0x80d1f58f, 0x12e454c0, 0x2140ca5c, 0xe19350ba],
                             [0x26078d38, 0xf6a59d57, 0xcd14eaf8, 0x8eb08259],
                             [0x31494337, 0x6f8d3f52, 0x4bc9ff92, 0x0c601b1c]]));
+    }
+    // a sample from libav FATE suite
+    #[test]
+    fn test_h264_10_bit() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        dmx_reg.add_demuxer(&RawH264DemuxerCreator{});
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        itu_register_all_decoders(&mut dec_reg);
+        test_decoding("rawh264", "h264", "assets/ITU/normal-10.h264",
+                      None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                          [0x50aa3b23, 0x62021b6d, 0x5a4ed176, 0x309bbeb2],
+                          [0xdc632b62, 0x5a588c84, 0x7a5f8537, 0xc82e356b],
+                          [0x0be7e536, 0xf54f8a6f, 0xe6ed1bb5, 0xf10ee116],
+                          [0xcb69cc4d, 0xfe8cccab, 0x161c3687, 0x7bf5de8b],
+                          [0x36667f83, 0x78468cab, 0xa378f86b, 0x9358a3f2],
+                          [0x31a31140, 0xb8069e3e, 0x22d90a05, 0x0b3f8bff],
+                          [0xb5f144a8, 0xb56ac2d6, 0x0bcae310, 0xebc3042e],
+                          [0x324a14ce, 0x87bc9e89, 0x312bc02f, 0x9c6e2b0b],
+                          [0xa8e10c16, 0xa85de23e, 0xd8e8e47e, 0xd00a9fd9],
+                          [0x0b626c0f, 0x9ab5212d, 0x98728b97, 0xb8ce84a0]]));
+    }
+    #[test]
+    fn test_h264_10bit_mt() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        dmx_reg.add_demuxer(&RawH264DemuxerCreator{});
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredMTDecoders::new();
+        itu_register_all_mt_decoders(&mut dec_reg);
+        test_mt_decoding("rawh264", "h264", "assets/ITU/normal-10.h264",
+                         None, &dmx_reg, &dec_reg,
+                         ExpectedTestResult::MD5Frames(vec![
+                             [0x50aa3b23, 0x62021b6d, 0x5a4ed176, 0x309bbeb2],
+                             [0xdc632b62, 0x5a588c84, 0x7a5f8537, 0xc82e356b],
+                             [0x0be7e536, 0xf54f8a6f, 0xe6ed1bb5, 0xf10ee116],
+                             [0xcb69cc4d, 0xfe8cccab, 0x161c3687, 0x7bf5de8b],
+                             [0x36667f83, 0x78468cab, 0xa378f86b, 0x9358a3f2],
+                             [0x31a31140, 0xb8069e3e, 0x22d90a05, 0x0b3f8bff],
+                             [0xb5f144a8, 0xb56ac2d6, 0x0bcae310, 0xebc3042e],
+                             [0x324a14ce, 0x87bc9e89, 0x312bc02f, 0x9c6e2b0b],
+                             [0xa8e10c16, 0xa85de23e, 0xd8e8e47e, 0xd00a9fd9],
+                             [0x0b626c0f, 0x9ab5212d, 0x98728b97, 0xb8ce84a0]]));
     }
 }
 
