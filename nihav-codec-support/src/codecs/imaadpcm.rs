@@ -1,12 +1,12 @@
 //! IMA ADPCM decoding functionality.
 
-///! IMA ADPCM step change table.
+/// IMA ADPCM step change table.
 pub const IMA_STEPS: [i8; 16] = [
     -1, -1, -1, -1, 2, 4, 6, 8,
     -1, -1, -1, -1, 2, 4, 6, 8
 ];
 
-///! IMA ADPCM step size table.
+/// IMA ADPCM step size table.
 pub const IMA_STEP_TABLE: [i32; 89] = [
         7,     8,     9,    10,    11,    12,    13,    14,
        16,    17,    19,    21,    23,    25,    28,    31,
@@ -21,32 +21,32 @@ pub const IMA_STEP_TABLE: [i32; 89] = [
     15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 ];
 
-///! Maximum step value for IMA ADPCM.
+/// Maximum step value for IMA ADPCM.
 pub const IMA_MAX_STEP: u8 = 88;
 
 #[derive(Clone,Copy,Debug)]
-///! Decoder for IMA ADPCM.
+/// Decoder for IMA ADPCM.
 pub struct IMAState {
-    ///! Current sample value.
+    /// Current sample value.
     pub predictor:  i32,
-    ///! Current step index.
+    /// Current step index.
     pub step:       usize,
 }
 
 impl IMAState {
-    ///! Constructs a new instance of `IMAState`.
+    /// Constructs a new instance of `IMAState`.
     pub fn new() -> Self {
         Self {
             predictor:  0,
             step:       0,
         }
     }
-    ///! Re-initialises decoder with new predictor and step values.
+    /// Re-initialises decoder with new predictor and step values.
     pub fn reset(&mut self, predictor: i16, step: u8) {
         self.predictor  = i32::from(predictor);
         self.step       = step.min(IMA_MAX_STEP) as usize;
     }
-    ///! Computes a new sample value from an input nibble.
+    /// Computes a new sample value from an input nibble.
     pub fn expand_sample(&mut self, nibble: u8) -> i16 {
         let istep = (self.step as isize) + (IMA_STEPS[(nibble & 0xF) as usize] as isize);
         let sign = (nibble & 8) != 0;
@@ -56,7 +56,7 @@ impl IMAState {
         self.step = istep.max(0).min(IMA_MAX_STEP as isize) as usize;
         self.predictor as i16
     }
-    ///! Computes an encoded nibble from an input sample.
+    /// Computes an encoded nibble from an input sample.
     pub fn compress_sample(&self, sample: i16) -> u8 {
         let diff = i32::from(sample) - self.predictor;
         let sign = if diff >= 0 { 0 } else { 8 };
