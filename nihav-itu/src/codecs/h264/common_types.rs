@@ -1,4 +1,5 @@
-use nihav_codec_support::codecs::MV;
+use nihav_codec_support::codecs::{MV, ZERO_MV};
+use nihav_codec_support::data::GenericCache;
 
 #[repr(u8)]
 #[derive(Clone,Copy,Debug,PartialEq)]
@@ -389,6 +390,300 @@ pub struct Blk4Data {
 #[derive(Default)]
 pub struct MVCache {
     pub data:   [[MV; 2]; 25]
+}
+
+pub struct SliceStateCommon<T> {
+    pub mb_x:           usize,
+    pub mb_y:           usize,
+    pub mb_w:           usize,
+    pub mb_h:           usize,
+    pub mb_start:       usize,
+
+    pub mb:             GenericCache<MBData>,
+    pub blk8:           GenericCache<Blk8Data>,
+    pub blk4:           GenericCache<Blk4Data>,
+
+    pub deblock:        [u8; 16],
+
+    pub has_top:        bool,
+    pub has_left:       bool,
+
+    pub def_fill:       T,
+    pub top_line_y:     Vec<T>,
+    pub left_y:         [T; 17], // first element is top-left
+    pub top_line_c:     [Vec<T>; 2],
+    pub left_c:         [[T; 9]; 2],
+}
+
+pub const BLK4_TO_D8: [usize; 16] = [ 0, 0, 3, 3, 0, 0, 3, 3, 12, 12, 15, 15, 12, 12, 15, 15 ];
+
+impl<T: Clone+Copy+Default> SliceStateCommon<T> {
+    pub fn new_default() -> Self {
+        Self {
+            mb_x:       0,
+            mb_y:       0,
+            mb_w:       0,
+            mb_h:       0,
+            mb_start:   0,
+            mb:         GenericCache::new(0, 0, MBData::default()),
+            blk8:       GenericCache::new(0, 0, Blk8Data::default()),
+            blk4:       GenericCache::new(0, 0, Blk4Data::default()),
+
+            deblock:    [0; 16],
+
+            has_top:    false,
+            has_left:   false,
+
+            def_fill:   T::default(),
+            top_line_y: Vec::new(),
+            left_y:     [T::default(); 17],
+            top_line_c: [Vec::new(), Vec::new()],
+            left_c:     [[T::default(); 9]; 2],
+        }
+    }
+    pub fn reset(&mut self, mb_w: usize, mb_h: usize, mb_pos: usize) {
+        self.mb_w     = mb_w;
+        self.mb_h     = mb_h;
+        self.mb_start = mb_pos;
+        if mb_w > 0 {
+            self.mb_x = mb_pos % mb_w;
+            self.mb_y = mb_pos / mb_w;
+        } else {
+            self.mb_x = 0;
+            self.mb_y = 0;
+        }
+        self.mb    = GenericCache::new(1, mb_w     + 2, MBData::default());
+        self.blk8  = GenericCache::new(2, mb_w * 2 + 2, Blk8Data::default());
+        self.blk4  = GenericCache::new(4, mb_w * 4 + 2, Blk4Data::default());
+
+        self.has_top  = false;
+        self.has_left = false;
+
+        self.top_line_y.resize(mb_w * 16 + 1, self.def_fill);
+        self.top_line_c[0].resize(mb_w *  8 + 1, self.def_fill);
+        self.top_line_c[1].resize(mb_w *  8 + 1, self.def_fill);
+        self.left_y = [self.def_fill; 17];
+        self.left_c = [[self.def_fill; 9]; 2];
+    }
+    pub fn next_mb(&mut self) {
+        self.mb_x += 1;
+        self.has_left = true;
+        if self.mb_x == self.mb_w {
+            self.mb_x = 0;
+            self.mb_y += 1;
+            self.mb.update_row();
+            self.blk8.update_row();
+            self.blk4.update_row();
+
+            self.has_left = false;
+        }
+        self.has_top = self.mb_x + self.mb_y * self.mb_w >= self.mb_start + self.mb_w;
+    }
+    pub fn get_cur_mb_idx(&self) -> usize { self.mb.xpos + self.mb_x }
+    pub fn get_cur_blk8_idx(&self, blk_no: usize) -> usize {
+        self.blk8.xpos + self.mb_x * 2 + (blk_no & 1) + (blk_no >> 1) * self.blk8.stride
+    }
+    pub fn get_cur_blk4_idx(&self, blk_no: usize) -> usize {
+        self.blk4.xpos + self.mb_x * 4 + (blk_no & 3) + (blk_no >> 2) * self.blk4.stride
+    }
+    pub fn get_cur_mb(&mut self) -> &mut MBData {
+        let idx = self.get_cur_mb_idx();
+        &mut self.mb.data[idx]
+    }
+    pub fn get_left_mb(&self) -> &MBData {
+        &self.mb.data[self.get_cur_mb_idx() - 1]
+    }
+    pub fn get_top_mb(&self) -> &MBData {
+        &self.mb.data[self.get_cur_mb_idx() - self.mb.stride]
+    }
+    pub fn get_cur_blk8(&mut self, blk_no: usize) -> &mut Blk8Data {
+        let idx = self.get_cur_blk8_idx(blk_no);
+        &mut self.blk8.data[idx]
+    }
+    pub fn get_left_blk8(&self, blk_no: usize) -> &Blk8Data {
+        &self.blk8.data[self.get_cur_blk8_idx(blk_no) - 1]
+    }
+    pub fn get_top_blk8(&self, blk_no: usize) -> &Blk8Data {
+        &self.blk8.data[self.get_cur_blk8_idx(blk_no) - self.blk8.stride]
+    }
+    pub fn get_cur_blk4(&mut self, blk_no: usize) -> &mut Blk4Data {
+        let idx = self.get_cur_blk4_idx(blk_no);
+        &mut self.blk4.data[idx]
+    }
+    pub fn get_left_blk4(&self, blk_no: usize) -> &Blk4Data {
+        &self.blk4.data[self.get_cur_blk4_idx(blk_no) - 1]
+    }
+    pub fn get_top_blk4(&self, blk_no: usize) -> &Blk4Data {
+        &self.blk4.data[self.get_cur_blk4_idx(blk_no) - self.blk4.stride]
+    }
+
+    pub fn apply_to_blk8<F: (Fn(&mut Blk8Data))>(&mut self, f: F) {
+        let start = self.get_cur_blk8_idx(0);
+        for row in self.blk8.data[start..].chunks_mut(self.blk8.stride).take(2) {
+            for el in row[..2].iter_mut() {
+                f(el);
+            }
+        }
+    }
+    pub fn apply_to_blk4<F: (Fn(&mut Blk4Data))>(&mut self, f: F) {
+        let start = self.get_cur_blk4_idx(0);
+        for row in self.blk4.data[start..].chunks_mut(self.blk4.stride).take(4) {
+            for el in row[..4].iter_mut() {
+                f(el);
+            }
+        }
+    }
+
+    pub fn fill_ipred(&mut self, imode: IntraPredMode) {
+        self.apply_to_blk4(|blk| blk.ipred = imode);
+    }
+    pub fn fill_ncoded(&mut self, nc: u8) {
+        self.apply_to_blk4(|blk| blk.ncoded = nc);
+        self.apply_to_blk8(|blk| blk.ncoded_c = [nc; 2]);
+    }
+    pub fn reset_mb_mv(&mut self) {
+        self.apply_to_blk8(|blk| blk.ref_idx = [INVALID_REF; 2]);
+    }
+
+    pub fn get_mv_ctx(&self, xoff: usize, yoff: usize, ref_l: usize) -> (usize, usize) {
+        let blk_no = xoff / 4 + yoff;
+        let mv_a = self.get_left_blk4(blk_no).mvd[ref_l];
+        let mv_b = self.get_top_blk4(blk_no).mvd[ref_l];
+        let mv = mv_a + mv_b;
+        let ctx0 = if mv.x < 3 { 0 } else if mv.x <= 32 { 1 } else { 2 };
+        let ctx1 = if mv.y < 3 { 0 } else if mv.y <= 32 { 1 } else { 2 };
+        (ctx0, ctx1)
+    }
+    pub fn get_mv_ref_ctx(&self, xoff: usize, yoff: usize, ref_l: usize) -> usize {
+        let blk_no = xoff / 8 + (yoff / 8) * 2;
+        let mut ctx = 0;
+        let left_ref = self.get_left_blk8(blk_no).ref_idx[ref_l];
+        let top_ref = self.get_top_blk8(blk_no).ref_idx[ref_l];
+        if !left_ref.not_avail() && !left_ref.is_direct() && left_ref.index() > 0 {
+            ctx += 1;
+        }
+        if !top_ref.not_avail() && !top_ref.is_direct() && top_ref.index() > 0 {
+            ctx += 2;
+        }
+        ctx
+    }
+    #[allow(clippy::if_same_then_else)]
+    pub fn predict(&mut self, xpos: usize, ypos: usize, bw: usize, bh: usize, ref_l: usize, diff_mv: MV, ref_idx: PicRef) {
+        let midx = self.get_cur_blk4_idx(0) + xpos / 4 + ypos / 4 * self.blk4.stride;
+        let ridx = self.get_cur_blk8_idx(0) + xpos / 8 + ypos / 8 * self.blk8.stride;
+        let ridx_c = self.get_cur_blk8_idx(0) + (xpos + bw) / 8 + ypos / 8 * self.blk8.stride - if (ypos & 4) == 0 { self.blk8.stride } else { 0 };
+
+        let mv_a = self.blk4.data[midx - 1].mv[ref_l];
+        let mv_b = self.blk4.data[midx - self.blk4.stride].mv[ref_l];
+        let mut mv_c = self.blk4.data[midx - self.blk4.stride + bw / 4].mv[ref_l];
+
+        let rx = if (xpos & 4) != 0 { 0 } else { 1 };
+        let ry = if (ypos & 4) != 0 { 0 } else { self.blk8.stride };
+        let ref_a = self.blk8.data[ridx - rx].ref_idx[ref_l];
+        let ref_b = self.blk8.data[ridx - ry].ref_idx[ref_l];
+        let mut ref_c = self.blk8.data[ridx_c].ref_idx[ref_l];
+
+        if ref_c == MISSING_REF || (((xpos + bw) & 4) == 0 && (ypos & 4) != 0) {
+            mv_c = self.blk4.data[midx - self.blk4.stride - 1].mv[ref_l];
+            ref_c = self.blk8.data[ridx - rx - ry].ref_idx[ref_l];
+        }
+
+        let pred_mv = if bw == 16 && bh == 8 && ypos == 0 && ref_b == ref_idx {
+                mv_b
+            } else if bw == 16 && bh == 8 && ypos != 0 && ref_a == ref_idx {
+                mv_a
+            } else if bw == 8 && bh == 16 && xpos == 0 && ref_a == ref_idx {
+                mv_a
+            } else if bw == 8 && bh == 16 && xpos != 0 && ref_c == ref_idx {
+                mv_c
+            } else if ref_b == MISSING_REF && ref_c == MISSING_REF {
+                mv_a
+            } else {
+                let count = ((ref_a == ref_idx) as u8) + ((ref_b == ref_idx) as u8) + ((ref_c == ref_idx) as u8);
+                if count == 1 {
+                    if ref_a == ref_idx {
+                        mv_a
+                    } else if ref_b == ref_idx {
+                        mv_b
+                    } else {
+                        mv_c
+                    }
+                } else {
+                    MV::pred(mv_a, mv_b, mv_c)
+                }
+            };
+
+        let mv = pred_mv + diff_mv;
+        self.fill_mv (xpos, ypos, bw, bh, ref_l, mv);
+        self.fill_ref(xpos, ypos, bw, bh, ref_l, ref_idx);
+    }
+    pub fn predict_pskip(&mut self) {
+        let midx = self.get_cur_blk4_idx(0);
+        let ridx = self.get_cur_blk8_idx(0);
+
+        let mv_a = self.blk4.data[midx - 1].mv[0];
+        let mv_b = self.blk4.data[midx - self.blk4.stride].mv[0];
+        let mut mv_c = self.blk4.data[midx - self.blk4.stride + 4].mv[0];
+
+        let ref_a = self.blk8.data[ridx - 1].ref_idx[0];
+        let ref_b = self.blk8.data[ridx - self.blk8.stride].ref_idx[0];
+        let mut ref_c = self.blk8.data[ridx - self.blk8.stride + 2].ref_idx[0];
+
+        if ref_c == MISSING_REF {
+            mv_c = self.blk4.data[midx - self.blk4.stride - 1].mv[0];
+            ref_c = self.blk8.data[ridx - self.blk8.stride - 1].ref_idx[0];
+        }
+
+        let ref_idx = ZERO_REF;
+        let mv = if ref_a == MISSING_REF || ref_b == MISSING_REF || (ref_a == ZERO_REF && mv_a == ZERO_MV) || (ref_b == ZERO_REF && mv_b == ZERO_MV) {
+                ZERO_MV
+            } else {
+                let count = ((ref_a == ref_idx) as u8) + ((ref_b == ref_idx) as u8) + ((ref_c == ref_idx) as u8);
+                if count == 1 {
+                    if ref_a == ref_idx {
+                        mv_a
+                    } else if ref_b == ref_idx {
+                        mv_b
+                    } else {
+                        mv_c
+                    }
+                } else {
+                    MV::pred(mv_a, mv_b, mv_c)
+                }
+            };
+
+        self.fill_mv (0, 0, 16, 16, 0, mv);
+        self.fill_ref(0, 0, 16, 16, 0, ref_idx);
+    }
+    pub fn fill_mv(&mut self, xpos: usize, ypos: usize, bw: usize, bh: usize, ref_l: usize, mv: MV) {
+        let start = self.get_cur_blk4_idx(0) + xpos / 4 + ypos / 4 * self.blk4.stride;
+        for row in self.blk4.data[start..].chunks_mut(self.blk4.stride).take(bh / 4) {
+            for blk in row[..bw / 4].iter_mut() {
+                blk.mv[ref_l] = mv;
+            }
+        }
+    }
+    pub fn fill_mvd(&mut self, xpos: usize, ypos: usize, bw: usize, bh: usize, ref_l: usize, mv: MV) {
+        let mvd = MV{ x: mv.x.abs().min(128), y: mv.y.abs().min(128) };
+        let start = self.get_cur_blk4_idx(0) + xpos / 4 + ypos / 4 * self.blk4.stride;
+        for row in self.blk4.data[start..].chunks_mut(self.blk4.stride).take(bh / 4) {
+            for blk in row[..bw / 4].iter_mut() {
+                blk.mvd[ref_l] = mvd;
+            }
+        }
+    }
+    pub fn fill_ref(&mut self, xpos: usize, ypos: usize, bw: usize, bh: usize, ref_l: usize, ref_idx: PicRef) {
+        let start = self.get_cur_blk8_idx(0) + xpos / 8 + ypos / 8 * self.blk8.stride;
+        if bw < 8 || bh < 8 {
+            self.blk8.data[start].ref_idx[ref_l] = ref_idx;
+        } else {
+            for row in self.blk8.data[start..].chunks_mut(self.blk8.stride).take(bh / 8) {
+                for blk in row[..bw / 8].iter_mut() {
+                    blk.ref_idx[ref_l] = ref_idx;
+                }
+            }
+        }
+    }
 }
 
 #[cfg(not(target_arch="x86_64"))]
