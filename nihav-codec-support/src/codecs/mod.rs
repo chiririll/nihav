@@ -270,7 +270,7 @@ impl fmt::Display for MV {
     }
 }
 
-#[cfg(any(feature="blockdsp"))]
+#[cfg(feature="blockdsp")]
 pub mod blockdsp;
 
 #[cfg(feature="jpeg")]
