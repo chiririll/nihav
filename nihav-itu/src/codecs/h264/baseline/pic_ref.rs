@@ -2,8 +2,9 @@ use nihav_core::codecs::DecoderResult;
 use nihav_core::frame::{FrameType, NAVideoBufferRef, NATimeInfo};
 use nihav_core::refs::*;
 use nihav_codec_support::codecs::MV;
-use super::sets::SeqParameterSet;
-use super::slice::*;
+use super::super::common_types::*;
+use super::super::sets::SeqParameterSet;
+use super::super::slice::*;
 use super::types::*;
 
 #[derive(Clone)]

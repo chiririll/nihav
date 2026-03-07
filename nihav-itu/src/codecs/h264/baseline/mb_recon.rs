@@ -1,11 +1,12 @@
 use nihav_core::codecs::{DecoderResult, DecoderError};
 use nihav_core::frame::*;
 use nihav_codec_support::codecs::{MV, ZERO_MV};
-use super::{CurrentMBInfo, I4X4_SCAN, Shareable};
+use super::super::{CurrentMBInfo, I4X4_SCAN, Shareable};
+use super::super::common_types::*;
 use super::dispatch::{ThreadDispatcher, FrameDecodingStatus};
 use super::dsp::*;
 use super::pic_ref::SimplifiedSliceRefs;
-use super::slice::{SliceHeader, WeightInfo, DEF_WEIGHT_INFO};
+use super::super::slice::{SliceHeader, WeightInfo, DEF_WEIGHT_INFO};
 use super::types::*;
 
 fn pred_intra(frm: &mut NASimpleVideoFrame<u8>, sstate: &SliceState, mb_info: &CurrentMBInfo) {

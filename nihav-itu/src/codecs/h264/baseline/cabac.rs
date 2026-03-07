@@ -1,9 +1,12 @@
 //use nihav_core::codecs::{DecoderResult, DecoderError};
 
+use nihav_codec_support::codecs::MV;
+
+use super::super::*;
 use super::*;
-use super::cabac_coder::*;
+use super::super::cabac_coder::*;
 use super::dsp::{CHROMA_DC_SCAN, ZIGZAG, ZIGZAG1, ZIGZAG8X8};
-use super::slice::SliceHeader;
+use super::super::slice::SliceHeader;
 
 pub fn cabac_decode_mbskip(cabac: &mut CABAC, sstate: &SliceState, slice_hdr: &SliceHeader) -> bool {
     let skip_idx = if slice_hdr.slice_type.is_p() { 11 } else { 24 };

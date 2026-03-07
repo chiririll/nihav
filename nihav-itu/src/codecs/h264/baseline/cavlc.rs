@@ -1,10 +1,12 @@
 use nihav_core::codecs::{DecoderResult, DecoderError};
+use nihav_codec_support::codecs::MV;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::io::intcode::*;
+use super::super::*;
 use super::*;
 use super::dsp::{CHROMA_DC_SCAN, ZIGZAG, ZIGZAG1};
-use super::slice::SliceHeader;
+use super::super::slice::SliceHeader;
 
 fn map_i_type(idx: usize) -> MBType {
     if idx == 0 {

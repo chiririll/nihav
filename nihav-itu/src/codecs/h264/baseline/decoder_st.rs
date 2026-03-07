@@ -3,6 +3,7 @@ use std::sync::Arc;
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 
+use super::super::*;
 use super::*;
 
 struct H264Decoder {

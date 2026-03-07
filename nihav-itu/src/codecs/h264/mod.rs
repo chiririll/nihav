@@ -12,38 +12,16 @@ use nihav_core::io::bitreader::*;
 use nihav_core::io::intcode::*;
 use nihav_codec_support::codecs::{MV, ZERO_MV};
 
-pub type Shareable<T> = Arc<RwLock<T>>;
-
-mod types;
-pub use types::*;
-mod pic_ref;
-pub use pic_ref::*;
-#[allow(clippy::identity_op)]
-#[allow(clippy::erasing_op)]
-#[allow(clippy::many_single_char_names)]
-#[allow(clippy::range_plus_one)]
-mod dsp;
-use dsp::*;
-mod cabac;
-use cabac::*;
+mod baseline;
 mod cabac_coder;
-use cabac_coder::*;
-mod cavlc;
-use cavlc::*;
-mod loopfilter;
-use loopfilter::*;
-mod mb_recon;
-use mb_recon::*;
+mod common_types;
+use common_types::*;
+pub use baseline::{get_decoder, get_decoder_mt};
 mod sets;
-use sets::*;
 mod slice;
 use slice::*;
 
-mod decoder_st;
-pub use decoder_st::*;
-mod dispatch;
-mod decoder_mt;
-pub use decoder_mt::*;
+pub type Shareable<T> = Arc<RwLock<T>>;
 
 trait ReadUE {
     fn read_ue(&mut self) -> DecoderResult<u32>;
@@ -78,25 +56,6 @@ impl<'a> ReadUE for BitReader<'a> {
             let val = self.read_ue()?;
             validate!(val <= range);
             Ok(val)
-        }
-    }
-}
-
-#[derive(Clone,Copy)]
-pub struct Coeff8x8 {
-    pub coeffs:     [i16; 64],
-}
-
-impl Coeff8x8 {
-    fn clear(&mut self) {
-        self.coeffs = [0; 64];
-    }
-}
-
-impl Default for Coeff8x8 {
-    fn default() -> Self {
-        Self {
-            coeffs: [0; 64],
         }
     }
 }
@@ -145,6 +104,25 @@ impl CurrentMBInfo {
             },
             MBType::Direct => inference_flag,
             _ => true,
+        }
+    }
+}
+
+#[derive(Clone,Copy)]
+pub struct Coeff8x8 {
+    pub coeffs:     [i16; 64],
+}
+
+impl Coeff8x8 {
+    fn clear(&mut self) {
+        self.coeffs = [0; 64];
+    }
+}
+
+impl Default for Coeff8x8 {
+    fn default() -> Self {
+        Self {
+            coeffs: [0; 64],
         }
     }
 }

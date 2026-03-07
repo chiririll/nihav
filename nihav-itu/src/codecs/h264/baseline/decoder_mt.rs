@@ -1,6 +1,7 @@
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 
+use super::super::*;
 use super::*;
 use super::dispatch::*;
 
