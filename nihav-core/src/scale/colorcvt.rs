@@ -275,6 +275,48 @@ impl Kernel for RgbToYuv {
                 uoff += dstrides[1];
                 voff += dstrides[2];
             }
+        } else if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf16(), pic_out.get_vbuf16()) {
+            if dbuf.get_info().get_format().get_num_comp() < 3 {
+                return self.process_grayscale16(sbuf, dbuf);
+            }
+            let istrides = [sbuf.get_stride(0), sbuf.get_stride(1), sbuf.get_stride(2)];
+            let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
+            let (w, h) = sbuf.get_dimensions(0);
+            let ydepth = dbuf.get_info().get_format().get_chromaton(0).unwrap().get_depth();
+            let udepth = dbuf.get_info().get_format().get_chromaton(1).unwrap().get_depth();
+            let vdepth = dbuf.get_info().get_format().get_chromaton(2).unwrap().get_depth();
+            let ymax = (1 << ydepth) - 1;
+            let umin = 1 << (udepth - 1);
+            let vmin = 1 << (vdepth - 1);
+
+            let mut roff = sbuf.get_offset(0);
+            let mut goff = sbuf.get_offset(1);
+            let mut boff = sbuf.get_offset(2);
+            let mut yoff = dbuf.get_offset(0);
+            let mut uoff = dbuf.get_offset(1);
+            let mut voff = dbuf.get_offset(2);
+            let src = sbuf.get_data();
+            let dst = dbuf.get_data_mut().unwrap();
+            for _y in 0..h {
+                for x in 0..w {
+                    let r = f32::from(src[roff + x]);
+                    let g = f32::from(src[goff + x]);
+                    let b = f32::from(src[boff + x]);
+                    let (y, u, v) = matrix_mul(&self.matrix, r, g, b);
+
+                    dst[yoff + x] = (y as i32).clamp(0, ymax) as u16;
+                    dst[uoff + x] = ((u as i32).clamp(-umin, umin - 1) + umin) as u16;
+                    dst[voff + x] = ((v as i32).clamp(-vmin, vmin - 1) + vmin) as u16;
+                }
+                roff += istrides[0];
+                goff += istrides[1];
+                boff += istrides[2];
+                yoff += dstrides[0];
+                uoff += dstrides[1];
+                voff += dstrides[2];
+            }
+        } else {
+            unimplemented!("rgb2yuv for unknown format");
         }
     }
 }
@@ -299,6 +341,33 @@ impl RgbToYuv {
                 let (y, _u, _v) = matrix_mul(&self.matrix, r, g, b);
 
                 dst[yoff + x] = (y as i16).clamp(0, 255) as u8;
+            }
+            roff += istrides[0];
+            goff += istrides[1];
+            boff += istrides[2];
+            yoff += ystride;
+        }
+    }
+    fn process_grayscale16(&self, sbuf: &NAVideoBuffer<u16>, dbuf: &mut NAVideoBuffer<u16>) {
+        let istrides = [sbuf.get_stride(0), sbuf.get_stride(1), sbuf.get_stride(2)];
+        let ystride = dbuf.get_stride(0);
+        let (w, h) = sbuf.get_dimensions(0);
+        let ydepth = dbuf.get_info().get_format().get_chromaton(0).unwrap().get_depth();
+
+        let mut roff = sbuf.get_offset(0);
+        let mut goff = sbuf.get_offset(1);
+        let mut boff = sbuf.get_offset(2);
+        let mut yoff = dbuf.get_offset(0);
+        let src = sbuf.get_data();
+        let dst = dbuf.get_data_mut().unwrap();
+        for _y in 0..h {
+            for x in 0..w {
+                let r = f32::from(src[roff + x]);
+                let g = f32::from(src[goff + x]);
+                let b = f32::from(src[boff + x]);
+                let (y, _u, _v) = matrix_mul(&self.matrix, r, g, b);
+
+                dst[yoff + x] = (y as i32).clamp(0, (1 << ydepth) - 1) as u16;
             }
             roff += istrides[0];
             goff += istrides[1];
@@ -478,6 +547,79 @@ impl Kernel for YuvToRgb {
                     voff += istrides[2];
                 }
             }
+        } else if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf16(), pic_out.get_vbuf()) {
+            let istrides = [sbuf.get_stride(0), sbuf.get_stride(1), sbuf.get_stride(2)];
+            let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
+            let (w, h) = sbuf.get_dimensions(0);
+            if sbuf.get_info().get_format().get_num_comp() < 3 {
+                return self.process_grayscale16(sbuf, dbuf);
+            }
+            let yshift = sbuf.get_info().get_format().get_chromaton(0).unwrap().get_depth() - 8;
+            let ushift = sbuf.get_info().get_format().get_chromaton(1).unwrap().get_depth() - 8;
+            let vshift = sbuf.get_info().get_format().get_chromaton(2).unwrap().get_depth() - 8;
+            let (sv0, sh0) = sbuf.get_info().get_format().get_chromaton(1).unwrap().get_subsampling();
+            let (sv1, sh1) = sbuf.get_info().get_format().get_chromaton(2).unwrap().get_subsampling();
+
+            let uhmask = (1 << sh0) - 1;
+            let vhmask = (1 << sh1) - 1;
+            let mut roff = dbuf.get_offset(0);
+            let mut goff = dbuf.get_offset(1);
+            let mut boff = dbuf.get_offset(2);
+            let mut yoff = sbuf.get_offset(0);
+            let mut uoff = sbuf.get_offset(1);
+            let mut voff = sbuf.get_offset(2);
+            let src = sbuf.get_data();
+            let dst = dbuf.get_data_mut().unwrap();
+            if !self.yscale.is_empty() {
+                for y in 0..h {
+                    for x in 0..w {
+                        let y = self.yscale[usize::from(src[yoff + x] >> yshift)];
+                        let u = usize::from(src[uoff + (x >> sv0)] >> ushift);
+                        let v = usize::from(src[voff + (x >> sv1)] >> vshift);
+                        let r = y + self.r_chr[v];
+                        let g = y + self.g_u[u] + self.g_v[v];
+                        let b = y + self.b_chr[u];
+                        dst[roff + x] = r.clamp(0, 255) as u8;
+                        dst[goff + x] = g.clamp(0, 255) as u8;
+                        dst[boff + x] = b.clamp(0, 255) as u8;
+                    }
+                    roff += dstrides[0];
+                    goff += dstrides[1];
+                    boff += dstrides[2];
+                    yoff += istrides[0];
+                    if (y & uhmask) == uhmask {
+                        uoff += istrides[1];
+                    }
+                    if (y & vhmask) == vhmask {
+                        voff += istrides[2];
+                    }
+                }
+                return;
+            }
+            for y in 0..h {
+                for x in 0..w {
+                    let y = f32::from(src[yoff + x]) / f32::from(1u16 << yshift);
+                    let u = (i32::from(src[uoff + (x >> sv0)]) - (1 << (ushift - 1))) as f32 / f32::from(1u16 << ushift);
+                    let v = (i32::from(src[voff + (x >> sv1)]) - (1 << (vshift - 1))) as f32 / f32::from(1u16 << vshift);
+
+                    let (r, g, b) = matrix_mul(&self.matrix, y, u, v);
+                    dst[roff + x] = (r as i16).clamp(0, 255) as u8;
+                    dst[goff + x] = (g as i16).clamp(0, 255) as u8;
+                    dst[boff + x] = (b as i16).clamp(0, 255) as u8;
+                }
+                roff += dstrides[0];
+                goff += dstrides[1];
+                boff += dstrides[2];
+                yoff += istrides[0];
+                if (y & uhmask) == uhmask {
+                    uoff += istrides[1];
+                }
+                if (y & vhmask) == vhmask {
+                    voff += istrides[2];
+                }
+            }
+        } else {
+            unimplemented!("unknown yuv2rgb format");
         }
     }
 }
@@ -497,6 +639,49 @@ impl YuvToRgb {
             for _y in 0..h {
                 for x in 0..w {
                     let y = self.yscale[src[yoff + x] as usize];
+                    let r = y + self.r_chr[128];
+                    let g = y + self.g_u[128] + self.g_v[128];
+                    let b = y + self.b_chr[128];
+                    dst[roff + x] = r.clamp(0, 255) as u8;
+                    dst[goff + x] = g.clamp(0, 255) as u8;
+                    dst[boff + x] = b.clamp(0, 255) as u8;
+                }
+                roff += dstrides[0];
+                goff += dstrides[1];
+                boff += dstrides[2];
+                yoff += ystride;
+            }
+        } else {
+            for _y in 0..h {
+                for x in 0..w {
+                    let y = f32::from(src[yoff + x]);
+                    let (r, g, b) = matrix_mul(&self.matrix, y, 0.0, 0.0);
+                    dst[roff + x] = (r as i16).clamp(0, 255) as u8;
+                    dst[goff + x] = (g as i16).clamp(0, 255) as u8;
+                    dst[boff + x] = (b as i16).clamp(0, 255) as u8;
+                }
+                roff += dstrides[0];
+                goff += dstrides[1];
+                boff += dstrides[2];
+                yoff += ystride;
+            }
+        }
+    }
+    fn process_grayscale16(&self, sbuf: &NAVideoBuffer<u16>, dbuf: &mut NAVideoBuffer<u8>) {
+        let ystride = sbuf.get_stride(0);
+        let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
+        let yshift = sbuf.get_info().get_format().get_chromaton(0).unwrap().get_depth() - 8;
+        let (w, h) = sbuf.get_dimensions(0);
+        let mut roff = dbuf.get_offset(0);
+        let mut goff = dbuf.get_offset(1);
+        let mut boff = dbuf.get_offset(2);
+        let mut yoff = sbuf.get_offset(0);
+        let src = sbuf.get_data();
+        let dst = dbuf.get_data_mut().unwrap();
+        if !self.yscale.is_empty() {
+            for _y in 0..h {
+                for x in 0..w {
+                    let y = self.yscale[usize::from(src[yoff + x] >> yshift)];
                     let r = y + self.r_chr[128];
                     let g = y + self.g_u[128] + self.g_v[128];
                     let b = y + self.b_chr[128];
