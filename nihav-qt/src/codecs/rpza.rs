@@ -51,13 +51,13 @@ impl NADecoder for RpzaDecoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        validate!(src.len() >= 2);
+        validate!(src.len() >= 4);
         let mut br = MemoryReader::new_read(src.as_slice());
 
         let id                          = br.read_byte()?;
         validate!(id == 0xE1);
         let length                      = br.read_u24be()? as usize;
-        validate!(length == src.len());
+        validate!(length >= 4 && length <= src.len());
 
         let bufret = self.hams.clone_ref();
         let mut buf;
@@ -156,6 +156,9 @@ impl NADecoder for RpzaDecoder {
                 },
             };
             blockpos += len;
+        }
+        if length < src.len() {
+            validate!(br.tell() <= (length as u64));
         }
 
         let buftype = NABufferType::Video16(buf);
