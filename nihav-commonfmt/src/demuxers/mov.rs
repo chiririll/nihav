@@ -238,7 +238,8 @@ fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
     let br = &mut dmx.src;
     validate!(size >= KNOWN_MVHD_SIZE);
     let version             = br.read_byte()?;
-    validate!(version == 0);
+    validate!(version == 0 || version == 0xFF);
+    dmx.ver_m1 = version == 0xFF;
     let _flags              = br.read_u24be()?;
     let _ctime              = br.read_u32be()?;
     let _mtime              = br.read_u32be()?;
@@ -323,6 +324,7 @@ fn skip_chunk_mov(_dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, _size: u64
 fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     let mut track = Track::new(dmx.cur_track as u32, dmx.tb_den);
     track.print_chunks = dmx.print_chunks;
+    track.ver_m1 = dmx.ver_m1;
     track.read_trak(dmx.src, size)?;
     validate!(track.tkhd_found);
     if !track.stsd_found {
@@ -565,6 +567,7 @@ fn read_stbl(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
 const STBL_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"stsd"), parse: read_stsd },
     TrackChunkHandler { ctype: mktag!(b"stts"), parse: read_stts },
+    TrackChunkHandler { ctype: mktag!(b"stgs"), parse: read_stgs },
     TrackChunkHandler { ctype: mktag!(b"stss"), parse: read_stss },
     TrackChunkHandler { ctype: mktag!(b"stsc"), parse: read_stsc },
     TrackChunkHandler { ctype: mktag!(b"stsz"), parse: read_stsz },
@@ -646,7 +649,9 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             let _hor_res        = br.read_u32be()?;
             let _vert_res       = br.read_u32be()?;
             let data_size       = br.read_u32be()?;
-            validate!(data_size == 0);
+            if !track.ver_m1 {
+                validate!(data_size == 0);
+            }
             let _frame_count    = br.read_u16be()? as usize;
             let _cname_len      = br.read_byte()? as usize;
                                   br.read_skip(31)?; // actual compressor name
@@ -731,8 +736,11 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 };
             let mut vhdr = NAVideoInfo::new(width, height, false, format);
             vhdr.bits = depth as u8;
+            if track.ver_m1 { // skip the rest for the beta version of QT
+                br.seek(SeekFrom::Start(start_pos + (size as u64)))?;
+            }
             //skip various common atoms
-            while br.tell() - start_pos + 4 < size {
+            while br.tell() - start_pos + 8 < size {
                 let mut buf = [0u8; 8];
                 br.peek_buf(&mut buf)?;
                 let tsize = read_u32be(&buf).unwrap() as usize;
@@ -755,6 +763,30 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                     None
                 };
             codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), edata);
+        },
+        StreamType::Audio if track.ver_m1 => {
+                                  br.read_skip(8)?;
+            let nchannels       = br.read_u16be()?;
+            validate!(nchannels == 1 || nchannels == 2);
+            let sample_size     = br.read_u16be()?;
+            validate!(sample_size == 8 || sample_size == 16);
+                                  br.read_u32be()?;
+            let sample_rate     = br.read_u32be()? >> 16;
+            let cname = if fcc == [0; 4] { "pcm" } else { "unknown" };
+            let mut soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
+            if sample_size == 8 {
+                soniton.signed = false;
+            }
+            let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, 1);
+            let edata = parse_audio_edata(br, start_pos, size)?;
+            codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
+            track.raw_audio = cname == "pcm";
+            track.bsize     = (sample_size / 8) as usize;
+            track.channels  = nchannels as usize;
+            track.bits      = sample_size as usize;
+            if track.tb_den <= 1 {
+                track.tb_den = sample_rate;
+            }
         },
         StreamType::Audio => {
             let sver            = br.read_u16be()?;
@@ -879,6 +911,35 @@ fn read_stts(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     Ok(read_size)
 }
 
+fn read_stgs(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
+    validate!(size >= 8);
+    validate!(track.ver_m1);
+    let start_pos = br.tell();
+    let version             = br.read_byte()?;
+    validate!(version == 0);
+    let _flags              = br.read_u24be()?;
+    let entries             = br.read_u32be()? as usize;
+    validate!(entries as u64 <= (size - 8) / 8);
+    if entries == 0 {
+    } else if entries == 1 {
+        let _count          = br.read_u32be()?;
+        let tb_num          = br.read_u32be()?;
+        validate!(tb_num != 0);
+        track.rescale(tb_num);
+    } else {
+        track.time_to_sample.clear();
+        track.time_to_sample.reserve(entries);
+        for _ in 0..entries {
+            let count       = br.read_u32be()?;
+            let mult        = br.read_u32be()?;
+            track.time_to_sample.push((count, mult));
+        }
+    }
+    let read_size = br.tell() - start_pos;
+    validate!(read_size <= size);
+    Ok(read_size)
+}
+
 fn read_stss(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
     let version             = br.read_byte()?;
     validate!(version == 0);
@@ -903,6 +964,18 @@ fn read_stsc(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()? as usize;
+    if track.ver_m1 {
+        if entries != 1 || size != 24 {
+            return Err(DemuxerError::NotImplemented);
+        }
+                              br.read_u32be()?;
+        let sample_no       = br.read_u32be()?;
+        validate!(sample_no == 1);
+        let nsamples        = br.read_u32be()?;
+                              br.read_u32be()?; // maybe sample descriptor
+        track.sample_map.push((sample_no, nsamples));
+        return Ok(size);
+    }
     validate!(entries < ((u32::MAX / 12) - 8) as usize);
     validate!((entries * 12 + 8) as u64 == size);
     track.sample_map = Vec::with_capacity(entries);
@@ -1149,6 +1222,7 @@ struct MOVDemuxer<'a> {
     tb_den:         u32,
     duration:       u32,
     pal:            Option<Arc<[u8; 1024]>>,
+    ver_m1:         bool,
 
     moof_off:       u64,
 
@@ -1160,6 +1234,7 @@ struct MOVDemuxer<'a> {
 }
 
 struct Track {
+    ver_m1:         bool,
     track_id:       u32,
     track_str_id:   usize,
     track_no:       u32,
@@ -1345,6 +1420,7 @@ impl Track {
             last_offset:    0,
             pal:            None,
             timesearch:     TimeSearcher::new(),
+            ver_m1:         false,
 
             moof_off:       0,
 
@@ -1385,7 +1461,7 @@ impl Track {
             self.bsize
         } else {
             match &self.fcc {
-                b"NONE" | b"raw " | b"twos" | b"sowt" => {
+                b"NONE" | b"raw " | b"twos" | b"sowt" | &[0, 0, 0, 0] => {
                     (nsamp * self.bits * self.channels + 7) >> 3
                 },
                 b"ima4" => {
@@ -2040,6 +2116,7 @@ impl<'a> MOVDemuxer<'a> {
             tb_den:         0,
             duration:       0,
             pal:            None,
+            ver_m1:         false,
 
             moof_off:       0,
 
@@ -2441,6 +2518,28 @@ mod test {
     fn test_macbinary_demux() {
         // sample from King's Quest VI Macintosh edition
         let mut file = File::open("assets/QT/Halfdome.bin").unwrap();
+        let mut br = FileReader::new_read(&mut file);
+        let mut dmx = MOVDemuxer::new_macbinary(&mut br);
+        let mut sm = StreamManager::new();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
+
+        loop {
+            let pktres = dmx.get_frame(&mut sm);
+            if let Err(e) = pktres {
+                if e == DemuxerError::EOF { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            println!("Got {}", pkt);
+        }
+    }
+
+
+    #[test]
+    fn test_beta_qt() {
+        // sample from Apple Reference & Presentation Library 8
+        let mut file = File::open("assets/QT/Smallwhale2").unwrap();
         let mut br = FileReader::new_read(&mut file);
         let mut dmx = MOVDemuxer::new_macbinary(&mut br);
         let mut sm = StreamManager::new();
