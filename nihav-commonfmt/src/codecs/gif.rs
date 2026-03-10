@@ -162,10 +162,20 @@ struct GIFDecoder {
     lpal:       [u8; 768],
     frame:      Vec<u8>,
     dbuf:       Vec<u8>,
+    ibuf:       Vec<u8>,
     width:      usize,
     height:     usize,
     lzw:        LZWState,
     transp:     Option<u8>,
+}
+
+fn deinterlace(sbuf: &[u8], dbuf: &mut [u8], width: usize) {
+    let mut row_iter = sbuf.chunks_exact(width);
+    for &(step, off) in [(8, 0), (8, 4), (4, 2), (2, 1)].iter() {
+        for drow in dbuf.chunks_mut(width).skip(off).step_by(step) {
+            drow.copy_from_slice(row_iter.next().unwrap());
+        }
+    }
 }
 
 impl GIFDecoder {
@@ -176,6 +186,7 @@ impl GIFDecoder {
             lpal:       [0; 768],
             frame:      Vec::new(),
             dbuf:       Vec::new(),
+            ibuf:       Vec::new(),
             width:      0,
             height:     0,
             lzw:        LZWState::new(),
@@ -238,10 +249,16 @@ impl NADecoder for GIFDecoder {
             let csize = 3 << ((flags & 7) + 1);
                                           br.read_buf(&mut self.lpal[..csize])?;
         }
+        let interlaced = (flags & 0x40) != 0;
 
         let start = br.tell() as usize;
         self.dbuf.resize(width * height, 0);
         self.lzw.unpack(&src[start..], &mut self.dbuf)?;
+        if interlaced {
+            self.ibuf.resize(width * height, 0);
+            deinterlace(&self.dbuf, &mut self.ibuf, width);
+            std::mem::swap(&mut self.dbuf, &mut self.ibuf);
+        }
 
         if let Some(tpix) = self.transp {
             for (dline, sline) in self.frame.chunks_exact_mut(self.width).skip(top)
