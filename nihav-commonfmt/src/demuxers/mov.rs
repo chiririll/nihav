@@ -737,7 +737,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             let mut vhdr = NAVideoInfo::new(width, height, false, format);
             vhdr.bits = depth as u8;
             if track.ver_m1 { // skip the rest for the beta version of QT
-                br.seek(SeekFrom::Start(start_pos + (size as u64)))?;
+                br.seek(SeekFrom::Start(start_pos + size))?;
             }
             //skip various common atoms
             while br.tell() - start_pos + 8 < size {
