@@ -1836,6 +1836,11 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                                               self.src.peek_buf(&mut peek_buf)?;
                             if &peek_buf[4..] == b"moov" {
                                               self.src.read_skip(8)?;
+                                              self.src.peek_buf(&mut peek_buf)?;
+                                if peek_buf == [0; 8] {
+                                    println!("This looks like an alpha version of the format, try warhol demuxer instead");
+                                    return Err(DemuxerError::InvalidData);
+                                }
                                 self.read_moov(strmgr, u64::from(rsize - 8))?;
                                 self.mdat_pos = 8;
                                 break;
@@ -1854,6 +1859,11 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                         validate!(size >= 8);
                         match &tag {
                             b"moov" => {
+                                              self.src.peek_buf(&mut peek_buf)?;
+                                if peek_buf == [0; 8] {
+                                    println!("This looks like an alpha version of the format, try warhol demuxer instead");
+                                    return Err(DemuxerError::InvalidData);
+                                }
                                 self.read_moov(strmgr, u64::from(size - 8))?;
                             },
                             b"mdat" => {

@@ -18,7 +18,7 @@ use nihav_llaudio::*;
 use nihav_misc::*;
 use nihav_mpeg::*;
 use nihav_ms::*;
-use nihav_qt::qt_register_all_decoders;
+use nihav_qt::*;
 use nihav_rad::*;
 use nihav_realmedia::*;
 use nihav_vivo::*;
@@ -66,6 +66,7 @@ pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     llaudio_register_all_demuxers(rd);
     misc_register_all_demuxers(rd);
     ms_register_all_demuxers(rd);
+    qt_register_all_demuxers(rd);
     rad_register_all_demuxers(rd);
     realmedia_register_all_demuxers(rd);
     vivo_register_all_demuxers(rd);
