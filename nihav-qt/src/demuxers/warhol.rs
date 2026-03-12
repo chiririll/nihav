@@ -127,7 +127,7 @@ impl<'a> DemuxCore<'a> for WarholDemuxer<'a> {
         let start_track = self.cur_track;
         let ntracks = self.tracks.len();
         loop {
-            let mut track = &mut self.tracks[self.cur_track];
+            let track = &mut self.tracks[self.cur_track];
             let stream = strmgr.get_stream(self.cur_track).unwrap();
             self.cur_track += 1;
             if self.cur_track >= ntracks {
