@@ -600,13 +600,14 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             let is_keyframe = self.state.key_offs.binary_search(&self.src.tell()).is_ok();
             let tag = self.src.read_tag()?;
             let size = self.src.read_u32le()? as usize;
+            self.state.movi_size = self.state.movi_size.saturating_sub(8);
             if size > self.state.movi_size {
                 self.state.movi_size = 0;
                 return Err(InvalidData);
             }
             match &tag {
                 b"JUNK" => {
-                    self.state.movi_size -= size + 8;
+                    self.state.movi_size -= size;
                     self.src.read_skip(size)?;
                     if self.state.movi_size == 0 {
                         if !self.state.odml {
@@ -617,7 +618,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                     continue;
                 },
                 b"LIST" => {
-                    self.state.movi_size -= 12;
+                    self.state.movi_size -= 4;
                     self.src.read_skip(4)?;
                     if self.state.movi_size == 0 {
                         if !self.state.odml {
@@ -649,7 +650,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             let stream = strmgr.get_stream(stream_no);
             if stream.is_none() || stream_no >= self.state.streams.len() {
                 self.src.read_skip(size)?;
-                self.state.movi_size -= size + 8;
+                self.state.movi_size -= size;
                 continue;
             }
             let cur_stream = &mut self.state.streams[stream_no];
@@ -666,7 +667,6 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             }
             let stream = stream.unwrap();
             if size == 0 {
-                self.state.movi_size -= 8;
                 if self.state.movi_size == 0 {
                     if !self.state.odml {
                         return Err(EOF);
@@ -693,7 +693,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                 pe.changed = false;
             }
             cur_stream.cur_frame += 1;
-            self.state.movi_size -= size + 8;
+            self.state.movi_size -= size;
 
             return Ok(pkt);
         }
