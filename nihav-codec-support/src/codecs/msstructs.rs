@@ -179,7 +179,10 @@ impl MSWaveFormat {
         let mut extradata = None;
         if size > 16 {
             let cb_size         = usize::from(src.read_u16le()?);
-            if cb_size > 0 {
+            if cb_size > 0 && size > 18 {
+                if cb_size > size - 18 {
+                    return Err(ByteIOError::ReadError);
+                }
                 let mut edata = vec![0; cb_size];
                                   src.read_buf(&mut edata)?;
                 extradata = Some(edata);
