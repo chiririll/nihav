@@ -1,6 +1,6 @@
 use nihav_core::frame::*;
 use nihav_codec_support::codecs::MV;
-use nihav_codec_support::codecs::blockdsp::*;
+use nihav_codec_support::codecs::blockdsp::{BlkInterpFunc, edge_emu};
 use nihav_codec_support::codecs::h263::code::*;
 use nihav_codec_support::codecs::h263::data::H263_CHROMA_ROUND;
 use super::types::*;
@@ -130,10 +130,48 @@ impl MVOps for MV {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>, comp: usize,
+              dx: usize, dy: usize, mv_x: i16, mv_y: i16, bw: usize, bh: usize,
+              preborder: usize, postborder: usize,
+              mode: usize, interp: &[BlkInterpFunc], align: u8)
+{
+    let pre  = if mode != 0 { preborder  as isize } else { 0 };
+    let post = if mode != 0 { postborder as isize } else { 0 };
+    let (w, h) = src.get_dimensions(comp);
+    let sx = (dx as isize) + (mv_x as isize);
+    let sy = (dy as isize) + (mv_y as isize);
+
+    if (sx - pre < 0) || (sx + (bw as isize) + post > (w as isize)) ||
+       (sy - pre < 0) || (sy + (bh as isize) + post > (h as isize)) {
+        let ebuf_stride: usize = 32;
+        let mut ebuf: Vec<u8> = vec![0; ebuf_stride * (bh + ((pre + post) as usize))];
+
+        let dstride = dst.stride[comp];
+        let doff    = dst.offset[comp];
+        let edge = (pre + post) as usize;
+        edge_emu(&src, sx - pre, sy - pre, bw + edge, bh + edge,
+                 ebuf.as_mut_slice(), ebuf_stride, comp, align);
+        (interp[mode])(&mut dst.data[doff + dx + dy * dstride..], dstride,
+                       ebuf.as_slice(), ebuf_stride, bw, bh);
+    } else {
+        let sstride = src.get_stride(comp);
+        let soff    = src.get_offset(comp);
+        let sdta    = src.get_data();
+        let sbuf: &[u8] = sdta.as_slice();
+        let dstride = dst.stride[comp];
+        let doff    = dst.offset[comp];
+        let saddr = soff + ((sx - pre) as usize) + ((sy - pre) as usize) * sstride;
+        (interp[mode])(&mut dst.data[doff + dx + dy * dstride..], dstride,
+                       &sbuf[saddr..], sstride, bw, bh);
+    }
+}
+
 pub struct DSP {
     idct:           fn(block: &mut [i16; 64]),
     mc_funcs:       &'static [BlkInterpFunc],
     avg_mc_funcs:   &'static [BlkInterpFunc],
+    align:          u8,
 }
 
 impl DSP {
@@ -142,6 +180,7 @@ impl DSP {
             idct:           h263_idct,
             mc_funcs:       ASP_INTERP_FUNCS_NR,
             avg_mc_funcs:   ASP_INTERP_AVG_FUNCS_NR,
+            align:          4,
         }
     }
     pub fn use_xvid_idct(&mut self) {
@@ -155,6 +194,9 @@ impl DSP {
             self.mc_funcs       = H263_INTERP_FUNCS;
             self.avg_mc_funcs   = H263_INTERP_AVG_FUNCS;
         }
+    }
+    pub fn set_no_align(&mut self) {
+        self.align = 0;
     }
     pub fn put_mb(&self, frm: &mut NASimpleVideoFrame<u8>, mb: &mut Macroblock, mb_x: usize, mb_y: usize) {
         let mut cbp = mb.cbp;
@@ -229,44 +271,44 @@ impl DSP {
 
     pub fn mb_mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mv: MV) {
         let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
-        copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.mc_funcs);
+        copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.mc_funcs, self.align);
         let cmv = mv.get_chroma_mv();
         let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
-        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs);
-        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs);
+        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs, self.align);
+        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs, self.align);
     }
 
     pub fn avg_mb_mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mv: MV) {
         let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
-        copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.avg_mc_funcs);
+        copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.avg_mc_funcs, self.align);
         let cmv = mv.get_chroma_mv();
         let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
-        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, mv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs);
-        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, mv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs);
+        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, mv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
+        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, mv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
     }
 
     pub fn mb_4mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mvs: &[MV; 4]) {
         for (n, &mv) in mvs.iter().enumerate() {
             let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
-            copy_block(frm, pframe.clone(), 0, mb_x * 16 + (n & 1) * 8, mb_y * 16 + (n / 2) * 8, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, self.mc_funcs);
+            copy_block(frm, pframe.clone(), 0, mb_x * 16 + (n & 1) * 8, mb_y * 16 + (n / 2) * 8, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, self.mc_funcs, self.align);
         }
         let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
         let cmv = sum_mv.get_chroma_4mv();
         let cmode = ((cmv.x & 1) + (cmv.y & 1) * 2) as usize;
-        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs);
-        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs);
+        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs, self.align);
+        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs, self.align);
     }
 
     pub fn avg_mb_4mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mvs: &[MV; 4]) {
         for (n, &mv) in mvs.iter().enumerate() {
             let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
-            copy_block(frm, pframe.clone(), 0, mb_x * 16 + (n & 1) * 8, mb_y * 16 + (n / 2) * 8, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, self.avg_mc_funcs);
+            copy_block(frm, pframe.clone(), 0, mb_x * 16 + (n & 1) * 8, mb_y * 16 + (n / 2) * 8, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, self.avg_mc_funcs, self.align);
         }
         let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
         let cmv = sum_mv.get_chroma_4mv();
         let cmode = ((cmv.x & 1) + (cmv.y & 1) * 2) as usize;
-        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x, cmv.y, 8, 8, 0, 1, cmode, self.avg_mc_funcs);
-        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x, cmv.y, 8, 8, 0, 1, cmode, self.avg_mc_funcs);
+        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x, cmv.y, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
+        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x, cmv.y, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
     }
 }
 

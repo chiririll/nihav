@@ -29,6 +29,7 @@ pub struct FrameContext {
     fwd_ts:         u64,
     pred:           PredState,
     dsp:            DSP,
+    solid_dmb:      bool,
 }
 
 impl FrameContext {
@@ -42,10 +43,17 @@ impl FrameContext {
             fwd_ts:         0,
             pred:           PredState::new(),
             dsp:            DSP::new(),
+            solid_dmb:      false,
         }
     }
     pub fn use_xvid_idct(&mut self) {
         self.dsp.use_xvid_idct();
+    }
+    pub fn set_edge_emu_bug(&mut self) {
+        self.dsp.set_no_align();
+    }
+    pub fn set_solid_dmb(&mut self) {
+        self.solid_dmb = true;
     }
     pub fn resize(&mut self, mb_w: usize) {
         self.pred.resize(mb_w);
@@ -149,6 +157,14 @@ impl FrameContext {
                             let ref_mv = src_mv.scale(trb, trd);
                             *f_mv = ref_mv + diff_mv;
                             *b_mv = MV::b_sub(src_mv, *f_mv, diff_mv, trb, trd);
+                        }
+                        if self.solid_dmb { //xxx: but not for quarter sample apparently
+                            f_mvs[1] = f_mvs[0];
+                            f_mvs[2] = f_mvs[0];
+                            f_mvs[3] = f_mvs[0];
+                            b_mvs[1] = b_mvs[0];
+                            b_mvs[2] = b_mvs[0];
+                            b_mvs[3] = b_mvs[0];
                         }
                         if let (Some(f_frame), Some(b_frame)) = (self.fwd_ref.clone(), self.bwd_ref.clone()) {
                             let (xpos, ypos) = Self::calc_mvpos_4mv(&f_mvs, mb_x, mb_y, mb_w, mb_h);

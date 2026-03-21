@@ -50,20 +50,44 @@ pub fn scan_start_codes(src: &[u8]) -> DecoderResult<Vec<usize>> {
     Ok(offs)
 }
 
-pub fn check_xvid_user_data(src: &[u8]) -> bool {
-    let is_xvid = src.len() > 7 && &src[1..5] == b"XviD";
-    if is_xvid { // check for version
+pub fn check_user_data(src: &[u8]) -> Bugs {
+    let mut bugs = Bugs::new();
+    if src.len() > 7 && &src[1..5] == b"XviD" {
         let mut ver = 0;
         for &c in src[6..].iter() {
             if !c.is_ascii_digit() { break; }
             ver = ver * 10 + u32::from(c - b'0');
-            if ver > 1048576 { return false; }
+            if ver > 1048576 { break; }
         }
-        if ver < 50 { // these ones apparently use non-special DCT
-            return false;
+        if ver >= 50 { // these ones apparently use non-special DCT
+            bugs.set_xvid_dct();
         }
     }
-    is_xvid
+    if src.len() > 7 && &src[1..5] == b"DivX" {
+        let mut ver = 0;
+        let mut build = 0;
+        let mut pos = 6;
+        for &c in src[6..].iter() {
+            if !c.is_ascii_digit() { break; }
+            ver = ver * 10 + u32::from(c - b'0');
+            pos += 1;
+            if ver > 1048576 { break; }
+        }
+        if (pos + 5 < src.len()) && &src[pos..][..5] == b"Build" {
+            for &c in src[6..].iter() {
+                if !c.is_ascii_digit() { break; }
+                build = build * 10 + u32::from(c - b'0');
+                if build > 1048576 { break; }
+            }
+        }
+        if ver < 500 {
+            bugs.set_divx_edge_emu();
+        }
+        if ver > 0 {
+            bugs.set_direct_mb();
+        }
+    }
+    bugs
 }
 
 fn read_var_len(br: &mut BitReader) -> DecoderResult<u32> {
@@ -78,7 +102,7 @@ fn read_var_len(br: &mut BitReader) -> DecoderResult<u32> {
     Ok(len)
 }
 
-pub fn parse_es_descriptor(src: &[u8]) -> DecoderResult<(VideoObjectLayer, bool)> {
+pub fn parse_es_descriptor(src: &[u8]) -> DecoderResult<(VideoObjectLayer, Bugs)> {
     let mut br = BitReader::new(src, BitReaderMode::BE);
 
     // ES_Descriptor
@@ -131,7 +155,7 @@ pub fn parse_es_descriptor(src: &[u8]) -> DecoderResult<(VideoObjectLayer, bool)
     let dsi = &src[br.tell() / 8..][..len as usize];
     let offs = scan_start_codes(dsi)?;
     let mut vol = None;
-    let mut is_xvid = false;
+    let mut bugs = Bugs::new();
     for range in offs.windows(2) {
         let obj_src = &dsi[range[0] + 3..range[1]];
         match obj_src[0] {
@@ -146,7 +170,7 @@ pub fn parse_es_descriptor(src: &[u8]) -> DecoderResult<(VideoObjectLayer, bool)
             },
             0xB1 => {}, // visual_object_sequence_end_code
             0xB2 => { // user_data_start_code
-                is_xvid |= check_xvid_user_data(obj_src);
+                bugs = check_user_data(obj_src);
             },
             0xB3 => return Err(DecoderError::InvalidData), // group_of_vop_start_code
             0xB4 => return Err(DecoderError::NotImplemented), // video_session_error_code
@@ -159,7 +183,7 @@ pub fn parse_es_descriptor(src: &[u8]) -> DecoderResult<(VideoObjectLayer, bool)
     }
     // the rest - who cares?
     validate!(vol.is_some());
-    Ok((vol.unwrap(), is_xvid))
+    Ok((vol.unwrap(), bugs))
 }
 
 pub fn parse_video_object_layer(src: &[u8]) -> DecoderResult<VideoObjectLayer> {

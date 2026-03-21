@@ -72,13 +72,19 @@ impl NADecoder for ASPDecoder {
             if let Some(edata) = info.get_extradata() {
                 // ES descriptor, usually happens in MOV
                 if edata.len() > 16 && &edata[..4] == b"esds" {
-                    let (vol, is_xvid) = parse_es_descriptor(&edata[8..])?;
+                    let (vol, bugs) = parse_es_descriptor(&edata[8..])?;
                     if vol.quarter_sample {
                         println!("quarterpel is not supported!");
                         return Err(DecoderError::NotImplemented);
                     }
-                    if is_xvid {
+                    if bugs.is_xvid_dct() {
                         self.fctx.use_xvid_idct();
+                    }
+                    if bugs.is_divx_edge_emu() {
+                        self.fctx.set_edge_emu_bug();
+                    }
+                    if bugs.is_direct_mb() {
+                        self.fctx.set_solid_dmb();
                     }
                     self.seq.set_vol(vol);
                     parsed_vol = true;
@@ -146,8 +152,15 @@ impl NADecoder for ASPDecoder {
                 },
                 0xB1 => {}, // visual_object_sequence_end_code
                 0xB2 => { // user_data_start_code
-                    if check_xvid_user_data(obj_src) {
+                    let bugs = check_user_data(obj_src);
+                    if bugs.is_xvid_dct() {
                         self.fctx.use_xvid_idct();
+                    }
+                    if bugs.is_divx_edge_emu() {
+                        self.fctx.set_edge_emu_bug();
+                    }
+                    if bugs.is_direct_mb() {
+                        self.fctx.set_solid_dmb();
                     }
                 },
                 0xB3 => { // group_of_vop_start_code
@@ -290,6 +303,7 @@ impl NADecoder for ASPDecoder {
 }
 
 const NO_REORDER_OPTION: &str = "noreorder";
+const EDGE_EMU_OPTION: &str = "edge_emu_bug";
 
 const DECODER_OPTIONS: &[NAOptionDefinition] = &[
     NAOptionDefinition {
@@ -301,6 +315,9 @@ const DECODER_OPTIONS: &[NAOptionDefinition] = &[
             ])) },
     NAOptionDefinition {
         name: NO_REORDER_OPTION, description: "Do not attempt to reorder frames",
+        opt_type: NAOptionDefinitionType::None },
+    NAOptionDefinition {
+        name: EDGE_EMU_OPTION, description: "Use dimensions-aligned edge emulation (some old files may need it)",
         opt_type: NAOptionDefinitionType::None },
 ];
 
@@ -318,6 +335,9 @@ impl NAOptionHandler for ASPDecoder {
                         },
                         (NO_REORDER_OPTION, _) => {
                             self.assign_mode = AssignMode::No;
+                        },
+                        (EDGE_EMU_OPTION, _) => {
+                            self.fctx.set_edge_emu_bug();
                         },
                         _ => {},
                     }

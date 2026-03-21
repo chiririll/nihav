@@ -2,6 +2,19 @@ use nihav_core::frame::*;
 use nihav_codec_support::codecs::{MV, ZERO_MV};
 use nihav_codec_support::data::GenericCache;
 
+#[derive(Clone,Copy,Default,Debug)]
+pub struct Bugs(u32);
+
+impl Bugs {
+    pub fn new() -> Self { Self::default() }
+    pub fn set_xvid_dct(&mut self) { self.0 |= 0x0001; }
+    pub fn is_xvid_dct(&self) -> bool { (self.0 & 0x0001) != 0 }
+    pub fn set_divx_edge_emu(&mut self) { self.0 |= 0x0002; }
+    pub fn is_divx_edge_emu(&self) -> bool { (self.0 & 0x0002) != 0 }
+    pub fn set_direct_mb(&mut self) { self.0 |= 0x0004; }
+    pub fn is_direct_mb(&self) -> bool { (self.0 & 0x0004) != 0 }
+}
+
 pub trait FrameMV {
     fn add_pred(pred: MV, diff: MV, fcode: u8) -> MV;
     fn scale(&self, trb: i32, trd: i32) -> MV;
