@@ -845,9 +845,10 @@ unimplemented!();
         /* ignore alpha part for gray shape */
 
         let quant = self.quant as i8 + dquant;
-        validate!((0..64).contains(&quant));
+        validate!((1..32).contains(&quant));
         let quant = quant as u8;
         mb.quant = quant;
+        self.quant = quant;
 
         let mut cbp = mb.cbp;
         if cbp != 0 || mb.mb_type == MBType::Intra {
