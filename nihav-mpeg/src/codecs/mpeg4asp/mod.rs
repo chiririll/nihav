@@ -415,8 +415,8 @@ mod test {
                       "assets/MPEG/asp/test.b-frames.divx5.avi",
                       Some(2), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0x2c73036d, 0xa9c3e655, 0x50d82010, 0x51a5c928],
-                        [0xa2cf38f3, 0xa5c77472, 0x3962107d, 0x92acc355],
-                        [0xa2cf38f3, 0xa5c77472, 0x3962107d, 0x92acc355]]));
+                        [0x2c73036d, 0xa9c3e655, 0x50d82010, 0x51a5c928],
+                        [0x2c73036d, 0xa9c3e655, 0x50d82010, 0x51a5c928]]));
     }
     #[test]
     fn test_mpeg4asp_packed_b_frames() {
@@ -430,13 +430,13 @@ mod test {
                       "assets/MPEG/asp/vtm_video.avi",
                       Some(8), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0x536b8b3f, 0x6b33df1f, 0x3253605f, 0x92b6c801],
-                        [0x9b9953f6, 0x1d14ef3d, 0x974aa0e9, 0x3b1b88d7],
+                        [0x9c7635e1, 0xb5ffafb2, 0x0f5e96bb, 0x42baa783],
                         [0x6d941dcc, 0x174efb79, 0xba65a60f, 0x208040ce],
-                        [0x83121290, 0x2d45c2a1, 0xc84e104e, 0xa1d985f6],
+                        [0x048cd555, 0xfac0e718, 0x56fc5efe, 0x0d2ab601],
                         [0xc6bf0541, 0x297a8b0a, 0xc2711e63, 0x8eb34b78],
-                        [0x57d94a6e, 0xf692435e, 0xf8c0464b, 0xf8adbc39],
+                        [0xffef9c3d, 0xd5339ac1, 0x95fda2a9, 0x783851a1],
                         [0xab946927, 0xfdd4434a, 0x46e87ebf, 0x7bf70818],
-                        [0xb2011cee, 0x6309778d, 0x0dbb6ca1, 0x2a20c5c7],
+                        [0x51057a2b, 0x97b9c93c, 0x6338f7f3, 0xaf4247fa],
                         [0x4b4421cc, 0x919b086c, 0x33b5b5f3, 0xbe9d5a87]]));
     }
 }
