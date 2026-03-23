@@ -283,8 +283,8 @@ impl DSP {
         copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.avg_mc_funcs, self.align);
         let cmv = mv.get_chroma_mv();
         let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
-        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, mv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
-        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, mv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
+        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
+        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
     }
 
     pub fn mb_4mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mvs: &[MV; 4]) {
@@ -307,8 +307,8 @@ impl DSP {
         let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
         let cmv = sum_mv.get_chroma_4mv();
         let cmode = ((cmv.x & 1) + (cmv.y & 1) * 2) as usize;
-        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x, cmv.y, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
-        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x, cmv.y, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
+        copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
+        copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);
     }
 }
 
