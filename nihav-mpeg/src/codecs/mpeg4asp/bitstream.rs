@@ -54,7 +54,7 @@ pub fn check_user_data(src: &[u8]) -> Bugs {
     let mut bugs = Bugs::new();
     if src.len() > 7 && &src[1..5] == b"XviD" {
         let mut ver = 0;
-        for &c in src[6..].iter() {
+        for &c in src[5..].iter() {
             if !c.is_ascii_digit() { break; }
             ver = ver * 10 + u32::from(c - b'0');
             if ver > 1048576 { break; }
@@ -66,20 +66,22 @@ pub fn check_user_data(src: &[u8]) -> Bugs {
     if src.len() > 7 && &src[1..5] == b"DivX" {
         let mut ver = 0;
         let mut build = 0;
-        let mut pos = 6;
-        for &c in src[6..].iter() {
+        let mut pos = 5;
+        for &c in src[5..].iter() {
             if !c.is_ascii_digit() { break; }
             ver = ver * 10 + u32::from(c - b'0');
             pos += 1;
             if ver > 1048576 { break; }
         }
         if (pos + 5 < src.len()) && &src[pos..][..5] == b"Build" {
-            for &c in src[6..].iter() {
+            pos += 5;
+            for &c in src[pos..].iter() {
                 if !c.is_ascii_digit() { break; }
                 build = build * 10 + u32::from(c - b'0');
                 if build > 1048576 { break; }
             }
         }
+        let _ = build;
         if ver < 500 {
             bugs.set_divx_edge_emu();
         }
