@@ -1,5 +1,5 @@
 use nihav_core::frame::*;
-use nihav_codec_support::codecs::MV;
+use nihav_codec_support::codecs::{MV, ZERO_MV};
 use nihav_codec_support::codecs::blockdsp::{BlkInterpFunc, edge_emu};
 use nihav_codec_support::codecs::h263::code::*;
 use nihav_codec_support::codecs::h263::data::H263_CHROMA_ROUND;
@@ -116,11 +116,15 @@ pub fn get_dc_scales(quant: u8) -> [u8; 2] {
 fn idct_dc(block: &mut [i16; 64]) -> u8 { (block[0] / 8).clip8() }
 
 trait MVOps {
+    fn halve(&self) -> MV;
     fn get_chroma_mv(&self) -> MV;
     fn get_chroma_4mv(&self) -> MV;
 }
 
 impl MVOps for MV {
+    fn halve(&self) -> MV {
+        MV{ x: (self.x >> 1) | (self.x & 1), y: (self.y >> 1) | (self.y & 1) }
+    }
     fn get_chroma_mv(&self) -> MV {
         MV{ x: self.x >> 1, y: self.y >> 1 }
     }
@@ -172,6 +176,7 @@ pub struct DSP {
     mc_funcs:       &'static [BlkInterpFunc],
     avg_mc_funcs:   &'static [BlkInterpFunc],
     align:          u8,
+    qpel:           bool,
 }
 
 impl DSP {
@@ -181,8 +186,13 @@ impl DSP {
             mc_funcs:       ASP_INTERP_FUNCS_NR,
             avg_mc_funcs:   ASP_INTERP_AVG_FUNCS_NR,
             align:          4,
+            qpel:           false,
         }
     }
+    pub fn set_qpel(&mut self, qpel: bool) {
+        self.qpel = qpel;
+    }
+    pub fn is_qpel(&self) -> bool { self.qpel }
     pub fn use_xvid_idct(&mut self) {
         self.idct = xvidish_idct;
     }
@@ -269,7 +279,10 @@ impl DSP {
         }
     }
 
-    pub fn mb_mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mv: MV) {
+    pub fn mb_mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mut mv: MV) {
+        if self.qpel {
+            mv = mv.halve();
+        }
         let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
         copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.mc_funcs, self.align);
         let cmv = mv.get_chroma_mv();
@@ -278,7 +291,10 @@ impl DSP {
         copy_block(frm, pframe,         2, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs, self.align);
     }
 
-    pub fn avg_mb_mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mv: MV) {
+    pub fn avg_mb_mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mut mv: MV) {
+        if self.qpel {
+            mv = mv.halve();
+        }
         let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
         copy_block(frm, pframe.clone(), 0, mb_x * 16, mb_y * 16, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, self.avg_mc_funcs, self.align);
         let cmv = mv.get_chroma_mv();
@@ -289,10 +305,15 @@ impl DSP {
 
     pub fn mb_4mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mvs: &[MV; 4]) {
         for (n, &mv) in mvs.iter().enumerate() {
+            let mv = if !self.qpel { mv } else { mv.halve() };
             let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
             copy_block(frm, pframe.clone(), 0, mb_x * 16 + (n & 1) * 8, mb_y * 16 + (n / 2) * 8, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, self.mc_funcs, self.align);
         }
-        let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
+        let sum_mv = if !self.qpel {
+                mvs[0] + mvs[1] + mvs[2] + mvs[3]
+            } else {
+                mvs.iter().fold(ZERO_MV, |sum, a| sum + MV {x: a.x / 2, y: a.y / 2 })
+            };
         let cmv = sum_mv.get_chroma_4mv();
         let cmode = ((cmv.x & 1) + (cmv.y & 1) * 2) as usize;
         copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.mc_funcs, self.align);
@@ -301,10 +322,15 @@ impl DSP {
 
     pub fn avg_mb_4mv(&self, frm: &mut NASimpleVideoFrame<u8>, mb_x: usize, mb_y: usize, pframe: NAVideoBufferRef<u8>, mvs: &[MV; 4]) {
         for (n, &mv) in mvs.iter().enumerate() {
+            let mv = if !self.qpel { mv } else { mv.halve() };
             let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
             copy_block(frm, pframe.clone(), 0, mb_x * 16 + (n & 1) * 8, mb_y * 16 + (n / 2) * 8, mv.x >> 1, mv.y >> 1, 8, 8, 0, 1, mode, self.avg_mc_funcs, self.align);
         }
-        let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
+        let sum_mv = if !self.qpel {
+                mvs[0] + mvs[1] + mvs[2] + mvs[3]
+            } else {
+                mvs.iter().fold(ZERO_MV, |sum, a| sum + MV {x: a.x / 2, y: a.y / 2 })
+            };
         let cmv = sum_mv.get_chroma_4mv();
         let cmode = ((cmv.x & 1) + (cmv.y & 1) * 2) as usize;
         copy_block(frm, pframe.clone(), 1, mb_x * 8, mb_y * 8, cmv.x >> 1, cmv.y >> 1, 8, 8, 0, 1, cmode, self.avg_mc_funcs, self.align);

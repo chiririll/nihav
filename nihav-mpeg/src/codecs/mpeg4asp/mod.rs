@@ -44,6 +44,7 @@ struct ASPDecoder {
     last_ref_info:  PicState,
     pb_mode:        bool,
     assign_mode:    AssignMode,
+    warned_qpel:    bool,
 }
 
 impl ASPDecoder {
@@ -58,6 +59,7 @@ impl ASPDecoder {
             last_ref_info:  PicState::new(0, 0, 0),
             pb_mode:        false,
             assign_mode:    AssignMode::default(),
+            warned_qpel:    false,
         }
     }
 }
@@ -73,10 +75,11 @@ impl NADecoder for ASPDecoder {
                 // ES descriptor, usually happens in MOV
                 if edata.len() > 16 && &edata[..4] == b"esds" {
                     let (vol, bugs) = parse_es_descriptor(&edata[8..])?;
-                    if vol.quarter_sample {
-                        println!("quarterpel is not supported!");
-                        return Err(DecoderError::NotImplemented);
+                    if vol.quarter_sample && !self.warned_qpel {
+                        println!("Warning: quarterpel decoding is not (really) supported");
+                        self.warned_qpel = true;
                     }
+                    self.fctx.set_qpel(vol.quarter_sample);
                     if bugs.is_xvid_dct() {
                         self.fctx.use_xvid_idct();
                     }
@@ -119,10 +122,11 @@ impl NADecoder for ASPDecoder {
                 0x00..=0x1F => {}, // video_object_start_code
                 0x20..=0x3F => { // video_object_layer_start_code
                     let vol = parse_video_object_layer(&obj_src[1..])?;
-                    if vol.quarter_sample {
-                        println!("quarterpel is not supported!");
-                        return Err(DecoderError::NotImplemented);
+                    if vol.quarter_sample && !self.warned_qpel {
+                        println!("Warning: quarterpel decoding is not (really) supported");
+                        self.warned_qpel = true;
                     }
+                    self.fctx.set_qpel(vol.quarter_sample);
                     if vol.width != 0 {
                         if self.assign_mode == AssignMode::Undefined && pkt.get_dts().is_none() && !vol.low_delay {
                             let tinfo = pkt.get_time_information();

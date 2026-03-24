@@ -55,6 +55,9 @@ impl FrameContext {
     pub fn set_solid_dmb(&mut self) {
         self.solid_dmb = true;
     }
+    pub fn set_qpel(&mut self, qpel: bool) {
+        self.dsp.set_qpel(qpel);
+    }
     pub fn resize(&mut self, mb_w: usize) {
         self.pred.resize(mb_w);
     }
@@ -158,7 +161,7 @@ impl FrameContext {
                             *f_mv = ref_mv + diff_mv;
                             *b_mv = MV::b_sub(src_mv, *f_mv, diff_mv, trb, trd);
                         }
-                        if self.solid_dmb { //xxx: but not for quarter sample apparently
+                        if self.solid_dmb && !self.dsp.is_qpel() {
                             f_mvs[1] = f_mvs[0];
                             f_mvs[2] = f_mvs[0];
                             f_mvs[3] = f_mvs[0];
