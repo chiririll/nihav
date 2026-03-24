@@ -819,6 +819,8 @@ impl NADecoder for AACDecoder {
         for pair in self.pairs.iter_mut() {
             pair.ics[0].delay = [0.0; 1024];
             pair.ics[1].delay = [0.0; 1024];
+            pair.do_sbr = false;
+            pair.sbr_hdr = SBRHeader::new();
         }
     }
 }
