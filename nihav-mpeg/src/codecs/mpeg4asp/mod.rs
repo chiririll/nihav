@@ -188,6 +188,9 @@ impl NADecoder for ASPDecoder {
                     let pic_info = self.fctx.decode_frame_header(obj_src, &self.seq)?;
 
                     let ftype = pic_info.pic_type;
+                    if ftype == FrameType::Other {
+                        return Err(DecoderError::NotImplemented);
+                    }
                     let (cur_ts, fwd_ts, bwd_ts) = if ftype != FrameType::Skip || !self.pb_mode {
                             self.seq.update_ts(&pic_info)
                         } else { (0, 0, 0) };
