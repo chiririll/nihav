@@ -556,6 +556,22 @@ pub fn find_codec_from_mov_audio_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
     None
 }
 
+/// Returns FOURCC (used in MOV format) for provided video codec name.
+pub fn find_mov_video_fourcc(codecname: &str) -> Option<[u8; 4]> {
+    for (fourcc, name) in MOV_VIDEO_CODEC_REGISTER.iter() {
+        if *name == codecname { return Some(**fourcc); }
+    }
+    None
+}
+
+/// Returns FOURCC (used in MOV format) for provided audio codec name.
+pub fn find_mov_audio_fourcc(codecname: &str) -> Option<[u8; 4]> {
+    for (fourcc, name) in MOV_AUDIO_CODEC_REGISTER.iter() {
+        if *name == codecname { return Some(**fourcc); }
+    }
+    None
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
