@@ -1493,7 +1493,7 @@ impl Track {
         self.samples_left = 0;
         self.cur_sample = self.chunk_sizes.len();
     }
-    fn get_next_chunk(&mut self) -> Option<(NATimeInfo, u64, usize)> {
+    fn get_next_chunk(&mut self) -> Option<(NATimeInfo, u64, usize, bool)> {
         let dts_val = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
         let pts = if let Some(dts_corr) = self.ctts_map.map(self.cur_sample as u64) {
                 let pts = match self.ctts_version {
@@ -1517,8 +1517,10 @@ impl Track {
             let offset = self.chunk_offsets[self.cur_sample];
             let size   = self.chunk_sizes[self.cur_sample] as usize;
             self.cur_sample += 1;
-            Some((ts, offset, size))
+            let is_kf = self.keyframes.contains(&(self.cur_sample as u32));
+            Some((ts, offset, size, is_kf))
         } else {
+            let chunk_start = self.samples_left == 0;
             if self.samples_left == 0 {
                 if self.cur_chunk >= self.chunk_offsets.len() {
                     return None;
@@ -1536,6 +1538,7 @@ impl Track {
             let offset = self.last_offset;
             let size = self.get_size(self.cur_sample);
             self.last_offset += size as u64;
+            let is_kf = chunk_start && (self.stream_type == StreamType::Audio || self.keyframes.contains(&(self.cur_chunk as u32)));
             if self.stream_type == StreamType::Video {
                 self.samples_left -= 1;
             } else if self.frame_samples != 0 && self.bsize != 0 {
@@ -1561,10 +1564,10 @@ impl Track {
                 self.cur_sample   += samples;
                 self.samples_left -= samples;
                 self.last_offset += cur_size as u64;
-                return Some((ts, offset, cur_size));
+                return Some((ts, offset, cur_size, true));
             }
             self.cur_sample += 1;
-            Some((ts, offset, size))
+            Some((ts, offset, size, is_kf))
         }
     }
     fn get_size(&self, sample_no: usize) -> usize {
@@ -1773,7 +1776,8 @@ impl Track {
     }
 }
 
-fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Track, ts: NATimeInfo, offset: u64, size: usize, first: bool) -> DemuxerResult<NAPacket> {
+#[allow(clippy::too_many_arguments)]
+fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Track, ts: NATimeInfo, offset: u64, size: usize, first: bool, is_kf: bool) -> DemuxerResult<NAPacket> {
     if let Some(cpts) = ts.get_pts() {
         let cts = NATimeInfo::rescale_ts(cpts, ts.tb_num, ts.tb_den, 1, 1000);
         track.cur_ts = Some(cts);
@@ -1784,7 +1788,7 @@ fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Trac
     if stream.is_none() { return Err(DemuxerError::InvalidData); }
     let stream = stream.unwrap();
     src.seek(SeekFrom::Start(offset))?;
-    let mut pkt = src.read_packet(stream, ts, false, size)?;
+    let mut pkt = src.read_packet(stream, ts, first | is_kf, size)?;
     if let Some(ref pal) = track.pal {
         let side_data = NASideData::Palette(first, pal.clone());
         pkt.add_side_data(side_data);
@@ -1956,9 +1960,9 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 if let Some(ts) = track.cur_ts {
                     if ts == min_ts {
                         let first = track.cur_sample == 0;
-                        if let Some((cts, offset, size)) = track.get_next_chunk() {
+                        if let Some((cts, offset, size, is_kf)) = track.get_next_chunk() {
                             self.cur_track = trk_no + 1;
-                            return process_packet(self.src, strmgr, track, cts, offset, size, first);
+                            return process_packet(self.src, strmgr, track, cts, offset, size, first, is_kf);
                         }
                     }
                 }
@@ -1975,8 +1979,8 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 continue;
             }
             let first = track.cur_sample == 0;
-            if let Some((cts, offset, size)) = track.get_next_chunk() {
-                return process_packet(self.src, strmgr, track, cts, offset, size, first);
+            if let Some((cts, offset, size, is_kf)) = track.get_next_chunk() {
+                return process_packet(self.src, strmgr, track, cts, offset, size, first, is_kf);
             }
         }
         Err(DemuxerError::EOF)
