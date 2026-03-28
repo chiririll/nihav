@@ -183,13 +183,20 @@ impl Plane {
         let width  = cell.get_width();
         let height = cell.get_height();
         if width * height > MAX_CELL_SIZE {
-            let (hsplit, vsplit) = if width != height {
+            let (mut hsplit, mut vsplit) = if width != height {
                     (width > (self.stripw as usize) * 4 || width > height, height > width)
                 } else {
                     let (hdiff, vdiff) = self.calculate_diffs(cell);
                     (vdiff > THRESHOLD && vdiff > hdiff,
                      hdiff > THRESHOLD && hdiff > vdiff)
                 };
+            if !hsplit && !vsplit {
+                if width > height {
+                    vsplit = true;
+                } else {
+                    hsplit = true;
+                }
+            }
             match (hsplit, vsplit) {
                 (true, _) => {
                     let (cell1, cell2) = cell.split_v(self.stripw);
@@ -275,16 +282,24 @@ impl Plane {
     }
     fn split_sec(&mut self, cell: Indeo3Cell) -> Box<Indeo3SecondaryTree> {
         let (hdiff, vdiff) = self.calculate_diffs(cell);
+        let large_intra_cell = cell.intra && cell.get_width() * cell.get_height() > MAX_CELL_SIZE;
         if hdiff == 0 && vdiff == 0 {
             if !cell.intra {
                 return Box::new(Indeo3SecondaryTree::VQNull(0));
-            } else {
+            } else if !large_intra_cell {
                 return Box::new(Indeo3SecondaryTree::VQData(0));
             }
         }
         if cell.get_width() > 16 && cell.get_height() > 16 {
-            let hsplit = vdiff > THRESHOLD && vdiff > hdiff * 2;
-            let vsplit = hdiff > THRESHOLD && hdiff > vdiff * 2;
+            let mut hsplit = vdiff > THRESHOLD && vdiff > hdiff * 2;
+            let mut vsplit = hdiff > THRESHOLD && hdiff > vdiff * 2;
+            if large_intra_cell && !hsplit && !vsplit {
+                if cell.get_width() > cell.get_height() {
+                    vsplit = true;
+                } else {
+                    hsplit = true;
+                }
+            }
             match (vsplit, hsplit) {
                 (true, _) => {
                     let (cell1, cell2) = cell.split_v(self.stripw);
