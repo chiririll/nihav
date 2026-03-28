@@ -858,7 +858,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             track.raw_audio = matches!(&fcc,
                     b"NONE" | b"raw " | b"twos" | b"sowt" |
                     b"in24" | b"in32" | b"fl32" | b"fl64" |
-                    b"ima4" | b"ms\x00\x02" | b"ms\x00\x21" |
+                    b"ima4" | b"ms\x00\x02" | b"ms\x00\x11" |
                     b"alaw" | b"ulaw" |
                     b"MAC3" | b"MAC6");
             let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, block_align);
@@ -1481,7 +1481,7 @@ impl Track {
                 b"ms\x00\x02" => { //MS ADPCM
                     ((nsamp - 1) / 2 + 7) * self.channels
                 },
-                b"ms\x00\x21" => { //IMA ADPCM
+                b"ms\x00\x11" => { //IMA ADPCM
                     (nsamp / 2 + 4) * self.channels
                 },
                 _ => self.bsize,
