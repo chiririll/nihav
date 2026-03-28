@@ -155,7 +155,7 @@ impl EuclidDecoder {
     }
     fn output_frame(&self, dst: &mut [u8], stride: usize, paloff: usize) {
         match self.mode {
-            12 => {
+            12 | 13 | 39 => {
                 for (dlines, sline) in dst.chunks_exact_mut(stride * 2)
                         .zip(self.frame.chunks_exact(self.width / 2)).take(self.height / 2) {
                     let (dline0, dline1) = dlines.split_at_mut(stride);
@@ -166,7 +166,7 @@ impl EuclidDecoder {
                     dline1.copy_from_slice(dline0);
                 }
             },
-            15 | 40 => {
+            15 | 36 | 40 => {
                 for (dlines, sline) in dst.chunks_exact_mut(stride * 2)
                         .zip(self.frame.chunks_exact(self.width)).take(self.height / 2) {
                     let (dline0, dline1) = dlines.split_at_mut(stride);
@@ -216,7 +216,7 @@ impl NADecoder for EuclidDecoder {
                     let src_pal = &edata[hdr_size..];
                     let copy_size = src_pal.len().min(self.pal.len());
                     self.pal[..copy_size].copy_from_slice(&src_pal[..copy_size]);
-                } else if matches!(self.mode, 12 | 27) {
+                } else if matches!(self.mode, 12 | 13 | 27 | 39) {
                     self.pal[..DEFAULT_PAL.len()].copy_from_slice(&DEFAULT_PAL);
                 } else {
                     for (i, clr) in self.pal.chunks_exact_mut(3).enumerate() {
@@ -229,12 +229,12 @@ impl NADecoder for EuclidDecoder {
                 return Err(DecoderError::InvalidData);
             }
             let frm_size = match self.mode {
-                    12 => {
+                    12 | 13 | 39 => {
                         validate!((self.width & 1) == 0);
                         validate!((self.height & 1) == 0);
                         (self.width / 2) * (self.height / 2)
                     },
-                    15 | 40 => {
+                    15 | 36 | 40 => {
                         validate!((self.height & 1) == 0);
                         self.width * (self.height / 2)
                     },
@@ -242,10 +242,13 @@ impl NADecoder for EuclidDecoder {
                         validate!((self.width & 1) == 0);
                         (self.width / 2) * self.height
                     },
-                    28 => {
+                    21 | 28 => {
                         self.width * self.height
                     },
-                    _ => return Err(DecoderError::NotImplemented),
+                    _ => {
+                        println!("Unknown mode {}", self.mode);
+                        return Err(DecoderError::NotImplemented);
+                    },
                 };
             self.frame = vec![0; frm_size];
             self.buf = vec![0; frm_size];
