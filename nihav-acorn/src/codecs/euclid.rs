@@ -216,8 +216,9 @@ impl NADecoder for EuclidDecoder {
                     let src_pal = &edata[hdr_size..];
                     let copy_size = src_pal.len().min(self.pal.len());
                     self.pal[..copy_size].copy_from_slice(&src_pal[..copy_size]);
+                } else if matches!(self.mode, 12 | 27) {
+                    self.pal[..DEFAULT_PAL.len()].copy_from_slice(&DEFAULT_PAL);
                 } else {
-                    //self.pal[..DEFAULT_PAL.len()].copy_from_slice(&DEFAULT_PAL);
                     for (i, clr) in self.pal.chunks_exact_mut(3).enumerate() {
                         clr[0] = i as u8;
                         clr[1] = i as u8;
