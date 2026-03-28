@@ -101,6 +101,30 @@ impl LZWState {
     }
 }
 
+fn decode_rle(src: &[u8], dst: &mut [u8]) -> DecoderResult<()> {
+    let mut br = MemoryReader::new_read(src);
+    let mut pos = 0;
+    while pos < dst.len() {
+        let mut len = usize::from(br.read_byte()?);
+        if len == 0 {
+            len = usize::from(br.read_byte()?);
+            if len == 0 {
+                len = br.read_u24be()? as usize;
+            } else {
+                len = (len << 8) | usize::from(br.read_byte()?);
+            }
+        }
+        let pix = if (len & 1) == 0 { br.read_byte()? } else { 0 };
+        len >>= 1;
+        validate!(pos + len <= dst.len());
+        for el in dst[pos..][..len].iter_mut() {
+            *el = pix;
+        }
+        pos += len;
+    }
+    Ok(())
+}
+
 struct EuclidDecoder {
     info:           NACodecInfoRef,
     width:          usize,
@@ -109,6 +133,7 @@ struct EuclidDecoder {
     pal:            [u8; 768],
     frame:          Vec<u8>,
     mode:           u32,
+    method:         u32,
     update:         bool,
     buf:            Vec<u8>,
 }
@@ -123,6 +148,7 @@ impl EuclidDecoder {
             pal:        [0; 768],
             frame:      Vec::new(),
             mode:       0,
+            method:     0,
             update:     false,
             buf:        Vec::new(),
         }
@@ -179,7 +205,11 @@ impl NADecoder for EuclidDecoder {
                 let hdr_size = read_u32le(&edata)? as usize;
                 validate!(hdr_size >= 0x34 && hdr_size <= edata.len());
                 self.mode = read_u32le(&edata[0x10..])?;
-
+                self.method = read_u32le(&edata[0x14..])?;
+                if self.method > 2 {
+                    println!("Unknown Euclid compression method {}", self.method);
+                    return Err(DecoderError::NotImplemented);
+                }
                 self.update = (read_u32le(&edata[0x18..])? & 1) != 0;
 
                 if edata.len() > hdr_size {
@@ -231,8 +261,6 @@ impl NADecoder for EuclidDecoder {
         let src = pkt.get_buffer();
         validate!(src.len() > 1);
 
-        let mut br = BitReader::new(&src, BitReaderMode::LE);
-
         let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0)?;
 
         let mut buf = bufinfo.get_vbuf().unwrap();
@@ -240,7 +268,20 @@ impl NADecoder for EuclidDecoder {
         let stride = buf.get_stride(0);
         let data = buf.get_data_mut().unwrap();
 
-        self.lzw.decode(&mut br, if !self.update { &mut self.frame } else { &mut self.buf })?;
+        let dst = if !self.update { &mut self.frame } else { &mut self.buf };
+        match self.method {
+            0 => decode_rle(&src, dst)?,
+            1 => {
+                let mut br = BitReader::new(&src, BitReaderMode::LE);
+                self.lzw.decode(&mut br, dst)?;
+            },
+            2 => {
+                let dlen = dst.len();
+                validate!(dlen <= src.len());
+                dst.copy_from_slice(&src[..dlen]);
+            },
+            _ => unreachable!(),
+        }
         if self.update {
             for (pix, &b) in self.frame.iter_mut().zip(self.buf.iter()) {
                 *pix ^= b;
