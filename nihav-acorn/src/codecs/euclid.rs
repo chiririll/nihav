@@ -399,6 +399,34 @@ mod test {
                                 [0xd1362b20, 0x986be0ec, 0x59aae46e, 0x11123e70],
                                 [0xc07ab19c, 0xc518aca6, 0xc1f632b3, 0x9baa9cb5]]));
     }
+    #[test]
+    fn test_euclid_rle() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        acorn_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        acorn_register_all_decoders(&mut dec_reg);
+
+        // a sample from Skyfall Movies
+        test_decoding("tca", "euclid", "assets/Acorn/andy", Some(1),
+                          &dmx_reg, &dec_reg,
+                          ExpectedTestResult::MD5Frames(vec![
+                                [0xb7ee3025, 0xd0553052, 0xf3dde926, 0x6bc4074a],
+                                [0x8bae63c6, 0x80bf984b, 0x60e1c387, 0xe4fa7dde]]));
+    }
+    #[test]
+    fn test_euclid_raw() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        acorn_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        acorn_register_all_decoders(&mut dec_reg);
+
+        // a sample from Skyfall Movies
+        test_decoding("tca", "euclid", "assets/Acorn/picrdriker", Some(1),
+                          &dmx_reg, &dec_reg,
+                          ExpectedTestResult::MD5Frames(vec![
+                                [0xea2b7764, 0xafc81f3c, 0x24ff053c, 0x9c5a54e7],
+                                [0x617e78e3, 0x7aa9bb19, 0x430ccdee, 0x176d9d2e]]));
+    }
 }
 
 #[allow(dead_code)]
