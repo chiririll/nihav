@@ -440,7 +440,7 @@ impl fmt::Display for ColorModel {
 /// Single colourspace component definition.
 ///
 /// This structure defines how components of a colourspace are subsampled and where and how they are stored.
-#[derive(Clone,Copy,PartialEq)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub struct NAPixelChromaton {
     /// Horizontal subsampling in power of two (e.g. `0` = no subsampling, `1` = only every second value is stored).
     pub h_ss:           u8,
@@ -481,7 +481,7 @@ pub const MAX_CHROMATONS: usize = 5;
 ///
 /// This structure includes both definitions for each component and some common definitions.
 /// For example the format can be paletted and then components describe the palette storage format while actual data is 8-bit palette indices.
-#[derive(Clone,Copy,PartialEq)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub struct NAPixelFormaton {
     /// Image colour model.
     pub model:      ColorModel,
@@ -712,41 +712,30 @@ impl NAPixelFormaton {
                 let mut name = [b'z'; 4];
                 let planar = self.is_unpacked();
 
-                let mut start_off = 0;
-                let mut start_shift = 0;
-                let mut use_shift = true;
+                let mut use_comp_offs = false;
                 for comp in self.comp_info.iter().flatten() {
-                    start_off = start_off.min(comp.comp_offs);
-                    start_shift = start_shift.min(comp.shift);
-                    if comp.comp_offs != 0 { use_shift = false; }
-                }
-                for dname in name[..(self.components as usize)].iter_mut() {
-                    for (comp, cname) in self.comp_info.iter().zip(b"rgba".iter()) {
-                        if let Some(comp) = comp {
-                            if use_shift {
-                                if comp.shift == start_shift {
-                                    *dname = *cname;
-                                    start_shift += comp.depth;
-                                }
-                            } else if comp.comp_offs == start_off {
-                                *dname = *cname;
-                                if planar {
-                                    start_off += 1;
-                                } else {
-                                    start_off += (comp.depth + 7) / 8;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                for (comp, cname) in self.comp_info.iter().zip(b"rgba".iter()) {
-                    if let Some(comp) = comp {
-                        name[comp.comp_offs as usize] = *cname;
-                    } else {
+                    if comp.comp_offs != 0 {
+                        use_comp_offs = true;
                         break;
                     }
                 }
+
+                const RGB_CNAMES: &[u8] = b"rgba";
+                let mut co: [(u8, Option<NAPixelChromaton>); 4] = std::array::from_fn(|i| (RGB_CNAMES[i], self.comp_info[i]));
+                if use_comp_offs {
+                    co.sort_by_key(|el| if let Some(ci) = el.1 { ci.comp_offs } else { 99 });
+                } else {
+                    let depth = self.get_total_depth();
+                    co.sort_by_key(|el| if let Some(ci) = el.1 { depth - ci.shift } else { 255 });
+                }
+
+                for (dname, (c, ci)) in name.iter_mut().zip(co.iter()) {
+                    if ci.is_none() {
+                        break;
+                    }
+                    *dname = *c;
+                }
+
                 let mut name = String::from_utf8(name[..self.components as usize].to_vec()).unwrap();
                 let depth = self.get_total_depth();
                 if depth == 15 || depth == 16 {
@@ -795,10 +784,15 @@ impl NAPixelFormaton {
                     name.push('a');
                 }
                 name.push('4');
-                let sch = b"421"[cu.h_ss as usize];
-                let tch = if cu.v_ss > 1 { b'0' } else { sch };
-                name.push(sch as char);
-                name.push(tch as char);
+                match (cu.h_ss, cu.v_ss) {
+                    (0, 0) => name += "44",
+                    (0, 1) => name += "40",
+                    (1, 0) => name += "22",
+                    (1, 1) => name += "20",
+                    (2, 0) => name += "11",
+                    (2, 2) => name += "10",
+                    _ => return None,
+                }
                 if self.is_unpacked() {
                     name.push('p');
                 }
@@ -904,9 +898,9 @@ fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
                 components
             },
             555 => {
-                let rshift = (order[0] * 5) as u8;
-                let gshift = (order[1] * 5) as u8;
-                let bshift = (order[2] * 5) as u8;
+                let rshift = (10 - order[0] * 5) as u8;
+                let gshift = (10 - order[1] * 5) as u8;
+                let bshift = (10 - order[2] * 5) as u8;
                 chromatons[0] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: rshift, comp_offs: 0, next_elem: 2 });
                 chromatons[1] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: gshift, comp_offs: 0, next_elem: 2 });
                 chromatons[2] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: bshift, comp_offs: 0, next_elem: 2 });
@@ -916,7 +910,7 @@ fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
             565 => {
                 let mut offs = [0; 3];
                 for (ord, off) in order.iter().zip(offs.iter_mut()) {
-                    *off = (*ord * 5) as u8;
+                    *off = (10 - *ord * 5) as u8;
                 }
                 match order[1] {
                     0 => { offs[0] += 1; offs[2] += 1; },
@@ -931,12 +925,12 @@ fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
             },
             5551 => {
                 let mut offs = [0; 4];
-                let mut cur_off = 0;
+                let mut cur_off = 16;
                 for (comp, &depth) in [ 5, 5, 5, 1 ].iter().enumerate() {
                     for (off, ord) in offs.iter_mut().zip(order.iter()) {
                         if *ord == comp {
+                            cur_off -= depth;
                             *off = cur_off;
-                            cur_off += depth;
                             break;
                         }
                     }
@@ -1096,7 +1090,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_fmt() {
+    fn test_audio_fmt_names() {
         println!("{}", SND_S16_FORMAT);
         println!("{}", SND_U8_FORMAT);
         println!("{}", SND_F32P_FORMAT);
@@ -1104,22 +1098,57 @@ mod test {
         assert_eq!(SND_F32P_FORMAT.to_short_string(), "f32lep");
         let s16fmt = SND_S16_FORMAT.to_short_string();
         assert_eq!(NASoniton::from_str(s16fmt.as_str()).unwrap(), SND_S16_FORMAT);
-        println!("formaton yuv- {}", YUV420_FORMAT);
-        println!("formaton pal- {}", PAL8_FORMAT);
-        println!("formaton rgb565- {}", RGB565_FORMAT);
+    }
+    #[test]
+    fn test_rgb_fmt_names() {
+        println!("formaton pal - {}", PAL8_FORMAT);
+        assert_eq!(PAL8_FORMAT.to_short_string().unwrap(), "pal8");
+        println!("formaton rgb565 - {}", RGB565_FORMAT);
+        assert_eq!(RGB565_FORMAT.to_short_string().unwrap(), "rgb565le");
 
         let pfmt = NAPixelFormaton::from_str("rgb24").unwrap();
         assert!(pfmt == RGB24_FORMAT);
         let pfmt = "gbra";
         assert_eq!(pfmt, NAPixelFormaton::from_str("gbra").unwrap().to_short_string().unwrap());
+
+        for &be in [true, false].iter() {
+            for &rgb in [true, false].iter() {
+                let fmt = NAPixelFormaton::make_rgb16_fmt(5, 5, 5, rgb, be);
+                let expected_name = format!("{}555{}", if rgb { "rgb" } else { "bgr" }, if be { "be" } else { "le" });
+                println!("testing roundtrip for {expected_name}");
+                assert_eq!(fmt.to_short_string().unwrap(), expected_name);
+                assert_eq!(NAPixelFormaton::from_str(&expected_name).unwrap(), fmt);
+
+                let fmt = NAPixelFormaton::make_rgb16_fmt(5, 6, 5, rgb, be);
+                let expected_name = format!("{}565{}", if rgb { "rgb" } else { "bgr" }, if be { "be" } else { "le" });
+                println!("testing roundtrip for {expected_name}");
+                assert_eq!(fmt.to_short_string().unwrap(), expected_name);
+                assert_eq!(NAPixelFormaton::from_str(&expected_name).unwrap(), fmt);
+            }
+        }
+
+        for &expected_name in ["rgba5551be", "bgra5551le"].iter() {
+            println!("testing roundtrip for {expected_name}");
+            let fmt = NAPixelFormaton::from_str(&expected_name).unwrap();
+            assert_eq!(fmt.to_short_string().unwrap(), expected_name);
+        }
+    }
+    #[test]
+    fn test_yuv_fmt_names() {
+        println!("formaton yuv420 - {}", YUV420_FORMAT);
+        assert_eq!(YUV420_FORMAT.to_short_string().unwrap(), "yuv420p");
+        assert_eq!(YUVA410_FORMAT.to_short_string().unwrap(), "yuva410p");
+
         let pfmt = NAPixelFormaton::from_str("yuv420").unwrap();
         println!("parsed pfmt as {} / {:?}", pfmt, pfmt.to_short_string());
         let pfmt = NAPixelFormaton::from_str("yuva420p12").unwrap();
         println!("parsed pfmt as {} / {:?}", pfmt, pfmt.to_short_string());
 
-        assert_eq!(RGB565_FORMAT.to_short_string().unwrap(), "bgr565le");
-        assert_eq!(PAL8_FORMAT.to_short_string().unwrap(), "pal8");
-        assert_eq!(YUV420_FORMAT.to_short_string().unwrap(), "yuv422p");
-        assert_eq!(YUVA410_FORMAT.to_short_string().unwrap(), "yuva410p");
+        for &fname in ["yuv410p", "yuv411p", "yuv420p", "yuv422p", "yuv440p", "yuv444p"].iter() {
+            println!("trying to parse {fname}...");
+            let fmt = NAPixelFormaton::from_str(fname).unwrap();
+            let nname = fmt.to_short_string().unwrap();
+            assert_eq!(fname, &nname);
+        }
     }
 }
