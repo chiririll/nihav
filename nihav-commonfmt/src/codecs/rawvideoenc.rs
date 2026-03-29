@@ -1,4 +1,5 @@
 use nihav_core::codecs::*;
+use nihav_core::io::byteio::*;
 
 struct RawEncoder {
     stream: Option<NAStreamRef>,
@@ -24,13 +25,7 @@ impl NAEncoder for RawEncoder {
                 })
             },
             NACodecTypeInfo::Video(_) => {
-                let mut new_info = *encinfo;
-                if let NACodecTypeInfo::Video(ref mut vinfo) = new_info.format {
-                    if !vinfo.format.model.is_yuv() {
-                        vinfo.format = YUV420_FORMAT;
-                    }
-                }
-                Ok(new_info)
+                Ok(*encinfo)
             },
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
         }
@@ -75,8 +70,45 @@ impl NAEncoder for RawEncoder {
                     }
                 }
             },
-            NABufferType::VideoPacked(ref _vbuf) => return Err(EncoderError::NotImplemented),
-            NABufferType::Video16(ref _vbuf) => return Err(EncoderError::NotImplemented),
+            NABufferType::VideoPacked(ref vbuf) => {
+                let vinfo = vbuf.get_info();
+                let src = vbuf.get_data();
+                match vinfo.format.model {
+                    ColorModel::RGB(_) => {
+                        if vinfo.format.elem_size == 0 {
+                            return Err(EncoderError::FormatError);
+                        }
+                        let (width, height) = vbuf.get_dimensions(0);
+                        let sstride = vbuf.get_stride(0);
+                        let dstride = width * usize::from(vinfo.format.elem_size);
+                        dbuf = Vec::with_capacity(dstride * height);
+                        for line in src.chunks(sstride).take(height) {
+                            dbuf.extend_from_slice(&line[..dstride]);
+                        }
+                    },
+                    ColorModel::YUV(_) => { // packed YUV should be fine as is
+                        dbuf = src.clone();
+                    },
+                    _ => return Err(EncoderError::NotImplemented),
+                }
+            },
+            NABufferType::Video16(ref vbuf16) => {
+                let vinfo = vbuf16.get_info();
+                let (width, height) = vbuf16.get_dimensions(0);
+                let sstride = vbuf16.get_stride(0);
+                let src = vbuf16.get_data();
+                dbuf = vec![0; width * 2 * height];
+                let mut mw = MemoryWriter::new_write(&mut dbuf);
+                if vinfo.format.is_be() {
+                    for sline in src.chunks(sstride).take(height) {
+                        mw.write_u16be_arr(&sline[..width])?;
+                    }
+                } else {
+                    for sline in src.chunks(sstride).take(height) {
+                        mw.write_u16le_arr(&sline[..width])?;
+                    }
+                }
+            },
             NABufferType::Video32(ref _vbuf) => return Err(EncoderError::NotImplemented),
             NABufferType::None => {
                 self.pkt = None;
