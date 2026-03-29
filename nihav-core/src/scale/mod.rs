@@ -215,6 +215,9 @@ fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
                 let ddata = dbuf.get_data_mut().unwrap();
                 let dst = &mut ddata[doff..];
                 let copy_size = sstride.min(dstride);
+                if sstride == 0 && dstride == 0 {
+                    continue;
+                }
                 for (dline, sline) in dst.chunks_exact_mut(dstride).take(h).zip(src.chunks_exact(sstride)) {
                     dline[..copy_size].copy_from_slice(&sline[..copy_size]);
                 }
