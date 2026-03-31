@@ -4,6 +4,7 @@ use nihav_core::io::byteio::*;
 struct RawEncoder {
     stream: Option<NAStreamRef>,
     pkt:    Option<NAPacket>,
+    vinfo:  NAVideoInfo,
 }
 
 impl RawEncoder {
@@ -11,6 +12,7 @@ impl RawEncoder {
         Self {
             stream: None,
             pkt:    None,
+            vinfo:  NAVideoInfo::new(0, 0, false, YUV420_FORMAT),
         }
     }
 }
@@ -35,7 +37,8 @@ impl NAEncoder for RawEncoder {
         match encinfo.format {
             NACodecTypeInfo::None => Err(EncoderError::FormatError),
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
-            NACodecTypeInfo::Video(_) => {
+            NACodecTypeInfo::Video(vinfo) => {
+                self.vinfo = vinfo;
                 let info = NACodecInfo::new("rawvideo", encinfo.format, None);
                 let mut stream = NAStream::new(StreamType::Video, stream_id, info, encinfo.tb_num, encinfo.tb_den, 0);
                 stream.set_num(stream_id as usize);
@@ -48,6 +51,12 @@ impl NAEncoder for RawEncoder {
     fn encode(&mut self, frm: &NAFrame) -> EncoderResult<()> {
         let buf = frm.get_buffer();
         let mut dbuf;
+        if let Some(vinfo) = buf.get_video_info() {
+            if vinfo != self.vinfo {
+                println!("Input format differs from the initial one");
+                return Err(EncoderError::FormatError);
+            }
+        }
         match buf {
             NABufferType::Video(ref vbuf) => {
                 let vinfo = vbuf.get_info();
