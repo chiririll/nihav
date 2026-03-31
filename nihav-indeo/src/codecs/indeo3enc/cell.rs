@@ -330,7 +330,7 @@ impl CellEncoder {
         let cb_p = cb_p.get_best();
         let mut cb_s = cb_s.get_best();
 
-        let mut use_single = !intra || mode_hint == 10 || cb_p == cb_s;
+        let mut use_single = !intra || cb_p == cb_s || !matches!(mode_hint, 1 | 4);
         if !use_single {
             if cb_s == 0 { // we can adjust to the CB_SELECTORS here
                 cb_s = (((cb_p & 7) + 1) * 2).min(15);
