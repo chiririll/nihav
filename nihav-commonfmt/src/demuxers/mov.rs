@@ -572,6 +572,7 @@ const STBL_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"stsc"), parse: read_stsc },
     TrackChunkHandler { ctype: mktag!(b"stsz"), parse: read_stsz },
     TrackChunkHandler { ctype: mktag!(b"stco"), parse: read_stco },
+    TrackChunkHandler { ctype: mktag!(b"co64"), parse: read_co64 },
     TrackChunkHandler { ctype: mktag!(b"stsh"), parse: skip_chunk },
     TrackChunkHandler { ctype: mktag!(b"ctts"), parse: read_ctts },
 ];
@@ -1036,6 +1037,17 @@ fn read_stco(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             *dst = u64::from(u32::from_be(src));
         }
     }
+    Ok(size)
+}
+
+fn read_co64(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
+    let version             = br.read_byte()?;
+    validate!(version == 0);
+    let _flags              = br.read_u24be()?;
+    let entries             = br.read_u32be()? as usize;
+    validate!(entries > 0 && (entries * 8 + 8) as u64 == size);
+    track.chunk_offsets = vec![0; entries];
+                              br.read_u64be_arr(&mut track.chunk_offsets)?;
     Ok(size)
 }
 
