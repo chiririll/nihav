@@ -185,6 +185,7 @@ impl ChunkAccount {
             let co64 = AtomMarker::start(bw, b"co64")?;
             bw.write_byte(0)?;  // version
             bw.write_u24be(0)?; // flags
+            bw.write_u32be(self.offsets64.len() as u32)?;
             for &off in self.offsets64.iter() {
                 bw.write_u64be(off)?;
             }
