@@ -514,7 +514,7 @@ impl MuxerCreator for MovMuxerCreator {
     }
     fn get_name(&self) -> &'static str { "mov" }
     fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::Universal }
-    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks(MUX_QUIRK_UNSYNC) }
+    fn get_quirks(&self) -> MuxerQuirks { MuxerQuirks(MUX_QUIRK_UNSYNC | MUX_QUIRK_GLOBAL_PAL) }
 }
 
 #[cfg(test)]
