@@ -63,7 +63,9 @@ pub const MUX_QUIRK_FIXED_RATE: u32         = 1 <<  0;
 /// Muxer expects to know full duration in advance.
 pub const MUX_QUIRK_FIXED_DURATION: u32     = 1 <<  1;
 /// Muxer does not care about synchronisation of the stream.
-pub const MUX_QUIRK_UNSYNC: u32            = 1 <<  2;
+pub const MUX_QUIRK_UNSYNC: u32             = 1 <<  2;
+/// Muxer does not support palette changes.
+pub const MUX_QUIRK_GLOBAL_PAL: u32         = 1 <<  3;
 
 impl MuxerQuirks {
     /// Creates a new instance of `MuxerQuirks`
@@ -83,13 +85,19 @@ impl MuxerQuirks {
     /// Tells that muxer does not expect to know full duration in advance.
     pub fn clear_fixed_duration(&mut self) { self.0 &= !MUX_QUIRK_FIXED_DURATION; }
 
-
     /// Queries if the muxer does not care about stream synchronisation.
     pub fn is_unsync(self) -> bool { (self.0 & MUX_QUIRK_UNSYNC) != 0 }
     /// Tells that muxer does not care about stream synchronisation.
     pub fn set_unsync(&mut self) { self.0 |= MUX_QUIRK_UNSYNC; }
     /// Tells that muxer actually cares about streams being synchronised.
     pub fn clear_unsync(&mut self) { self.0 &= !MUX_QUIRK_UNSYNC; }
+
+    /// Queries if the muxer does not support palette changes.
+    pub fn is_global_pal(self) -> bool { (self.0 & MUX_QUIRK_GLOBAL_PAL) != 0 }
+    /// Tells that muxer does not support palette changes.
+    pub fn set_global_pal(&mut self) { self.0 |= MUX_QUIRK_GLOBAL_PAL; }
+    /// Tells that muxer does not require global palette (and palette changes are fine).
+    pub fn clear_global_pal(&mut self) { self.0 &= !MUX_QUIRK_GLOBAL_PAL; }
 }
 
 
