@@ -56,7 +56,7 @@ impl TrackHandler for VideoTrackHandler {
         Ok(())
     }
     fn flush_chunks(&mut self, _bw: &mut dyn ByteIO, _ca: &mut ChunkAccount) -> MuxerResult<()> { Ok(()) }
-    fn get_time_info(&self) -> (u64, u32) { (self.pts * u64::from(self.tb_num), self.tb_den) }
+    fn get_time_info(&self) -> (u64, u32) { (self.pts, self.tb_den) }
     fn get_dimensions(&self) -> (usize, usize) {
         (self.vinfo.width, self.vinfo.height)
     }
