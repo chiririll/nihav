@@ -102,6 +102,7 @@ impl TrackHandler for RawAudioTrackHandler {
     }
     fn get_time_info(&self) -> (u64, u32) { (self.sample, self.rate) }
     fn get_dimensions(&self) -> (usize, usize) { (0, 0) }
+    fn get_pkt_duration(&self) -> u64 { 1 }
     fn write_media_info(&mut self, bw: &mut dyn ByteIO) -> MuxerResult<()> {
         let smhd = AtomMarker::start(bw, b"smhd")?;
         bw.write_byte(0)?;  // version

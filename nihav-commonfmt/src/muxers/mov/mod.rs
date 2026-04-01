@@ -111,7 +111,7 @@ impl ChunkAccount {
         self.cmap.push(count as u32);
     }
 
-    fn write_stts(&mut self, bw: &mut dyn ByteIO, raw_audio: bool) -> MuxerResult<()> {
+    fn write_stts(&mut self, bw: &mut dyn ByteIO, raw_audio: bool, pktd: u64) -> MuxerResult<()> {
         if !raw_audio {
             let mut nentries = 1;
             let mut prev_delta = self.pts[1] - self.pts[0];
@@ -128,16 +128,16 @@ impl ChunkAccount {
             for w in self.pts.windows(2).skip(1) {
                 let delta = w[1] - w[0];
                 if delta != prev_delta {
-                    bw.write_u32be(run)?;
-                    bw.write_u32be(prev_delta as u32)?;
+                    bw.write_u32be(run * (pktd as u32))?;
+                    bw.write_u32be((prev_delta / pktd) as u32)?;
                     run = 1;
                     prev_delta = delta;
                 } else {
                     run += 1;
                 }
             }
-            bw.write_u32be(run + 1)?;
-            bw.write_u32be(prev_delta as u32)?;
+            bw.write_u32be((run + 1) * (pktd as u32))?;
+            bw.write_u32be((prev_delta / pktd) as u32)?;
         } else {
             bw.write_u32be(1)?;
             bw.write_u32be((*self.pts.last().unwrap_or(&0)) as u32)?;
@@ -205,6 +205,7 @@ trait TrackHandler {
     fn flush_chunks(&mut self, bw: &mut dyn ByteIO, ca: &mut ChunkAccount) -> MuxerResult<()>;
     fn get_time_info(&self) -> (u64, u32);
     fn get_dimensions(&self) -> (usize, usize);
+    fn get_pkt_duration(&self) -> u64;
     fn write_media_info(&mut self, bw: &mut dyn ByteIO) -> MuxerResult<()>;
     fn write_descriptor(&mut self, bw: &mut dyn ByteIO) -> MuxerResult<()>;
 }
@@ -310,10 +311,11 @@ impl Track {
         self.handler.write_descriptor(bw)?;
         stsd.end(bw)?;
 
+        let pktd = self.handler.get_pkt_duration();
         let stts = AtomMarker::start(bw, b"stts")?;
         bw.write_byte(0)?;  // version
         bw.write_u24be(0)?; // flags
-        self.ca.write_stts(bw, self.raw_audio)?;
+        self.ca.write_stts(bw, self.raw_audio, pktd)?;
         stts.end(bw)?;
 
         let stsc = AtomMarker::start(bw, b"stsc")?;
@@ -576,6 +578,6 @@ mod test {
         let mut mux_reg = RegisteredMuxers::new();
         generic_register_all_muxers(&mut mux_reg);
         test_remuxing_md5(&dec_config, "mov", &mux_reg,
-                          [0xeb99a547, 0xd6c1a4ce, 0xc12d3451, 0x096639c5]);
+                          [0x3d030f10, 0x842de3e2, 0xb6a5ae89, 0x30d9b05f]);
     }
 }

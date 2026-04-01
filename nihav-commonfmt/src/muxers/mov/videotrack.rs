@@ -60,6 +60,7 @@ impl TrackHandler for VideoTrackHandler {
     fn get_dimensions(&self) -> (usize, usize) {
         (self.vinfo.width, self.vinfo.height)
     }
+    fn get_pkt_duration(&self) -> u64 { 1 }
     fn write_media_info(&mut self, bw: &mut dyn ByteIO) -> MuxerResult<()> {
         let vmhd = AtomMarker::start(bw, b"vmhd")?;
         bw.write_byte(0)?;  // version

@@ -62,6 +62,13 @@ impl TrackHandler for AudioTrackHandler {
     fn flush_chunks(&mut self, _bw: &mut dyn ByteIO, _ca: &mut ChunkAccount) -> MuxerResult<()> { Ok(()) }
     fn get_time_info(&self) -> (u64, u32) { (self.pts, self.ainfo.sample_rate) }
     fn get_dimensions(&self) -> (usize, usize) { (0, 0) }
+    fn get_pkt_duration(&self) -> u64 {
+        if self.frm_sz != 0 && self.frameno > 2 {
+            self.last_ts / u64::from(self.frameno - 2)
+        } else {
+            1
+        }
+    }
     fn write_media_info(&mut self, bw: &mut dyn ByteIO) -> MuxerResult<()> {
         let smhd = AtomMarker::start(bw, b"smhd")?;
         bw.write_byte(0)?;  // version
@@ -80,13 +87,23 @@ impl TrackHandler for AudioTrackHandler {
         bw.write_u32be(0)?; // vendor
         bw.write_u16be(u16::from(self.ainfo.channels))?;
         bw.write_u16be(u16::from(self.ainfo.format.bits))?;
-        bw.write_u16be(0xFFFE)?; // compression ID
+        bw.write_u16be(if self.frm_sz != 0 { 0 } else { 0xFFFE })?; // compression ID
         bw.write_u16be(0)?; // packet size
         bw.write_u32be(self.ainfo.sample_rate << 16)?;
-        bw.write_u32be(0)?; // samples per packet
-        bw.write_u32be(self.frm_sz as u32)?; // bytes per packet
-        bw.write_u32be(0)?; // bytes per frame
-        bw.write_u32be(0)?; // bytes per sample
+        if self.frm_sz != 0 { // CBR audio
+            let samples_per_pkt = if self.frameno > 2 {
+                    self.last_ts / u64::from(self.frameno - 2)
+                } else { 0 };
+            bw.write_u32be(samples_per_pkt as u32)?; // samples per packet
+            bw.write_u32be(self.frm_sz as u32 / u32::from(self.ainfo.channels))?; // bytes per packet
+            bw.write_u32be(self.frm_sz as u32)?; // bytes per frame
+            bw.write_u32be(2)?; // bytes per sample
+        } else {
+            bw.write_u32be(0)?; // samples per packet
+            bw.write_u32be(0)?; // bytes per packet
+            bw.write_u32be(0)?; // bytes per frame
+            bw.write_u32be(0)?; // bytes per sample
+        }
         if let Some(edata) = &self.edata {
             bw.write_u32be(edata.len() as u32 + 20)?;
             bw.write_buf(b"wave")?;
