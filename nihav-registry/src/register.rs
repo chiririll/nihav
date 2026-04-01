@@ -470,6 +470,7 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"PGVV", "pgvv"),
     (b"UCOD", "clearvideo"),
 
+    (b"tmot", "truemotion1"),
     (b"VP30", "vp3"),
     (b"VP31", "vp3"),
 
