@@ -304,7 +304,6 @@ impl BlockState {
             for &pix in buf.iter() {
                 if pix == self.clr2[0] {
                     self.clr2_flags |= mask;
-                } else {
                 }
                 mask <<= 1;
             }

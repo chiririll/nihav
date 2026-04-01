@@ -345,9 +345,8 @@ impl NewFilt {
         };
         obj.version = version;
         let new = version >= 3980;
-        for i in 0..3 {
-            let (ord16, bits) = NEW_FILTER_PARAMS[cidx][i];
-            obj.filters[i] = NFilterContext::new(ord16, bits, new);
+        for (dfilt, &(ord16, bits)) in obj.filters.iter_mut().zip(NEW_FILTER_PARAMS[cidx].iter()) {
+            *dfilt = NFilterContext::new(ord16, bits, new);
         }
         obj
     }

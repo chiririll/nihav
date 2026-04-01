@@ -330,7 +330,7 @@ impl FLACEncoder {
                         bw.write_s(el, samp_bits);
                     }
                 },
-                -1 | -2 | -3 | -4 => {
+                -4..=-1 => {
                     let order = -self.order as usize;
 
                     apply_fixed_filter(&mut self.tmp, samp, self.order);

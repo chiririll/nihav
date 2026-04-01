@@ -544,8 +544,8 @@ impl G7231Decoder {
             let t = self.cng_rnd.next_range(1 << 13);
             off[i]     = t & 1;
             off[i + 1] = ((t >> 1) & 1) + SUBFRAME_LEN;
-            for j in 0..11 {
-                signs[i/2][j] = ((((t >> (j + 2)) & 1) * 2 - 1) << 14) as i32;
+            for (j, sign) in signs[i / 2].iter_mut().enumerate() {
+                *sign = ((((t >> (j + 2)) & 1) * 2 - 1) << 14) as i32;
             }
         }
 

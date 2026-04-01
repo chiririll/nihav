@@ -532,7 +532,7 @@ impl FLACPacketiser {
             };
         let channels = match chan_idx {
                 0..=7 => chan_idx + 1,
-                8 | 9 | 10 => 2,
+                8..=10 => 2,
                 _ => return Err(DecoderError::InvalidData),
             };
 

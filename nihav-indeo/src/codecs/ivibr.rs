@@ -221,7 +221,6 @@ let tile_end = tile_start + len * 8;
             }
         }
         br.align();
-    } else {
     }
 
     Ok(())

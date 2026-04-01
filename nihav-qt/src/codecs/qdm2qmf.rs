@@ -559,8 +559,7 @@ unimplemented!();
             if c > 3 {
                 if self.is_intra {
                     for ch in 0..self.channels {
-                        for band in 0..MAX_BANDS {
-                            let sb = QUANT_WEIGHT[self.cm_selector][band];
+                        for (band, &sb) in QUANT_WEIGHT[self.cm_selector].iter().enumerate().take(MAX_BANDS) {
                             self.quant_weight[ch][band] = [sb; 64];
                         }
                     }

@@ -56,7 +56,7 @@ impl NADecoder for UltimotionDecoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        validate!(src.len() > 0 && src[src.len() - 1] == 0x73);
+        validate!(!src.is_empty() && src[src.len() - 1] == 0x73);
         let mut br = MemoryReader::new_read(&src);
 
         let mut buf = if pkt.is_keyframe() {
