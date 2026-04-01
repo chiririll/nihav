@@ -455,15 +455,15 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     //(b"mpeg", "mpeg-video"),
     (b"mjpa", "mjpeg-a"),
     (b"mjpb", "mjpeg-b"),
-    (b"svqi", "sorenson-video"),
     (b"SVQ1", "sorenson-video"),
-    (b"svq3", "sorenson-video3"),
+    (b"svqi", "sorenson-video"),
     (b"SVQ3", "sorenson-video3"),
+    (b"svq3", "sorenson-video3"),
 
     (b"rt21", "indeo2"),
-    (b"IV31", "indeo3"),
     (b"IV32", "indeo3"),
     (b"iv32", "indeo3"),
+    (b"IV31", "indeo3"),
 
     (b"arbc", "gryphon-arbc-qt"),
     (b"MPAK", "moviepak"),
@@ -471,8 +471,8 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"UCOD", "clearvideo"),
 
     (b"tmot", "truemotion1"),
-    (b"VP30", "vp3"),
     (b"VP31", "vp3"),
+    (b"VP30", "vp3"),
 
     (b"ESCP", "escape-any"),
 
