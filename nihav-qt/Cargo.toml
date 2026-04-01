@@ -10,7 +10,7 @@ features = []
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = ["blockdsp", "fft", "qmf"]
+features = ["blockdsp", "fft", "qmf", "qt_pal"]
 
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }

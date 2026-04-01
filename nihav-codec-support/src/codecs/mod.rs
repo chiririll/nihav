@@ -276,6 +276,9 @@ pub mod blockdsp;
 #[cfg(feature="jpeg")]
 pub mod jpeg;
 
+#[cfg(feature="qt_pal")]
+pub mod qt_pal;
+
 #[cfg(feature="h263")]
 #[allow(clippy::collapsible_if)]
 #[allow(clippy::manual_memcpy)]
