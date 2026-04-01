@@ -385,6 +385,7 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"tmot", "truemotion1"),
     (b"DUCK", "truemotion1"),
+    (b"PVEZ", "truemotion1"),
     (b"TR20", "truemotionrt"),
     (b"TM20", "truemotion2"),
     (b"TM2A", "truemotion2x"),
