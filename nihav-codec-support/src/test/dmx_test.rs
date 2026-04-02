@@ -50,7 +50,7 @@ pub fn test_demuxer(dmx: &mut dyn DemuxCore, sm: &mut StreamManager, mut npkts: 
             for refpkt in mdata.iter().take(npkts) {
                 let pkt = dmx.get_frame(sm).unwrap();
                 let ndt = DPacket::new(pkt.get_stream().get_id(), pkt.ts.pts, pkt.ts.dts, pkt.get_buffer().len(), pkt.keyframe);
-                assert_eq!(&ndt, refpkt);
+                assert_eq!(refpkt, &ndt);
             }
         },
     }
