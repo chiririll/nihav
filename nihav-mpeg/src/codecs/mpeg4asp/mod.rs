@@ -192,7 +192,8 @@ impl NADecoder for ASPDecoder {
                         return Err(DecoderError::NotImplemented);
                     }
                     let (cur_ts, fwd_ts, bwd_ts) = if ftype != FrameType::Skip || !self.pb_mode {
-                            self.seq.update_ts(&pic_info)
+                            let ref_pts = if self.assign_mode == AssignMode::Yes { pkt.ts.pts } else { None };
+                            self.seq.update_ts(&pic_info, ref_pts)
                         } else { (0, 0, 0) };
 
                     if ftype == FrameType::Skip {
@@ -306,6 +307,7 @@ impl NADecoder for ASPDecoder {
     }
     fn flush(&mut self) {
         self.ipbs.clear();
+        self.saved = None;
     }
 }
 

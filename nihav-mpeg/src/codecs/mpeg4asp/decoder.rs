@@ -247,11 +247,21 @@ impl SequenceContext {
         self.qinfo = vol.quant_info.clone();
         self.vol = Some(vol);
     }
-    pub fn update_ts(&mut self, pic_info: &PicInfo) -> (u64, u64, u64) {
+    pub fn update_ts(&mut self, pic_info: &PicInfo, ref_ts: Option<u64>) -> (u64, u64, u64) {
         match pic_info.pic_type {
             FrameType::I | FrameType::P | FrameType::Skip => {
                 self.bwd_ts = self.fwd_ts;
-                if let Some(ref vol) = self.vol {
+                if pic_info.pic_type == FrameType::I && ref_ts.is_some() {
+                    let ts = ref_ts.unwrap_or(0);
+                    let time_res = u64::from(if let Some(ref vol) = self.vol { vol.time_res } else { 0 });
+                    if time_res > 0 {
+                        self.fwd_ts.base   = (ts / time_res) as u32;
+                        self.fwd_ts.offset = (ts % time_res) as u32;
+                    } else {
+                        self.fwd_ts.offset = ts as u32;
+                    }
+                    (self.fwd_ts.get_ts(time_res as u32), self.bwd_ts.get_ts(time_res as u32), 0)
+                } else if let Some(ref vol) = self.vol {
                     self.fwd_ts.base += pic_info.modulo_time_base;
                     self.fwd_ts.offset = pic_info.vop_time_increment;
                     (self.fwd_ts.get_ts(vol.time_res), self.bwd_ts.get_ts(vol.time_res), 0)
