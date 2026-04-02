@@ -529,8 +529,9 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             },
             _ => {},
         }
-        for track in self.tracks.iter() {
+        for track in self.tracks.iter_mut() {
             track.pkt_demux.fill_seek_index(track.track_no, seek_index);
+            track.pkt_demux.decide_mode(track.stream_type);
         }
         self.src.seek(SeekFrom::Start(self.mdat_pos))?;
         self.cur_track = 0;

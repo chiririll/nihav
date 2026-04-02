@@ -421,7 +421,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, 1);
             let edata = parse_audio_edata(br, start_pos, size)?;
             codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-            track.pkt_demux.raw_audio = cname == "pcm";
+            track.pkt_demux.mode = if cname == "pcm" { PacketMode::RawAudio } else { PacketMode::AudioCBR };
             track.pkt_demux.bsize     = (sample_size / 8) as usize;
             track.pkt_demux.channels  = nchannels as usize;
             track.pkt_demux.bits      = sample_size as usize;
@@ -439,7 +439,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             }
             let sample_size     = br.read_u16be()?;
             validate!(sample_size <= 128);
-            let _compr_id       = br.read_u16be()?;
+            let compr_id        = br.read_u16be()?;
             let packet_size     = br.read_u16be()? as usize;
             validate!(packet_size == 0);
             let mut sample_rate = br.read_u32be()? >> 16;
@@ -497,12 +497,18 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 track.tb_den = sample_rate;
                 track.pkt_demux.tb_den = sample_rate;
             }
-            track.pkt_demux.raw_audio = matches!(&fcc,
+            track.pkt_demux.mode = if matches!(&fcc,
                     b"NONE" | b"raw " | b"twos" | b"sowt" |
                     b"in24" | b"in32" | b"fl32" | b"fl64" |
-                    b"ima4" | b"ms\x00\x02" | b"ms\x00\x11" |
+                    /*b"ima4" |*/ b"ms\x00\x02" | b"ms\x00\x11" |
                     b"alaw" | b"ulaw" |
-                    b"MAC3" | b"MAC6");
+                    b"MAC3" | b"MAC6") {
+                PacketMode::RawAudio
+            } else if sver == 2 || compr_id == 0xFFFE {
+                PacketMode::AudioVBR
+            } else {
+                PacketMode::AudioCBR
+            };
             let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, block_align);
             let edata = parse_audio_edata(br, start_pos, size)?;
             codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
@@ -520,7 +526,6 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     };
     track.pkt_demux.tb_num = track.tb_num;
     track.pkt_demux.tb_den = track.tb_den;
-    track.pkt_demux.stream_type = track.stream_type;
     let read_size = br.tell() - start_pos;
     validate!(read_size <= size);
     track.stream = Some(NAStream::new(track.stream_type, track.track_no, codec_info, track.tb_num, track.tb_den, u64::from(track.pkt_demux.duration)));

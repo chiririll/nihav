@@ -102,9 +102,27 @@ impl<T:Default+Copy> RLESearcher<T> {
     }
 }
 
+#[derive(Default,Debug,Clone,Copy,PartialEq)]
+pub enum PacketMode {
+    #[default]
+    Unknown,
+    Complex,
+    OneToOne,
+    RawAudio,
+    AudioCBR,
+    AudioVBR,
+}
+
+impl PacketMode {
+    pub fn is_audio(self) -> bool {
+        matches!(self, PacketMode::RawAudio | PacketMode::AudioCBR | PacketMode::AudioVBR)
+    }
+}
+
 #[derive(Default)]
 pub struct QTPacketDemuxer {
-    pub stream_type:    StreamType,
+    pub mode:           PacketMode,
+    pub is_data_stream: bool,
 
     pub tb_num:         u32,
     pub tb_den:         u32,
@@ -113,8 +131,6 @@ pub struct QTPacketDemuxer {
     pub cur_ts:         Option<u64>,
     pub samples_left:   usize,
     pub last_offset:    u64,
-    pub raw_audio:      bool,
-    pub raw_apos:       u64,
     pub duration:       u32,
     pub channels:       usize,
     pub bits:           usize,
@@ -146,6 +162,19 @@ impl QTPacketDemuxer {
             let time = NATimeInfo::rescale_ts(pts, self.tb_num, self.tb_den, 1, 1000);
             seek_index.add_entry(track_no, SeekEntry { time, pts: u64::from(*kf_time - 1), pos: 0 });
         }
+    }
+    pub fn decide_mode(&mut self, stream_type: StreamType) {
+        if self.mode == PacketMode::Unknown {
+            self.mode = if self.chunk_offsets.len() == self.chunk_sizes.len() {
+                    PacketMode::OneToOne
+                } else {
+                    PacketMode::Complex
+                };
+        }
+        if self.mode == PacketMode::AudioCBR && self.chunk_offsets.len() == self.chunk_sizes.len() {
+            self.mode = PacketMode::OneToOne;
+        }
+        self.is_data_stream = stream_type == StreamType::Data;
     }
     pub fn invent_keyframes(&mut self, intraonly: bool) {
         self.keyframes.reserve(self.time_to_sample.len());
@@ -199,6 +228,24 @@ impl QTPacketDemuxer {
         self.samples_left = 0;
         self.cur_sample = self.chunk_sizes.len();
     }
+    fn next_sample(&mut self) -> Option<bool> {
+        let chunk_start = self.samples_left == 0;
+        if self.samples_left == 0 {
+            if self.cur_chunk >= self.chunk_offsets.len() {
+                return None;
+            }
+            for (idx, samples) in self.sample_map.iter() {
+                if *idx as usize <= self.cur_chunk + 1 {
+                    self.samples_left = *samples as usize;
+                } else {
+                    break;
+                }
+            }
+            self.last_offset = self.chunk_offsets[self.cur_chunk];
+            self.cur_chunk += 1;
+        }
+        Some(chunk_start)
+    }
     pub fn get_next_chunk(&mut self) -> Option<(NATimeInfo, u64, usize, bool)> {
         let dts_val = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
         let pts = if let Some(dts_corr) = self.ctts_map.map(self.cur_sample as u64) {
@@ -215,71 +262,67 @@ impl QTPacketDemuxer {
             } else {
                 Some(dts_val)
             };
-        let mut ts = NATimeInfo::new(pts, Some(dts_val), None, self.tb_num, self.tb_den);
-        if self.chunk_offsets.len() == self.chunk_sizes.len() { // simple one-to-one mapping
-            if self.cur_sample >= self.chunk_sizes.len() {
-                return None;
-            }
-            let offset = self.chunk_offsets[self.cur_sample];
-            let size   = self.chunk_sizes[self.cur_sample] as usize;
-            self.cur_sample += 1;
-            let is_kf = self.keyframes.contains(&(self.cur_sample as u32));
-            Some((ts, offset, size, is_kf))
-        } else {
-            let chunk_start = self.samples_left == 0;
-            if self.samples_left == 0 {
-                if self.cur_chunk >= self.chunk_offsets.len() {
+        let ts = NATimeInfo::new(pts, Some(dts_val), None, self.tb_num, self.tb_den);
+        match self.mode {
+            PacketMode::OneToOne => {
+                if self.cur_sample >= self.chunk_sizes.len() {
                     return None;
                 }
-                for (idx, samples) in self.sample_map.iter() {
-                    if *idx as usize <= self.cur_chunk + 1 {
-                        self.samples_left = *samples as usize;
+                let offset = self.chunk_offsets[self.cur_sample];
+                let size   = self.chunk_sizes[self.cur_sample] as usize;
+                self.cur_sample += 1;
+                let is_kf = self.keyframes.contains(&(self.cur_sample as u32));
+                Some((ts, offset, size, is_kf))
+            },
+            PacketMode::Complex => {
+                let chunk_start = self.next_sample()?;
+                let offset = self.last_offset;
+                let size = self.get_size(self.cur_sample);
+                self.last_offset += size as u64;
+                let is_kf = chunk_start && self.keyframes.contains(&(self.cur_chunk as u32));
+                self.cur_sample += 1;
+                self.samples_left -= 1;
+                Some((ts, offset, size, is_kf))
+            },
+            PacketMode::AudioCBR | PacketMode::AudioVBR => {
+                let chunk_start = self.next_sample()?;
+                let offset = self.last_offset;
+                let size = self.get_size(self.cur_sample);
+                self.last_offset += size as u64;
+                if self.frame_samples != 0 && self.bsize != 0 {
+                    let nblocks = size / self.bsize;
+                    if nblocks > 0 {
+                        let consumed = (nblocks * self.frame_samples).min(self.samples_left);
+                        self.cur_sample += 1;
+                        self.samples_left -= consumed;
                     } else {
-                        break;
+                        self.cur_sample += 1;
+                        self.samples_left = 0;
                     }
-                }
-                self.last_offset = self.chunk_offsets[self.cur_chunk];
-                self.cur_chunk += 1;
-            }
-            let offset = self.last_offset;
-            let size = self.get_size(self.cur_sample);
-            self.last_offset += size as u64;
-            let is_kf = chunk_start && (self.stream_type == StreamType::Audio || self.keyframes.contains(&(self.cur_chunk as u32)));
-            if self.stream_type == StreamType::Video {
-                self.samples_left -= 1;
-            } else if self.frame_samples != 0 && self.bsize != 0 {
-                let nblocks = size / self.bsize;
-                if self.raw_audio {
-                    ts.pts = Some(self.raw_apos);
-                    ts.duration = Some(nblocks as u64);
-                    self.raw_apos += nblocks as u64;
-                }
-                if nblocks > 0 {
-                    let consumed = (nblocks * self.frame_samples).min(self.samples_left);
-                    self.samples_left -= consumed;
                 } else {
-                    self.samples_left = 0;
+                    self.cur_sample += 1;
+                    self.samples_left -= 1;
                 }
-            } else if !self.raw_audio {
-                self.samples_left -= 1;
-            } else {
+                Some((ts, offset, size, chunk_start))
+            },
+            PacketMode::RawAudio => {
+                self.next_sample()?;
                 const BLOCK_SAMPLES: usize = 1024 * 6; // should be multiple of 64 and 6 to fit both IMA ADPCM and MACE 6:1 blocks
-                self.last_offset -= size as u64;
                 let samples = self.samples_left.min(BLOCK_SAMPLES);
                 let cur_size = self.calculate_chunk_size(samples);
+                let offset = self.last_offset;
                 self.cur_sample   += samples;
                 self.samples_left -= samples;
                 self.last_offset += cur_size as u64;
-                return Some((ts, offset, cur_size, true));
-            }
-            self.cur_sample += 1;
-            Some((ts, offset, size, is_kf))
+                Some((ts, offset, cur_size, true))
+            },
+            _ => unreachable!(),
         }
     }
     fn get_size(&self, sample_no: usize) -> usize {
         if !self.chunk_sizes.is_empty() {
             self.chunk_sizes[sample_no] as usize
-        } else if self.stream_type != StreamType::Audio && self.sample_map.len() <= 1 && self.bsize > 0 {
+        } else if !self.mode.is_audio() && self.sample_map.len() <= 1 && self.bsize > 0 {
             self.bsize
         } else if !self.sample_map.is_empty() && self.sample_size == 0 {
             let mut nsamp = 0;
@@ -307,77 +350,74 @@ impl QTPacketDemuxer {
         if forced && pts.abs_diff(tgt_pts) > 5 * u64::from(self.tb_den) {
             self.cur_sample = tgt_pts as usize;
         }
-        if self.stream_type == StreamType::Audio {
-            if let NATimePoint::Milliseconds(ms) = tpoint {
-                let exp_pts = NATimeInfo::rescale_ts(ms, 1, 1000, self.tb_num, self.tb_den);
-                if self.raw_audio {
-                    if self.frame_samples != 0 {
-                        self.raw_apos = exp_pts / (self.frame_samples as u64);
-                        let mut apos = 0;
-                        self.cur_sample = 0;
-                        self.cur_chunk = 0;
-                        let mut cmap = self.sample_map.iter();
-                        let mut cur_samps = 0;
-                        let (mut next_idx, mut next_samples) = cmap.next().unwrap();
-                        loop {
-                            if self.cur_chunk + 1 == next_idx as usize {
-                                self.samples_left = cur_samps;
-                                cur_samps = next_samples as usize;
-                                if let Some((new_idx, new_samples)) = cmap.next() {
-                                    next_idx = *new_idx;
-                                    next_samples = *new_samples;
-                                }
+        match self.mode {
+            PacketMode::RawAudio => {
+                if self.frame_samples != 0 {
+                    let mut apos = 0;
+                    self.cur_sample = 0;
+                    self.cur_chunk = 0;
+                    let mut cmap = self.sample_map.iter();
+                    let mut cur_samps = 0;
+                    let (mut next_idx, mut next_samples) = cmap.next().unwrap();
+                    loop {
+                        if self.cur_chunk + 1 == next_idx as usize {
+                            self.samples_left = cur_samps;
+                            cur_samps = next_samples as usize;
+                            if let Some((new_idx, new_samples)) = cmap.next() {
+                                next_idx = *new_idx;
+                                next_samples = *new_samples;
                             }
-                            self.raw_apos = apos;
-                            apos += (cur_samps / self.frame_samples) as u64;
-                            if apos > exp_pts && (cur_samps == self.frame_samples || apos > exp_pts + 1) {
-                                if self.cur_chunk >= self.chunk_offsets.len() {
-                                    return Err(DemuxerError::SeekError);
-                                }
-                                self.last_offset = self.chunk_offsets[self.cur_chunk];
-                                break;
-                            }
-                            self.cur_chunk += 1;
                         }
-                        self.samples_left = cur_samps;
-                        self.cur_chunk += 1;
-                    } else {
-                        self.raw_apos = exp_pts;
-                        self.cur_sample = exp_pts as usize;
-                        let mut csamp = 0;
-                        self.cur_chunk = 0;
-                        let mut cmap = self.sample_map.iter();
-                        let mut cur_samps = 0;
-                        let (mut next_idx, mut next_samples) = cmap.next().unwrap();
-                        loop {
-                            if self.cur_chunk + 1 == next_idx as usize {
-                                self.samples_left = cur_samps;
-                                cur_samps = next_samples as usize;
-                                if let Some((new_idx, new_samples)) = cmap.next() {
-                                    next_idx = *new_idx;
-                                    next_samples = *new_samples;
-                                }
+                        apos += (cur_samps / self.frame_samples) as u64;
+                        if apos > tgt_pts && (cur_samps == self.frame_samples || apos > tgt_pts + 1) {
+                            if self.cur_chunk >= self.chunk_offsets.len() {
+                                return Err(DemuxerError::SeekError);
                             }
-                            csamp += cur_samps;
-                            if csamp > self.cur_sample {
-                                if self.cur_chunk >= self.chunk_offsets.len() {
-                                    return Err(DemuxerError::SeekError);
-                                }
-                                self.last_offset = self.chunk_offsets[self.cur_chunk];
-                                break;
-                            }
-                            self.cur_chunk += 1;
+                            self.last_offset = self.chunk_offsets[self.cur_chunk];
+                            break;
                         }
-                        self.samples_left = csamp - self.cur_sample;
                         self.cur_chunk += 1;
                     }
-                } else if self.chunk_offsets.len() == self.chunk_sizes.len() && self.duration != 0 {
-                    let new_sample = (self.chunk_sizes.len() as u64 * exp_pts / u64::from(self.duration)) as usize;
+                    self.samples_left = cur_samps;
+                    self.cur_chunk += 1;
+                } else {
+                    self.cur_sample = tgt_pts as usize;
+                    let mut csamp = 0;
+                    self.cur_chunk = 0;
+                    let mut cmap = self.sample_map.iter();
+                    let mut cur_samps = 0;
+                    let (mut next_idx, mut next_samples) = cmap.next().unwrap();
+                    loop {
+                        if self.cur_chunk + 1 == next_idx as usize {
+                            self.samples_left = cur_samps;
+                            cur_samps = next_samples as usize;
+                            if let Some((new_idx, new_samples)) = cmap.next() {
+                                next_idx = *new_idx;
+                                next_samples = *new_samples;
+                            }
+                        }
+                        csamp += cur_samps;
+                        if csamp > self.cur_sample {
+                            if self.cur_chunk >= self.chunk_offsets.len() {
+                                return Err(DemuxerError::SeekError);
+                            }
+                            self.last_offset = self.chunk_offsets[self.cur_chunk];
+                            break;
+                        }
+                        self.cur_chunk += 1;
+                    }
+                    self.samples_left = csamp - self.cur_sample;
+                    self.cur_chunk += 1;
+                }
+            },
+            PacketMode::AudioCBR | PacketMode::AudioVBR => {
+                if self.chunk_offsets.len() == self.chunk_sizes.len() && self.duration != 0 {
+                    let new_sample = (self.chunk_sizes.len() as u64 * tgt_pts / u64::from(self.duration)) as usize;
                     self.cur_sample = new_sample;
                     self.cur_chunk = self.cur_sample;
                 } else {
                     if !self.time_to_sample.is_empty() {
-                        let mut remaining = exp_pts;
+                        let mut remaining = tgt_pts;
                         let mut abs_csamp = 0;
                         for &(count, scount) in self.time_to_sample.iter() {
                             let count = u64::from(count);
@@ -392,7 +432,7 @@ impl QTPacketDemuxer {
                         }
                         self.cur_sample = abs_csamp as usize;
                     } else {
-                        self.cur_sample = exp_pts as usize;
+                        self.cur_sample = tgt_pts as usize;
                     }
                     let tgt_sample = self.cur_sample;
                     let mut csamp = 0;
@@ -400,6 +440,7 @@ impl QTPacketDemuxer {
                     let mut cmap = self.sample_map.iter();
                     let mut cur_samps = 0;
                     let (mut next_idx, mut next_samples) = cmap.next().unwrap();
+                    next_samples /= self.frame_samples.max(1) as u32;
                     loop {
                         if self.cur_chunk + 1 == next_idx as usize {
                             self.samples_left = cur_samps;
@@ -407,6 +448,7 @@ impl QTPacketDemuxer {
                             if let Some((new_idx, new_samples)) = cmap.next() {
                                 next_idx = *new_idx;
                                 next_samples = *new_samples;
+                                next_samples /= self.frame_samples.max(1) as u32;
                             }
                         }
                         csamp += cur_samps;
@@ -436,45 +478,48 @@ impl QTPacketDemuxer {
                         }
                     }
                 }
-            } else {
-                self.cur_chunk = self.cur_sample;
-            }
-        } else if self.chunk_offsets.len() != self.chunk_sizes.len() && !self.sample_map.is_empty() {
-            let mut csamp = 0;
-            self.cur_chunk = 0;
-            let mut cmap = self.sample_map.iter();
-            let mut cur_samps = 0;
-            let (mut next_idx, mut next_samples) = cmap.next().unwrap();
-            loop {
-                if self.cur_chunk + 1 == next_idx as usize {
-                    self.samples_left = cur_samps;
-                    cur_samps = next_samples as usize;
-                    if let Some((new_idx, new_samples)) = cmap.next() {
-                        next_idx = *new_idx;
-                        next_samples = *new_samples;
-                    }
-                }
-                csamp += cur_samps;
-                if csamp >= self.cur_sample {
-                    if self.cur_chunk >= self.chunk_offsets.len() {
-                        if self.stream_type == StreamType::Data {
-                            self.cur_chunk = self.chunk_offsets.len();
-                            self.samples_left = 0;
-                            return Ok(NATimeInfo::rescale_ts(tgt_pts, self.tb_num, self.tb_den, 1, 1000));
+            },
+            PacketMode::OneToOne => {}, // nothing to do
+            PacketMode::Complex => {
+                if self.chunk_offsets.len() != self.chunk_sizes.len() && !self.sample_map.is_empty() {
+                    let mut csamp = 0;
+                    self.cur_chunk = 0;
+                    let mut cmap = self.sample_map.iter();
+                    let mut cur_samps = 0;
+                    let (mut next_idx, mut next_samples) = cmap.next().unwrap();
+                    loop {
+                        if self.cur_chunk + 1 == next_idx as usize {
+                            self.samples_left = cur_samps;
+                            cur_samps = next_samples as usize;
+                            if let Some((new_idx, new_samples)) = cmap.next() {
+                                next_idx = *new_idx;
+                                next_samples = *new_samples;
+                            }
                         }
-                        return Err(DemuxerError::SeekError);
+                        csamp += cur_samps;
+                        if csamp >= self.cur_sample {
+                            if self.cur_chunk >= self.chunk_offsets.len() {
+                                if self.is_data_stream {
+                                    self.cur_chunk = self.chunk_offsets.len();
+                                    self.samples_left = 0;
+                                    return Ok(NATimeInfo::rescale_ts(tgt_pts, self.tb_num, self.tb_den, 1, 1000));
+                                }
+                                return Err(DemuxerError::SeekError);
+                            }
+                            self.last_offset = self.chunk_offsets[self.cur_chunk];
+                            break;
+                        }
+                        self.cur_chunk += 1;
                     }
-                    self.last_offset = self.chunk_offsets[self.cur_chunk];
-                    break;
+                    csamp -= cur_samps;
+                    for sample_no in csamp..self.cur_sample {
+                        self.last_offset += self.get_size(sample_no) as u64;
+                    }
+                    self.samples_left = csamp + cur_samps - self.cur_sample;
+                    self.cur_chunk += 1;
                 }
-                self.cur_chunk += 1;
-            }
-            csamp -= cur_samps;
-            for sample_no in csamp..self.cur_sample {
-                self.last_offset += self.get_size(sample_no) as u64;
-            }
-            self.samples_left = csamp + cur_samps - self.cur_sample;
-            self.cur_chunk += 1;
+            },
+            _ => unreachable!(),
         }
         let cur_pts = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
         let cur_time = NATimeInfo::rescale_ts(cur_pts, self.tb_num, self.tb_den, 1, 1000);
