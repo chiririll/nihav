@@ -4,6 +4,7 @@
 #[allow(clippy::identity_op)]
 pub mod dec_video;
 pub mod enc_video;
+pub mod dmx_test;
 pub mod wavwriter;
 
 #[allow(clippy::identity_op)]
