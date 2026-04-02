@@ -1256,7 +1256,7 @@ impl fmt::Display for NAFrame {
 }
 
 /// A list of possible stream types.
-#[derive(Debug,Clone,Copy,PartialEq)]
+#[derive(Default,Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum StreamType {
     /// Video stream.
@@ -1268,6 +1268,7 @@ pub enum StreamType {
     /// Any data stream (or might be an unrecognized audio/video stream).
     Data,
     /// Nonexistent stream.
+    #[default]
     None,
 }
 
