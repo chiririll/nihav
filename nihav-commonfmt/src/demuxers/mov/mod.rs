@@ -801,110 +801,200 @@ impl DemuxerCreator for MacResForkMOVDemuxerCreator {
 mod test {
     use super::*;
     use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
-    #[test]
-    fn test_mov_demux() {
-        // sample: https://samples.mplayerhq.hu/V-codecs/IV32/cubes.mov
-        let mut file = File::open("assets/Indeo/cubes.mov").unwrap();
+    fn test_core(name: &str, demux_mode: DemuxMode, nframes: usize, test_mode: DemuxerTestMode) {
+        let mut file = File::open(name).unwrap();
         let mut br = FileReader::new_read(&mut file);
-        let mut dmx = MOVDemuxer::new(&mut br);
+        let mut dmx = match demux_mode {
+                DemuxMode::Normal => MOVDemuxer::new(&mut br),
+                DemuxMode::MacBin => MOVDemuxer::new_macbinary(&mut br),
+                DemuxMode::ResFork => MOVDemuxer::new_resfork(&mut br),
+            };
         let mut sm = StreamManager::new();
         let mut si = SeekIndex::new();
         dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_demuxer(&mut dmx, &mut sm, nframes, test_mode);
+    }
+    #[test]
+    fn test_mov_demux() {
+        // sample: https://samples.mplayerhq.hu/V-codecs/IV32/cubes.mov
+        test_core("assets/Indeo/cubes.mov", DemuxMode::Normal, 10, DemuxerTestMode::Demux);
     }
 
     #[test]
     fn test_dash_demux() {
         // sample: a stream downloaded with youtube-dl
-        let mut file = File::open("assets/ITU/dash.m4a").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = MOVDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_core("assets/ITU/dash.m4a", DemuxMode::Normal, 10, DemuxerTestMode::Test(vec![
+            DPacket::new(0, Some(0), Some(0), 371, true),
+            DPacket::new(0, Some(1), Some(1), 372, false),
+            DPacket::new(0, Some(2), Some(2), 371, false),
+            DPacket::new(0, Some(3), Some(3), 372, false),
+            DPacket::new(0, Some(4), Some(4), 371, false),
+            DPacket::new(0, Some(5), Some(5), 372, false),
+            DPacket::new(0, Some(6), Some(6), 371, false),
+            DPacket::new(0, Some(7), Some(7), 372, false),
+            DPacket::new(0, Some(8), Some(8), 371, false),
+            DPacket::new(0, Some(9), Some(9), 372, false)]));
     }
 
     #[test]
     fn test_macbinary_demux() {
         // sample from King's Quest VI Macintosh edition
-        let mut file = File::open("assets/QT/Halfdome.bin").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = MOVDemuxer::new_macbinary(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_core("assets/QT/Halfdome.bin", DemuxMode::MacBin, 10, DemuxerTestMode::Test(vec![
+            DPacket::new(0, Some(0), Some(0), 11604, true),
+            DPacket::new(0, Some(1), Some(1), 12344, false),
+            DPacket::new(0, Some(2), Some(2), 8348, false),
+            DPacket::new(0, Some(3), Some(3), 8344, false),
+            DPacket::new(0, Some(4), Some(4), 8336, false),
+            DPacket::new(0, Some(5), Some(5), 8348, false),
+            DPacket::new(0, Some(6), Some(6), 8312, false),
+            DPacket::new(0, Some(7), Some(7), 8344, false),
+            DPacket::new(0, Some(8), Some(8), 12324, false),
+            DPacket::new(0, Some(9), Some(9), 12276, false)]));
     }
-
 
     #[test]
     fn test_beta_qt() {
         // sample from Apple Reference & Presentation Library 8
-        let mut file = File::open("assets/QT/Smallwhale2").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = MOVDemuxer::new_macbinary(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_core("assets/QT/Smallwhale2", DemuxMode::MacBin, 10, DemuxerTestMode::Test(vec![
+            DPacket::new(0, Some(0), Some(0), 9216, true),
+            DPacket::new(1, Some(0), Some(0), 6144, true),
+            DPacket::new(0, Some(17), Some(17), 9216, true),
+            DPacket::new(1, Some(6144), Some(6144), 6144, true),
+            DPacket::new(0, Some(33), Some(33), 9216, true),
+            DPacket::new(0, Some(48), Some(48), 9216, true),
+            DPacket::new(1, Some(12288), Some(12288), 6144, true),
+            DPacket::new(0, Some(64), Some(64), 9216, true),
+            DPacket::new(0, Some(81), Some(81), 9216, true),
+            DPacket::new(1, Some(18432), Some(18432), 6144, true)]));
     }
 
     #[test]
     fn test_resfork_demux() {
         // sample from The Wonders of Electricity: An Adventure in Safety
-        let mut file = File::open("assets/QT/car.mov").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = MOVDemuxer::new_resfork(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
+        test_core("assets/QT/car.mov", DemuxMode::ResFork, 10, DemuxerTestMode::Test(vec![
+            DPacket::new(0, Some(0), Some(0), 6144, true),
+            DPacket::new(0, Some(6144), Some(6144), 4882, true),
+            DPacket::new(0, Some(11026), Some(11026), 6144, true),
+            DPacket::new(0, Some(17170), Some(17170), 4882, true),
+            DPacket::new(0, Some(22052), Some(22052), 6144, true),
+            DPacket::new(0, Some(28196), Some(28196), 4882, true),
+            DPacket::new(0, Some(33078), Some(33078), 6144, true),
+            DPacket::new(0, Some(39222), Some(39222), 4882, true),
+            DPacket::new(0, Some(44104), Some(44104), 6144, true),
+            DPacket::new(0, Some(50248), Some(50248), 4882, true)]));
+    }
 
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+    #[test]
+    fn test_demux_rle_qdmc() {
+        // sample from https://samples.mplayerhq.hu/V-codecs/QTRLE/
+        test_core("assets/QT/tidemo1-24bit-rle.mov", DemuxMode::Normal, 32, DemuxerTestMode::Test(vec![
+            DPacket::new(0, Some(0), Some(0), 1486, true),
+            DPacket::new(1, Some(0), Some(0), 309332, true),
+            DPacket::new(0, Some(1), Some(1), 1486, false),
+            DPacket::new(1, Some(240), Some(240), 10051, false),
+            DPacket::new(0, Some(2), Some(2), 1486, false),
+            DPacket::new(0, Some(3), Some(3), 1486, true),
+            DPacket::new(1, Some(300), Some(300), 23679, false),
+            DPacket::new(1, Some(360), Some(360), 51289, false),
+            DPacket::new(0, Some(4), Some(4), 1486, false),
+            DPacket::new(1, Some(420), Some(420), 41900, false),
+            DPacket::new(1, Some(480), Some(480), 46795, false),
+            DPacket::new(0, Some(5), Some(5), 1486, false),
+            DPacket::new(1, Some(540), Some(540), 24484, false),
+            DPacket::new(1, Some(600), Some(600), 27925, false),
+            DPacket::new(0, Some(6), Some(6), 1486, true),
+            DPacket::new(1, Some(660), Some(660), 19757, false),
+            DPacket::new(1, Some(1680), Some(1680), 46203, false),
+            DPacket::new(0, Some(7), Some(7), 1486, false),
+            DPacket::new(0, Some(8), Some(8), 1486, false),
+            DPacket::new(0, Some(9), Some(9), 1486, true),
+            DPacket::new(0, Some(10), Some(10), 1486, false),
+            DPacket::new(0, Some(11), Some(11), 1486, true),
+            DPacket::new(0, Some(12), Some(12), 1486, false),
+            DPacket::new(0, Some(13), Some(13), 1486, false),
+            DPacket::new(0, Some(14), Some(14), 1486, true),
+            DPacket::new(0, Some(15), Some(15), 1486, false),
+            DPacket::new(0, Some(16), Some(16), 1486, false),
+            DPacket::new(1, Some(1740), Some(1740), 42094, false),
+            DPacket::new(1, Some(1800), Some(1800), 12453, false),
+            DPacket::new(0, Some(17), Some(17), 1486, true),
+            DPacket::new(1, Some(2040), Some(2040), 14418, false),
+            DPacket::new(0, Some(18), Some(18), 1486, false)]));
+    }
+    #[test]
+    fn test_demux_asp_adpcm() {
+        // sample from https://samples.mplayerhq.hu/A-codecs/ima-adpcm/
+        test_core("assets/QT/shuffle-ima41.mov", DemuxMode::Normal, 32, DemuxerTestMode::Test(vec![
+            DPacket::new(0, Some(0), Some(0), 68, true),
+            DPacket::new(1, Some(0), Some(0), 11494, true),
+            DPacket::new(0, Some(1), Some(1), 68, false),
+            DPacket::new(1, Some(1), Some(1), 3070, false),
+            DPacket::new(0, Some(2), Some(2), 68, false),
+            DPacket::new(0, Some(3), Some(3), 68, false),
+            DPacket::new(0, Some(4), Some(4), 68, false),
+            DPacket::new(0, Some(5), Some(5), 68, false),
+            DPacket::new(0, Some(6), Some(6), 68, false),
+            DPacket::new(0, Some(7), Some(7), 68, false),
+            DPacket::new(0, Some(8), Some(8), 68, false),
+            DPacket::new(0, Some(9), Some(9), 68, false),
+            DPacket::new(0, Some(10), Some(10), 68, false),
+            DPacket::new(0, Some(11), Some(11), 68, false),
+            DPacket::new(0, Some(12), Some(12), 68, false),
+            DPacket::new(0, Some(13), Some(13), 68, false),
+            DPacket::new(0, Some(14), Some(14), 68, false),
+            DPacket::new(0, Some(15), Some(15), 68, false),
+            DPacket::new(0, Some(16), Some(16), 68, false),
+            DPacket::new(0, Some(17), Some(17), 68, false),
+            DPacket::new(0, Some(18), Some(18), 68, false),
+            DPacket::new(0, Some(19), Some(19), 68, false),
+            DPacket::new(0, Some(20), Some(20), 68, false),
+            DPacket::new(0, Some(21), Some(21), 68, false),
+            DPacket::new(0, Some(22), Some(22), 68, false),
+            DPacket::new(0, Some(23), Some(23), 68, false),
+            DPacket::new(0, Some(24), Some(24), 68, false),
+            DPacket::new(0, Some(25), Some(25), 68, false),
+            DPacket::new(0, Some(26), Some(26), 68, false),
+            DPacket::new(0, Some(27), Some(27), 68, false),
+            DPacket::new(0, Some(28), Some(28), 68, false),
+            DPacket::new(0, Some(29), Some(29), 68, false)]));
+    }
+    #[test]
+    fn test_demux_svq3_mp3() {
+        // sample from https://samples.mplayerhq.hu/V-codecs/SVQ3/
+        test_core("assets/QT/broken_sword_Large.mov", DemuxMode::Normal, 32, DemuxerTestMode::Test(vec![
+            DPacket::new(0, Some(0), Some(0), 4620, true),
+            DPacket::new(1, Some(0), Some(0), 834, true),
+            DPacket::new(0, Some(24), Some(24), 1454, false),
+            DPacket::new(1, Some(1), Some(1), 834, false),
+            DPacket::new(0, Some(48), Some(48), 278, false),
+            DPacket::new(1, Some(2), Some(2), 834, false),
+            DPacket::new(0, Some(72), Some(72), 484, false),
+            DPacket::new(1, Some(3), Some(3), 834, false),
+            DPacket::new(0, Some(96), Some(96), 264, false),
+            DPacket::new(1, Some(4), Some(4), 834, false),
+            DPacket::new(0, Some(120), Some(120), 484, false),
+            DPacket::new(0, Some(144), Some(144), 264, false),
+            DPacket::new(1, Some(5), Some(5), 834, false),
+            DPacket::new(0, Some(168), Some(168), 484, false),
+            DPacket::new(1, Some(6), Some(6), 834, false),
+            DPacket::new(0, Some(192), Some(192), 264, false),
+            DPacket::new(1, Some(7), Some(7), 834, false),
+            DPacket::new(0, Some(216), Some(216), 484, false),
+            DPacket::new(0, Some(240), Some(240), 264, false),
+            DPacket::new(1, Some(8), Some(8), 834, false),
+            DPacket::new(0, Some(264), Some(264), 484, false),
+            DPacket::new(1, Some(9), Some(9), 834, false),
+            DPacket::new(0, Some(288), Some(288), 264, false),
+            DPacket::new(1, Some(10), Some(10), 834, true),
+            DPacket::new(0, Some(312), Some(312), 484, false),
+            DPacket::new(0, Some(336), Some(336), 264, false),
+            DPacket::new(1, Some(11), Some(11), 834, false),
+            DPacket::new(0, Some(360), Some(360), 484, false),
+            DPacket::new(1, Some(12), Some(12), 834, false),
+            DPacket::new(0, Some(384), Some(384), 264, false),
+            DPacket::new(1, Some(13), Some(13), 834, false),
+            DPacket::new(0, Some(408), Some(408), 484, false)]));
     }
 }
