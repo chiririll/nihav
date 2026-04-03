@@ -296,26 +296,12 @@ impl DemuxerCreator for FLACDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_flac_demux() {
         // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.flac
-        let mut file = File::open("assets/LLaudio/luckynight.flac").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = FLACDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/LLaudio/luckynight.flac", &FLACDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }
 

@@ -328,28 +328,15 @@ impl DemuxerCreator for SMKDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_smk_demux() {
         // sample: https://samples.mplayerhq.hu/game-formats/smacker/20130507_audio-distortion.smk
-        let mut file = File::open("assets/RAD/20130507_audio-distortion.smk").unwrap();
-//        let mut file = File::open("assets/RAD/ajfstr1.smk").unwrap();
-//        let mut file = File::open("assets/RAD/credits.smk").unwrap();
-//        let mut file = File::open("assets/RAD/wetlogo.smk").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = SmackerVideoDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        let file = "assets/RAD/20130507_audio-distortion.smk";
+//        let file = "assets/RAD/ajfstr1.smk";
+//        let file = "assets/RAD/credits.smk";
+//        let file = "assets/RAD/wetlogo.smk";
+        test_file_demux(file, &SMKDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

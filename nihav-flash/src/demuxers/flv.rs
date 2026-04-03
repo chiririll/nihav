@@ -469,27 +469,13 @@ impl DemuxerCreator for FLVDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nihav_codec_support::test::dmx_test::*;
     use std::fs::File;
 
     // sample: https://samples.mplayerhq.hu/A-codecs/Nelly_Moser/input.flv
     #[test]
     fn test_flv_demux() {
-        let mut file = File::open("assets/Flash/input.flv").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = FLVDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Flash/input.flv", &FLVDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
     #[test]
     fn test_flv_demux_back() {

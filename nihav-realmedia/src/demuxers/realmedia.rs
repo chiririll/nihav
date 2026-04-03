@@ -1677,82 +1677,40 @@ impl DemuxerCreator for RealIVRDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_rm_demux() {
         // sample from a private collection
-        let mut file =
-            File::open("assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm").unwrap();
-//            File::open("assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm").unwrap();
-//            File::open("assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm").unwrap();
-//            File::open("assets/RV/rv30_atrc_384x208_realproducer_plus_8.51.rm").unwrap();
-//            File::open("assets/RV/rv30_chroma_drift.rm").unwrap();
-//            File::open("assets/RV/rv30_weighted_mc.rm").unwrap();
-//            File::open("assets/RV/rv40_weighted_mc.rmvb").unwrap();
-//            File::open("assets/RV/rv40_weighted_mc_2.rmvb").unwrap();
-//            File::open("assets/RV/clv1_sipr_384x208_realvideo_encoder_4.0.rm").unwrap();
-//            File::open("assets/RV/luckynight.rmvb").unwrap();
-//            File::open("assets/RV/rv40_ralf.rmvb").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = RealMediaDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        let file =
+            "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm";
+//            "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm";
+//            "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm";
+//            "assets/RV/rv30_atrc_384x208_realproducer_plus_8.51.rm";
+//            "assets/RV/rv30_chroma_drift.rm";
+//            "assets/RV/rv30_weighted_mc.rm";
+//            "assets/RV/rv40_weighted_mc.rmvb";
+//            "assets/RV/rv40_weighted_mc_2.rmvb";
+//            "assets/RV/clv1_sipr_384x208_realvideo_encoder_4.0.rm";
+//            "assets/RV/luckynight.rmvb";
+//            "assets/RV/rv40_ralf.rmvb";
+        test_file_demux(file, &RealMediaDemuxerCreator{}, 0, DemuxerTestMode::Demux);
 //panic!("the end");
     }
     #[test]
     fn test_ra_demux() {
         // sample: https://samples.mplayerhq.hu/real//RA/ra_with_comment_field/diemusik.ra
-        let mut file =
-//            File::open("assets/RV/welcome288.ra").unwrap();
-            File::open("assets/RV/diemusik.ra").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = RealAudioDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
-    }
+        let file =
+//            "assets/RV/welcome288.ra";
+            "assets/RV/diemusik.ra";
+        test_file_demux(file, &RealAudioDemuxerCreator{}, 0, DemuxerTestMode::Demux);
+   }
     #[test]
     fn test_ivr_demux() {
         // sample: https://samples.mplayerhq.hu/real/ivr/Opener_rm_hi.ivr
-        let mut file =
-            File::open("assets/RV/Opener_rm_hi.ivr").unwrap();
-//            File::open("assets/RV/SherwinWilliamsCommercial.ivr").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = RealIVRDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
-    }
+        let file =
+              "assets/RV/Opener_rm_hi.ivr";
+//            "assets/RV/SherwinWilliamsCommercial.ivr";
+        test_file_demux(file, &RealIVRDemuxerCreator{}, 0, DemuxerTestMode::Demux);
+   }
 }

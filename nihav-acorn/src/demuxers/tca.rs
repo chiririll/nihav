@@ -224,26 +224,11 @@ impl TCACoreDemuxer {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_tca_demux() {
         // a sample from RISC DISC 3
-        let mut file = File::open("assets/Acorn/JUMPER").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = TCADemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            match dmx.get_frame(&mut sm) {
-                Ok(pkt) => {
-                    println!("Got {pkt}");
-                },
-                Err(DemuxerError::EOF) => return,
-                Err(_) => panic!("error"),
-            }
-        }
+        test_file_demux("assets/Acorn/JUMPER", &TCADemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

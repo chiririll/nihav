@@ -647,101 +647,31 @@ impl DemuxerCreator for MCMPDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_smush_demux_anim_v1() {
         // sample from Rebel Assault game
-        let mut file = File::open("assets/Game/smush/c1block.anm").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = SmushDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/smush/c1block.anm", &SmushDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
     #[test]
     fn test_smush_demux_anim_v2() {
         // sample from The Dig
-        let mut file = File::open("assets/Game/smush/PIGOUT.SAN").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = SmushDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/smush/PIGOUT.SAN", &SmushDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
     #[test]
     fn test_smush_demux_sanm() {
         // sample from Grim Fandango
-        let mut file = File::open("assets/Game/smush/lol.snm").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = SmushDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/smush/lol.snm", &SmushDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
     #[test]
     fn test_mcmp_demux_imus() {
         // sample from Grim Fandango
-        let mut file = File::open("assets/Game/smush/1104 - Lupe.IMC").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = MCMPDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/smush/1104 - Lupe.IMC", &MCMPDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
     #[test]
     fn test_mcmp_demux_wav() {
         // sample from Grim Fandango
-        let mut file = File::open("assets/Game/smush/breadpor.WAV").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = MCMPDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/smush/breadpor.WAV", &MCMPDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

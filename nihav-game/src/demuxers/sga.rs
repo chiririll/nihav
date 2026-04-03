@@ -361,24 +361,10 @@ impl DemuxerCreator for SGADemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     fn test_sga_demux(name: &str) {
-        let mut file = File::open(name).unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = SGADemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux(name, &SGADemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 
     #[test]

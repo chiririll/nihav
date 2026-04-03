@@ -242,46 +242,16 @@ impl DemuxerCreator for AVDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_av_video_and_audio_demux() {
         // sample can be found on various CD-Romek discs
-        let mut file = File::open("assets/Misc/CURSOR01.AV").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = AVDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Misc/CURSOR01.AV", &AVDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
     #[test]
     fn test_av_video_demux() {
         // sample can be found on various CD-Romek discs
-        let mut file = File::open("assets/Misc/cursor04ns.av").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = AVDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Misc/cursor04ns.av", &AVDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

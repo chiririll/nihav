@@ -249,43 +249,15 @@ impl DemuxerCreator for BMV3DemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     // samples from https://samples.mplayerhq.hu/game-formats/bmv
     #[test]
     fn test_bmv_demux() {
-        let mut file = File::open("assets/Game/DW2-MOUSE.BMV").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = BMVDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/DW2-MOUSE.BMV", &BMVDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
     #[test]
     fn test_bmv3_demux() {
-        let mut file = File::open("assets/Game/DW3-Loffnote.bmv").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = BMV3Demuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/DW3-Loffnote.bmv", &BMV3DemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

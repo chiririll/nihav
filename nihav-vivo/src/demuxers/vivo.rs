@@ -252,26 +252,11 @@ impl DemuxerCreator for VivoDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_vivo_demux() {
-//        let mut file = File::open("assets/Misc/greetings.viv").unwrap();
         // sample: https://samples.mplayerhq.hu/vivo/vivo2/favmovie.viv
-        let mut file = File::open("assets/Misc/favmovie.viv").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = VivoDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error {:?}", e);
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Misc/favmovie.viv", &VivoDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

@@ -1113,26 +1113,11 @@ impl DemuxerCreator for AVIDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_avi_demux() {
         //test sample: https://samples.mplayerhq.hu/V-codecs/RT21/320x240/laser05.avi
-        let mut file = File::open("assets/Indeo/laser05.avi").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = AVIDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Indeo/laser05.avi", &AVIDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

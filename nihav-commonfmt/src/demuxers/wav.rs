@@ -255,26 +255,11 @@ impl DemuxerCreator for WAVDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_wav_demux() {
         // sample: https://samples.mplayerhq.hu/A-codecs/msadpcm-stereo/scatter.wav
-        let mut file = File::open("assets/MS/scatter.wav").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = WAVDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/MS/scatter.wav", &WAVDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

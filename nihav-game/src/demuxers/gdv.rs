@@ -164,25 +164,11 @@ impl DemuxerCreator for GDVDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_gdv_demux() {
         // sample from Normality game
-        let mut file = File::open("assets/Game/intro1.gdv").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = GremlinVideoDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/intro1.gdv", &GDVDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

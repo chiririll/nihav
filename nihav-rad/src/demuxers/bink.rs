@@ -235,29 +235,16 @@ impl DemuxerCreator for BinkDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_bink_demux() {
         // sample: https://samples.mplayerhq.hu/game-formats/bink/ActivisionLogo.bik
-        let mut file = File::open("assets/RAD/ActivisionLogo.bik").unwrap();
-//        let mut file = File::open("assets/RAD/original.bik").unwrap();
-//        let mut file = File::open("assets/RAD/Snd0a110c51.dee").unwrap();
-//        let mut file = File::open("assets/RAD/NEW.BIK").unwrap();
-//        let mut file = File::open("assets/RAD/ge_video_86l.bk2").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = BinkDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        let file = "assets/RAD/ActivisionLogo.bik";
+//        let file = "assets/RAD/original.bik";
+//        let file = "assets/RAD/Snd0a110c51.dee";
+//        let file = "assets/RAD/NEW.BIK";
+//        let file = "assets/RAD/ge_video_86l.bk2";
+        test_file_demux(file, &BinkDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

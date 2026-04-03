@@ -85,25 +85,11 @@ impl DemuxerCreator for SequenceDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     // sample from King's Quest VI
     #[test]
     fn test_seq() {
-        let mut file = File::open("assets/Game/sierra/FS1.SEQ").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = SequenceDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Game/sierra/FS1.SEQ", &SequenceDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

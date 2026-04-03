@@ -119,25 +119,11 @@ impl DemuxerCreator for TTADemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_tta_demux() {
         // sample: https://samples.mplayerhq.hu/A-codecs/lossless/luckynight.tta
-        let mut file = File::open("assets/LLaudio/luckynight.tta").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = TTADemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/LLaudio/luckynight.tta", &TTADemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }

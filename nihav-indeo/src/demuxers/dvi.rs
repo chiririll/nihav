@@ -271,26 +271,11 @@ impl DemuxerCreator for DVIDemuxerCreator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
+    use nihav_codec_support::test::dmx_test::*;
 
     #[test]
     fn test_dvi_demux() {
         // sample comes from a demo by Digital Video Arts
-        let mut file = File::open("assets/Indeo/YULELOG.AVS").unwrap();
-        let mut br = FileReader::new_read(&mut file);
-        let mut dmx = DVIDemuxer::new(&mut br);
-        let mut sm = StreamManager::new();
-        let mut si = SeekIndex::new();
-        dmx.open(&mut sm, &mut si).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame(&mut sm);
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-        }
+        test_file_demux("assets/Indeo/YULELOG.AVS", &DVIDemuxerCreator{}, 0, DemuxerTestMode::Demux);
     }
 }
