@@ -22,6 +22,16 @@ pub enum DemuxerTestMode {
     Test(Vec<DPacket>),
 }
 
+pub fn test_file_demux(name: &str, dmx_cr: &dyn DemuxerCreator, npkts: usize, mode: DemuxerTestMode) {
+    let mut file = std::fs::File::open(name).unwrap();
+    let mut br = FileReader::new_read(&mut file);
+    let mut dmx = dmx_cr.new_demuxer(&mut br);
+    let mut sm = StreamManager::new();
+    let mut si = SeekIndex::new();
+    dmx.open(&mut sm, &mut si).unwrap();
+    test_demuxer(dmx.as_mut(), &mut sm, npkts, mode);
+}
+
 pub fn test_demuxer(dmx: &mut dyn DemuxCore, sm: &mut StreamManager, mut npkts: usize, mode: DemuxerTestMode) {
     if npkts == 0 {
         npkts = usize::MAX;
