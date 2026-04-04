@@ -178,7 +178,7 @@ impl QTPacketDemuxer {
     }
     pub fn invent_keyframes(&mut self, intraonly: bool) {
         self.keyframes.reserve(self.time_to_sample.len());
-        if !self.time_to_sample.is_empty() {
+        if self.time_to_sample.len() > 2 {
             let mut abs_csamp = 1u64;
             for &(count, _scount) in self.time_to_sample.iter() {
                 let count = u64::from(count);
@@ -188,6 +188,27 @@ impl QTPacketDemuxer {
         } else if intraonly && !self.chunk_sizes.is_empty() {
             for samp in 0..self.chunk_sizes.len() {
                 self.keyframes.push((samp + 1) as u32);
+            }
+        } else {
+            let max_nsamps = self.sample_map.iter().fold(0u32, |mns, &(_sno, ns)| mns.max(ns));
+            if max_nsamps >= 3 {
+                let nchunks = self.chunk_offsets.len() as u32;
+                let mut sample_no = 1;
+                let mut cur_chunk = 1;
+                let mut cur_ns = 0;
+                for &(chunk_no, nsamples) in self.sample_map.iter() {
+                    while cur_chunk < chunk_no {
+                        self.keyframes.push(sample_no);
+                        sample_no += cur_ns;
+                        cur_chunk += 1;
+                    }
+                    cur_ns = nsamples;
+                }
+                while cur_chunk < nchunks {
+                    self.keyframes.push(sample_no);
+                    sample_no += cur_ns;
+                    cur_chunk += 1;
+                }
             }
         }
     }
