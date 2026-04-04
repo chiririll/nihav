@@ -86,6 +86,7 @@ pub fn nihav_register_all_encoders(re: &mut RegisteredEncoders) {
     duck_register_all_encoders(re);
     llaudio_register_all_encoders(re);
     ms_register_all_encoders(re);
+    qt_register_all_encoders(re);
     rad_register_all_encoders(re);
     realmedia_register_all_encoders(re);
 }

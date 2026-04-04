@@ -99,9 +99,26 @@ const QT_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "qdesign-music2", get_decoder: qdm2::get_decoder },
 ];
 
-/// Registers all available codecs provided by this crate.
+/// Registers all available decoders provided by this crate.
 pub fn qt_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in QT_CODECS.iter() {
         rd.add_decoder(*decoder);
+    }
+}
+
+#[cfg(feature="encoder_rawvid")]
+mod rawvidenc;
+
+const QT_ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_rawvid")]
+    EncoderInfo { name: "qt-yuv2", get_encoder: rawvidenc::get_encoder_yuv2 },
+#[cfg(feature="encoder_rawvid")]
+    EncoderInfo { name: "qt-yuv4", get_encoder: rawvidenc::get_encoder_yuv4 },
+];
+
+/// Registers all available encoders provided by this crate.
+pub fn qt_register_all_encoders(re: &mut RegisteredEncoders) {
+    for encoder in QT_ENCODERS.iter() {
+        re.add_encoder(*encoder);
     }
 }

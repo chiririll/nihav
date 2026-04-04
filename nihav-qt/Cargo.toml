@@ -16,7 +16,7 @@ features = ["blockdsp", "fft", "qmf", "qt_pal"]
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
 
 [features]
-default = ["all_decoders", "all_demuxers"]
+default = ["all_decoders", "all_demuxers", "all_encoders"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
@@ -40,3 +40,11 @@ decoder_alac = ["decoders"]
 all_demuxers = ["demuxer_warhol"]
 demuxers = []
 demuxer_warhol = ["demuxers"]
+
+all_encoders = ["all_video_encoders", "all_audio_encoders"]
+encoders = []
+
+all_video_encoders = ["encoder_rawvid"]
+encoder_rawvid = ["encoders"]
+
+all_audio_encoders = []
