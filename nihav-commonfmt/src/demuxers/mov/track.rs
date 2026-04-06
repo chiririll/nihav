@@ -598,12 +598,12 @@ fn read_stss(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     validate!(entries < ((u32::MAX >> 2) - 8) as usize);
     validate!((entries * 4 + 8) as u64 == size);
     track.pkt_demux.keyframes = Vec::with_capacity(entries);
-    let mut last_sample_no = 0;
+    let mut last_chunk_no = 0;
     for _ in 0..entries {
-        let sample_no       = br.read_u32be()?;
-        validate!(sample_no > last_sample_no);
-        track.pkt_demux.keyframes.push(sample_no);
-        last_sample_no = sample_no;
+        let chunk_no        = br.read_u32be()?;
+        validate!(chunk_no > last_chunk_no);
+        track.pkt_demux.keyframes.push(chunk_no);
+        last_chunk_no = chunk_no;
     }
     track.stss_found = true;
     Ok(size)
@@ -629,14 +629,14 @@ fn read_stsc(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     validate!(entries < ((u32::MAX / 12) - 8) as usize);
     validate!((entries * 12 + 8) as u64 == size);
     track.pkt_demux.sample_map = Vec::with_capacity(entries);
-    let mut last_sample_no = 0;
+    let mut last_chunk_no = 0;
     for _i in 0..entries {
-        let sample_no       = br.read_u32be()?;
-        validate!(sample_no > last_sample_no);
+        let chunk_no       = br.read_u32be()?;
+        validate!(chunk_no > last_chunk_no);
         let nsamples        = br.read_u32be()?;
         let _sample_desc    = br.read_u32be()?;
-        track.pkt_demux.sample_map.push((sample_no, nsamples));
-        last_sample_no = sample_no;
+        track.pkt_demux.sample_map.push((chunk_no, nsamples));
+        last_chunk_no = chunk_no;
     }
     Ok(size)
 }
