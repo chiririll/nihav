@@ -627,10 +627,12 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
         let mut vpts = None;
         let mut apts = None;
         for track in self.tracks.iter_mut() {
-            let cur_pts = if track.track_id == seek_info.str_id {
+            let cur_pts = if track.pkt_demux.seek_id as u32 == seek_info.str_id {
                     seek_info.pts
+                } else if let Some(cur_f) = seek_index.seek_info[track.pkt_demux.seek_id].find_pos(time) {
+                    cur_f.pts
                 } else {
-                    seek_info.pts * u64::from(tbn) * u64::from(track.tb_den) / (u64::from(tbd) * u64::from(track.tb_num))
+                    NATimeInfo::rescale_ts(seek_info.pts, tbn, tbd, track.tb_num, track.tb_den)
                 };
             let actual_time = track.pkt_demux.seek(cur_pts, time, false)?;
             match track.stream_type {

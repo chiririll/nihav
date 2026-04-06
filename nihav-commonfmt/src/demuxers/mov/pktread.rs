@@ -147,15 +147,18 @@ pub struct QTPacketDemuxer {
     pub ctts_map:       RLESearcher<u32>,
     pub ctts_version:   u8,
     pub timesearch:     TimeSearcher,
+
+    pub seek_id:        usize,
 }
 
 impl QTPacketDemuxer {
     pub fn new() -> Self { Self::default() }
     pub fn is_first(&self) -> bool { self.cur_sample == 0 }
-    pub fn fill_seek_index(&self, track_no: u32, seek_index: &mut SeekIndex) {
+    pub fn fill_seek_index(&mut self, track_no: u32, seek_index: &mut SeekIndex) {
         if !self.keyframes.is_empty() {
             seek_index.mode = SeekIndexMode::Present;
         }
+        self.seek_id = seek_index.add_stream(track_no);
         let mut tsearch = TimeSearcher::new();
         for kf_time in self.keyframes.iter() {
             let pts = tsearch.map_time(*kf_time - 1, &self.time_to_sample);
