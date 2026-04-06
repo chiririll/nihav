@@ -590,6 +590,6 @@ mod test {
         let mut mux_reg = RegisteredMuxers::new();
         generic_register_all_muxers(&mut mux_reg);
         test_remuxing_md5(&dec_config, "mov", &mux_reg,
-                          [0x3d030f10, 0x842de3e2, 0xb6a5ae89, 0x30d9b05f]);
+                          [0x4f91995d, 0x7ba8b830, 0x5efe9f8c, 0xd1779301]);
     }
 }

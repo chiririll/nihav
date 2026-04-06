@@ -300,8 +300,8 @@ impl QTPacketDemuxer {
                 let offset = self.last_offset;
                 let size = self.get_size(self.cur_sample);
                 self.last_offset += size as u64;
-                let is_kf = chunk_start && self.keyframes.contains(&(self.cur_chunk as u32));
                 self.cur_sample += 1;
+                let is_kf = chunk_start && self.keyframes.contains(&(self.cur_sample as u32));
                 self.samples_left -= 1;
                 Some((ts, offset, size, is_kf))
             },
