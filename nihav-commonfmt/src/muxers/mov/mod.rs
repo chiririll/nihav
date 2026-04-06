@@ -152,11 +152,23 @@ impl ChunkAccount {
             bw.write_u32be(1)?; // samples per chunk
             bw.write_u32be(1)?; // sample description ID
         } else {
-            bw.write_u32be(self.cmap.len() as u32)?;
+            let mut len = 0u32;
+            let mut prev = 0;
+            for &nsamps in self.cmap.iter() {
+                if nsamps != prev {
+                    prev = nsamps;
+                    len += 1;
+                }
+            }
+            bw.write_u32be(len)?;
+            let mut prev = 0;
             for (i, &entry) in self.cmap.iter().enumerate() {
-                bw.write_u32be(i as u32 + 1)?;
-                bw.write_u32be(entry)?; // samples per chunk
-                bw.write_u32be(1)?; // sample description ID
+                if entry != prev {
+                    bw.write_u32be(i as u32 + 1)?;
+                    bw.write_u32be(entry)?; // samples per chunk
+                    bw.write_u32be(1)?; // sample description ID
+                    prev = entry;
+                }
             }
         }
         Ok(())
