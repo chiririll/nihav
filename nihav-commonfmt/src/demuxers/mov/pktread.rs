@@ -174,7 +174,7 @@ impl QTPacketDemuxer {
                     PacketMode::Complex
                 };
         }
-        if self.mode == PacketMode::AudioCBR && self.chunk_offsets.len() == self.chunk_sizes.len() {
+        if self.mode == PacketMode::AudioCBR && self.chunk_offsets.len() == self.chunk_sizes.len() && self.sample_map.is_empty() {
             self.mode = PacketMode::OneToOne;
         }
         self.is_data_stream = stream_type == StreamType::Data;
