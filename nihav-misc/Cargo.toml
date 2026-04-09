@@ -15,12 +15,13 @@ features = ["jpeg"]
 path = "../nihav-registry"
 
 [dev-dependencies]
-nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
+nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers", "muxer_avi", "decoder_rawvideo"] }
 
 [features]
-default = ["all_decoders", "all_demuxers"]
+default = ["all_decoders", "all_demuxers", "all_encoders"]
 decoders = []
 demuxers = []
+encoders = []
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
@@ -44,3 +45,6 @@ demuxer_av = ["demuxers"]
 demuxer_mvi = ["demuxers"]
 demuxer_qpeg = ["demuxers"]
 demuxer_tealmov = ["demuxers"]
+
+all_encoders = ["encoder_ultimotion"]
+encoder_ultimotion = ["encoders"]

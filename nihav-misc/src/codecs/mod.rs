@@ -41,7 +41,7 @@ mod tealvid;
 
 #[cfg(feature="decoder_ultimotion")]
 mod ultimotion;
-#[cfg(feature="decoder_ultimotion")]
+#[cfg(any(feature="decoder_ultimotion", feature="encoder_ultimotion"))]
 mod ultidata;
 
 const DECODERS: &[DecoderInfo] = &[
@@ -84,3 +84,19 @@ pub fn misc_register_all_decoders(rd: &mut RegisteredDecoders) {
     }
 }
 
+#[cfg(feature="encoder_ultimotion")]
+mod ultienc;
+
+#[cfg(feature="encoders")]
+const ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_ultimotion")]
+    EncoderInfo { name: "ultimotion", get_encoder: ultienc::get_encoder },
+];
+
+/// Registers all available encoders provided by this crate.
+#[cfg(feature="encoders")]
+pub fn misc_register_all_encoders(re: &mut RegisteredEncoders) {
+    for encoder in ENCODERS.iter() {
+        re.add_encoder(*encoder);
+    }
+}
