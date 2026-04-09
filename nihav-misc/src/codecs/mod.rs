@@ -41,6 +41,8 @@ mod tealvid;
 
 #[cfg(feature="decoder_ultimotion")]
 mod ultimotion;
+#[cfg(feature="decoder_ultimotion")]
+mod ultidata;
 
 const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_adorage")]
