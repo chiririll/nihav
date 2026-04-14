@@ -203,7 +203,8 @@ fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
         if same {
             let sdata = sbuf.get_data();
             let ddata = dbuf.get_data_mut().unwrap();
-            ddata.copy_from_slice(&sdata[0..]);
+            let copy_len = sdata.len().min(ddata.len());
+            ddata[..copy_len].copy_from_slice(&sdata[..copy_len]);
         } else {
             let sdata = sbuf.get_data();
             for comp in 0..src_components.min(dst_components) {
