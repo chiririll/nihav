@@ -181,16 +181,16 @@ impl QTPacketDemuxer {
     }
     pub fn invent_keyframes(&mut self, intraonly: bool) {
         self.keyframes.reserve(self.time_to_sample.len());
-        if self.time_to_sample.len() > 2 {
+        if intraonly && !self.chunk_sizes.is_empty() {
+            for samp in 0..self.chunk_sizes.len() {
+                self.keyframes.push((samp + 1) as u32);
+            }
+        } else if self.time_to_sample.len() > 2 {
             let mut abs_csamp = 1u64;
             for &(count, _scount) in self.time_to_sample.iter() {
                 let count = u64::from(count);
                 self.keyframes.push(abs_csamp as u32);
                 abs_csamp += count;
-            }
-        } else if intraonly && !self.chunk_sizes.is_empty() {
-            for samp in 0..self.chunk_sizes.len() {
-                self.keyframes.push((samp + 1) as u32);
             }
         } else {
             let max_nsamps = self.sample_map.iter().fold(0u32, |mns, &(_sno, ns)| mns.max(ns));
