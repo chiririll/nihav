@@ -542,7 +542,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
     }
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if self.state.movi_size == 0 {
+        if self.state.movi_size == 0 && self.state.demux_mode != DemuxingMode::NonInterleaved {
             if !self.state.odml {
                 return Err(EOF);
             }
@@ -927,6 +927,7 @@ fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut S
     let mut tb_dens = [0u32; 100];
     let mut add_offset = 0;
     let mut set_offset = false;
+    let mut max_sizes = [0u32; 100];
     for _ in 0..num_entries {
                               src.read_buf(&mut tag)?;
         let flags           = src.read_u32le()?;
@@ -944,6 +945,8 @@ fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut S
             continue;
         }
         let stream_no = ((tag[0] - b'0') * 10 + (tag[1] - b'0')) as usize;
+
+        max_sizes[stream_no] = max_sizes[stream_no].max(length);
 
         if let Some(stream) = strmgr.get_stream(stream_no) {
             let (stb_num, stb_den) = stream.get_timebase();
@@ -1009,6 +1012,15 @@ fn parse_idx1(src: &mut dyn ByteIO, strmgr: &mut StreamManager, seek_idx: &mut S
             if range0 == (0, 0) {
                 range0 = cur_range;
             } else if cur_range.0 > range0.1 || cur_range.1 < range0.0 {
+                non_interleaved = true;
+                break;
+            }
+        } else if avi_str.index.len() == 1 {
+            // check for a case when whole audio track is stored as one large frame (at the end of file)
+            let max_frames = avi_streams.iter().fold(0usize, |acc, avistr| acc.max(avistr.index.len()));
+            let strm = strmgr.get_stream(avi_str.strm_no.into()).unwrap();
+            if strm.get_media_type() == StreamType::Audio && strm.get_info().get_name() == "pcm"
+                    && max_frames > 100 && max_sizes[usize::from(avi_str.strm_no)] > 64000 {
                 non_interleaved = true;
                 break;
             }
