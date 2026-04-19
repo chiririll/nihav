@@ -405,7 +405,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 validate!(ver == 0);
                                               self.src.read_skip(64)?;
                 let tag                     = self.src.read_tag()?;
-                validate!(&tag == b"MooV");
+                validate!(&tag == b"MooV" || &tag == b"APPL");
                                               self.src.read_skip(14)?;
                 let data_length             = self.src.read_u32be()?;
                 validate!(data_length > 8);
