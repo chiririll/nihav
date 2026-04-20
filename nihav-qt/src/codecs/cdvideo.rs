@@ -38,6 +38,11 @@ fn yuv2rgb(rgb: &mut [u8; 3], y: u8, u: u8, v: u8) {
     *rgb = [red.clamp(0, 255) as u8, green.clamp(0, 255) as u8, blue.clamp(0, 255) as u8];
 }
 
+fn avg(a: u8, b: u8) -> u8 { (a >> 1) + (b >> 1) }
+fn avg_clr(clr0: [u8; 3], clr1: [u8; 3]) -> [u8; 3] {
+    [avg(clr0[0], clr1[0]), avg(clr0[1], clr1[1]), avg(clr0[2], clr1[2])]
+}
+
 impl NADecoder for CDVideoDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
@@ -145,13 +150,18 @@ impl NADecoder for CDVideoDecoder {
                     Mode::V1(len) => {
                         let idx = usize::from(br.read_byte()?);
                         let entry = &self.cb[idx];
-                        //xxx: the original code actually averages data here
-                        for sblk in 0..4 {
-                            let dst = &mut strip[(x + (sblk & 1) * 2) * 3 + (sblk >> 1) * 2 * stride..];
-                            dst[..3].copy_from_slice(&entry[0]);
-                            dst[3..][..3].copy_from_slice(&entry[1]);
-                            dst[stride..][..3].copy_from_slice(&entry[0]);
-                            dst[stride + 3..][..3].copy_from_slice(&entry[1]);
+
+                        let mut top_clr = [entry[0], entry[0], entry[1], entry[1]];
+                        top_clr[2] = avg_clr(top_clr[1], top_clr[3]);
+                        for (y, line) in strip.chunks_exact_mut(stride).enumerate() {
+                            let mut cur_clr = entry[y & !1];
+                            for (bx, (dst_clr, top_c)) in line[x * 3..].chunks_exact_mut(3)
+                                    .zip(top_clr.iter_mut()).enumerate() {
+                                let new_clr = avg_clr(entry[bx / 2 + (y & !1)], cur_clr);
+                                cur_clr = avg_clr(*top_c, new_clr);
+                                *top_c = cur_clr;
+                                dst_clr.copy_from_slice(&cur_clr);
+                            }
                         }
                         if len > 1 {
                             Mode::V1(len - 1)
@@ -210,12 +220,12 @@ mod test {
 
         test_decoding("mov-macbin", "qt-cdvideo", "assets/QT/Golden Gate", Some(6), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
-                            [0xad94ad4f, 0x1b8148e5, 0x699e35ce, 0x562f1106],
-                            [0xdbb07011, 0x605ef892, 0x166ac124, 0xe05dccea],
-                            [0xc010996c, 0x6339c885, 0x64c6383b, 0xe1e4b7fa],
-                            [0x27efd57d, 0xe2d95363, 0xad6b05f2, 0x812666e7],
-                            [0x00ec0cee, 0xd9ca3b54, 0xaafa5501, 0x07dc49ef],
-                            [0xfe3d2e1e, 0x2e0e60c5, 0x2eca8456, 0xa81b66b8],
-                            [0x1c8dfa16, 0x86b8f0be, 0x245e994c, 0x9002edfa]]));
+                            [0x6a538f0f, 0x86515b9f, 0x6cf7f076, 0x3aae36b5],
+                            [0x3f8fb67d, 0xd92de60c, 0x6b7d1a1f, 0x339f2d2d],
+                            [0xfee131ca, 0x5ba51993, 0x96c46677, 0x69424b98],
+                            [0x0a056fd9, 0x21267d9b, 0x35ebadc8, 0x7b673a1a],
+                            [0x5624d59d, 0x9f01a67d, 0x878d6178, 0xf9e65313],
+                            [0x7736ca7e, 0x247d34a7, 0xd5cd33f2, 0x31abf644],
+                            [0xca0825a0, 0x7996e03a, 0x6d129286, 0x8b2d45db]]));
     }
 }
