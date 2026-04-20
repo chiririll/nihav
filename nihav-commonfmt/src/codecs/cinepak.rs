@@ -257,6 +257,9 @@ impl NADecoder for CinepakDecoder {
         let is_intra = (flags & 1) == 0;
 
         let mut mode = DecodeMode::Unknown;
+        if br.peek_byte()? == 0xFF {
+                                          br.read_skip(8)?;
+        }
                                           br.read_skip(1)?;
         let mut stripsize               = br.read_u24be()?;
                                           br.read_skip(8)?;
@@ -281,6 +284,9 @@ impl NADecoder for CinepakDecoder {
         }
         validate!(mode != DecodeMode::Unknown);
         br.seek(SeekFrom::Start(10))?;
+        if br.peek_byte()? == 0xFF {
+                                          br.read_skip(8)?;
+        }
         for sd in pkt.side_data.iter() {
             match *sd {
                 NASideData::Palette(_, _) => {
