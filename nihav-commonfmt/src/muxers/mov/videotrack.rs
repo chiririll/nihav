@@ -1,5 +1,6 @@
 use nihav_core::muxers::*;
 use nihav_registry::register::*;
+use nihav_codec_support::codecs::qt_pal::*;
 
 use super::*;
 
@@ -11,6 +12,7 @@ pub struct VideoTrackHandler {
     tb_den:     u32,
     pts:        u64,
     edata:      Option<Arc<Vec<u8>>>,
+    pal:        Option<Arc<[u8; 1024]>>,
 }
 
 impl VideoTrackHandler {
@@ -20,7 +22,7 @@ impl VideoTrackHandler {
         let vinfo = strm.get_info().get_properties().get_video_info().ok_or(MuxerError::UnsupportedFormat)?;
         if cname == "rawvideo" {
             match vinfo.format.to_short_string().ok_or(MuxerError::UnsupportedFormat)?.as_str() {
-                "rgb24" | "rgb555be" => {},
+                "pal8" | "rgb24" | "rgb555be" => {},
                 other => {
                     println!("Raw format {other} is not supported!");
                     return Err(MuxerError::UnsupportedFormat)?;
@@ -35,6 +37,7 @@ impl VideoTrackHandler {
             frameno:    1,
             pts:        0,
             edata,
+            pal:        None,
         })
     }
 }
@@ -49,6 +52,13 @@ impl TrackHandler for VideoTrackHandler {
         ca.add_size(src.len());
         if pkt.is_keyframe() {
             ca.add_keyframe(self.frameno);
+        }
+        if self.pal.is_none() {
+            for sd in pkt.side_data.iter() {
+                if let NASideData::Palette(_, pal) = sd {
+                    self.pal = Some(Arc::clone(pal));
+                }
+            }
         }
         self.frameno += 1;
         self.pts = pts + pkt.ts.duration.unwrap_or(1) * u64::from(self.tb_num);
@@ -117,11 +127,33 @@ impl TrackHandler for VideoTrackHandler {
                 15 | 16 => 16,
                 other_depth => other_depth
             };
+        if self.vinfo.format.is_paletted() { //xxx: handle 1-/2-/4-bit palettes too
+            bpp = 8;
+        }
         if &self.fcc == b"j420" {
             bpp = 12;
         }
+        //xxx: detect greyscale?
         bw.write_u16be(u16::from(bpp))?;
-        bw.write_u16be(0xFFFF)?; // color table ID
+        if bpp == 8 {
+            if let Some(ref pal) = self.pal {
+                if **pal == MOV_DEFAULT_PAL_8BIT {
+                    bw.write_u16be(0xFFFF)?; // default color table ID
+                } else {
+                    bw.write_u16be(0)?; // color table ID
+                    bw.write_u32be(0)?; // color table seed
+                    bw.write_u16be(0x8000)?; // color table flags
+                    bw.write_u16be(255)?; // color table size
+                    for clr in pal.chunks_exact(4) {
+                        bw.write_buf(&[0x00, 0x00, clr[0], clr[0], clr[1], clr[1], clr[2], clr[2]])?; // 16-bit ARGB
+                    }
+                }
+            } else {
+                bw.write_u16be(0xFFFF)?; // default color table ID
+            }
+        } else {
+            bw.write_u16be(0xFFFF)?; // color table ID
+        }
         if let Some(edata) = &self.edata {
             bw.write_u32be(edata.len() as u32 + 4)?;
             bw.write_buf(edata)?;
