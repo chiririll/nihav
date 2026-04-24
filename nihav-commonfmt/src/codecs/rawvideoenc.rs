@@ -5,6 +5,7 @@ struct RawEncoder {
     stream: Option<NAStreamRef>,
     pkt:    Option<NAPacket>,
     vinfo:  NAVideoInfo,
+    lpal:   Arc<[u8; 1024]>,
 }
 
 impl RawEncoder {
@@ -13,6 +14,7 @@ impl RawEncoder {
             stream: None,
             pkt:    None,
             vinfo:  NAVideoInfo::new(0, 0, false, YUV420_FORMAT),
+            lpal:   Arc::new([0; 1024]),
         }
     }
 }
@@ -58,31 +60,39 @@ impl NAEncoder for RawEncoder {
             }
         }
         match buf {
-            NABufferType::Video(ref vbuf) => {
-                let vinfo = vbuf.get_info();
-                if !vinfo.format.model.is_yuv() || !vinfo.format.is_unpacked() {
-                    return Err(EncoderError::NotImplemented);
-                }
-
-                let src = vbuf.get_data();
-                dbuf = Vec::with_capacity(src.len());
-                for (comp, cinfo) in vinfo.format.comp_info.iter().enumerate() {
-                    if cinfo.is_none() {
-                        continue;
-                    }
-                    let (width, height) = vbuf.get_dimensions(comp);
-                    let off = vbuf.get_offset(comp);
-                    let stride = vbuf.get_stride(comp);
-
-                    for line in src[off..].chunks(stride).take(height) {
-                        dbuf.extend_from_slice(&line[..width]);
-                    }
-                }
-            },
-            NABufferType::VideoPacked(ref vbuf) => {
+            NABufferType::Video(ref vbuf) | NABufferType::VideoPacked(ref vbuf) => {
                 let vinfo = vbuf.get_info();
                 let src = vbuf.get_data();
                 match vinfo.format.model {
+                    ColorModel::RGB(_) if vinfo.format.is_paletted() => {
+                        let (width, height) = vbuf.get_dimensions(0);
+                        let sstride = vbuf.get_stride(0);
+                        let dstride = width;
+                        dbuf = Vec::with_capacity(dstride * height);
+                        if !vinfo.flipped {
+                            for line in src.chunks(sstride).take(height) {
+                                dbuf.extend_from_slice(&line[..dstride]);
+                            }
+                        } else {
+                            for line in src.chunks(sstride).take(height).rev() {
+                                dbuf.extend_from_slice(&line[..dstride]);
+                            }
+                        }
+                        let mut pkt = NAPacket::new(self.stream.clone().unwrap(), frm.ts, true, dbuf);
+                        let mut npal = [0; 1024];
+                        for (dst, src) in npal.chunks_exact_mut(4).zip(src[vbuf.get_offset(1)..].chunks_exact(3)) {
+                            dst[..3].copy_from_slice(src);
+                        }
+                        let new_pal = npal != *self.lpal;
+                        if new_pal {
+                            self.lpal = Arc::new(npal);
+                        }
+                        pkt.add_side_data(NASideData::Palette(new_pal, Arc::clone(&self.lpal)));
+
+                        self.pkt = Some(pkt);
+
+                        return Ok(());
+                    },
                     ColorModel::RGB(_) => {
                         if vinfo.format.elem_size == 0 {
                             return Err(EncoderError::FormatError);
@@ -95,8 +105,23 @@ impl NAEncoder for RawEncoder {
                             dbuf.extend_from_slice(&line[..dstride]);
                         }
                     },
-                    ColorModel::YUV(_) => { // packed YUV should be fine as is
+                    ColorModel::YUV(_) if !vinfo.format.is_unpacked() => { // packed YUV should be fine as is
                         dbuf = src.clone();
+                    },
+                    ColorModel::YUV(_) => {
+                        dbuf = Vec::with_capacity(src.len());
+                        for (comp, cinfo) in vinfo.format.comp_info.iter().enumerate() {
+                            if cinfo.is_none() {
+                                continue;
+                            }
+                            let (width, height) = vbuf.get_dimensions(comp);
+                            let off = vbuf.get_offset(comp);
+                            let stride = vbuf.get_stride(comp);
+
+                            for line in src[off..].chunks(stride).take(height) {
+                                dbuf.extend_from_slice(&line[..width]);
+                            }
+                        }
                     },
                     _ => return Err(EncoderError::NotImplemented),
                 }
