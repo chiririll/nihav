@@ -58,7 +58,7 @@ impl NADecoder for RawDecoder {
                     validate!(off == src.len());
 
                     NABufferType::Video(NAVideoBuffer::from_raw_parts(*vinfo, src, offs, strides).into_ref())
-                } else {
+                } else if !vinfo.format.is_paletted() {
                     let esize = vinfo.format.elem_size as usize;
                     let ychr = vinfo.format.get_chromaton(0).unwrap();
                     let ystep = if ychr.next_elem != 0 { ychr.next_elem as usize } else { esize };
@@ -70,6 +70,26 @@ impl NADecoder for RawDecoder {
                     let offs    = vec![0];
                     let strides = vec![stride];
                     NABufferType::VideoPacked(NAVideoBuffer::from_raw_parts(*vinfo, src, offs, strides).into_ref())
+                } else {
+                    let mut buf = src.clone();
+                    let offs = vec![0, buf.len()];
+                    let strides = vec![width, 0];
+                    let mut found = false;
+                    for sd in pkt.side_data.iter() {
+                        if let NASideData::Palette(_, pal) = sd {
+                            for clr in pal.chunks_exact(4) {
+                                buf.extend_from_slice(&clr[..3]);
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        for i in 0..256 {
+                            buf.extend_from_slice(&[i as u8; 3]);
+                        }
+                    }
+                    NABufferType::Video(NAVideoBuffer::from_raw_parts(*vinfo, buf, offs, strides).into_ref())
                 };
 
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), buf);
