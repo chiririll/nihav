@@ -69,14 +69,81 @@ impl NAEncoder for RawEncoder {
                         let sstride = vbuf.get_stride(0);
                         let dstride = width;
                         dbuf = Vec::with_capacity(dstride * height);
-                        if !vinfo.flipped {
-                            for line in src.chunks(sstride).take(height) {
-                                dbuf.extend_from_slice(&line[..dstride]);
-                            }
-                        } else {
-                            for line in src.chunks(sstride).take(height).rev() {
-                                dbuf.extend_from_slice(&line[..dstride]);
-                            }
+                        match vinfo.bits.min(8) {
+                            8 => {
+                                if !vinfo.flipped {
+                                    for line in src.chunks(sstride).take(height) {
+                                        dbuf.extend_from_slice(&line[..dstride]);
+                                    }
+                                } else {
+                                    for line in src.chunks(sstride).take(height).rev() {
+                                        dbuf.extend_from_slice(&line[..dstride]);
+                                    }
+                                }
+                            },
+                            4 => {
+                                if (vinfo.width & 1) != 0 {
+                                    return Err(EncoderError::NotImplemented);
+                                }
+                                if !vinfo.flipped {
+                                    for line in src.chunks(sstride).take(height) {
+                                        for ppair in line.chunks_exact(2) {
+                                            dbuf.push((ppair[0] << 4) | ppair[1]);
+                                        }
+                                    }
+                                } else {
+                                    for line in src.chunks(sstride).take(height).rev() {
+                                        for ppair in line.chunks_exact(2) {
+                                            dbuf.push((ppair[0] << 4) | ppair[1]);
+                                        }
+                                    }
+                                }
+                            },
+                            2 => {
+                                if (vinfo.width & 3) != 0 {
+                                    return Err(EncoderError::NotImplemented);
+                                }
+                                if !vinfo.flipped {
+                                    for line in src.chunks(sstride).take(height) {
+                                        for quad in line.chunks_exact(4) {
+                                            dbuf.push((quad[0] << 6) | (quad[1] << 4) | (quad[2] << 2) | quad[3]);
+                                        }
+                                    }
+                                } else {
+                                    for line in src.chunks(sstride).take(height).rev() {
+                                        for quad in line.chunks_exact(4) {
+                                            dbuf.push((quad[0] << 6) | (quad[1] << 4) | (quad[2] << 2) | quad[3]);
+                                        }
+                                    }
+                                }
+                            },
+                            1 => {
+                                if (vinfo.width & 8) != 0 {
+                                    return Err(EncoderError::NotImplemented);
+                                }
+                                if !vinfo.flipped {
+                                    for line in src.chunks(sstride).take(height) {
+                                        for oct in line.chunks_exact(8) {
+                                            let mut bb = 0;
+                                            for &b in oct.iter() {
+                                                bb = bb * 2 + b;
+                                            }
+                                            dbuf.push(bb);
+                                        }
+                                    }
+                                } else {
+                                    for line in src.chunks(sstride).take(height).rev() {
+                                        for oct in line.chunks_exact(8) {
+                                            let mut bb = 0;
+                                            for &b in oct.iter() {
+                                                bb = bb * 2 + b;
+                                            }
+                                            dbuf.push(bb);
+                                        }
+                                    }
+                                }
+                            },
+                            _ => return Err(EncoderError::NotImplemented),
                         }
                         let mut pkt = NAPacket::new(self.stream.clone().unwrap(), frm.ts, true, dbuf);
                         let mut npal = [0; 1024];

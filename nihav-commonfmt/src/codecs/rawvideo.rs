@@ -71,7 +71,43 @@ impl NADecoder for RawDecoder {
                     let strides = vec![stride];
                     NABufferType::VideoPacked(NAVideoBuffer::from_raw_parts(*vinfo, src, offs, strides).into_ref())
                 } else {
-                    let mut buf = src.clone();
+                    let mut buf = match vinfo.bits.min(8) {
+                            1 => {
+                                let mut buf = Vec::with_capacity(width * height + 768);
+                                for line in src.chunks_exact(width).take(height) {
+                                    for &oct in line.iter() {
+                                        for i in (0..8).rev() {
+                                            buf.push((oct >> i) & 1);
+                                        }
+                                    }
+                                }
+                                NABufferRef::new(buf)
+                            },
+                            2 => {
+                                let mut buf = Vec::with_capacity(width * height + 768);
+                                for line in src.chunks_exact(width).take(height) {
+                                    for &quad in line.iter() {
+                                        buf.push( quad >> 6);
+                                        buf.push((quad >> 4) & 0x3);
+                                        buf.push((quad >> 2) & 0x3);
+                                        buf.push( quad       & 0x3);
+                                    }
+                                }
+                                NABufferRef::new(buf)
+                            },
+                            4 => {
+                                let mut buf = Vec::with_capacity(width * height + 768);
+                                for line in src.chunks_exact(width).take(height) {
+                                    for &pair in line.iter() {
+                                        buf.push(pair >> 4);
+                                        buf.push(pair & 0xF);
+                                    }
+                                }
+                                NABufferRef::new(buf)
+                            },
+                            8 => NABufferRef::new(Vec::clone(&src)),
+                            _ => return Err(DecoderError::NotImplemented),
+                        };
                     let offs = vec![0, buf.len()];
                     let strides = vec![width, 0];
                     let mut found = false;
