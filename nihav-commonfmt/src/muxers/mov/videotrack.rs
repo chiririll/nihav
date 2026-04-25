@@ -133,18 +133,30 @@ impl TrackHandler for VideoTrackHandler {
         if &self.fcc == b"j420" {
             bpp = 12;
         }
+        if bpp == 8 && self.pal.is_some() {
+            bpp = self.vinfo.bits.min(8);
+        }
         //xxx: detect greyscale?
         bw.write_u16be(u16::from(bpp))?;
         if bpp == 8 {
             if let Some(ref pal) = self.pal {
-                if **pal == MOV_DEFAULT_PAL_8BIT {
+                let pal_bpp = self.vinfo.bits.min(8);
+                static DEFAULT_PALS: &[(u8, &[u8])] = &[(8, &MOV_DEFAULT_PAL_8BIT), (4, &MOV_DEFAULT_PAL_4BIT), (2, &MOV_DEFAULT_PAL_2BIT)];
+                let mut def_pal = false;
+                for &(dp_bits, dpal) in DEFAULT_PALS.iter() {
+                    if pal_bpp == dp_bits && &pal[..4 << pal_bpp] == dpal {
+                        def_pal = true;
+                        break;
+                    }
+                }
+                if def_pal {
                     bw.write_u16be(0xFFFF)?; // default color table ID
                 } else {
                     bw.write_u16be(0)?; // color table ID
                     bw.write_u32be(0)?; // color table seed
                     bw.write_u16be(0x8000)?; // color table flags
-                    bw.write_u16be(255)?; // color table size
-                    for clr in pal.chunks_exact(4) {
+                    bw.write_u16be((1 << pal_bpp) - 1)?; // color table size
+                    for clr in pal.chunks_exact(4).take(1 << pal_bpp) {
                         bw.write_buf(&[0x00, 0x00, clr[0], clr[0], clr[1], clr[1], clr[2], clr[2]])?; // 16-bit ARGB
                     }
                 }
