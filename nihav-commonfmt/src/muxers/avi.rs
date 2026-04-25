@@ -296,10 +296,11 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     self.bw.write_u32le(0)?; // x dpi
                     self.bw.write_u32le(0)?; // y dpi
                     if vinfo.format.palette {
-                        self.bw.write_u32le(256)?; // total colors
+                        let nclrs = 1 << vinfo.bits.min(8);
+                        self.bw.write_u32le(nclrs)?; // total colors
                         self.bw.write_u32le(0)?; // important colors
                         self.pal_pos[strno] = self.bw.tell() as u32;
-                        for _ in 0..256 {
+                        for _ in 0..(nclrs as usize) {
                             self.bw.write_u32le(0)?;
                         }
                     } else {
@@ -450,7 +451,10 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                 if let NASideData::Palette(_, ref pal) = sdata {
                     let cur_pos = self.bw.tell();
                     self.bw.seek(SeekFrom::Start(u64::from(self.pal_pos[str_num])))?;
-                    for quad in pal.chunks(4) {
+
+                    let vinfo = stream.get_info().get_properties().get_video_info().unwrap();
+                    let nclrs = 1 << vinfo.bits.min(8);
+                    for quad in pal.chunks(4).take(nclrs) {
                         self.bw.write_byte(quad[2])?;
                         self.bw.write_byte(quad[1])?;
                         self.bw.write_byte(quad[0])?;
