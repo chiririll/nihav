@@ -413,7 +413,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             validate!(sample_size == 8 || sample_size == 16);
                                   br.read_u32be()?;
             let sample_rate     = br.read_u32be()? >> 16;
-            let cname = if fcc == [0; 4] { "pcm" } else { "unknown" };
+            let cname = if fcc == [0; 4] || &fcc == b"raw " { "pcm" } else { "unknown" };
             let mut soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
             if sample_size == 8 {
                 soniton.signed = false;
@@ -615,15 +615,15 @@ fn read_stsc(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()? as usize;
     if track.ver_m1 {
-        if entries != 1 || size != 24 {
-            return Err(DemuxerError::NotImplemented);
-        }
+        validate!(entries < ((u32::MAX / 16) - 8) as usize);
+        validate!((entries * 16 + 8) as u64 == size);
+        for _i in 0..entries {
                               br.read_u32be()?;
-        let sample_no       = br.read_u32be()?;
-        validate!(sample_no == 1);
-        let nsamples        = br.read_u32be()?;
-                              br.read_u32be()?; // maybe sample descriptor
-        track.pkt_demux.sample_map.push((sample_no, nsamples));
+            let chunk_no    = br.read_u32be()?;
+            let nsamples    = br.read_u32be()?;
+            let _sampledesc = br.read_u32be()?;
+            track.pkt_demux.sample_map.push((chunk_no, nsamples));
+        }
         return Ok(size);
     }
     validate!(entries < ((u32::MAX / 12) - 8) as usize);
