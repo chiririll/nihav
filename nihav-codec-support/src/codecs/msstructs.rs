@@ -38,7 +38,7 @@ impl MSBitmapInfo {
     /// Checks header for validity and returns the failed field name in case of error.
     pub fn validate(&self) -> Result<(), &'static str> {
         const KNOWN_BAD_FORMATS: &[&[u8; 4]] = &[
-            b"ZMBV", b"zmbv",
+            b"ZMBV", b"zmbv", b"CVID", b"cvid"
         ];
         if !(40..=(1 << 24)).contains(&self.bi_size) {
             return Err("bi_size");
