@@ -138,7 +138,7 @@ impl TrackHandler for VideoTrackHandler {
         }
         //xxx: detect greyscale?
         bw.write_u16be(u16::from(bpp))?;
-        if bpp == 8 {
+        if bpp <= 8 {
             if let Some(ref pal) = self.pal {
                 let pal_bpp = self.vinfo.bits.min(8);
                 static DEFAULT_PALS: &[(u8, &[u8])] = &[(8, &MOV_DEFAULT_PAL_8BIT), (4, &MOV_DEFAULT_PAL_4BIT), (2, &MOV_DEFAULT_PAL_2BIT)];
