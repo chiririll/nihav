@@ -207,7 +207,6 @@ impl RunLengthEncoder {
             if !force_intra && line == pline {
                 dst.push(0x01);
                 dst.push(0xFF);
-                dst.push(0x00);
                 is_intra = false;
                 continue;
             }
@@ -217,6 +216,7 @@ impl RunLengthEncoder {
                     Strategy::Slow => Self::encode_line_slow::<PIX_SIZE>(dst, line, pline, force_intra, &mut self.helper),
                 };
         }
+        dst.push(0x00); // end of frame
         is_intra
     }
     fn encode_line_dumb<const PIX_SIZE: usize>(dst: &mut Vec<u8>, line: &[u8], _pline: &[u8], _force_intra: bool) -> bool {
@@ -227,7 +227,6 @@ impl RunLengthEncoder {
             dst.extend_from_slice(chunk);
         }
         dst.push(0xFF); // run code at the end of line
-        dst.push(0x00); // skip code at the end of line
         true
     }
     fn encode_line_greedy<const PIX_SIZE: usize>(dst: &mut Vec<u8>, line: &[u8], pline: &[u8], force_intra: bool) -> bool {
@@ -283,7 +282,6 @@ impl RunLengthEncoder {
         }
         state.write_token(dst, line, PIX_SIZE);
         dst.push(0xFF); // run code at the end of line
-        dst.push(0x00); // skip code at the end of line
 
         is_intra
     }
@@ -380,7 +378,6 @@ impl RunLengthEncoder {
             state.write_token(dst, line, PIX_SIZE);
         }
         dst.push(0xFF); // run code at the end of line
-        dst.push(0x00); // skip code at the end of line
         is_intra
     }
 
@@ -671,22 +668,22 @@ mod test {
     fn test_qt_rle_16bit_modes() {
         test_core("assets/QT/Animation-Highcolour.mov", super::RGB555BE_FORMAT,
                   &[NAOption{ name: "mode", value: NAValue::String("dumb".to_string()) }],
-                  &[0x518474ac, 0x654ebbef, 0xcc79db98, 0xcf1cd1cf]);
+                  &[0x1719ce85, 0x88ffd54c, 0xbaf89408, 0x097b117b]);
         test_core("assets/QT/Animation-Highcolour.mov", super::RGB555BE_FORMAT,
                   &[NAOption{ name: "mode", value: NAValue::String("greedy".to_string()) }],
-                  &[0x61aefc0d, 0x8f7b7d6a, 0x599b89d2, 0x6c61b188]);
+                  &[0x44f517f1, 0x42dc363f, 0xfc5ddc45, 0xc5aaf0f9]);
         test_core("assets/QT/Animation-Highcolour.mov", super::RGB555BE_FORMAT,
                   &[NAOption{ name: "mode", value: NAValue::String("slow".to_string()) }],
-                  &[0x16d9854a, 0x2f109d72, 0xf564c32c, 0xb3b51312]);
+                  &[0x0e112054, 0x8053df6a, 0xcc17a897, 0x95ef202c]);
     }
     #[test]
     fn test_qt_rle_24bit() {
         test_core("assets/QT/Animation-Truecolour.mov", RGB24_FORMAT, &[],
-                  &[0x9b25e03d, 0x3b878d5e, 0xfd268170, 0x18ff6b6a]);
+                  &[0x766ed69d, 0x80a200f9, 0xb2383cdd, 0x275ef735]);
     }
     #[test]
     fn test_qt_rle_32bit() {
         test_core("assets/QT/Jag-finder-renaming.mov", super::ARGB_FORMAT, &[],
-                  &[0xf9c3a0df, 0xecfc4b55, 0xb8dd8fb0, 0xb8ebb93b]);
+                  &[0x4b3685c2, 0x2dc09f73, 0xf29f5b61, 0xb47f2ff7]);
     }
 }
