@@ -113,12 +113,16 @@ pub fn qt_register_all_decoders(rd: &mut RegisteredDecoders) {
 
 #[cfg(feature="encoder_rawvid")]
 mod rawvidenc;
+#[cfg(feature="encoder_rle")]
+mod rleenc;
 
 const QT_ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_rawvid")]
     EncoderInfo { name: "qt-yuv2", get_encoder: rawvidenc::get_encoder_yuv2 },
 #[cfg(feature="encoder_rawvid")]
     EncoderInfo { name: "qt-yuv4", get_encoder: rawvidenc::get_encoder_yuv4 },
+#[cfg(feature="encoder_rle")]
+    EncoderInfo { name: "qt-rle", get_encoder: rleenc::get_encoder },
 ];
 
 /// Registers all available encoders provided by this crate.
