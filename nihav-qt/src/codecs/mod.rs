@@ -116,6 +116,7 @@ mod rawvidenc;
 #[cfg(feature="encoder_rle")]
 mod rleenc;
 
+#[cfg(feature="encoders")]
 const QT_ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_rawvid")]
     EncoderInfo { name: "qt-yuv2", get_encoder: rawvidenc::get_encoder_yuv2 },
@@ -126,6 +127,7 @@ const QT_ENCODERS: &[EncoderInfo] = &[
 ];
 
 /// Registers all available encoders provided by this crate.
+#[cfg(feature="encoders")]
 pub fn qt_register_all_encoders(re: &mut RegisteredEncoders) {
     for encoder in QT_ENCODERS.iter() {
         re.add_encoder(*encoder);
