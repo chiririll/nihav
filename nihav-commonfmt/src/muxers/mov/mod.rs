@@ -112,7 +112,7 @@ impl ChunkAccount {
     }
 
     fn write_stts(&mut self, bw: &mut dyn ByteIO, raw_audio: bool, pktd: u64) -> MuxerResult<()> {
-        if !raw_audio {
+        if !raw_audio && self.pts.len() > 1 {
             let mut nentries = 1;
             let mut prev_delta = self.pts[1] - self.pts[0];
             for w in self.pts.windows(2).skip(1) {
