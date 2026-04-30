@@ -45,8 +45,9 @@ demuxer_warhol = ["demuxers"]
 all_encoders = ["all_video_encoders", "all_audio_encoders"]
 encoders = []
 
-all_video_encoders = ["encoder_rawvid", "encoder_rle"]
+all_video_encoders = ["encoder_rawvid", "encoder_rle", "encoder_rpza"]
 encoder_rawvid = ["encoders"]
 encoder_rle = ["encoders"]
+encoder_rpza = ["encoders"]
 
 all_audio_encoders = []

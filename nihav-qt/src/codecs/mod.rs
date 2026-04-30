@@ -115,6 +115,8 @@ pub fn qt_register_all_decoders(rd: &mut RegisteredDecoders) {
 mod rawvidenc;
 #[cfg(feature="encoder_rle")]
 mod rleenc;
+#[cfg(feature="encoder_rpza")]
+mod rpzaenc;
 
 #[cfg(feature="encoders")]
 const QT_ENCODERS: &[EncoderInfo] = &[
@@ -124,6 +126,8 @@ const QT_ENCODERS: &[EncoderInfo] = &[
     EncoderInfo { name: "qt-yuv4", get_encoder: rawvidenc::get_encoder_yuv4 },
 #[cfg(feature="encoder_rle")]
     EncoderInfo { name: "qt-rle", get_encoder: rleenc::get_encoder },
+#[cfg(feature="encoder_rpza")]
+    EncoderInfo { name: "apple-video", get_encoder: rpzaenc::get_encoder },
 ];
 
 /// Registers all available encoders provided by this crate.
