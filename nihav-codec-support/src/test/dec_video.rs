@@ -300,7 +300,7 @@ println!("stream {} codec {} / {}", i, info.get_name(), dec_name);
             panic!("error");
         }
         let pkt = pktres.unwrap();
-        let streamno = pkt.get_stream().get_id() as usize;
+        let streamno = pkt.get_stream().get_num();
         if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
             if limit.is_some() && pkt.get_pts().is_some() && pkt.get_pts().unwrap() > limit.unwrap() {
                 break;
