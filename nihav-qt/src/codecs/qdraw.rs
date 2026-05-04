@@ -345,9 +345,6 @@ mod test {
         test_decoding("mov", "qdraw", "assets/QT/Airplane.mov", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
                             [0x9aced174, 0x4c9f58ca, 0xeacace05, 0x0d11e351],
-                            [0x9aced174, 0x4c9f58ca, 0xeacace05, 0x0d11e351],
-                            [0xf7459501, 0xfbf81fd2, 0xcc436363, 0x95748ed6],
-                            [0xf7459501, 0xfbf81fd2, 0xcc436363, 0x95748ed6],
                             [0xf7459501, 0xfbf81fd2, 0xcc436363, 0x95748ed6]]));
     }
 }
