@@ -268,267 +268,272 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()?;
     validate!(entries > 0);
-    let esize               = u64::from(br.read_u32be()?);
-    validate!(esize + 8 <= size);
-    let mut fcc = [0u8; 4];
+    for desc_no in 0..entries {
+        let estart = br.tell();
+        let esize           = u64::from(br.read_u32be()?);
+        let end_pos = br.tell() - 4 + esize;
+        validate!(esize > 8 && end_pos <= start_pos + size);
+        let mut fcc = [0u8; 4];
                               br.read_buf(&mut fcc)?;
                               br.read_skip(6)?;
-    let _data_ref           = br.read_u16be()?;
+        let _data_ref       = br.read_u16be()?;
 
-    track.pkt_demux.fcc = fcc;
+        track.pkt_demux.fcc = fcc;
 
-    let codec_info;
-    match track.stream_type {
-        StreamType::Video => {
-            let _ver            = br.read_u16be()?;
-            let _revision       = br.read_u16le()?;
-            let _vendor         = br.read_u32be()?;
-            let _temp_quality   = br.read_u32be()?;
-            let _spat_quality   = br.read_u32be()?;
-            let width           = br.read_u16be()? as usize;
-            let height          = br.read_u16be()? as usize;
-            let _hor_res        = br.read_u32be()?;
-            let _vert_res       = br.read_u32be()?;
-            let data_size       = br.read_u32be()?;
-            if !track.ver_m1 {
-                validate!(data_size == 0);
-            }
-            let _frame_count    = br.read_u16be()? as usize;
-            let _cname_len      = br.read_byte()? as usize;
-                                  br.read_skip(31)?; // actual compressor name
-            let depth           = br.read_u16be()?;
-            let ctable_id       = br.read_u16be()?;
-            let grayscale = depth > 0x20 || depth == 1;
-            let depth = if grayscale { depth & 0x1F } else { depth };
-            if ctable_id == 0 {
-                let max_pal_size = start_pos + size - br.tell();
-                if depth <= 8 {
-                    let mut pal = [0; 1024];
-                    read_palette(br, max_pal_size, &mut pal)?;
-                    track.pal = Some(Arc::new(pal));
-                } else {
-                                  br.read_skip(max_pal_size as usize)?;
+        let codec_info;
+        match track.stream_type {
+            StreamType::Video => {
+                let _ver            = br.read_u16be()?;
+                let _revision       = br.read_u16le()?;
+                let _vendor         = br.read_u32be()?;
+                let _temp_quality   = br.read_u32be()?;
+                let _spat_quality   = br.read_u32be()?;
+                let width           = br.read_u16be()? as usize;
+                let height          = br.read_u16be()? as usize;
+                let _hor_res        = br.read_u32be()?;
+                let _vert_res       = br.read_u32be()?;
+                let data_size       = br.read_u32be()?;
+                if !track.ver_m1 {
+                    validate!(data_size == 0);
                 }
-            } else if (depth <= 8) && !grayscale {
-                match depth & 0x1F {
-                    2 => {
+                let _frame_count    = br.read_u16be()? as usize;
+                let _cname_len      = br.read_byte()? as usize;
+                                      br.read_skip(31)?; // actual compressor name
+                let depth           = br.read_u16be()?;
+                let ctable_id       = br.read_u16be()?;
+                let grayscale = depth > 0x20 || depth == 1;
+                let depth = if grayscale { depth & 0x1F } else { depth };
+                if ctable_id == 0 {
+                    let max_pal_size = start_pos + size - br.tell();
+                    if depth <= 8 {
                         let mut pal = [0; 1024];
-                        pal[..4 * 4].copy_from_slice(&MOV_DEFAULT_PAL_2BIT);
+                        read_palette(br, max_pal_size, &mut pal)?;
                         track.pal = Some(Arc::new(pal));
-                    },
-                    4 => {
-                        let mut pal = [0; 1024];
-                        pal[..16 * 4].copy_from_slice(&MOV_DEFAULT_PAL_4BIT);
-                        track.pal = Some(Arc::new(pal));
-                    },
-                    8 => {
-                        track.pal = Some(Arc::new(MOV_DEFAULT_PAL_8BIT));
-                    },
-                    _ => {},
-                };
-            } else if grayscale && ctable_id != 0xFFFF {
-                let mut pal = [0; 1024];
-                let cdepth = depth & 0x1F;
-                let size = 1 << cdepth;
-                for i in 0..size {
-                    let mut clr = ((size - 1 - i) as u8) << (8 - cdepth);
-                    let mut off = 8 - cdepth;
-                    while off >= cdepth {
-                        clr |= clr >> (8 - off);
-                        off -= cdepth;
-                    }
-                    if off > 0 {
-                        clr |= clr >> (8 - off);
-                    }
-                    pal[i * 4]     = clr;
-                    pal[i * 4 + 1] = clr;
-                    pal[i * 4 + 2] = clr;
-                }
-                track.pal = Some(Arc::new(pal));
-            }
-// todo other atoms, put as extradata
-            let cname = if let Some(name) = find_codec_from_mov_video_fourcc(&fcc) {
-                    name
-                } else if let Some(name) = find_codec_from_avi_fourcc(&fcc) {
-                    name
-                } else {
-                    "unknown"
-                };
-            let format = if cname == "rawvideo" {
-                    if &fcc == b"j420" {
-                        validate!(depth == 12);
-                        YUV420_FORMAT
                     } else {
-                        match depth {
-                            1..=8 | 33..=40 => PAL8_FORMAT,
-                            15 | 16 => QT_RGB555_FORMAT,
-                            24 => RGB24_FORMAT,
-                            32 => ARGB_FORMAT,
-                            _ => {
-                                println!("unknown depth {depth}");
-                                return Err(DemuxerError::NotImplemented);
+                                      br.read_skip(max_pal_size as usize)?;
+                    }
+                } else if (depth <= 8) && !grayscale {
+                    match depth & 0x1F {
+                        2 => {
+                            let mut pal = [0; 1024];
+                            pal[..4 * 4].copy_from_slice(&MOV_DEFAULT_PAL_2BIT);
+                            track.pal = Some(Arc::new(pal));
+                        },
+                        4 => {
+                            let mut pal = [0; 1024];
+                            pal[..16 * 4].copy_from_slice(&MOV_DEFAULT_PAL_4BIT);
+                            track.pal = Some(Arc::new(pal));
+                        },
+                        8 => {
+                            track.pal = Some(Arc::new(MOV_DEFAULT_PAL_8BIT));
+                        },
+                        _ => {},
+                    };
+                } else if grayscale && ctable_id != 0xFFFF {
+                    let mut pal = [0; 1024];
+                    let cdepth = depth & 0x1F;
+                    let size = 1 << cdepth;
+                    for i in 0..size {
+                        let mut clr = ((size - 1 - i) as u8) << (8 - cdepth);
+                        let mut off = 8 - cdepth;
+                        while off >= cdepth {
+                            clr |= clr >> (8 - off);
+                            off -= cdepth;
+                        }
+                        if off > 0 {
+                            clr |= clr >> (8 - off);
+                        }
+                        pal[i * 4]     = clr;
+                        pal[i * 4 + 1] = clr;
+                        pal[i * 4 + 2] = clr;
+                    }
+                    track.pal = Some(Arc::new(pal));
+                }
+// todo other atoms, put as extradata
+                let cname = if let Some(name) = find_codec_from_mov_video_fourcc(&fcc) {
+                        name
+                    } else if let Some(name) = find_codec_from_avi_fourcc(&fcc) {
+                        name
+                    } else {
+                        "unknown"
+                    };
+                let format = if cname == "rawvideo" {
+                        if &fcc == b"j420" {
+                            validate!(depth == 12);
+                            YUV420_FORMAT
+                        } else {
+                            match depth {
+                                1..=8 | 33..=40 => PAL8_FORMAT,
+                                15 | 16 => QT_RGB555_FORMAT,
+                                24 => RGB24_FORMAT,
+                                32 => ARGB_FORMAT,
+                                _ => {
+                                    println!("unknown depth {depth}");
+                                    return Err(DemuxerError::NotImplemented);
+                                }
                             }
                         }
-                    }
-                } else if depth > 8 && depth <= 32 {
-                    RGB24_FORMAT
-                } else {
-                    PAL8_FORMAT
-                };
-            let mut vhdr = NAVideoInfo::new(width, height, false, format);
-            vhdr.bits = depth as u8;
-            if track.ver_m1 { // skip the rest for the beta version of QT
-                br.seek(SeekFrom::Start(start_pos + size))?;
-            }
-            //skip various common atoms
-            while br.tell() - start_pos + 8 < size {
-                let mut buf = [0u8; 8];
-                br.peek_buf(&mut buf)?;
-                let tsize = read_u32be(&buf).unwrap() as usize;
-                let tag = &buf[4..8];
-                validate!(tsize >= 8);
-                match tag {
-                    b"pasp" | b"clap" | b"gama" => {
-                        br.read_skip(tsize)?;
+                    } else if depth > 8 && depth <= 32 {
+                        RGB24_FORMAT
+                    } else {
+                        PAL8_FORMAT
+                    };
+                let mut vhdr = NAVideoInfo::new(width, height, false, format);
+                vhdr.bits = depth as u8;
+                if track.ver_m1 { // skip the rest for the beta version of QT
+                    br.seek(SeekFrom::Start(start_pos + size))?;
+                }
+                //skip various common atoms
+                while br.tell() - start_pos + 8 < size {
+                    let mut buf = [0u8; 8];
+                    br.peek_buf(&mut buf)?;
+                    let tsize = read_u32be(&buf).unwrap() as usize;
+                    let tag = &buf[4..8];
+                    validate!(tsize >= 8);
+                    match tag {
+                        b"pasp" | b"clap" | b"gama" => {
+                            br.read_skip(tsize)?;
+                        },
+                        _ => break,
+                    };
+                }
+                let edata = if br.tell() < end_pos {
+                        let edata_size  = br.read_u32be()? as usize;
+                        validate!(edata_size >= 4);
+                        let mut buf = vec![0; edata_size - 4];
+                                      br.read_buf(buf.as_mut_slice())?;
+                        Some(buf)
+                    } else {
+                        None
+                    };
+                codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), edata);
+            },
+            StreamType::Audio if track.ver_m1 => {
+                                      br.read_skip(8)?;
+                let nchannels       = br.read_u16be()?;
+                validate!(nchannels == 1 || nchannels == 2);
+                let sample_size     = br.read_u16be()?;
+                validate!(sample_size == 8 || sample_size == 16);
+                                      br.read_u32be()?;
+                let sample_rate     = br.read_u32be()? >> 16;
+                let cname = if fcc == [0; 4] || &fcc == b"raw " { "pcm" } else { "unknown" };
+                let mut soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
+                if sample_size == 8 {
+                    soniton.signed = false;
+                }
+                let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, 1);
+                let edata = parse_audio_edata(br, estart, esize)?;
+                codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
+                track.pkt_demux.mode = if cname == "pcm" { PacketMode::RawAudio } else { PacketMode::AudioCBR };
+                track.pkt_demux.bsize     = (sample_size / 8) as usize;
+                track.pkt_demux.channels  = nchannels as usize;
+                track.pkt_demux.bits      = sample_size as usize;
+                if track.tb_den <= 1 {
+                    track.tb_den = sample_rate;
+                }
+            },
+            StreamType::Audio => {
+                let sver            = br.read_u16be()?;
+                let _revision       = br.read_u16le()?;
+                let _vendor         = br.read_u32be()?;
+                let mut nchannels   = br.read_u16be()?;
+                if sver != 2 {
+                    validate!(nchannels <= 64);
+                }
+                let sample_size     = br.read_u16be()?;
+                validate!(sample_size <= 128);
+                let compr_id        = br.read_u16be()?;
+                let packet_size     = br.read_u16be()? as usize;
+                validate!(packet_size == 0);
+                let mut sample_rate = br.read_u32be()? >> 16;
+                if sver != 2 {
+                    validate!(sample_rate > 0);
+                }
+                let cname = if let Some(name) = find_codec_from_mov_audio_fourcc(&fcc) {
+                        name
+                    } else if let (true, Some(name)) = ((fcc[0] == b'm' && fcc[1] == b's'),  find_codec_from_wav_twocc(u16::from(fcc[2]) * 256 + u16::from(fcc[3]))) {
+                        name
+                    } else {
+                        "unknown"
+                    };
+                let mut soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
+                if &fcc == b"raw " && sample_size == 8 {
+                    soniton.signed = false;
+                }
+                if &fcc == b"sowt" {
+                    soniton.be = false;
+                }
+                let mut block_align = 1;
+                match sver {
+                    1 => {
+                        let samples_per_packet  = br.read_u32be()?;
+                        let _bytes_per_packet   = br.read_u32be()?;
+                        let bytes_per_frame     = br.read_u32be()?;
+                        let _bytes_per_sample   = br.read_u32be()?;
+                        track.pkt_demux.bsize = bytes_per_frame as usize;
+                        track.pkt_demux.frame_samples = samples_per_packet as usize;
+                        track.tb_num = samples_per_packet.max(1);
+                        block_align = bytes_per_frame as usize;
                     },
-                    _ => break,
+                    2 => {
+                                                  br.read_u32be()?; // some size
+                        let srate               = br.read_f64be()?;
+                        validate!(srate > 1.0);
+                        sample_rate = srate as u32;
+                        let channels            = br.read_u32be()?;
+                        validate!(channels > 0 && channels < 255);
+                        nchannels = channels as u16;
+                                                  br.read_u32be()?; // always 0x7F000000
+                        let _bits_per_csample   = br.read_u32be()?;
+                        let _codec_flags        = br.read_u32be()?;
+                        let bytes_per_frame     = br.read_u32be()?;
+                        let samples_per_packet  = br.read_u32be()?;
+                        track.pkt_demux.bsize = bytes_per_frame as usize;
+                        track.pkt_demux.frame_samples = samples_per_packet as usize;
+                        track.tb_num = samples_per_packet;
+                    },
+                    _ => {
+                        track.pkt_demux.bsize = (sample_size / 8) as usize;
+                    },
                 };
-            }
-            let edata = if br.tell() - start_pos + 4 < size {
-                    let edata_size  = br.read_u32be()? as usize;
-                    validate!(edata_size >= 4);
-                    let mut buf = vec![0; edata_size - 4];
-                                  br.read_buf(buf.as_mut_slice())?;
-                    Some(buf)
+                if track.tb_den <= 1 {
+                    track.tb_den = sample_rate;
+                    track.pkt_demux.tb_den = sample_rate;
+                }
+                track.pkt_demux.mode = if matches!(&fcc,
+                        b"NONE" | b"raw " | b"twos" | b"sowt" |
+                        b"in24" | b"in32" | b"fl32" | b"fl64" |
+                        /*b"ima4" |*/ b"ms\x00\x02" | b"ms\x00\x11" |
+                        b"alaw" | b"ulaw" |
+                        b"MAC3" | b"MAC6") {
+                    PacketMode::RawAudio
+                } else if sver == 2 || compr_id == 0xFFFE {
+                    PacketMode::AudioVBR
                 } else {
-                    None
+                    PacketMode::AudioCBR
                 };
-            codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), edata);
-        },
-        StreamType::Audio if track.ver_m1 => {
-                                  br.read_skip(8)?;
-            let nchannels       = br.read_u16be()?;
-            validate!(nchannels == 1 || nchannels == 2);
-            let sample_size     = br.read_u16be()?;
-            validate!(sample_size == 8 || sample_size == 16);
-                                  br.read_u32be()?;
-            let sample_rate     = br.read_u32be()? >> 16;
-            let cname = if fcc == [0; 4] || &fcc == b"raw " { "pcm" } else { "unknown" };
-            let mut soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
-            if sample_size == 8 {
-                soniton.signed = false;
-            }
-            let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, 1);
-            let edata = parse_audio_edata(br, start_pos, size)?;
-            codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-            track.pkt_demux.mode = if cname == "pcm" { PacketMode::RawAudio } else { PacketMode::AudioCBR };
-            track.pkt_demux.bsize     = (sample_size / 8) as usize;
-            track.pkt_demux.channels  = nchannels as usize;
-            track.pkt_demux.bits      = sample_size as usize;
-            if track.tb_den <= 1 {
-                track.tb_den = sample_rate;
-            }
-        },
-        StreamType::Audio => {
-            let sver            = br.read_u16be()?;
-            let _revision       = br.read_u16le()?;
-            let _vendor         = br.read_u32be()?;
-            let mut nchannels   = br.read_u16be()?;
-            if sver != 2 {
-                validate!(nchannels <= 64);
-            }
-            let sample_size     = br.read_u16be()?;
-            validate!(sample_size <= 128);
-            let compr_id        = br.read_u16be()?;
-            let packet_size     = br.read_u16be()? as usize;
-            validate!(packet_size == 0);
-            let mut sample_rate = br.read_u32be()? >> 16;
-            if sver != 2 {
-                validate!(sample_rate > 0);
-            }
-            let cname = if let Some(name) = find_codec_from_mov_audio_fourcc(&fcc) {
-                    name
-                } else if let (true, Some(name)) = ((fcc[0] == b'm' && fcc[1] == b's'),  find_codec_from_wav_twocc(u16::from(fcc[2]) * 256 + u16::from(fcc[3]))) {
-                    name
-                } else {
-                    "unknown"
-                };
-            let mut soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
-            if &fcc == b"raw " && sample_size == 8 {
-                soniton.signed = false;
-            }
-            if &fcc == b"sowt" {
-                soniton.be = false;
-            }
-            let mut block_align = 1;
-            match sver {
-                1 => {
-                    let samples_per_packet  = br.read_u32be()?;
-                    let _bytes_per_packet   = br.read_u32be()?;
-                    let bytes_per_frame     = br.read_u32be()?;
-                    let _bytes_per_sample   = br.read_u32be()?;
-                    track.pkt_demux.bsize = bytes_per_frame as usize;
-                    track.pkt_demux.frame_samples = samples_per_packet as usize;
-                    track.tb_num = samples_per_packet.max(1);
-                    block_align = bytes_per_frame as usize;
-                },
-                2 => {
-                                              br.read_u32be()?; // some size
-                    let srate               = br.read_f64be()?;
-                    validate!(srate > 1.0);
-                    sample_rate = srate as u32;
-                    let channels            = br.read_u32be()?;
-                    validate!(channels > 0 && channels < 255);
-                    nchannels = channels as u16;
-                                              br.read_u32be()?; // always 0x7F000000
-                    let _bits_per_csample   = br.read_u32be()?;
-                    let _codec_flags        = br.read_u32be()?;
-                    let bytes_per_frame     = br.read_u32be()?;
-                    let samples_per_packet  = br.read_u32be()?;
-                    track.pkt_demux.bsize = bytes_per_frame as usize;
-                    track.pkt_demux.frame_samples = samples_per_packet as usize;
-                    track.tb_num = samples_per_packet;
-                },
-                _ => {
-                    track.pkt_demux.bsize = (sample_size / 8) as usize;
-                },
-            };
-            if track.tb_den <= 1 {
-                track.tb_den = sample_rate;
-                track.pkt_demux.tb_den = sample_rate;
-            }
-            track.pkt_demux.mode = if matches!(&fcc,
-                    b"NONE" | b"raw " | b"twos" | b"sowt" |
-                    b"in24" | b"in32" | b"fl32" | b"fl64" |
-                    /*b"ima4" |*/ b"ms\x00\x02" | b"ms\x00\x11" |
-                    b"alaw" | b"ulaw" |
-                    b"MAC3" | b"MAC6") {
-                PacketMode::RawAudio
-            } else if sver == 2 || compr_id == 0xFFFE {
-                PacketMode::AudioVBR
-            } else {
-                PacketMode::AudioCBR
-            };
-            let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, block_align);
-            let edata = parse_audio_edata(br, start_pos, size)?;
-            codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-            track.pkt_demux.channels  = nchannels as usize;
-            track.pkt_demux.bits      = sample_size as usize;
-        },
-        StreamType::None => {
-            return Err(DemuxerError::InvalidData);
-        },
-        _ => {
+                let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, block_align);
+                let edata = parse_audio_edata(br, estart, esize)?;
+                codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
+                track.pkt_demux.channels  = nchannels as usize;
+                track.pkt_demux.bits      = sample_size as usize;
+            },
+            StreamType::None => {
+                return Err(DemuxerError::InvalidData);
+            },
+            _ => {
 //todo put it all into extradata
-            let edata = None;
-            codec_info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
-        },
-    };
-    track.pkt_demux.tb_num = track.tb_num;
-    track.pkt_demux.tb_den = track.tb_den;
+                let edata = None;
+                codec_info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
+            },
+        };
+        track.pkt_demux.tb_num = track.tb_num;
+        track.pkt_demux.tb_den = track.tb_den;
+        validate!(br.tell() <= end_pos);
+        br.seek(SeekFrom::Start(end_pos))?;
+        track.streams.push(NAStream::new(track.stream_type, track.track_no | (desc_no << 16), codec_info, track.tb_num, track.tb_den, u64::from(track.pkt_demux.duration)));
+    }
     let read_size = br.tell() - start_pos;
-    validate!(read_size <= size);
-    track.stream = Some(NAStream::new(track.stream_type, track.track_no, codec_info, track.tb_num, track.tb_den, u64::from(track.pkt_demux.duration)));
     track.stsd_found = true;
     Ok(read_size)
 }
@@ -614,6 +619,7 @@ fn read_stsc(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()? as usize;
+    let mut last_sd = 0;
     if track.ver_m1 {
         validate!(entries < ((u32::MAX / 16) - 8) as usize);
         validate!((entries * 16 + 8) as u64 == size);
@@ -621,8 +627,12 @@ fn read_stsc(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                               br.read_u32be()?;
             let chunk_no    = br.read_u32be()?;
             let nsamples    = br.read_u32be()?;
-            let _sampledesc = br.read_u32be()?;
+            let sampledesc  = br.read_u32be()?;
             track.pkt_demux.sample_map.push((chunk_no, nsamples));
+            if sampledesc != last_sd {
+                track.pkt_demux.desc_map.push((chunk_no, sampledesc));
+                last_sd = sampledesc;
+            }
         }
         return Ok(size);
     }
@@ -634,9 +644,13 @@ fn read_stsc(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
         let chunk_no       = br.read_u32be()?;
         validate!(chunk_no > last_chunk_no);
         let nsamples        = br.read_u32be()?;
-        let _sample_desc    = br.read_u32be()?;
+        let sample_desc     = br.read_u32be()?;
         track.pkt_demux.sample_map.push((chunk_no, nsamples));
         last_chunk_no = chunk_no;
+        if sample_desc != last_sd {
+            track.pkt_demux.desc_map.push((chunk_no, sample_desc));
+            last_sd = sample_desc;
+        }
     }
     Ok(size)
 }
@@ -876,7 +890,7 @@ fn read_trun(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
 pub struct Track {
     pub ver_m1:         bool,
     pub track_id:       u32,
-    pub track_str_id:   usize,
+    pub track_str_ids:  Vec<usize>,
     pub track_no:       u32,
     pub tb_num:         u32,
     pub tb_den:         u32,
@@ -888,7 +902,7 @@ pub struct Track {
     pub stream_type:    StreamType,
     pub width:          usize,
     pub height:         usize,
-    pub stream:         Option<NAStream>,
+    pub streams:        Vec<NAStream>,
     pub pal:            Option<Arc<[u8; 1024]>>,
     pub pkt_demux:      QTPacketDemuxer,
 
@@ -904,7 +918,7 @@ impl Track {
             stsd_found:     false,
             stss_found:     false,
             track_id:       0,
-            track_str_id:   0,
+            track_str_ids:  Vec::new(),
             track_no,
             tb_num: 1,
             tb_den,
@@ -912,7 +926,7 @@ impl Track {
             stream_type:    StreamType::None,
             width:          0,
             height:         0,
-            stream:         None,
+            streams:        Vec::new(),
             depth:          0,
             pal:            None,
             ver_m1:         false,
@@ -936,7 +950,7 @@ impl Track {
     }
     fn rescale(&mut self, tb_num: u32) {
         self.tb_div = tb_num;
-        if let Some(ref mut stream) = self.stream {
+        for stream in self.streams.iter_mut() {
             let tb_den = stream.tb_den;
             let (tb_num, tb_den) = reduce_timebase(tb_num * stream.tb_num, tb_den);
             stream.duration /= u64::from(self.tb_div);
@@ -953,13 +967,31 @@ impl Track {
 
 #[allow(clippy::too_many_arguments)]
 pub fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut Track, ts: NATimeInfo, offset: u64, size: usize, first: bool, is_kf: bool) -> DemuxerResult<NAPacket> {
+    let cur_desc = if track.track_str_ids.len() > 1 {
+            let cur_chunk_no = if track.pkt_demux.mode == PacketMode::OneToOne {
+                    track.pkt_demux.cur_sample
+                } else {
+                    track.pkt_demux.cur_chunk
+                };
+            let mut cur_desc = 1;
+            for &(chunk_no, desc_no) in track.pkt_demux.desc_map.iter() {
+                if chunk_no as usize <= cur_chunk_no {
+                    cur_desc = desc_no;
+                }
+                if chunk_no as usize >= cur_chunk_no {
+                    break;
+                }
+            }
+            cur_desc as usize - 1
+        } else { 0 };
     if let Some(cpts) = ts.get_pts() {
         let cts = NATimeInfo::rescale_ts(cpts, ts.tb_num, ts.tb_den, 1, 1000);
         track.pkt_demux.cur_ts = Some(cts);
     } else {
         track.pkt_demux.cur_ts = None;
     }
-    let stream = strmgr.get_stream(track.track_str_id);
+    let str_idx = if cur_desc < track.track_str_ids.len() { cur_desc } else { 0 };
+    let stream = strmgr.get_stream(track.track_str_ids[str_idx]);
     if stream.is_none() { return Err(DemuxerError::InvalidData); }
     let stream = stream.unwrap();
     src.seek(SeekFrom::Start(offset))?;

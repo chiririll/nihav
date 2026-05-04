@@ -310,12 +310,12 @@ fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
     track.call_read_trak(dmx.src, size)?;
     validate!(track.tkhd_found);
     if !track.stsd_found {
-        track.stream = Some(NAStream::new(StreamType::Data, track.track_no, DUMMY_CODEC_INFO, track.tb_num, track.tb_den, 0));
+        track.streams.push(NAStream::new(StreamType::Data, track.track_no, DUMMY_CODEC_INFO, track.tb_num, track.tb_den, 0));
     }
     // invent keyframes for video stream if none were reported
     if !track.stss_found && track.stream_type == StreamType::Video {
         let mut intraonly = false;
-        if let Some(ref stream) = track.stream {
+        if let Some(stream) = track.streams.first() {
             if let Some(desc) = get_codec_description(stream.get_info().get_name()) {
                 intraonly = (desc.caps & CODEC_CAP_INTRAONLY) != 0;
             }
@@ -503,11 +503,9 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
         validate!(self.mdat_pos > 0);
         validate!(!self.tracks.is_empty());
         for track in self.tracks.iter_mut() {
-            let mut strm = None;
-            std::mem::swap(&mut track.stream, &mut strm);
-            if let Some(stream) = strm {
+            for stream in track.streams.drain(..) {
                 let str_id = strmgr.add_stream(stream).unwrap();
-                track.track_str_id = str_id;
+                track.track_str_ids.push(str_id);
             }
         }
         match self.demux_mode {

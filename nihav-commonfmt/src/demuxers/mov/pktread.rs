@@ -142,6 +142,7 @@ pub struct QTPacketDemuxer {
     pub chunk_offsets:  Vec<u64>,
     pub time_to_sample: Vec<(u32, u32)>,
     pub sample_map:     Vec<(u32, u32)>,
+    pub desc_map:       Vec<(u32, u32)>,
     pub sample_size:    u32,
     pub frame_samples:  usize,
     pub ctts_map:       RLESearcher<u32>,
