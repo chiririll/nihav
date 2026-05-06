@@ -24,6 +24,9 @@ mod smc;
 #[cfg(feature="decoder_cdvideo")]
 mod cdvideo;
 
+#[cfg(feature="decoder_sivq")]
+mod sivq;
+
 #[cfg(feature="decoder_svq1")]
 mod svq1;
 #[cfg(feature="decoder_svq1")]
@@ -80,6 +83,8 @@ const QT_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "qt-smc", get_decoder: smc::get_decoder },
 #[cfg(feature="decoder_cdvideo")]
     DecoderInfo { name: "qt-cdvideo", get_decoder: cdvideo::get_decoder },
+#[cfg(feature="decoder_sivq")]
+    DecoderInfo { name: "qt-sivq", get_decoder: sivq::get_decoder },
 #[cfg(feature="decoder_svq1")]
     DecoderInfo { name: "sorenson-video", get_decoder: svq1::get_decoder },
 #[cfg(feature="decoder_svq3")]
