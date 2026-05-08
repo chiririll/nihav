@@ -465,6 +465,8 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"SVQ3", "sorenson-video3"),
     (b"svq3", "sorenson-video3"),
 
+    (b"msvc", "msvideo1"),
+
     (b"rt21", "indeo2"),
     (b"IV32", "indeo3"),
     (b"iv32", "indeo3"),
