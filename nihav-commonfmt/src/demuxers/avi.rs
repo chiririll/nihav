@@ -882,7 +882,7 @@ fn find_raw_rgb_fmt(hdr: &MSBitmapInfo, vhdr: &mut NAVideoInfo) -> bool {
             }
             let fmt_name = match hdr.bitcount {
                      8 => "pal8",
-                    16 => "bgr555",
+                    16 => "rgb555",
                     24 => "bgr24",
                     32 => "bgra24",
                     _ => return false,
