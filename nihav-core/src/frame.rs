@@ -893,7 +893,7 @@ pub const DUMMY_CODEC_INFO: NACodecInfo = NACodecInfo {
                                 properties: NACodecTypeInfo::None,
                                 extradata: None };
 
-/// A list of recognized frame types.
+/// A list of recognised frame types.
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum FrameType {
@@ -1265,7 +1265,7 @@ pub enum StreamType {
     Audio,
     /// Subtitles.
     Subtitles,
-    /// Any data stream (or might be an unrecognized audio/video stream).
+    /// Any data stream (or might be an unrecognised audio/video stream).
     Data,
     /// Nonexistent stream.
     #[default]
