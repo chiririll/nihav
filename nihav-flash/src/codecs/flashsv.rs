@@ -416,7 +416,7 @@ const DEFAULT_PAL: [u8; 128 * 3] = [
 ];
 
 const BGR24_FORMAT: NAPixelFormaton = NAPixelFormaton {
-        model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+        model: ColourModel::RGB(RGBSubmodel::RGB), components: 3,
         comp_info: [
             Some(NAPixelChromaton{
                 h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 3 }),

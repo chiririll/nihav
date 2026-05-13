@@ -216,7 +216,7 @@ impl Kernel for RgbToYuv {
 
         let mut df = dest_fmt.fmt;
         make_rgb2yuv(YUV_PARAMS[mode][0], YUV_PARAMS[mode][1], &mut self.matrix);
-        if let ColorModel::YUV(yuvsm) = df.get_model() {
+        if let ColourModel::YUV(yuvsm) = df.get_model() {
             match yuvsm {
             YUVSubmodel::YCbCr  => {},
             YUVSubmodel::YIQ    => { apply_ntsc_rgb2yiq(SMPTE_NTSC_COEFFS, &mut self.matrix); },
@@ -417,7 +417,7 @@ impl Kernel for YuvToRgb {
         df.palette = false;
         if !df.is_unpacked() || df.get_max_depth() != 8 || df.get_total_depth() != df.get_num_comp() as u8 * 8 {
             df = NAPixelFormaton {
-                    model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+                    model: ColourModel::RGB(RGBSubmodel::RGB), components: 3,
                     comp_info: [
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1 }),
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 1, next_elem: 1 }),
@@ -431,7 +431,7 @@ impl Kernel for YuvToRgb {
             }
         }
         make_yuv2rgb(YUV_PARAMS[mode][0], YUV_PARAMS[mode][1], &mut self.matrix);
-        if let ColorModel::YUV(yuvsm) = in_fmt.fmt.get_model() {
+        if let ColourModel::YUV(yuvsm) = in_fmt.fmt.get_model() {
             match yuvsm {
                 YUVSubmodel::YCbCr  => {},
                 YUVSubmodel::YIQ    => {

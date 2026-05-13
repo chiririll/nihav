@@ -133,11 +133,11 @@ impl<'a> Y4MDemuxer<'a> {
                         }
                     }
                     if format.model.is_yuv() {
-                        format.model = ColorModel::YUV(YUVSubmodel::YCbCr);
+                        format.model = ColourModel::YUV(YUVSubmodel::YCbCr);
                         if fmt_str.len() > 3 {
                             let (_, tail) = fmt_str.split_at(3);
                             if tail == b"jpeg" {
-                                format.model = ColorModel::YUV(YUVSubmodel::YUVJ);
+                                format.model = ColourModel::YUV(YUVSubmodel::YUVJ);
                             }
                         }
                     }

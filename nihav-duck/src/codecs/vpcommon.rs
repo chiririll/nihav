@@ -3,7 +3,7 @@ use nihav_codec_support::codecs::blockdsp;
 use nihav_codec_support::codecs::blockdsp::*;
 
 pub const VP_YUVA420_FORMAT: NAPixelFormaton = NAPixelFormaton{
-        model:      ColorModel::YUV(YUVSubmodel::YUVJ),
+        model:      ColourModel::YUV(YUVSubmodel::YUVJ),
         components: 4,
         comp_info:  [
                 Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}),

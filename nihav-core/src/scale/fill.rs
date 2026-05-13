@@ -45,8 +45,8 @@ impl Kernel for FillKernel {
                 }
                 if num_icore < num_ocore {
                     let fill_val = match ofmt.model {
-                            ColorModel::RGB(_) => 0x00,
-                            ColorModel::YUV(_) => 0x80,
+                            ColourModel::RGB(_) => 0x00,
+                            ColourModel::YUV(_) => 0x80,
                             _ => unimplemented!(),
                         };
                     for plane_no in num_icore..num_ocore {

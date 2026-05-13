@@ -1132,14 +1132,14 @@ impl NADecoder for BinkDecoder {
 
             let aplane = if self.has_alpha { Some(NAPixelChromaton::new(0, 0, false, 8, 0, 3, 1)) } else { None };
             let fmt = if !self.is_gray {
-                    NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
+                    NAPixelFormaton::new(ColourModel::YUV(YUVSubmodel::YUVJ),
                                          Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
                                          Some(NAPixelChromaton::new(1, 1, false, 8, 0, 1, 1)),
                                          Some(NAPixelChromaton::new(1, 1, false, 8, 0, 2, 1)),
                                          aplane, None,
                                          0, if self.has_alpha { 4 } else { 3 } )
                 } else {
-                    NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
+                    NAPixelFormaton::new(ColourModel::YUV(YUVSubmodel::YUVJ),
                                          Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
                                          None, None, None, None, 0, 1)
                 };

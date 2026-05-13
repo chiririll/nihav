@@ -97,7 +97,7 @@ impl DecoderWrapper {
             }
         }
         let formaton = NAPixelFormaton {
-                model:      ColorModel::YUV(YUVSubmodel::YUVJ),
+                model:      ColourModel::YUV(YUVSubmodel::YUVJ),
                 components: nf as u8,
                 comp_info:  chromatons,
                 elem_size:  0,

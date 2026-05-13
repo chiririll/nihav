@@ -169,7 +169,7 @@ impl BMVVideoDecoder {
 impl NADecoder for BMVVideoDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(_vinfo) = info.get_properties() {
-            let fmt = NAPixelFormaton::new(ColorModel::RGB(RGBSubmodel::RGB),
+            let fmt = NAPixelFormaton::new(ColourModel::RGB(RGBSubmodel::RGB),
                                            Some(NAPixelChromaton::new(0, 0, true, 8, 0, 0, 3)),
                                            Some(NAPixelChromaton::new(0, 0, true, 8, 0, 1, 3)),
                                            Some(NAPixelChromaton::new(0, 0, true, 8, 0, 2, 3)),

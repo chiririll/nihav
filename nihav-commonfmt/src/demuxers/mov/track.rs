@@ -17,7 +17,7 @@ macro_rules! mktag {
 const QT_RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton::make_rgb16_fmt(5, 5, 5, true, true);
 
 pub const ARGB_FORMAT: NAPixelFormaton = NAPixelFormaton {
-        model: ColorModel::RGB(RGBSubmodel::RGB), components: 4,
+        model: ColourModel::RGB(RGBSubmodel::RGB), components: 4,
         comp_info: [
             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 4 }),
             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 4 }),

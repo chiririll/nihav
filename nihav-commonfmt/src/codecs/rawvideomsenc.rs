@@ -1,7 +1,7 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 
-pub const BGR24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+pub const BGR24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::RGB(RGBSubmodel::RGB), components: 3,
                                         comp_info: [
                                             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 3 }),
                                             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 3 }),
@@ -9,7 +9,7 @@ pub const BGR24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::R
                                             None, None],
                                         elem_size: 3, be: false, alpha: false, palette: false };
 
-pub const BGR32_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 4,
+pub const BGR32_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::RGB(RGBSubmodel::RGB), components: 4,
                                         comp_info: [
                                             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 4 }),
                                             Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 4 }),

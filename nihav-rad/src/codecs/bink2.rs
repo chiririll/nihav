@@ -1925,7 +1925,7 @@ impl NADecoder for Bink2Decoder {
             self.slice_h[self.num_slices - 1] = height_a >> 5;
 
             let aplane = if self.has_alpha { Some(NAPixelChromaton::new(0, 0, false, 8, 0, 3, 1)) } else { None };
-            let fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
+            let fmt = NAPixelFormaton::new(ColourModel::YUV(YUVSubmodel::YUVJ),
                                            Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
                                            Some(NAPixelChromaton::new(1, 1, false, 8, 0, 1, 1)),
                                            Some(NAPixelChromaton::new(1, 1, false, 8, 0, 2, 1)),

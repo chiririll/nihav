@@ -383,7 +383,7 @@ impl fmt::Display for YUVSubmodel {
 
 /// A list of known colour models.
 #[derive(Debug, Clone,Copy,PartialEq)]
-pub enum ColorModel {
+pub enum ColourModel {
     RGB(RGBSubmodel),
     YUV(YUVSubmodel),
     CMYK,
@@ -392,46 +392,46 @@ pub enum ColorModel {
     XYZ,
 }
 
-impl ColorModel {
+impl ColourModel {
     /// Returns the number of colour model components.
     ///
     /// The actual image may have more components e.g. alpha component.
     pub fn get_default_components(self) -> usize {
         match self {
-            ColorModel::CMYK => 4,
-            _                => 3,
+            ColourModel::CMYK => 4,
+            _                 => 3,
         }
     }
     /// Reports whether the current colour model is RGB.
     pub fn is_rgb(self) -> bool {
-        matches!(self, ColorModel::RGB(_))
+        matches!(self, ColourModel::RGB(_))
     }
     /// Reports whether the current colour model is YUV.
     pub fn is_yuv(self) -> bool {
-        matches!(self, ColorModel::YUV(_))
+        matches!(self, ColourModel::YUV(_))
     }
     /// Returns short name for the current colour mode.
     pub fn get_short_name(self) -> &'static str {
         match self {
-            ColorModel::RGB(_)   => "rgb",
-            ColorModel::YUV(_)   => "yuv",
-            ColorModel::CMYK     => "cmyk",
-            ColorModel::HSV      => "hsv",
-            ColorModel::LAB      => "lab",
-            ColorModel::XYZ      => "xyz",
+            ColourModel::RGB(_)   => "rgb",
+            ColourModel::YUV(_)   => "yuv",
+            ColourModel::CMYK     => "cmyk",
+            ColourModel::HSV      => "hsv",
+            ColourModel::LAB      => "lab",
+            ColourModel::XYZ      => "xyz",
         }
     }
 }
 
-impl fmt::Display for ColorModel {
+impl fmt::Display for ColourModel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match *self {
-            ColorModel::RGB(fmt) => format!("RGB({})", fmt),
-            ColorModel::YUV(fmt) => format!("YUV({})", fmt),
-            ColorModel::CMYK     => "CMYK".to_string(),
-            ColorModel::HSV      => "HSV".to_string(),
-            ColorModel::LAB      => "LAB".to_string(),
-            ColorModel::XYZ      => "XYZ".to_string(),
+            ColourModel::RGB(fmt) => format!("RGB({})", fmt),
+            ColourModel::YUV(fmt) => format!("YUV({})", fmt),
+            ColourModel::CMYK     => "CMYK".to_string(),
+            ColourModel::HSV      => "HSV".to_string(),
+            ColourModel::LAB      => "LAB".to_string(),
+            ColourModel::XYZ      => "XYZ".to_string(),
         };
         write!(f, "{}", name)
     }
@@ -484,7 +484,7 @@ pub const MAX_CHROMATONS: usize = 5;
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub struct NAPixelFormaton {
     /// Image colour model.
-    pub model:      ColorModel,
+    pub model:      ColourModel,
     /// Actual number of components present.
     pub components: u8,
     /// Format definition for each component.
@@ -517,7 +517,7 @@ macro_rules! chromaton {
 }
 
 /// Predefined format for planar 8-bit YUV with 4:2:0 subsampling.
-pub const YUV420_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+pub const YUV420_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 3,
                                         comp_info: [
                                             chromaton!(0, 0, false, 8, 0, 0, 1),
                                             chromaton!(yuv8; 1, 1, 1),
@@ -526,7 +526,7 @@ pub const YUV420_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::
                                         elem_size: 0, be: false, alpha: false, palette: false };
 
 /// Predefined format for planar 8-bit YUV with 4:1:0 subsampling.
-pub const YUV410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+pub const YUV410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 3,
                                         comp_info: [
                                             chromaton!(0, 0, false, 8, 0, 0, 1),
                                             chromaton!(yuv8; 2, 2, 1),
@@ -534,7 +534,7 @@ pub const YUV410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::
                                             None, None],
                                         elem_size: 0, be: false, alpha: false, palette: false };
 /// Predefined format for planar 8-bit YUV with 4:1:0 subsampling and alpha component.
-pub const YUVA410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 4,
+pub const YUVA410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 4,
                                         comp_info: [
                                             chromaton!(0, 0, false, 8, 0, 0, 1),
                                             chromaton!(yuv8; 2, 2, 1),
@@ -544,7 +544,7 @@ pub const YUVA410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel:
                                         elem_size: 0, be: false, alpha: true, palette: false };
 
 /// Predefined format with RGB24 palette.
-pub const PAL8_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+pub const PAL8_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::RGB(RGBSubmodel::RGB), components: 3,
                                         comp_info: [
                                             chromaton!(pal8; 0),
                                             chromaton!(pal8; 1),
@@ -559,7 +559,7 @@ pub const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton::make_rgb16_fmt(5, 5,
 pub const RGB565_FORMAT: NAPixelFormaton = NAPixelFormaton::make_rgb16_fmt(5, 6, 5, true, false);
 
 /// Predefined format for RGB24.
-pub const RGB24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+pub const RGB24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::RGB(RGBSubmodel::RGB), components: 3,
                                         comp_info: [
                                             chromaton!(packrgb; 8, 0, 0, 3),
                                             chromaton!(packrgb; 8, 0, 1, 3),
@@ -623,7 +623,7 @@ impl fmt::Display for NAPixelChromaton {
 
 impl NAPixelFormaton {
     /// Constructs a new instance of `NAPixelFormaton`.
-    pub fn new(model: ColorModel,
+    pub fn new(model: ColourModel,
                comp1: Option<NAPixelChromaton>,
                comp2: Option<NAPixelChromaton>,
                comp3: Option<NAPixelChromaton>,
@@ -648,7 +648,7 @@ impl NAPixelFormaton {
     }
 
     /// Returns current colour model.
-    pub fn get_model(&self) -> ColorModel { self.model }
+    pub fn get_model(&self) -> ColourModel { self.model }
     /// Returns the number of components.
     pub fn get_num_comp(&self) -> usize { self.components as usize }
     /// Returns selected component information.
@@ -701,7 +701,7 @@ impl NAPixelFormaton {
     /// Returns a short string description of the format if possible.
     pub fn to_short_string(&self) -> Option<String> {
         match self.model {
-            ColorModel::RGB(_) => {
+            ColourModel::RGB(_) => {
                 if self.is_paletted() {
                     if *self == PAL8_FORMAT {
                         return Some("pal8".to_string());
@@ -760,7 +760,7 @@ impl NAPixelFormaton {
                 }
                 Some(name)
             },
-            ColorModel::YUV(_) => {
+            ColourModel::YUV(_) => {
                 let max_depth = self.get_max_depth();
                 if self.get_total_depth() != max_depth * self.components {
                     return None;
@@ -813,7 +813,7 @@ impl NAPixelFormaton {
             Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: bbits, shift: bshift, comp_offs: 0, next_elem: 2}),
                 None, None
         ];
-        NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB),
+        NAPixelFormaton { model: ColourModel::RGB(RGBSubmodel::RGB),
                           components: 3,
                           comp_info: chromatons,
                           elem_size: 2,
@@ -944,7 +944,7 @@ fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
             },
             _ => return Err(FormatParseError {}),
         };
-    Ok(NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB),
+    Ok(NAPixelFormaton { model: ColourModel::RGB(RGBSubmodel::RGB),
                          components,
                          comp_info: chromatons,
                          elem_size,
@@ -955,7 +955,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
     match s {
         "y8" | "y400" | "grey" | "gray" => {
             return Ok(NAPixelFormaton {
-                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 1,
+                    model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 1,
                     comp_info: [
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1 }),
                         None, None, None, None],
@@ -963,7 +963,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
         },
         "y8a" | "y400a" | "greya" | "graya" => {
             return Ok(NAPixelFormaton {
-                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 2,
+                    model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 2,
                     comp_info: [
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 2 }),
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 1, next_elem: 2 }),
@@ -972,7 +972,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
         },
         "uyvy" | "y422" => {
             return Ok(NAPixelFormaton {
-                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                    model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 3,
                     comp_info: [
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 2 }),
                         Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 4 }),
@@ -982,7 +982,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
         },
         "yuy2" | "yuyv" | "v422" => {
             return Ok(NAPixelFormaton {
-                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                    model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 3,
                     comp_info: [
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 2 }),
                         Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 4 }),
@@ -992,7 +992,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
         },
         "yvyu" => {
             return Ok(NAPixelFormaton {
-                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                    model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 3,
                     comp_info: [
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 2 }),
                         Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 3, next_elem: 4 }),
@@ -1002,7 +1002,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
         },
         "vyuy" => {
             return Ok(NAPixelFormaton {
-                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                    model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 3,
                     comp_info: [
                         Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 2 }),
                         Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 4 }),
@@ -1061,7 +1061,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
     for (i, (chro, ss)) in chromatons.iter_mut().take(components as usize).zip(subsamp.iter()).enumerate() {
         *chro = Some(NAPixelChromaton{ h_ss: ss[0], v_ss: ss[1], packed: !is_planar, depth, shift: 0, comp_offs: if is_planar { i as u8 } else { next_elem }, next_elem });
     }
-    Ok(NAPixelFormaton { model: ColorModel::YUV(YUVSubmodel::YUVJ),
+    Ok(NAPixelFormaton { model: ColourModel::YUV(YUVSubmodel::YUVJ),
                          components,
                          comp_info: chromatons,
                          elem_size: components,

@@ -64,7 +64,7 @@ impl NAEncoder for RawEncoder {
                 let vinfo = vbuf.get_info();
                 let src = vbuf.get_data();
                 match vinfo.format.model {
-                    ColorModel::RGB(_) if vinfo.format.is_paletted() => {
+                    ColourModel::RGB(_) if vinfo.format.is_paletted() => {
                         let (width, height) = vbuf.get_dimensions(0);
                         let sstride = vbuf.get_stride(0);
                         let dstride = width;
@@ -160,7 +160,7 @@ impl NAEncoder for RawEncoder {
 
                         return Ok(());
                     },
-                    ColorModel::RGB(_) => {
+                    ColourModel::RGB(_) => {
                         if vinfo.format.elem_size == 0 {
                             return Err(EncoderError::FormatError);
                         }
@@ -172,10 +172,10 @@ impl NAEncoder for RawEncoder {
                             dbuf.extend_from_slice(&line[..dstride]);
                         }
                     },
-                    ColorModel::YUV(_) if !vinfo.format.is_unpacked() => { // packed YUV should be fine as is
+                    ColourModel::YUV(_) if !vinfo.format.is_unpacked() => { // packed YUV should be fine as is
                         dbuf = src.clone();
                     },
-                    ColorModel::YUV(_) => {
+                    ColourModel::YUV(_) => {
                         dbuf = Vec::with_capacity(src.len());
                         for (comp, cinfo) in vinfo.format.comp_info.iter().enumerate() {
                             if cinfo.is_none() {

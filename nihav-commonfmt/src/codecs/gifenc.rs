@@ -3,7 +3,7 @@ use nihav_core::io::byteio::*;
 use nihav_core::io::bitwriter::*;
 
 const GRAY_FORMAT: NAPixelFormaton = NAPixelFormaton {
-        model: ColorModel::YUV(YUVSubmodel::YUVJ),
+        model: ColourModel::YUV(YUVSubmodel::YUVJ),
         components: 1,
         comp_info: [Some(NAPixelChromaton{h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), None, None, None, None],
         elem_size: 1,

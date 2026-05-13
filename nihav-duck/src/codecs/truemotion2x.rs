@@ -553,7 +553,7 @@ impl TM2XDecoder {
 impl NADecoder for TM2XDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
+            let fmt = NAPixelFormaton::new(ColourModel::YUV(YUVSubmodel::YUVJ),
                                            Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
                                            Some(NAPixelChromaton::new(0, 0, false, 8, 0, 1, 1)),
                                            Some(NAPixelChromaton::new(0, 0, false, 8, 0, 2, 1)),
