@@ -7,7 +7,7 @@ use std::io::SeekFrom;
 #[derive(Clone,Copy,PartialEq)]
 enum DecodeMode {
     YUV,
-    Gray,
+    Grey,
     Palette,
     Unknown,
 }
@@ -44,7 +44,7 @@ fn put_block(block: &[u8; 24], x: usize, y: usize, frm: &mut NASimpleVideoFrame<
     }
 }
 
-fn put_block_gray(block: &[u8; 24], x: usize, y: usize, frm: &mut NASimpleVideoFrame<u8>) {
+fn put_block_grey(block: &[u8; 24], x: usize, y: usize, frm: &mut NASimpleVideoFrame<u8>) {
     let mut yoff = frm.offset[0] + x + y * frm.stride[0];
     for i in 0..4 {
         for j in 0..4 {
@@ -214,7 +214,7 @@ impl CinepakDecoder {
                 if self.mode == DecodeMode::YUV {
                     put_block(&block, x, y, frm);
                 } else {
-                    put_block_gray(&block, x, y, frm);
+                    put_block_grey(&block, x, y, frm);
                 }
                 x += 4;
                 if x >= xend {
@@ -272,7 +272,7 @@ impl NADecoder for CinepakDecoder {
                     break;
                 },
                 0x24..=0x27 => {
-                    mode = DecodeMode::Gray;
+                    mode = DecodeMode::Grey;
                     break;
                 },
                 _ => {
@@ -304,7 +304,7 @@ impl NADecoder for CinepakDecoder {
                 validate!(is_intra);
                 let fmt = match mode {
                         DecodeMode::YUV     => YUV420_FORMAT,
-                        DecodeMode::Gray    => GREY_FORMAT,
+                        DecodeMode::Grey    => GREY_FORMAT,
                         DecodeMode::Palette => PAL8_FORMAT,
                         _ => unreachable!(),
                     };
@@ -427,7 +427,7 @@ mod test {
                         [0x9c090a08, 0x43071726, 0x26236b5a, 0x79595848]]));
     }
     #[test]
-    fn test_cinepak_gray() {
+    fn test_cinepak_grey() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();

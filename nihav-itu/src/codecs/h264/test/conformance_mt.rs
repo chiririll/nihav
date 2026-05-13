@@ -335,8 +335,8 @@ const FREXT_420_8_TEST_STREAMS: &[(&str, [u32; 4])] = &[
     ("FRext/HPCVNL_BRCM_A.264", [0x441E6C4F, 0x861B69E6, 0xC007EEFB, 0x820D6494]),
     /*("FRext/HPCVFL_BRCM_A.264", [0;4]), //PAFF
     ("FRext/HPCVFLNL_BRCM_A.264", [0;4]),*/
-    //("FRext/HPCVMOLQ_BRCM_B.264", [0;4]), //grayscale
-    //("FRext/HPCAMOLQ_BRCM_B.264", [0;4]), //grayscale
+    //("FRext/HPCVMOLQ_BRCM_B.264", [0;4]), //greyscale
+    //("FRext/HPCAMOLQ_BRCM_B.264", [0;4]), //greyscale
     ("FRext/HPCAQ2LQ_BRCM_B.264", [0xEF0F86EC, 0x8C1C79BA, 0xFA5DFB57, 0x85C2C4FC]),
     ("FRext/Freh1_B.264", [0x852901B5, 0xC0F54669, 0xD32B9487, 0x40A2BAD9]),
     ("FRext/Freh2_B.264", [0x28432234, 0x311A2C63, 0x6FE630A8, 0x007AA51E]),

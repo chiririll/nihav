@@ -917,7 +917,7 @@ impl NADecoder for ClearVideoDecoder {
         }
 
         if (src[off] & 0xBF) == 5 {
-            // reset reference frame into grayscale
+            // reset reference frame into greyscale
             unimplemented!();
         }
         self.weighted = (src[off] & 0x40) != 0;

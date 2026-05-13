@@ -211,7 +211,7 @@ struct GIFEncoder {
     first:      bool,
     width:      usize,
     height:     usize,
-    grayscale:  bool,
+    greyscale:  bool,
     lzw:        LZWEncoder,
     p_trans:    bool,
     tr_idx:     Option<u8>,
@@ -229,7 +229,7 @@ impl GIFEncoder {
             first:      true,
             width:      0,
             height:     0,
-            grayscale:  false,
+            greyscale:  false,
             lzw:        LZWEncoder::new(),
             p_trans:    false,
             tr_idx:     None,
@@ -283,7 +283,7 @@ impl NAEncoder for GIFEncoder {
                 }
                 self.width  = vinfo.width;
                 self.height = vinfo.height;
-                self.grayscale = vinfo.format == GREY_FORMAT;
+                self.greyscale = vinfo.format == GREY_FORMAT;
 
                 let edata = self.tr_idx.map(|val| vec![val]);
 
@@ -325,7 +325,7 @@ impl NAEncoder for GIFEncoder {
 
                 let cur_pal = &src[buf.get_offset(1)..][..768];
                 if self.first {
-                    if !self.grayscale {
+                    if !self.greyscale {
                         self.pal.copy_from_slice(cur_pal);
                     } else {
                         for (i, pal) in self.pal.chunks_exact_mut(3).enumerate() {
@@ -337,7 +337,7 @@ impl NAEncoder for GIFEncoder {
                 }
 
                 let mut pal_changed = false;
-                if !self.first && !self.grayscale {
+                if !self.first && !self.greyscale {
                     let mut used = [false; 256];
                     for &b in self.cur_frm.iter() {
                         used[usize::from(b)] = true;
@@ -473,7 +473,7 @@ impl NAEncoder for GIFEncoder {
         self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, self.first, dbuf));
         self.first = false;
 
-        if !self.grayscale {
+        if !self.greyscale {
             if let NABufferType::Video(ref buf) = frm.get_buffer() {
                 let paloff = buf.get_offset(1);
                 let data = buf.get_data();

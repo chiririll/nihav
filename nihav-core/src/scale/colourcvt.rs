@@ -243,7 +243,7 @@ impl Kernel for RgbToYuv {
     fn process(&mut self, pic_in: &NABufferType, pic_out: &mut NABufferType) {
         if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf(), pic_out.get_vbuf()) {
             if dbuf.get_info().get_format().get_num_comp() < 3 {
-                return self.process_grayscale(sbuf, dbuf);
+                return self.process_greyscale(sbuf, dbuf);
             }
             let istrides = [sbuf.get_stride(0), sbuf.get_stride(1), sbuf.get_stride(2)];
             let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
@@ -277,7 +277,7 @@ impl Kernel for RgbToYuv {
             }
         } else if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf16(), pic_out.get_vbuf16()) {
             if dbuf.get_info().get_format().get_num_comp() < 3 {
-                return self.process_grayscale16(sbuf, dbuf);
+                return self.process_greyscale16(sbuf, dbuf);
             }
             let istrides = [sbuf.get_stride(0), sbuf.get_stride(1), sbuf.get_stride(2)];
             let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
@@ -322,7 +322,7 @@ impl Kernel for RgbToYuv {
 }
 
 impl RgbToYuv {
-    fn process_grayscale(&self, sbuf: &NAVideoBuffer<u8>, dbuf: &mut NAVideoBuffer<u8>) {
+    fn process_greyscale(&self, sbuf: &NAVideoBuffer<u8>, dbuf: &mut NAVideoBuffer<u8>) {
         let istrides = [sbuf.get_stride(0), sbuf.get_stride(1), sbuf.get_stride(2)];
         let ystride = dbuf.get_stride(0);
         let (w, h) = sbuf.get_dimensions(0);
@@ -348,7 +348,7 @@ impl RgbToYuv {
             yoff += ystride;
         }
     }
-    fn process_grayscale16(&self, sbuf: &NAVideoBuffer<u16>, dbuf: &mut NAVideoBuffer<u16>) {
+    fn process_greyscale16(&self, sbuf: &NAVideoBuffer<u16>, dbuf: &mut NAVideoBuffer<u16>) {
         let istrides = [sbuf.get_stride(0), sbuf.get_stride(1), sbuf.get_stride(2)];
         let ystride = dbuf.get_stride(0);
         let (w, h) = sbuf.get_dimensions(0);
@@ -484,7 +484,7 @@ impl Kernel for YuvToRgb {
             let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
             let (w, h) = sbuf.get_dimensions(0);
             if sbuf.get_info().get_format().get_num_comp() < 3 {
-                return self.process_grayscale(sbuf, dbuf);
+                return self.process_greyscale(sbuf, dbuf);
             }
             let (sv0, sh0) = sbuf.get_info().get_format().get_chromaton(1).unwrap().get_subsampling();
             let (sv1, sh1) = sbuf.get_info().get_format().get_chromaton(2).unwrap().get_subsampling();
@@ -552,7 +552,7 @@ impl Kernel for YuvToRgb {
             let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
             let (w, h) = sbuf.get_dimensions(0);
             if sbuf.get_info().get_format().get_num_comp() < 3 {
-                return self.process_grayscale16(sbuf, dbuf);
+                return self.process_greyscale16(sbuf, dbuf);
             }
             let yshift = sbuf.get_info().get_format().get_chromaton(0).unwrap().get_depth() - 8;
             let ushift = sbuf.get_info().get_format().get_chromaton(1).unwrap().get_depth() - 8;
@@ -625,7 +625,7 @@ impl Kernel for YuvToRgb {
 }
 
 impl YuvToRgb {
-    fn process_grayscale(&self, sbuf: &NAVideoBuffer<u8>, dbuf: &mut NAVideoBuffer<u8>) {
+    fn process_greyscale(&self, sbuf: &NAVideoBuffer<u8>, dbuf: &mut NAVideoBuffer<u8>) {
         let ystride = sbuf.get_stride(0);
         let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
         let (w, h) = sbuf.get_dimensions(0);
@@ -667,7 +667,7 @@ impl YuvToRgb {
             }
         }
     }
-    fn process_grayscale16(&self, sbuf: &NAVideoBuffer<u16>, dbuf: &mut NAVideoBuffer<u8>) {
+    fn process_greyscale16(&self, sbuf: &NAVideoBuffer<u16>, dbuf: &mut NAVideoBuffer<u8>) {
         let ystride = sbuf.get_stride(0);
         let dstrides = [dbuf.get_stride(0), dbuf.get_stride(1), dbuf.get_stride(2)];
         let yshift = sbuf.get_info().get_format().get_chromaton(0).unwrap().get_depth() - 8;

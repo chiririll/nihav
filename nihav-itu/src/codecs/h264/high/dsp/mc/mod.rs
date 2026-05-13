@@ -239,7 +239,7 @@ impl H264MC {
         }
     }
 
-    pub fn gray_block(&mut self, frm: &mut NASimpleVideoFrame<u16>, x: usize, y: usize, w: usize, h: usize) {
+    pub fn grey_block(&mut self, frm: &mut NASimpleVideoFrame<u16>, x: usize, y: usize, w: usize, h: usize) {
         let fill = 1 << (self.depth - 1);
         let yoff = frm.offset[0] + x + y * frm.stride[0];
         let coff = [frm.offset[1] + x / 2 + y / 2 * frm.stride[1],

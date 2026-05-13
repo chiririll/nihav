@@ -244,7 +244,7 @@ fn do_p_mc(frm: &mut NASimpleVideoFrame<u16>, xpos: usize, ypos: usize, w: usize
             }
         }
     } else {
-        mc_dsp.gray_block(frm, xpos, ypos, w, h);
+        mc_dsp.grey_block(frm, xpos, ypos, w, h);
     }
 }
 
@@ -262,14 +262,14 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u16>, mode: BMode, xpos: usize, ypos: us
                 if let Some(buf) = ref_pic0 {
                     mc_dsp.do_mc(frm, buf, xpos, ypos, w, h, mv0);
                 } else {
-                    mc_dsp.gray_block(frm, xpos, ypos, w, h);
+                    mc_dsp.grey_block(frm, xpos, ypos, w, h);
                 }
             },
             BMode::L1 => {
                 if let Some(buf) = ref_pic1 {
                     mc_dsp.do_mc(frm, buf, xpos, ypos, w, h, mv1);
                 } else {
-                    mc_dsp.gray_block(frm, xpos, ypos, w, h);
+                    mc_dsp.grey_block(frm, xpos, ypos, w, h);
                 }
             },
             BMode::Bi => {
@@ -285,7 +285,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u16>, mode: BMode, xpos: usize, ypos: us
                         mc_dsp.do_mc(frm, buf1, xpos, ypos, w, h, mv1);
                     },
                     (None, None) => {
-                        mc_dsp.gray_block(frm, xpos, ypos, w, h);
+                        mc_dsp.grey_block(frm, xpos, ypos, w, h);
                     },
                 };
             },
@@ -362,7 +362,7 @@ fn do_b_mc(frm: &mut NASimpleVideoFrame<u16>, mode: BMode, xpos: usize, ypos: us
                 }
             },
             _ => {
-                mc_dsp.gray_block(frm, xpos, ypos, w, h);
+                mc_dsp.grey_block(frm, xpos, ypos, w, h);
             },
         };
     }
@@ -382,7 +382,7 @@ fn do_b_mc_4x4bi(frm: &mut NASimpleVideoFrame<u16>, xpos: usize, ypos: usize, mv
                 mc_dsp.do_mc(frm, buf1, xpos, ypos, 4, 4, mv[1]);
             },
             (None, None) => {
-                mc_dsp.gray_block(frm, xpos, ypos, 4, 4);
+                mc_dsp.grey_block(frm, xpos, ypos, 4, 4);
             },
         };
     } else {
@@ -421,7 +421,7 @@ fn do_b_mc_4x4bi(frm: &mut NASimpleVideoFrame<u16>, xpos: usize, ypos: usize, mv
                 }
             },
             _ => {
-                mc_dsp.gray_block(frm, xpos, ypos, 4, 4);
+                mc_dsp.grey_block(frm, xpos, ypos, 4, 4);
             },
         };
     }

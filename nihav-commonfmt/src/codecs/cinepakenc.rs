@@ -247,7 +247,7 @@ struct CinepakEncoder {
     v4_len:     usize,
     v1_idx:     Vec<u8>,
     v4_idx:     Vec<u8>,
-    grayscale:  bool,
+    greyscale:  bool,
     rng:        RNG,
     masks:      MaskWriter,
     skip_dist:  Vec<u32>,
@@ -345,7 +345,7 @@ impl CinepakEncoder {
             v4_cur_cb:  Vec::with_capacity(2),
             v1_len:     0,
             v4_len:     0,
-            grayscale:  false,
+            greyscale:  false,
             rng:        RNG::new(),
             v1_idx:     Vec::new(),
             v4_idx:     Vec::new(),
@@ -378,7 +378,7 @@ impl CinepakEncoder {
                         yblk[i + j * 4] = data[yoff + x + i + j * ystride];
                     }
                 }
-                if !self.grayscale {
+                if !self.greyscale {
                     for j in 0..2 {
                         for i in 0..2 {
                             ublk[i + j * 2] = data[uoff + x / 2 + i + j * ustride];
@@ -434,8 +434,8 @@ impl CinepakEncoder {
         let upd_size = cb_size * (new_cb.len() - skip_count) + (new_cb.len() + 31) / 32 * 4;
         upd_size < full_size
     }
-    fn write_cb(bw: &mut dyn ByteIO, mut id: u8, new_cb: &[YUVCode], old_cb: &[YUVCode], grayscale: bool, update: bool, num_elem: usize) -> EncoderResult<()> {
-        if grayscale {
+    fn write_cb(bw: &mut dyn ByteIO, mut id: u8, new_cb: &[YUVCode], old_cb: &[YUVCode], greyscale: bool, update: bool, num_elem: usize) -> EncoderResult<()> {
+        if greyscale {
             id |= 4;
         }
         if update {
@@ -447,7 +447,7 @@ impl CinepakEncoder {
         if !update {
             for entry in new_cb.iter().take(num_elem) {
                 bw.write_buf(&entry.y)?;
-                if !grayscale {
+                if !greyscale {
                     bw.write_byte(entry.u ^ 0x80)?;
                     bw.write_byte(entry.v ^ 0x80)?;
                 }
@@ -473,7 +473,7 @@ impl CinepakEncoder {
                 for j in 0..32 {
                     if new_cb[i + j] == old_cb[i + j] { continue; }
                     bw.write_buf(&new_cb[i + j].y)?;
-                    if !grayscale {
+                    if !greyscale {
                         bw.write_byte(new_cb[i + j].u ^ 0x80)?;
                         bw.write_byte(new_cb[i + j].v ^ 0x80)?;
                     }
@@ -536,7 +536,7 @@ impl CinepakEncoder {
                         data[coff]     = cb.y[2]; data[coff + 1] = cb.y[2];
                         data[coff + 2] = cb.y[3]; data[coff + 3] = cb.y[3];
 
-                        if !self.grayscale {
+                        if !self.greyscale {
                             let mut coff = uoff + x / 2;
                             data[coff] = cb.u; data[coff + 1] = cb.u;
                             coff += ustride;
@@ -570,7 +570,7 @@ impl CinepakEncoder {
                         data[coff]     = cb2.y[2]; data[coff + 1] = cb2.y[3];
                         data[coff + 2] = cb3.y[2]; data[coff + 3] = cb3.y[3];
 
-                        if !self.grayscale {
+                        if !self.greyscale {
                             let mut coff = uoff + x / 2;
                             data[coff] = cb0.u; data[coff + 1] = cb1.u;
                             coff += ustride;
@@ -625,7 +625,7 @@ impl CinepakEncoder {
                         roff += rystride;
                         ioff += iystride;
                     }
-                    if !self.grayscale {
+                    if !self.greyscale {
                         let mut roff = ruoff + x / 2;
                         let mut ioff = iuoff + x / 2;
                         let ud = i32::from(rdata[roff]) - i32::from(idata[ioff]);
@@ -776,7 +776,7 @@ impl CinepakEncoder {
                 self.v4_cb[self.cur_strip] = self.v4_cb[self.cur_strip - 1];
             }
             self.quant_vectors();
-            if self.grayscale {
+            if self.greyscale {
                 for cw in self.v1_cur_cb[self.cur_strip].iter_mut() {
                     cw.u = 128;
                     cw.v = 128;
@@ -864,7 +864,7 @@ impl CinepakEncoder {
 
             let mut is_intra_strip = start_line == 0;
             let (upd_v1, upd_v4) = if !is_intra_strip {
-                    let cb_size = if self.grayscale { 4 } else { 6 };
+                    let cb_size = if self.greyscale { 4 } else { 6 };
                     (Self::can_update_cb(&self.v1_cur_cb[self.cur_strip][..self.v1_len], &self.v1_cb[self.cur_strip][..self.v1_len], cb_size),
                      Self::can_update_cb(&self.v4_cur_cb[self.cur_strip][..self.v4_len], &self.v4_cb[self.cur_strip][..self.v4_len], cb_size))
                 } else {
@@ -881,8 +881,8 @@ impl CinepakEncoder {
             bw.write_u16be((end_line - start_line) as u16)?;
             bw.write_u16be(width as u16)?;
 
-            Self::write_cb(bw, 0x20, &self.v4_cur_cb[self.cur_strip], &self.v4_cb[self.cur_strip], self.grayscale, upd_v4, self.v4_len)?;
-            Self::write_cb(bw, 0x22, &self.v1_cur_cb[self.cur_strip], &self.v1_cb[self.cur_strip], self.grayscale, upd_v1, self.v1_len)?;
+            Self::write_cb(bw, 0x20, &self.v4_cur_cb[self.cur_strip], &self.v4_cb[self.cur_strip], self.greyscale, upd_v4, self.v4_len)?;
+            Self::write_cb(bw, 0x22, &self.v1_cur_cb[self.cur_strip], &self.v1_cb[self.cur_strip], self.greyscale, upd_v1, self.v1_len)?;
 
             self.render_stripe(true, start_line, end_line);
 
@@ -956,7 +956,7 @@ impl CinepakEncoder {
             self.calc_skip_dist(in_frm, start_line, end_line);
 
             self.quant_vectors();
-            if self.grayscale {
+            if self.greyscale {
                 for cw in self.v1_cur_cb[self.cur_strip].iter_mut() {
                     cw.u = 128;
                     cw.v = 128;
@@ -1068,7 +1068,7 @@ impl CinepakEncoder {
             self.masks.end();
 
             let (upd_v1, upd_v4) = {
-                    let cb_size = if self.grayscale { 4 } else { 6 };
+                    let cb_size = if self.greyscale { 4 } else { 6 };
                     (Self::can_update_cb(&self.v1_cur_cb[self.cur_strip][..self.v1_len], &self.v1_cb[self.cur_strip][..self.v1_len], cb_size),
                      Self::can_update_cb(&self.v4_cur_cb[self.cur_strip][..self.v4_len], &self.v4_cb[self.cur_strip][..self.v4_len], cb_size))
                 };
@@ -1080,8 +1080,8 @@ impl CinepakEncoder {
             bw.write_u16be((end_line - start_line) as u16)?;
             bw.write_u16be(width as u16)?;
 
-            Self::write_cb(bw, 0x20, &self.v4_cur_cb[self.cur_strip], &self.v4_cb[self.cur_strip], self.grayscale, upd_v4, self.v4_len)?;
-            Self::write_cb(bw, 0x22, &self.v1_cur_cb[self.cur_strip], &self.v1_cb[self.cur_strip], self.grayscale, upd_v1, self.v1_len)?;
+            Self::write_cb(bw, 0x20, &self.v4_cur_cb[self.cur_strip], &self.v4_cb[self.cur_strip], self.greyscale, upd_v4, self.v4_len)?;
+            Self::write_cb(bw, 0x22, &self.v1_cur_cb[self.cur_strip], &self.v1_cb[self.cur_strip], self.greyscale, upd_v1, self.v1_len)?;
 
             self.render_stripe(false, start_line, end_line);
 
@@ -1181,7 +1181,7 @@ impl NAEncoder for CinepakEncoder {
 
                 self.stream = Some(stream.clone());
                 self.quality = encinfo.quality;
-                self.grayscale = vinfo.format != YUV420_FORMAT;
+                self.greyscale = vinfo.format != YUV420_FORMAT;
                 let num_blocks = vinfo.width / 2 * vinfo.height / 2;
                 self.v1_entries = Vec::with_capacity(num_blocks);
                 self.v4_entries = Vec::with_capacity(num_blocks * 4);
