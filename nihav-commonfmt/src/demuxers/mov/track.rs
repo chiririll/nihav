@@ -416,9 +416,9 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 validate!(sample_size == 8 || sample_size == 16);
                                       br.read_u32be()?;
                 let sample_rate     = br.read_u32be()? >> 16;
-                let cname = if fcc == [0; 4] || &fcc == b"raw " { "pcm" } else { "unknown" };
+                let cname = if matches!(&fcc, &[0, 0, 0, 0] | b"raw " | b"twos") { "pcm" } else { "unknown" };
                 let mut soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
-                if sample_size == 8 {
+                if sample_size == 8 && &fcc != b"twos" {
                     soniton.signed = false;
                 }
                 let ahdr = NAAudioInfo::new(sample_rate, nchannels as u8, soniton, 1);
