@@ -19,7 +19,7 @@ use crate::frame::*;
 
 mod kernel;
 
-mod colorcvt;
+mod colourcvt;
 mod depth;
 mod fill;
 mod repack;
@@ -95,8 +95,8 @@ const KERNELS: &[KernelDesc] = &[
     KernelDesc { name: "scale",         create: scale::create_scale },
     KernelDesc { name: "shallow",       create: depth::create_shallow },
     KernelDesc { name: "fill",          create: fill::create_fill },
-    KernelDesc { name: "rgb_to_yuv",    create: colorcvt::create_rgb2yuv },
-    KernelDesc { name: "yuv_to_rgb",    create: colorcvt::create_yuv2rgb },
+    KernelDesc { name: "rgb_to_yuv",    create: colourcvt::create_rgb2yuv },
+    KernelDesc { name: "yuv_to_rgb",    create: colourcvt::create_yuv2rgb },
 ];
 
 struct Stage {
