@@ -552,6 +552,13 @@ pub const PAL8_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::R
                                             None, None],
                                         elem_size: 3, be: false, alpha: false, palette: true };
 
+/// Pre-defined format for 8-bit greyscale.
+pub const GREY_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColourModel::YUV(YUVSubmodel::YUVJ), components: 1,
+                                        comp_info: [
+                                            chromaton!(0, 0, false, 8, 0, 0, 1),
+                                            None, None, None, None],
+                                        elem_size: 1, be: true, alpha: false, palette: false };
+
 /// Predefined format for RGB555 packed video.
 pub const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton::make_rgb16_fmt(5, 5, 5, true, false);
 

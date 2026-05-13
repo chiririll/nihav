@@ -304,15 +304,7 @@ impl NADecoder for CinepakDecoder {
                 validate!(is_intra);
                 let fmt = match mode {
                         DecodeMode::YUV     => YUV420_FORMAT,
-                        DecodeMode::Gray    => NAPixelFormaton {
-                                model: ColourModel::YUV(YUVSubmodel::YUVJ),
-                                components: 1,
-                                comp_info: [Some(NAPixelChromaton{h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), None, None, None, None],
-                                elem_size: 1,
-                                be: true,
-                                alpha: false,
-                                palette: false,
-                            },
+                        DecodeMode::Gray    => GREY_FORMAT,
                         DecodeMode::Palette => PAL8_FORMAT,
                         _ => unreachable!(),
                     };

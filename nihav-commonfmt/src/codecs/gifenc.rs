@@ -2,16 +2,6 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_core::io::bitwriter::*;
 
-const GRAY_FORMAT: NAPixelFormaton = NAPixelFormaton {
-        model: ColourModel::YUV(YUVSubmodel::YUVJ),
-        components: 1,
-        comp_info: [Some(NAPixelChromaton{h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), None, None, None, None],
-        elem_size: 1,
-        be: true,
-        alpha: false,
-        palette: false,
-    };
-
 #[derive(Clone,Copy,Default,PartialEq)]
 enum CompressionLevel {
     None,
@@ -271,7 +261,7 @@ impl NAEncoder for GIFEncoder {
             },
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {
-                let format = if vinfo.format == GRAY_FORMAT { GRAY_FORMAT } else { PAL8_FORMAT };
+                let format = if vinfo.format == GREY_FORMAT { GREY_FORMAT } else { PAL8_FORMAT };
                 let outinfo = NAVideoInfo::new(vinfo.width, vinfo.height, false, format);
                 let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Video(outinfo);
@@ -288,12 +278,12 @@ impl NAEncoder for GIFEncoder {
                 if vinfo.width > 65535 || vinfo.height > 65535 {
                     return Err(EncoderError::FormatError);
                 }
-                if vinfo.format != PAL8_FORMAT && vinfo.format != GRAY_FORMAT {
+                if vinfo.format != PAL8_FORMAT && vinfo.format != GREY_FORMAT {
                     return Err(EncoderError::FormatError);
                 }
                 self.width  = vinfo.width;
                 self.height = vinfo.height;
-                self.grayscale = vinfo.format == GRAY_FORMAT;
+                self.grayscale = vinfo.format == GREY_FORMAT;
 
                 let edata = self.tr_idx.map(|val| vec![val]);
 

@@ -1,16 +1,6 @@
 use std::collections::VecDeque;
 use nihav_core::demuxers::*;
 
-const GRAY_FORMAT: NAPixelFormaton = NAPixelFormaton {
-    model: ColourModel::YUV(YUVSubmodel::YUVJ),
-    components: 1,
-    comp_info: [Some(NAPixelChromaton{h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), None, None, None, None],
-    elem_size: 1,
-    be: true,
-    alpha: false,
-    palette: false,
-};
-
 struct DVIDemuxer<'a> {
     src:            &'a mut dyn ByteIO,
     data_end:       u64,
@@ -182,7 +172,7 @@ impl<'a> DemuxCore<'a> for DVIDemuxer<'a> {
                         };
 
                     let fmt = match hdr_subtype {
-                            1 | 11 | 12 => GRAY_FORMAT, // Y/U/V component only
+                            1 | 11 | 12 => GREY_FORMAT, // Y/U/V component only
                             _ => YUV410_FORMAT,
                         };
 

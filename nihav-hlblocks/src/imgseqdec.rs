@@ -208,15 +208,8 @@ fn read_pnm_header(file: &mut BufReader<File>, pgmyuv: bool) -> DemuxerResult<NA
     let mut vinfo = NAVideoInfo::new(w, h, false, RGB24_FORMAT);
     match magic[1] {
         b'5' | b'2' if !pgmyuv => {
-            vinfo.format = NAPixelFormaton {
-                    model: ColourModel::YUV(YUVSubmodel::YUVJ),
-                    components: 1,
-                    comp_info: [Some(NAPixelChromaton{h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), None, None, None, None],
-                    elem_size: 1,
-                    be: true,
-                    alpha: false,
-                    palette: false,
-                };
+            // todo: modify format for different bit-depths
+            vinfo.format = GREY_FORMAT;
             vinfo.bits = bits;
         },
         b'5' | b'2' => {

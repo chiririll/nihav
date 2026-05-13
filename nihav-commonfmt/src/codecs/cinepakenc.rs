@@ -144,16 +144,6 @@ impl RNG {
     }
 }
 
-const GRAY_FORMAT: NAPixelFormaton = NAPixelFormaton {
-        model: ColourModel::YUV(YUVSubmodel::YUVJ),
-        components: 1,
-        comp_info: [Some(NAPixelChromaton{h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), None, None, None, None],
-        elem_size: 1,
-        be: true,
-        alpha: false,
-        palette: false,
-    };
-
 struct MaskWriter {
     masks:  Vec<u32>,
     mask:   u32,
@@ -1159,7 +1149,7 @@ impl NAEncoder for CinepakEncoder {
             },
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {
-                let pix_fmt = if vinfo.format == GRAY_FORMAT { GRAY_FORMAT } else { YUV420_FORMAT };
+                let pix_fmt = if vinfo.format == GREY_FORMAT { GREY_FORMAT } else { YUV420_FORMAT };
                 let outinfo = NAVideoInfo::new((vinfo.width + 3) & !3, (vinfo.height + 3) & !3, false, pix_fmt);
                 let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Video(outinfo);
@@ -1173,7 +1163,7 @@ impl NAEncoder for CinepakEncoder {
             NACodecTypeInfo::None => Err(EncoderError::FormatError),
             NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {
-                if vinfo.format != YUV420_FORMAT && vinfo.format != GRAY_FORMAT {
+                if vinfo.format != YUV420_FORMAT && vinfo.format != GREY_FORMAT {
                     return Err(EncoderError::FormatError);
                 }
                 if ((vinfo.width | vinfo.height) & 3) != 0 {
