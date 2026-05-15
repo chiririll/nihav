@@ -53,6 +53,8 @@ mod imaadpcm;
 
 #[cfg(feature="decoder_mace")]
 mod mace;
+#[cfg(any(feature="decoder_mace", feature="encoder_mace"))]
+mod macecommon;
 
 #[cfg(feature="decoder_qcelp")]
 #[allow(clippy::excessive_precision)]
