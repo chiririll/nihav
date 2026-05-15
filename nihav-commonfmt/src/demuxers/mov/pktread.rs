@@ -178,6 +178,10 @@ impl QTPacketDemuxer {
         if self.mode == PacketMode::AudioCBR && self.chunk_offsets.len() == self.chunk_sizes.len() && self.sample_map.is_empty() {
             self.mode = PacketMode::OneToOne;
         }
+        if self.mode == PacketMode::AudioCBR && &self.fcc == b"ima4" && self.bsize == 2 {
+            self.mode = PacketMode::RawAudio;
+            self.bsize = 34 * self.channels;
+        }
         self.is_data_stream = stream_type == StreamType::Data;
     }
     pub fn invent_keyframes(&mut self, intraonly: bool) {
