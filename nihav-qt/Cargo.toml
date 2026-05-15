@@ -51,5 +51,6 @@ encoder_rawvid = ["encoders"]
 encoder_rle = ["encoders"]
 encoder_rpza = ["encoders"]
 
-all_audio_encoders = ["encoder_mace"]
+all_audio_encoders = ["encoder_ima_adpcm_qt", "encoder_mace"]
+encoder_ima_adpcm_qt = ["encoders"]
 encoder_mace = ["encoders"]

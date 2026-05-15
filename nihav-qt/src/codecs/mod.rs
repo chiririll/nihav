@@ -125,6 +125,8 @@ mod rleenc;
 #[cfg(feature="encoder_rpza")]
 mod rpzaenc;
 
+#[cfg(feature="encoder_ima_adpcm_qt")]
+mod imaadpcmenc;
 #[cfg(feature="encoder_mace")]
 mod maceenc;
 
@@ -139,6 +141,8 @@ const QT_ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_rpza")]
     EncoderInfo { name: "apple-video", get_encoder: rpzaenc::get_encoder },
 
+#[cfg(feature="encoder_ima_adpcm_qt")]
+    EncoderInfo { name: "ima-adpcm-qt", get_encoder: imaadpcmenc::get_encoder },
 #[cfg(feature="encoder_mace")]
     EncoderInfo { name: "mace-3", get_encoder: maceenc::get_encoder_3 },
 #[cfg(feature="encoder_mace")]
