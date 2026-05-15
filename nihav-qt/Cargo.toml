@@ -13,7 +13,7 @@ path = "../nihav-codec-support"
 features = ["blockdsp", "fft", "qmf", "qt_pal"]
 
 [dev-dependencies]
-nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers", "muxer_mov"] }
+nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers", "muxer_mov", "decoder_pcm"] }
 
 [features]
 default = ["all_decoders", "all_demuxers", "all_encoders"]
@@ -51,4 +51,5 @@ encoder_rawvid = ["encoders"]
 encoder_rle = ["encoders"]
 encoder_rpza = ["encoders"]
 
-all_audio_encoders = []
+all_audio_encoders = ["encoder_mace"]
+encoder_mace = ["encoders"]

@@ -125,6 +125,9 @@ mod rleenc;
 #[cfg(feature="encoder_rpza")]
 mod rpzaenc;
 
+#[cfg(feature="encoder_mace")]
+mod maceenc;
+
 #[cfg(feature="encoders")]
 const QT_ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_rawvid")]
@@ -135,6 +138,11 @@ const QT_ENCODERS: &[EncoderInfo] = &[
     EncoderInfo { name: "qt-rle", get_encoder: rleenc::get_encoder },
 #[cfg(feature="encoder_rpza")]
     EncoderInfo { name: "apple-video", get_encoder: rpzaenc::get_encoder },
+
+#[cfg(feature="encoder_mace")]
+    EncoderInfo { name: "mace-3", get_encoder: maceenc::get_encoder_3 },
+#[cfg(feature="encoder_mace")]
+    EncoderInfo { name: "mace-6", get_encoder: maceenc::get_encoder_6 },
 ];
 
 /// Registers all available encoders provided by this crate.
