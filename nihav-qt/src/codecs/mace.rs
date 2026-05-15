@@ -44,9 +44,17 @@ impl NADecoder for MaceDecoder {
             let dst = adata.get_data_mut().unwrap();
 
             if !self.is_mace6 {
-                for src in pktbuf.chunks(channels) {
+                for src in pktbuf.chunks(channels * 2) {
                     for ch in 0..channels {
-                        let val = src[ch];
+                        let val = src[ch * 2];
+                        let idx0 = val & 7;
+                        let idx1 = (val >> 3) & 3;
+                        let idx2 = val >> 5;
+                        dst[off[ch]]     = self.ch_pred[ch].pred_mace3(idx0 as usize, false);
+                        dst[off[ch] + 1] = self.ch_pred[ch].pred_mace3(idx1 as usize, true);
+                        dst[off[ch] + 2] = self.ch_pred[ch].pred_mace3(idx2 as usize, false);
+                        off[ch] += 3;
+                        let val = src[ch * 2 + 1];
                         let idx0 = val & 7;
                         let idx1 = (val >> 3) & 3;
                         let idx2 = val >> 5;
