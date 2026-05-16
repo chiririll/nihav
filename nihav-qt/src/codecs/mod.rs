@@ -124,6 +124,8 @@ mod rawvidenc;
 mod rleenc;
 #[cfg(feature="encoder_rpza")]
 mod rpzaenc;
+#[cfg(feature="encoder_smc")]
+mod smcenc;
 
 #[cfg(feature="encoder_ima_adpcm_qt")]
 mod imaadpcmenc;
@@ -140,6 +142,8 @@ const QT_ENCODERS: &[EncoderInfo] = &[
     EncoderInfo { name: "qt-rle", get_encoder: rleenc::get_encoder },
 #[cfg(feature="encoder_rpza")]
     EncoderInfo { name: "apple-video", get_encoder: rpzaenc::get_encoder },
+#[cfg(feature="encoder_smc")]
+    EncoderInfo { name: "qt-smc", get_encoder: smcenc::get_encoder },
 
 #[cfg(feature="encoder_ima_adpcm_qt")]
     EncoderInfo { name: "ima-adpcm-qt", get_encoder: imaadpcmenc::get_encoder },
