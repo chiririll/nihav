@@ -2,24 +2,22 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_codec_support::codecs::imaadpcm::*;
 
-struct NibbleWriter<'a> {
-    bw:     &'a mut dyn ByteIO,
-    val:    u8,
-    first:  bool,
+struct NibbleWriter {
+    val:    u32,
+    pos:    u8,
 }
 
-impl<'a> NibbleWriter<'a> {
-    fn new(bw: &'a mut dyn ByteIO) -> Self {
-        Self { bw, val: 0, first: true }
+impl NibbleWriter {
+    fn new() -> Self {
+        Self { val: 0, pos: 0 }
     }
-    fn write(&mut self, nib: u8) -> EncoderResult<()> {
-        if self.first {
-            self.val = nib;
-            self.first = false;
-        } else {
-            self.val |= nib << 4;
-            self.bw.write_byte(self.val)?;
-            self.first = true;
+    fn write(&mut self, bw: &mut dyn ByteIO, nib: u8) -> EncoderResult<()> {
+        self.val |= u32::from(nib) << (self.pos * 4);
+        self.pos += 1;
+        if self.pos == 8 {
+            bw.write_u32le(self.val)?;
+            self.val = 0;
+            self.pos = 0;
         }
         Ok(())
     }
@@ -57,7 +55,7 @@ struct IMAADPCMEncoder {
     nibs:       Vec<Vec<u8>>,
 }
 
-const DEFAULT_BLOCK_LEN: usize = 256;
+const DEFAULT_BLOCK_LEN: usize = 256 + 1;
 
 impl IMAADPCMEncoder {
     fn new() -> Self { Self::default() }
@@ -81,18 +79,22 @@ impl IMAADPCMEncoder {
             self.first[ch].step = Self::calc_step(self.samples[ch], self.samples[ch + self.channels]) as usize;
         }
 
+        let mut nws = Vec::with_capacity(self.channels);
+        for _ in 0..self.channels {
+            nws.push(NibbleWriter::new());
+        }
         if !self.trellis {
             for ch in 0..self.channels {
                 bw.write_u16le(self.first[ch].predictor as u16)?;
                 bw.write_byte(self.first[ch].step as u8)?;
                 bw.write_byte(0)?;
             }
-            let mut nw = NibbleWriter::new(&mut bw);
             for samples in self.samples.chunks(self.channels).take(self.block_len).skip(1) {
-                for (state, &samp) in self.first.iter_mut().zip(samples.iter()) {
+                for ((state, nw), &samp) in self.first.iter_mut().zip(nws.iter_mut())
+                        .zip(samples.iter()) {
                     let nib = state.compress_sample(samp);
                     state.expand_sample(nib);
-                    nw.write(nib)?;
+                    nw.write(&mut bw, nib)?;
                 }
             }
         } else {
@@ -156,10 +158,9 @@ impl IMAADPCMEncoder {
                 bw.write_byte(self.nibs[ch][0])?;
                 bw.write_byte(0)?;
             }
-            let mut nw = NibbleWriter::new(&mut bw);
             for i in 1..self.block_len {
-                for ch in 0..self.channels {
-                    nw.write(self.nibs[ch][i])?;
+                for (ch, nw) in nws.iter_mut().enumerate() {
+                    nw.write(&mut bw, self.nibs[ch][i])?;
                 }
             }
         }
@@ -169,7 +170,7 @@ impl IMAADPCMEncoder {
         Ok(NAPacket::new(self.stream.clone().unwrap(), ts, true, dbuf))
     }
     fn calc_block_size(nsamps: usize, channels: usize) -> usize {
-        ((nsamps - 1) * channels + 1) / 2 + 4 * channels
+        (nsamps - 1) * channels / 2 + 4 * channels
     }
     fn calc_step(samp1: i16, samp2: i16) -> u8 {
         let diff = (i32::from(samp1) - i32::from(samp2)).abs();
@@ -201,13 +202,13 @@ impl NAEncoder for IMAADPCMEncoder {
                     outinfo.block_len = DEFAULT_BLOCK_LEN;
                 }
                 if outinfo.block_len == 1 && encinfo.tb_den != outinfo.sample_rate {
-                    outinfo.block_len = ((u64::from(outinfo.sample_rate) * u64::from(encinfo.tb_num) / u64::from(encinfo.tb_den) + 3) & !3) as usize;
+                    outinfo.block_len = ((u64::from(outinfo.sample_rate) * u64::from(encinfo.tb_num) / u64::from(encinfo.tb_den) + 7) & !7) as usize + 1;
                 }
                 if outinfo.block_len < 2 {
                     outinfo.block_len = 2;
                 }
-                if (outinfo.block_len & 7) != 0 {
-                    outinfo.block_len = (outinfo.block_len & 7) + 7;
+                if (outinfo.block_len & 7) != 1 {
+                    outinfo.block_len = ((outinfo.block_len + 7) & !7) + 1;
                 }
                 let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Audio(outinfo);
@@ -224,7 +225,7 @@ impl NAEncoder for IMAADPCMEncoder {
                 if ainfo.format != SND_S16P_FORMAT && ainfo.format != SND_S16_FORMAT {
                     return Err(EncoderError::FormatError);
                 }
-                if ainfo.block_len < 2 || ((ainfo.block_len * (ainfo.channels as usize)) & 7) != 0 {
+                if ainfo.block_len < 2 || (ainfo.block_len & 7) != 1 {
                     return Err(EncoderError::FormatError);
                 }
                 self.channels = ainfo.channels as usize;
@@ -360,7 +361,7 @@ mod test {
                 sample_rate:    0,
                 channels:       0,
                 format:         SND_S16_FORMAT,
-                block_len:      128,
+                block_len:      128 + 1,
             };
         let enc_params = EncodeParameters {
                 format:  NACodecTypeInfo::Audio(dst_ainfo),
@@ -381,11 +382,11 @@ mod test {
     #[test]
     fn test_ima_adpcm_ms_encoder_notrellis() {
         test_ima_adpcm_ms_encoder("msimaadpcm-notr.wav", false,
-            &[0x59909f10, 0xf0420dd2, 0xcfee7ef5, 0x7623caa3]);
+            &[0xdfcf31ae, 0x1afb15c6, 0x3f9216ec, 0x4d880cbb]);
     }
     #[test]
     fn test_ima_adpcm_ms_encoder_trellis() {
         test_ima_adpcm_ms_encoder("msimaadpcm-tr.wav", true,
-            &[0x99e373e2, 0x80439b4b, 0xcb4f0b78, 0xeb1e9a51]);
+            &[0x68a3bcf7, 0xc7c12352, 0xf26b860f, 0xd315dd5f]);
     }
 }
