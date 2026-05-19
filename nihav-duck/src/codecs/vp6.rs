@@ -623,4 +623,16 @@ mod test {
                             [0x79338328, 0x06113781, 0x8b116d18, 0xde56707e],
                             [0xdb58433b, 0x1de4ce67, 0x15fcbcee, 0x1df9de61]]));
     }
+    #[test]
+    fn test_vp6_alpha_huff() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        duck_register_all_decoders(&mut dec_reg);
+
+        // sample created by remuxing sample from https://github.com/ruffle-rs/ruffle/pull/23743
+        test_decoding("avi", "vp6a", "assets/Duck/vp6_alpha_one_frame.avi", None,
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0xb7980a10, 0x76f20efb, 0x3363c869, 0xbdc1aecc]]));
+    }
 }
