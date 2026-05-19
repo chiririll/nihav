@@ -135,7 +135,10 @@ impl<'a> AVIMuxer<'a> {
 
 fn patch_size(bw: &mut dyn ByteIO, pos: u64) -> MuxerResult<()> {
     let size = bw.tell() - pos;
-    bw.seek(SeekFrom::Current(-((size + 4) as i64)))?;
+    if (bw.tell() & 1) != 0 {
+        bw.write_byte(0)?;
+    }
+    bw.seek(SeekFrom::Current(-((((size + 1) & !1) + 4) as i64)))?;
     bw.write_u32le(size as u32)?;
     bw.seek(SeekFrom::End(0))?;
     Ok(())
