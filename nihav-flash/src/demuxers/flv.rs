@@ -47,7 +47,11 @@ impl<'a> DemuxCore<'a> for FLVDemuxer<'a> {
         validate!(first_prev_tag == 0);
 
         while (self.vtag.is_some() != has_video) || (self.atag.is_some() != has_audio) {
-            self.parse_tag(strmgr)?;
+            match self.parse_tag(strmgr) {
+                Ok(()) => {},
+                Err(DemuxerError::EOF) => break,
+                Err(err) => return Err(err),
+            }
             if self.apkts.len() > 100 || self.vpkts.len() > 100 {
                 return Err(DemuxerError::InvalidData);
             }
