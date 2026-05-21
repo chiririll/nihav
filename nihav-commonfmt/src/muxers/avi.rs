@@ -283,6 +283,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                         if depth == 15 {
                             depth = 16;
                         }
+                        if depth == 8 {
+                            depth = 24;
+                        }
                         self.bw.write_u16le(depth.into())?;
                     } else {
                         self.bw.write_u16le(1)?;
