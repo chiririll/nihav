@@ -88,6 +88,8 @@ pub fn generic_register_all_decoders(rd: &mut RegisteredDecoders) {
 mod cinepakenc;
 #[cfg(feature="encoder_gif")]
 mod gifenc;
+#[cfg(feature="encoder_jpeg")]
+mod jpegenc;
 #[cfg(feature="encoder_rawvideo")]
 mod rawvideoenc;
 #[cfg(feature="encoder_rawvideo")]
@@ -101,6 +103,8 @@ const ENCODERS: &[EncoderInfo] = &[
     EncoderInfo { name: "cinepak", get_encoder: cinepakenc::get_encoder },
 #[cfg(feature="encoder_gif")]
     EncoderInfo { name: "gif", get_encoder: gifenc::get_encoder },
+#[cfg(feature="encoder_jpeg")]
+    EncoderInfo { name: "jpeg", get_encoder: jpegenc::get_encoder },
 #[cfg(feature="encoder_rawvideo")]
     EncoderInfo { name: "rawvideo", get_encoder: rawvideoenc::get_encoder },
 #[cfg(feature="encoder_rawvideo")]
