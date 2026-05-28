@@ -513,6 +513,8 @@ static MOV_AUDIO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"mp4a", "aac"),
 
+    (b"ac-3", "ac3"),
+
     (b"alac", "alac"),
 ];
 
