@@ -6,26 +6,13 @@ use nihav_codec_support::codecs::ZIGZAG;
 use super::ivi::*;
 use super::ivibr::*;
 
-#[inline(always)]
-fn mclip8(a: i32) -> u8 {
-    if (a as u16) > 255 { !(a >> 16) as u8 }
-    else { a as u8 }
-}
-
 struct Indeo4Parser {
     mb_cb:          IVICodebook,
     blk_cb:         IVICodebook,
 }
 
 fn calc_quant(glob_q: u32, qd: i16) -> u8 {
-    let q = (glob_q as i16) + qd;
-    if q < 0 {
-        0
-    } else if q > 31 {
-        31
-    } else {
-        q as u8
-    }
+    ((glob_q as i16) + qd).clamp(0, 31) as u8
 }
 
 impl Indeo4Parser {
@@ -309,81 +296,23 @@ impl IndeoXParser for Indeo4Parser {
     }
 
     fn recombine_plane(&mut self, src: &[i16], sstride: usize, dst: &mut [u8], dstride: usize, w: usize, h: usize) {
-/*        let mut idx0 = 0;
-        let mut idx1 = w / 2;
-        let mut idx2 = (h / 2) * sstride;
-        let mut idx3 = idx2 + idx1;
-        let mut oidx0 = 0;
-        let mut oidx1 = dstride;
-
-        for _ in 0..(h/2) {
-            for x in 0..(w/2) {
-                let p0 = src[idx0 + x];
-                let p1 = src[idx1 + x];
-                let p2 = src[idx2 + x];
-                let p3 = src[idx3 + x];
+        let (first, second) = src.split_at(sstride * (h / 2));
+        for (dstrip, (line0, line1)) in dst.chunks_exact_mut(dstride * 2)
+                .zip(first.chunks_exact(sstride).zip(second.chunks_exact(sstride))) {
+            let (dline0, dline1) = dstrip.split_at_mut(dstride);
+            let (h00, h01) = line0.split_at(w / 2);
+            let (h10, h11) = line1.split_at(w / 2);
+            for ((dst0, dst1), ((&p0, &p1), (&p2, &p3))) in dline0.chunks_exact_mut(2)
+                    .zip(dline1.chunks_exact_mut(2))
+                    .zip(h00.iter().zip(h01.iter()).zip(h10.iter().zip(h11.iter()))) {
                 let s0 = p0 + p2;
                 let d0 = p0 - p2;
                 let s1 = p1 + p3;
                 let d1 = p1 - p3;
-                dst[oidx0 + x * 2 + 0] = clip8(((s0 + s1 + 2) >> 2) + 128);
-                dst[oidx0 + x * 2 + 1] = clip8(((d0 + d1 + 2) >> 2) + 128);
-                dst[oidx1 + x * 2 + 0] = clip8(((s0 - s1 + 2) >> 2) + 128);
-                dst[oidx1 + x * 2 + 1] = clip8(((d0 - d1 + 2) >> 2) + 128);
-            }
-            idx0 += sstride;
-            idx1 += sstride;
-            idx2 += sstride;
-            idx3 += sstride;
-            oidx0 += dstride * 2;
-            oidx1 += dstride * 2;
-        }*/
-        unsafe {
-            let hw = (w / 2) as isize;
-            let hh = (h / 2) as isize;
-            let mut band0 = src.as_ptr();
-            let mut band1 = band0.offset(hw);
-            let mut band2 = band0.add((h / 2) * sstride);
-            let mut band3 = band2.offset(hw);
-            let mut dst0 = dst.as_mut_ptr();
-            let mut dst1 = dst0.add(dstride);
-            for _ in 0..hh {
-                let mut b0_ptr = band0;
-                let mut b1_ptr = band1;
-                let mut b2_ptr = band2;
-                let mut b3_ptr = band3;
-                let mut d0_ptr = dst0;
-                let mut d1_ptr = dst1;
-                for _ in 0..hw {
-                    let p0 = i32::from(*b0_ptr);
-                    let p1 = i32::from(*b1_ptr);
-                    let p2 = i32::from(*b2_ptr);
-                    let p3 = i32::from(*b3_ptr);
-                    let s0 = p0.wrapping_add(p2);
-                    let s1 = p1.wrapping_add(p3);
-                    let d0 = p0.wrapping_sub(p2);
-                    let d1 = p1.wrapping_sub(p3);
-                    let o0 = s0.wrapping_add(s1).wrapping_add(2);
-                    let o1 = d0.wrapping_add(d1).wrapping_add(2);
-                    let o2 = s0.wrapping_sub(s1).wrapping_add(2);
-                    let o3 = d0.wrapping_sub(d1).wrapping_add(2);
-                    *d0_ptr.offset(0) = mclip8((o0 >> 2).wrapping_add(128));
-                    *d0_ptr.offset(1) = mclip8((o1 >> 2).wrapping_add(128));
-                    *d1_ptr.offset(0) = mclip8((o2 >> 2).wrapping_add(128));
-                    *d1_ptr.offset(1) = mclip8((o3 >> 2).wrapping_add(128));
-                    b0_ptr = b0_ptr.offset(1);
-                    b1_ptr = b1_ptr.offset(1);
-                    b2_ptr = b2_ptr.offset(1);
-                    b3_ptr = b3_ptr.offset(1);
-                    d0_ptr = d0_ptr.offset(2);
-                    d1_ptr = d1_ptr.offset(2);
-                }
-                band0 = band0.add(sstride);
-                band1 = band1.add(sstride);
-                band2 = band2.add(sstride);
-                band3 = band3.add(sstride);
-                dst0 = dst0.add(dstride * 2);
-                dst1 = dst1.add(dstride * 2);
+                dst0[0] = clip8(((s0 + s1 + 2) >> 2) + 128);
+                dst0[1] = clip8(((d0 + d1 + 2) >> 2) + 128);
+                dst1[0] = clip8(((s0 - s1 + 2) >> 2) + 128);
+                dst1[1] = clip8(((d0 - d1 + 2) >> 2) + 128);
             }
         }
     }

@@ -304,96 +304,34 @@ pub fn ivi_get_transform4x4_funcs(ttype: IVITransformType) -> (TrFunc, TrFuncDC)
 }
 
 pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, mode: u8, w: usize, h: usize) {
-    let mut sidx = 0;
-    let mut didx = 0;
     if src.len() < w + h * sstride { return; }
     match mode {
         0 => {
-            for _ in 0..h {
-                let dest = &mut dst[didx..didx+w];
-                dest.copy_from_slice(&src[sidx..sidx+w]);
-                sidx += sstride;
-                didx += dstride;
+            for (dline, sline) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(h) {
+                dline[..w].copy_from_slice(&sline[..w]);
             }
         },
         1 => {
-            /*for _ in 0..h {
-                for x in 0..w {
-                    let val = (src[sidx + x] + src[sidx + x + 1]) >> 1;
-                    dst[didx + x] = val;
-                }
-                sidx += sstride;
-                didx += dstride;
-            }*/
-            unsafe {
-                let mut sptr = src.as_ptr();
-                let mut dptr = dst.as_mut_ptr();
-                for _ in 0..h {
-                    let mut last = *sptr;
-                    for x in 0..w {
-                        let nv = *sptr.add(x + 1);
-                        *dptr.add(x) = nv.wrapping_add(last) >> 1;
-                        last = nv;
-                    }
-                    sptr = sptr.add(sstride);
-                    dptr = dptr.add(dstride);
+            for (dline, sline) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(h) {
+                for (dpix, pair) in dline.iter_mut().zip(sline.windows(2)).take(w) {
+                    *dpix = (pair[0] + pair[1]) >> 1;
                 }
             }
         },
         2 => {
-            /*for _ in 0..h {
-                for x in 0..w {
-                    let val = (src[sidx + x] + src[sidx + x + sstride]) >> 1;
-                    dst[didx + x] = val;
-                }
-                sidx += sstride;
-                didx += dstride;
-            }*/
-            unsafe {
-                let mut sptr0 = src.as_ptr();
-                let mut sptr1 = sptr0.add(sstride);
-                let mut dptr = dst.as_mut_ptr();
-                for _ in 0..h {
-                    for x in 0..w {
-                        let a = *sptr0.add(x);
-                        let b = *sptr1.add(x);
-                        *dptr.add(x) = a.wrapping_add(b) >> 1;
-                    }
-                    sptr0 = sptr0.add(sstride);
-                    sptr1 = sptr1.add(sstride);
-                    dptr = dptr.add(sstride);
+            for (dline, (sline0, sline1)) in dst.chunks_mut(dstride)
+                    .zip(src.chunks(sstride).zip(src.chunks(sstride).skip(1))).take(h) {
+                for (dpix, (&s0, &s1)) in dline.iter_mut().zip(sline0.iter().zip(sline1.iter())).take(w) {
+                    *dpix = (s0 + s1) >> 1;
                 }
             }
         },
         3 => {
-            /*for _ in 0..h {
-                for x in 0..w {
-                    let val = (src[sidx + x + 0] + src[sidx + x + sstride + 0] +
-                               src[sidx + x + 1] + src[sidx + x + sstride + 1]) >> 2;
-                    dst[didx + x] = val;
-                }
-                sidx += sstride;
-                didx += dstride;
-            }*/
-            unsafe {
-                let mut sptr0 = src.as_ptr();
-                let mut sptr1 = sptr0.add(sstride);
-                let mut dptr = dst.as_mut_ptr();
-                for _ in 0..h {
-                    let mut la = *sptr0;
-                    let mut lb = *sptr1;
-                    for x in 0..w {
-                        let a = *sptr0.add(x + 1);
-                        let b = *sptr1.add(x + 1);
-                        let aas = a.wrapping_add(la);
-                        let bbs = b.wrapping_add(lb);
-                        *dptr.add(x) = aas.wrapping_add(bbs) >> 2;
-                        la = a;
-                        lb = b;
-                    }
-                    sptr0 = sptr0.add(sstride);
-                    sptr1 = sptr1.add(sstride);
-                    dptr = dptr.add(dstride);
+            for (dline, (sline0, sline1)) in dst.chunks_mut(dstride)
+                    .zip(src.chunks(sstride).zip(src.chunks(sstride).skip(1))).take(h) {
+                for (dpix, (pair0, pair1)) in dline.iter_mut()
+                        .zip(sline0.windows(2).zip(sline1.windows(2))).take(w) {
+                    *dpix = (pair0[0] + pair0[1] + pair1[0] + pair1[1]) >> 2;
                 }
             }
         },
@@ -401,47 +339,36 @@ pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, 
     }
 }
 fn ivi_mc_add(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, mode: u8, w: usize, h: usize) {
-    let mut sidx = 0;
-    let mut didx = 0;
     match mode {
         0 => {
-            for _ in 0..h {
-                for x in 0..w {
-                    dst[didx + x] += src[sidx + x];
+            for (dline, sline) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(h) {
+                for (dst, &src) in dline.iter_mut().zip(sline.iter()).take(w) {
+                    *dst += src;
                 }
-                sidx += sstride;
-                didx += dstride;
             }
         },
         1 => {
-            for _ in 0..h {
-                for x in 0..w {
-                    let val = (src[sidx + x] + src[sidx + x + 1]) >> 1;
-                    dst[didx + x] += val;
+            for (dline, sline) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(h) {
+                for (dpix, pair) in dline.iter_mut().zip(sline.windows(2)).take(w) {
+                    *dpix += (pair[0] + pair[1]) >> 1;
                 }
-                sidx += sstride;
-                didx += dstride;
             }
         },
         2 => {
-            for _ in 0..h {
-                for x in 0..w {
-                    let val = (src[sidx + x] + src[sidx + x + sstride]) >> 1;
-                    dst[didx + x] += val;
+            for (dline, (sline0, sline1)) in dst.chunks_mut(dstride)
+                    .zip(src.chunks(sstride).zip(src.chunks(sstride).skip(1))).take(h) {
+                for (dpix, (&s0, &s1)) in dline.iter_mut().zip(sline0.iter().zip(sline1.iter())).take(w) {
+                    *dpix += (s0 + s1) >> 1;
                 }
-                sidx += sstride;
-                didx += dstride;
             }
         },
         3 => {
-            for _ in 0..h {
-                for x in 0..w {
-                    let val = (src[sidx + x + 0] + src[sidx + x + sstride + 0] +
-                               src[sidx + x + 1] + src[sidx + x + sstride + 1]) >> 2;
-                    dst[didx + x] += val;
+            for (dline, (sline0, sline1)) in dst.chunks_mut(dstride)
+                    .zip(src.chunks(sstride).zip(src.chunks(sstride).skip(1))).take(h) {
+                for (dpix, (pair0, pair1)) in dline.iter_mut()
+                        .zip(sline0.windows(2).zip(sline1.windows(2))).take(w) {
+                    *dpix += (pair0[0] + pair0[1] + pair1[0] + pair1[1]) >> 2;
                 }
-                sidx += sstride;
-                didx += dstride;
             }
         },
         _ => {},
@@ -451,15 +378,13 @@ pub fn ivi_mc_avg(dst: &mut [i16], dstride: usize,
                   src1: &[i16], sstride1: usize, mode1: u8,
                   src2: &[i16], sstride2: usize, mode2: u8,
                   w: usize, h: usize) {
-    let mut tidx = 0;
-    let tstride = 8;
-    let mut didx = 0;
-    let mut tmp: [i16; 64] = [0; 64];
-    ivi_mc_add(&mut tmp, tstride, src1, sstride1, mode1, w, h);
-    ivi_mc_add(&mut tmp, tstride, src2, sstride2, mode2, w, h);
-    for _ in 0..h {
-       for x in 0..w { dst[didx + x] = tmp[tidx + x] >> 1; }
-       tidx += tstride;
-       didx += dstride;
+    const TSTRIDE: usize = 8;
+    let mut tmp: [i16; 8 * TSTRIDE] = [0; 8 * TSTRIDE];
+    ivi_mc_add(&mut tmp, TSTRIDE, src1, sstride1, mode1, w, h);
+    ivi_mc_add(&mut tmp, TSTRIDE, src2, sstride2, mode2, w, h);
+    for (dline, row) in dst.chunks_mut(dstride).zip(tmp.chunks_exact(TSTRIDE)).take(h) {
+        for (dpix, &src) in dline.iter_mut().zip(row.iter()).take(w) {
+            *dpix = src >> 1;
+        }
     }
 }
