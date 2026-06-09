@@ -115,13 +115,13 @@ pub trait MuxCore<'a>: NAOptionHandler {
 
 /// Muxer structure with auxiliary data.
 pub struct Muxer<'a> {
-    mux:        Box<dyn MuxCore<'a> + 'a>,
-    streams:    StreamManager,
+    pub mux:        Box<dyn MuxCore<'a> + 'a>,
+    pub streams:    StreamManager,
 }
 
 impl<'a> Muxer<'a> {
     /// Constructs a new `Muxer` instance.
-    fn new(mux: Box<dyn MuxCore<'a> + 'a>, strmgr: StreamManager) -> Self {
+    pub fn new(mux: Box<dyn MuxCore<'a> + 'a>, strmgr: StreamManager) -> Self {
         Muxer {
             mux,
             streams:    strmgr,
