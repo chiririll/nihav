@@ -588,7 +588,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
 
 const MUXER_OPTS: &[NAOptionDefinition] = &[
     NAOptionDefinition {
-        name: "stream_tag", description: "forced stream tag(s) in 'streamNtagHHHHHHHH' format",
+        name: FORCE_STREAM_TAG_OPTION, description: FORCE_STREAM_TAG_OPTION_DESC,
         opt_type: NAOptionDefinitionType::String(None) },
 ];
 
@@ -632,7 +632,7 @@ impl<'a> NAOptionHandler for AVIMuxer<'a> {
     fn get_supported_options(&self) -> &[NAOptionDefinition] { MUXER_OPTS }
     fn set_options(&mut self, options: &[NAOption]) {
         for opt in options.iter() {
-            if let NAOption { name: "stream_tag" , value: NAValue::String(ref stag) } = opt {
+            if let NAOption { name: FORCE_STREAM_TAG_OPTION , value: NAValue::String(ref stag) } = opt {
                 if let Some(new_tag) = parse_tag(stag.as_bytes()) {
                     let mut found = false;
                     for tag in self.forced_tags.iter_mut() {

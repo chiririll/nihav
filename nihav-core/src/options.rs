@@ -31,6 +31,11 @@ pub const FORCE_SEEK_OPTION: &str = "force_seek";
 /// Common description for forcing seek outside defined seekpoints.
 pub const FORCE_SEEK_OPTION_DESC: &str = "Allow seeking to arbitrary positions";
 
+/// Common name for forcing stream tag.
+pub const FORCE_STREAM_TAG_OPTION: &str = "stream_tag";
+/// Common description for forcing stream tag.
+pub const FORCE_STREAM_TAG_OPTION_DESC: &str = "Forced stream tag(s) in 'streamNtagHHHH' format";
+
 /// A list specifying option parsing and validating errors.
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum OptionError {
