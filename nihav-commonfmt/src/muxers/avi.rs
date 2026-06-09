@@ -5,6 +5,12 @@ const MAX_RIFF_BLOCKS: usize = 16; // ~16GB file should be enough
 const MAX_RIFF_SIZE: u64 = 900 << 20; // 900MB of payload plus index data will hopefully fit in 1GB chunk limit
 
 #[derive(Clone,Copy)]
+struct ForcedTag {
+    stream:     u32,
+    tag:        [u8; 4],
+}
+
+#[derive(Clone,Copy)]
 struct IdxEntry {
     tag:        [u8; 4],
     key:        bool,
@@ -35,6 +41,7 @@ struct AVIMuxer<'a> {
     riff_blk:       usize,
     blk_start:      u64,
     wrote_hdr:      bool,
+    forced_tags:    Vec<ForcedTag>,
 }
 
 impl<'a> AVIMuxer<'a> {
@@ -51,6 +58,7 @@ impl<'a> AVIMuxer<'a> {
             riff_blk:       0,
             blk_start:      0,
             wrote_hdr:      true,
+            forced_tags:    Vec::new(),
         }
     }
     fn patch_stream_stats(&mut self) -> MuxerResult<()> {
@@ -207,6 +215,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
             self.bw.write_buf(b"LIST\0\0\0\0strlstrh")?;
             self.bw.write_u32le(56)?; // strh size
 
+            let forced_tag = self.forced_tags.iter().find(|tag| tag.stream == strno as u32);
             match strm.get_media_type() {
                 StreamType::Video => {
                     self.bw.write_buf(b"vids")?;
@@ -291,7 +300,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                         self.bw.write_u16le(1)?;
                         self.bw.write_u16le(8)?;
                     }
-                    let fcc = if strm.get_info().get_name() == "rawvideo-ms" {
+                    let fcc = if let Some(ftag) = forced_tag {
+                                Some(ftag.tag)
+                            } else if strm.get_info().get_name() == "rawvideo-ms" {
                                 Some([0; 4])
                             } else { find_avi_fourcc(strm.get_info().get_name()) };
                     if fcc.is_none() {
@@ -319,7 +330,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                 },
                 StreamType::Audio => {
                     let ainfo = strm.get_info().get_properties().get_audio_info().unwrap();
-                    let twocc = find_wav_twocc(strm.get_info().get_name());
+                    let twocc = if let Some(ftag) = forced_tag {
+                            Some(read_u16be(&ftag.tag).unwrap_or(0))
+                        } else { find_wav_twocc(strm.get_info().get_name()) };
                     if twocc.is_none() {
                         return Err(MuxerError::UnsupportedFormat);
                     }
@@ -573,9 +586,69 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
     }
 }
 
+const MUXER_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: "stream_tag", description: "forced stream tag(s) in 'streamNtagHHHHHHHH' format",
+        opt_type: NAOptionDefinitionType::String(None) },
+];
+
+fn parse_tag(src: &[u8]) -> Option<ForcedTag> {
+    if !src.starts_with(b"stream") {
+        return None;
+    }
+    let mut pos = 6;
+    let mut stream = 0;
+    while pos < src.len() && src[pos].is_ascii_digit() {
+        stream = stream * 4 + u32::from(src[pos] - b'0');
+        if stream > (1 << 24) {
+            return None;
+        }
+        pos += 1;
+    }
+    if src.len() - pos < 3 + 2 || !src[pos..].starts_with(b"tag") {
+        return None;
+    }
+    pos += 3;
+    let mut tag = [0; 4];
+    for (sym, pair) in tag.iter_mut().zip(src[pos..].chunks_exact(2)) {
+        let c0 = match pair[0] {
+                b'0'..=b'9' => pair[0] - b'0',
+                b'a'..=b'f' => pair[0] - b'a' + 10,
+                b'A'..=b'F' => pair[0] - b'A' + 10,
+                _ => return None,
+            };
+        let c1 = match pair[1] {
+                b'0'..=b'9' => pair[1] - b'0',
+                b'a'..=b'f' => pair[1] - b'a' + 10,
+                b'A'..=b'F' => pair[1] - b'A' + 10,
+                _ => return None,
+            };
+        *sym = (c0 << 4) | c1;
+    }
+    Some(ForcedTag{ stream, tag })
+}
+
 impl<'a> NAOptionHandler for AVIMuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { MUXER_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for opt in options.iter() {
+            if let NAOption { name: "stream_tag" , value: NAValue::String(ref stag) } = opt {
+                if let Some(new_tag) = parse_tag(stag.as_bytes()) {
+                    let mut found = false;
+                    for tag in self.forced_tags.iter_mut() {
+                        if new_tag.stream == tag.stream {
+                            tag.tag = new_tag.tag;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        self.forced_tags.push(new_tag);
+                    }
+                }
+            }
+        }
+    }
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
