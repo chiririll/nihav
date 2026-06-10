@@ -14,10 +14,12 @@ pub struct AudioTrackHandler {
 }
 
 impl AudioTrackHandler {
-    pub fn new(strm: NAStreamRef) -> MuxerResult<Self> {
+    pub fn new(strm: NAStreamRef, ftag: Option<[u8; 4]>) -> MuxerResult<Self> {
         let cname = strm.get_info().get_name();
         let ainfo = strm.get_info().get_properties().get_audio_info().ok_or(MuxerError::UnsupportedFormat)?;
-        let fcc = if let Some(fcc) = find_mov_audio_fourcc(cname) {
+        let fcc = if let Some(tag) = ftag {
+                tag
+            } else if let Some(fcc) = find_mov_audio_fourcc(cname) {
                 fcc
             } else if let Some(tcc) = find_wav_twocc(cname) {
                 [b'm', b's', (tcc >> 8) as u8, tcc as u8]

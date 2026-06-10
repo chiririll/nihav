@@ -11,6 +11,12 @@ use videotrack::*;
 
 const TIMESCALE: u32 = 1000;
 
+#[derive(Clone,Copy)]
+struct ForcedTag {
+    stream:     u32,
+    tag:        [u8; 4],
+}
+
 trait MovWrite {
     fn write_pas_str(&mut self, pas_str: &[u8]) -> ByteIOResult<()>;
 }
@@ -363,6 +369,7 @@ impl Track {
 struct QTMuxer<'a> {
     bw:             &'a mut dyn ByteIO,
     tracks:         Vec<Track>,
+    forced_tags:    Vec<ForcedTag>,
 }
 
 impl<'a> QTMuxer<'a> {
@@ -370,6 +377,7 @@ impl<'a> QTMuxer<'a> {
         Self {
             bw,
             tracks:         Vec::new(),
+            forced_tags:    Vec::new(),
         }
     }
 }
@@ -383,14 +391,15 @@ impl<'a> MuxCore<'a> for QTMuxer<'a> {
             return Err(MuxerError::UnsupportedFormat);
         }
         let mut trk_id = 1;
-        for strm in strmgr.iter() {
+        for (strno, strm) in strmgr.iter().enumerate() {
+            let forced_tag = self.forced_tags.iter().find(|tag| tag.stream == strno as u32).map(|tag| tag.tag);
             let mtype = strm.get_media_type();
             match mtype {
                 StreamType::Video => {
                     self.tracks.push(Track {
                         id:         trk_id,
                         mtype,
-                        handler:    Box::new(VideoTrackHandler::new(strm)?),
+                        handler:    Box::new(VideoTrackHandler::new(strm, forced_tag)?),
                         ca:         ChunkAccount::new(),
                         raw_audio:  false,
                     });
@@ -401,7 +410,7 @@ impl<'a> MuxCore<'a> for QTMuxer<'a> {
                     let handler: Box<dyn TrackHandler> = if raw_audio {
                             Box::new(RawAudioTrackHandler::new(strm)?)
                         } else {
-                            Box::new(AudioTrackHandler::new(strm)?)
+                            Box::new(AudioTrackHandler::new(strm, forced_tag)?)
                         };
                     self.tracks.push(Track {
                         id:         trk_id,
@@ -514,9 +523,69 @@ impl<'a> MuxCore<'a> for QTMuxer<'a> {
     }
 }
 
+const MUXER_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: FORCE_STREAM_TAG_OPTION, description: FORCE_STREAM_TAG_OPTION_DESC,
+        opt_type: NAOptionDefinitionType::String(None) },
+];
+
+fn parse_tag(src: &[u8]) -> Option<ForcedTag> {
+    if !src.starts_with(b"stream") {
+        return None;
+    }
+    let mut pos = 6;
+    let mut stream = 0;
+    while pos < src.len() && src[pos].is_ascii_digit() {
+        stream = stream * 4 + u32::from(src[pos] - b'0');
+        if stream > (1 << 24) {
+            return None;
+        }
+        pos += 1;
+    }
+    if src.len() - pos != 3 + 2 * 4 || !src[pos..].starts_with(b"tag") {
+        return None;
+    }
+    pos += 3;
+    let mut tag = [0; 4];
+    for (sym, pair) in tag.iter_mut().zip(src[pos..].chunks_exact(2)) {
+        let c0 = match pair[0] {
+                b'0'..=b'9' => pair[0] - b'0',
+                b'a'..=b'f' => pair[0] - b'a' + 10,
+                b'A'..=b'F' => pair[0] - b'A' + 10,
+                _ => return None,
+            };
+        let c1 = match pair[1] {
+                b'0'..=b'9' => pair[1] - b'0',
+                b'a'..=b'f' => pair[1] - b'a' + 10,
+                b'A'..=b'F' => pair[1] - b'A' + 10,
+                _ => return None,
+            };
+        *sym = (c0 << 4) | c1;
+    }
+    Some(ForcedTag{ stream, tag })
+}
+
 impl<'a> NAOptionHandler for QTMuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { MUXER_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for opt in options.iter() {
+            if let NAOption { name: "stream_tag" , value: NAValue::String(ref stag) } = opt {
+                if let Some(new_tag) = parse_tag(stag.as_bytes()) {
+                    let mut found = false;
+                    for tag in self.forced_tags.iter_mut() {
+                        if new_tag.stream == tag.stream {
+                            tag.tag = new_tag.tag;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        self.forced_tags.push(new_tag);
+                    }
+                }
+            }
+        }
+    }
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 

@@ -16,9 +16,9 @@ pub struct VideoTrackHandler {
 }
 
 impl VideoTrackHandler {
-    pub fn new(strm: NAStreamRef) -> MuxerResult<Self> {
+    pub fn new(strm: NAStreamRef, ftag: Option<[u8; 4]>) -> MuxerResult<Self> {
         let cname = strm.get_info().get_name();
-        let fcc = find_mov_video_fourcc(cname).ok_or(MuxerError::UnsupportedFormat)?;
+        let fcc = if let Some(tag) = ftag { tag } else { find_mov_video_fourcc(cname).ok_or(MuxerError::UnsupportedFormat)? };
         let vinfo = strm.get_info().get_properties().get_video_info().ok_or(MuxerError::UnsupportedFormat)?;
         if cname == "rawvideo" {
             match vinfo.format.to_short_string().ok_or(MuxerError::UnsupportedFormat)?.as_str() {
