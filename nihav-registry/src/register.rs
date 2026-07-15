@@ -216,6 +216,16 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio;    "qdesign-music2",       "QDesign Music v2"),
     desc!(audio;    "qualcomm-purevoice",   "Qualcomm PureVoice"),
 
+    desc!(video;    "pixar-0",              "Pixar Codec 0"),
+    desc!(video;    "pixar-1",              "Pixar Codec 1"),
+    desc!(video;    "pixar-2",              "Pixar Codec 2"),
+    desc!(video;    "pixar-3",              "Pixar Codec 3"),
+    desc!(video;    "pixar-4",              "Pixar Codec 4"),
+    desc!(video;    "pixar-5",              "Pixar Codec 5"),
+    desc!(video;    "pixar-6",              "Pixar Codec 6"),
+    desc!(video;    "pixar-7",              "Pixar Codec 7"),
+    desc!(video;    "pixar-a",              "Pixar Codec A"),
+
     desc!(video-ll; "arm_rawvideo",         "Acorn Replay Movie raw video formats"),
     desc!(audio;    "arm_rawaudio",         "Acorn Replay Movie raw audio formats"),
     desc!(video;    "movinglines",          "Acorn Moving Lines"),
@@ -485,6 +495,16 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"mp4v", "mpeg4asp"),
     (b"avc1", "h264"),
+
+    (b"pix0", "pixar-0"),
+    (b"pix1", "pixar-1"),
+    (b"pix2", "pixar-2"),
+    (b"pix3", "pixar-3"),
+    (b"pix4", "pixar-4"),
+    (b"pix5", "pixar-5"),
+    (b"pix6", "pixar-6"),
+    (b"pix7", "pixar-7"),
+    (b"pixA", "pixar-a"),
 
     (b"j420", "rawvideo"),
     (b"yuv2", "qt-yuv2"),

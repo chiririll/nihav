@@ -33,6 +33,9 @@ mod pgvv;
 #[cfg(feature="decoder_pivc")]
 mod pivc;
 
+#[cfg(feature="decoder_pixar")]
+mod pixar;
+
 #[cfg(feature="decoder_qpeg")]
 mod qpeg;
 
@@ -67,6 +70,18 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "pgvv", get_decoder: pgvv::get_decoder },
 #[cfg(feature="decoder_pivc")]
     DecoderInfo { name: "pivideo", get_decoder: pivc::get_decoder },
+#[cfg(feature="decoder_pixar")]
+    DecoderInfo { name: "pixar-0", get_decoder: pixar::get_decoder_0 },
+#[cfg(feature="decoder_pixar")]
+    DecoderInfo { name: "pixar-3", get_decoder: pixar::get_decoder_3 },
+#[cfg(feature="decoder_pixar")]
+    DecoderInfo { name: "pixar-4", get_decoder: pixar::get_decoder_4 },
+#[cfg(feature="decoder_pixar")]
+    DecoderInfo { name: "pixar-5", get_decoder: pixar::get_decoder_5 },
+//#[cfg(feature="decoder_pixar")]
+//    DecoderInfo { name: "pixar-7", get_decoder: pixar::get_decoder_7 },
+#[cfg(feature="decoder_pixar")]
+    DecoderInfo { name: "pixar-a", get_decoder: pixar::get_decoder_a },
 #[cfg(feature="decoder_qpeg")]
     DecoderInfo { name: "qpeg-dvc", get_decoder: qpeg::get_decoder_dvc },
 #[cfg(feature="decoder_tealvid")]
