@@ -89,6 +89,7 @@ const MDIA_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"mdhd"), parse: read_mdhd },
     TrackChunkHandler { ctype: mktag!(b"hdlr"), parse: read_hdlr },
     TrackChunkHandler { ctype: mktag!(b"minf"), parse: read_minf },
+    TrackChunkHandler { ctype: mktag!(b"udta"), parse: read_udta_mdia },
 ];
 
 fn read_mdhd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
@@ -139,6 +140,32 @@ fn read_hdlr(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     }
 
     Ok(KNOWN_HDLR_SIZE)
+}
+
+fn read_udta_mdia(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
+    validate!(size > 4);
+    let version             = br.read_byte()?;
+    validate!(version == 0);
+    let size2               = u64::from(br.read_u24be()?);
+    if size2 == size {
+        let tag             = br.peek_tag()?;
+        if &tag == b"NC00" && track.streams.len() == 1 {
+            let ref_strm = &track.streams[0];
+            let ref_info = ref_strm.get_info();
+            if ref_info.get_extradata().is_none() {
+                validate!(size > 8);
+                let mut edata = vec![0; size2 as usize - 4];
+                              br.read_buf(&mut edata)?;
+                let name = ref_info.get_name();
+                let info = ref_info.get_properties();
+                let cinfo = NACodecInfo::new(name, info, Some(edata));
+                let strm_id = ref_strm.get_id();
+                track.streams[0] = NAStream::new(track.stream_type, strm_id, cinfo, track.tb_num, track.tb_den, u64::from(track.pkt_demux.duration));
+                return Ok(size);
+            }
+        }
+    }
+    Ok(4)
 }
 
 fn read_minf(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult<u64> {
