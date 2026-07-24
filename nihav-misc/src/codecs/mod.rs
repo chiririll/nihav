@@ -21,6 +21,9 @@ mod fif;
 #[cfg(feature="decoder_moviepak")]
 mod moviepak;
 
+#[cfg(feature="decoder_microwavelet")]
+mod microwavelet;
+
 #[cfg(feature="decoder_mvi")]
 mod motionpixels;
 
@@ -56,6 +59,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "gryphon-arbc-qt", get_decoder: arbc::get_decoder_qt },
 #[cfg(feature="decoder_fif")]
     DecoderInfo { name: "fif", get_decoder: fif::get_decoder },
+#[cfg(feature="decoder_microwavelet")]
+    DecoderInfo { name: "next-uwavelet", get_decoder: microwavelet::get_decoder },
 #[cfg(feature="decoder_moviepak")]
     DecoderInfo { name: "moviepak", get_decoder: moviepak::get_decoder },
 #[cfg(feature="decoder_mvi")]

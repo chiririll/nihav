@@ -350,6 +350,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video-im; "adorage",      "proDAD Adorage"),
     desc!(video-im; "moviepak",      "RasterOps MoviePak"),
+    desc!(video;    "next-uwavelet", "NeXT Micro Wavelet"),
     desc!(video-im; "pgvv",          "Radius Studio Video"),
 
     desc!(video-llp; "qpeg-dvc",          "QPEG video in DVC"),
@@ -509,6 +510,8 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"j420", "rawvideo"),
     (b"yuv2", "qt-yuv2"),
     (b"yuv4", "qt-yuv4"),
+
+    (b"uWav", "next-uwavelet"),
 ];
 
 static MOV_AUDIO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
