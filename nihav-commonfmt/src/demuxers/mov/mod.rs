@@ -79,7 +79,7 @@ struct RootChunkHandler {
 }
 
 const IGNORED_CHUNKS: &[u32] = &[
-    mktag!(b"free"), mktag!(b"skip"), mktag!(b"udta"), mktag!(b"wide")
+    mktag!(b"free"), mktag!(b"skip"), mktag!(b"udta"), mktag!(b"uuid"), mktag!(b"wide")
 ];
 
 const ROOT_CHUNK_HANDLERS: &[RootChunkHandler] = &[
