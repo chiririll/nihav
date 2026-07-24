@@ -159,14 +159,13 @@ macro_rules! read_chunk_list {
                 if br.tell() + size > list_end {
                     break;
                 }
-                if IGNORED_CHUNKS.contains(&ctype) {
-                    br.skip64(size)?;
-                    continue;
-                }
                 let handler = $handlers.iter().find(|x| x.ctype == ctype);
                 let read_size;
                 if let Some(ref handler) = handler {
                     read_size = (handler.parse)(self, br, size)?;
+                } else if IGNORED_CHUNKS.contains(&ctype) {
+                    br.skip64(size)?;
+                    continue;
                 } else {
                     read_size = 0;
                 }
