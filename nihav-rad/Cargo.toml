@@ -9,7 +9,10 @@ path = "../nihav-core"
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = ["dct", "fft"]
+features = [
+    "dct",
+    "fft"
+]
 
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["demuxer_wav", "demuxer_y4m", "decoder_pcm", "decoder_rawvideo"] }
@@ -17,27 +20,42 @@ nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, feature
 [features]
 default = ["all_decoders", "all_demuxers", "all_encoders", "all_muxers"]
 demuxers = []
-all_demuxers = ["demuxer_smk", "demuxer_bink"]
+all_demuxers = [
+    "demuxer_smk",
+    "demuxer_bink"
+]
 demuxer_smk = ["demuxers"]
 demuxer_bink = ["demuxers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
-all_video_decoders = ["decoder_smkvid", "decoder_binkvid", "decoder_bink2"]
+all_video_decoders = [
+    "decoder_smkvid",
+    "decoder_binkvid",
+    "decoder_bink2"
+]
 decoder_smkvid = ["decoders"]
 decoder_binkvid = ["decoders"]
 decoder_bink2 = ["decoders"]
 
-all_audio_decoders = ["decoder_smkaud", "decoder_binkaud"]
+all_audio_decoders = [
+    "decoder_smkaud",
+    "decoder_binkaud"
+]
 decoder_binkaud = ["decoders"]
 decoder_smkaud = ["decoders"]
 
 muxers = []
-all_muxers = ["muxer_bink"]
+all_muxers = [
+    "muxer_bink"
+]
 muxer_bink = ["muxers"]
 
 encoders = []
-all_encoders = ["encoder_binkvid", "encoder_binkaud"]
+all_encoders = [
+    "encoder_binkvid",
+    "encoder_binkaud"
+]
 encoder_binkaud = ["encoders"]
 encoder_binkvid = ["encoders"]

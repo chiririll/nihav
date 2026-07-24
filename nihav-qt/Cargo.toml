@@ -10,7 +10,13 @@ features = []
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = ["blockdsp", "fft", "qmf", "qt_pal", "vq"]
+features = [
+    "blockdsp",
+    "fft",
+    "qmf",
+    "qt_pal",
+    "vq"
+]
 
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers", "muxer_mov", "decoder_pcm"] }
@@ -20,7 +26,17 @@ default = ["all_decoders", "all_demuxers", "all_encoders"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
-all_video_decoders = ["decoder_rle", "decoder_smc", "decoder_rpza", "decoder_qdraw", "decoder_sivq", "decoder_svq1", "decoder_svq3", "decoder_rawvid", "decoder_cdvideo"]
+all_video_decoders = [
+    "decoder_rle",
+    "decoder_smc",
+    "decoder_rpza",
+    "decoder_qdraw",
+    "decoder_sivq",
+    "decoder_svq1",
+    "decoder_svq3",
+    "decoder_rawvid",
+    "decoder_cdvideo"
+]
 decoder_rle = ["decoders"]
 decoder_smc = ["decoders"]
 decoder_rpza = ["decoders"]
@@ -31,7 +47,14 @@ decoder_svq3 = ["decoders"]
 decoder_rawvid = ["decoders"]
 decoder_cdvideo = ["decoders"]
 
-all_audio_decoders = ["decoder_ima_adpcm_qt", "decoder_mace", "decoder_qcelp", "decoder_qdm", "decoder_qdm2", "decoder_alac"]
+all_audio_decoders = [
+    "decoder_ima_adpcm_qt",
+    "decoder_mace",
+    "decoder_qcelp",
+    "decoder_qdm",
+    "decoder_qdm2",
+    "decoder_alac"
+]
 decoder_ima_adpcm_qt = ["decoders"]
 decoder_mace = ["decoders"]
 decoder_qcelp = ["decoders"]
@@ -39,19 +62,29 @@ decoder_qdm = ["decoders"]
 decoder_qdm2 = ["decoders"]
 decoder_alac = ["decoders"]
 
-all_demuxers = ["demuxer_warhol"]
+all_demuxers = [
+    "demuxer_warhol"
+]
 demuxers = []
 demuxer_warhol = ["demuxers"]
 
 all_encoders = ["all_video_encoders", "all_audio_encoders"]
 encoders = []
 
-all_video_encoders = ["encoder_rawvid", "encoder_rle", "encoder_rpza", "encoder_smc"]
+all_video_encoders = [
+    "encoder_rawvid",
+    "encoder_rle",
+    "encoder_rpza",
+    "encoder_smc"
+]
 encoder_rawvid = ["encoders"]
 encoder_rle = ["encoders"]
 encoder_rpza = ["encoders"]
 encoder_smc = ["encoders"]
 
-all_audio_encoders = ["encoder_ima_adpcm_qt", "encoder_mace"]
+all_audio_encoders = [
+    "encoder_ima_adpcm_qt",
+    "encoder_mace"
+]
 encoder_ima_adpcm_qt = ["encoders"]
 encoder_mace = ["encoders"]

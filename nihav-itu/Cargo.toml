@@ -21,5 +21,7 @@ simd = [] #enable when the default rustc is >=1.62
 all_decoders = ["all_video_decoders"]
 decoders = []
 
-all_video_decoders = ["decoder_h264"]
+all_video_decoders = [
+    "decoder_h264"
+]
 decoder_h264 = ["decoders"]

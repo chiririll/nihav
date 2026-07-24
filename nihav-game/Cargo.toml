@@ -10,7 +10,9 @@ features = []
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = ["qmf"]
+features = [
+    "qmf"
+]
 
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
@@ -18,7 +20,15 @@ nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, feature
 [features]
 default = ["all_decoders", "all_demuxers", "all_muxers"]
 demuxers = []
-all_demuxers = ["demuxer_bmv", "demuxer_bmv3", "demuxer_gdv", "demuxer_seq", "demuxer_sga", "demuxer_smush", "demuxer_vmd"]
+all_demuxers = [
+    "demuxer_bmv",
+    "demuxer_bmv3",
+    "demuxer_gdv",
+    "demuxer_seq",
+    "demuxer_sga",
+    "demuxer_smush",
+    "demuxer_vmd"
+]
 demuxer_bmv = ["demuxers"]
 demuxer_bmv3 = ["demuxers"]
 demuxer_cnm = ["demuxers"]
@@ -31,7 +41,21 @@ demuxer_vmd = ["demuxers"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
-all_video_decoders = ["decoder_bmv", "decoder_bmv3", "decoder_gdvvid", "decoder_ipma", "decoder_kmvc", "decoder_midivid", "decoder_midivid3", "decoder_pdq2", "decoder_seq", "decoder_sga", "decoder_smush_video", "decoder_vmd", "decoder_vx"]
+all_video_decoders = [
+    "decoder_bmv",
+    "decoder_bmv3",
+    "decoder_gdvvid",
+    "decoder_ipma",
+    "decoder_kmvc",
+    "decoder_midivid",
+    "decoder_midivid3",
+    "decoder_pdq2",
+    "decoder_seq",
+    "decoder_sga",
+    "decoder_smush_video",
+    "decoder_vmd",
+    "decoder_vx"
+]
 decoder_bmv = ["decoders"]
 decoder_bmv3 = ["decoders"]
 decoder_gdvvid = ["decoders"]
@@ -46,10 +70,15 @@ decoder_smush_video = ["decoders"]
 decoder_vmd = ["decoders"]
 decoder_vx = ["decoders"]
 
-all_audio_decoders = ["decoder_lhst500f22", "decoder_smush_audio"]
+all_audio_decoders = [
+    "decoder_lhst500f22",
+    "decoder_smush_audio"
+]
 decoder_lhst500f22 = ["decoders"]
 decoder_smush_audio = ["decoders"]
 
-all_muxers = ["muxer_ea"]
+all_muxers = [
+    "muxer_ea"
+]
 muxers = []
 muxer_ea = ["muxers"]

@@ -19,20 +19,32 @@ default = ["all_decoders", "all_encoders", "all_demuxers"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
-all_video_decoders = ["decoder_msrle", "decoder_msvideo1"]
+all_video_decoders = [
+    "decoder_msrle",
+    "decoder_msvideo1"
+]
 decoder_msrle = ["decoders"]
 decoder_msvideo1 = ["decoders"]
 
-all_audio_decoders = ["decoder_ima_adpcm_ms", "decoder_ms_adpcm"]
+all_audio_decoders = [
+    "decoder_ima_adpcm_ms",
+    "decoder_ms_adpcm"
+]
 decoder_ima_adpcm_ms = ["decoders"]
 decoder_ms_adpcm = ["decoders"]
 
-all_encoders = ["encoder_msvideo1", "encoder_ms_adpcm", "encoder_ima_adpcm_ms"]
+all_encoders = [
+    "encoder_msvideo1",
+    "encoder_ms_adpcm",
+    "encoder_ima_adpcm_ms"
+]
 encoder_msvideo1 = ["encoders"]
 encoder_ms_adpcm = ["encoders"]
 encoder_ima_adpcm_ms = ["encoders"]
 encoders = []
 
-all_demuxers = ["demuxer_avi_dib"]
+all_demuxers = [
+    "demuxer_avi_dib"
+]
 demuxer_avi_dib = ["demuxers"]
 demuxers = []

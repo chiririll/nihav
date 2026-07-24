@@ -9,7 +9,13 @@ path = "../nihav-core"
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = ["qmf", "fft", "mdct", "dsp_window", "h263"]
+features = [
+    "qmf",
+    "fft",
+    "mdct",
+    "dsp_window",
+    "h263"
+]
 
 [dev-dependencies]
 nihav_flash = { path = "../nihav-flash", default-features=false, features = ["all_demuxers"] }
@@ -22,9 +28,14 @@ decoders = []
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_mpeg4asp"]
+all_video_decoders = [
+    "decoder_mpeg4asp"
+]
 decoder_mpeg4asp = ["decoders"]
 
-all_audio_decoders = ["decoder_aac", "decoder_mpa"]
+all_audio_decoders = [
+    "decoder_aac",
+    "decoder_mpa"
+]
 decoder_aac = ["decoders"]
 decoder_mpa = ["decoders"]
