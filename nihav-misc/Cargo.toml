@@ -60,11 +60,13 @@ all_audio_decoders = []
 
 all_demuxers = [
     "demuxer_av",
+    "demuxer_avix",
     "demuxer_mvi",
     "demuxer_qpeg",
     "demuxer_tealmov"
 ]
 demuxer_av = ["demuxers"]
+demuxer_avix = ["demuxers"]
 demuxer_mvi = ["demuxers"]
 demuxer_qpeg = ["demuxers"]
 demuxer_tealmov = ["demuxers"]

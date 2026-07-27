@@ -13,6 +13,8 @@ macro_rules! validate {
 
 #[cfg(feature="demuxer_av")]
 mod av;
+#[cfg(feature="demuxer_avix")]
+mod avix;
 #[cfg(feature="demuxer_mvi")]
 mod mvi;
 #[cfg(feature="demuxer_qpeg")]
@@ -23,6 +25,8 @@ mod tealmov;
 const DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_av")]
     &av::AVDemuxerCreator {},
+#[cfg(feature="demuxer_avix")]
+    &avix::AviXDemuxerCreator {},
 #[cfg(feature="demuxer_mvi")]
     &mvi::MVIDemuxerCreator {},
 #[cfg(feature="demuxer_qpeg")]

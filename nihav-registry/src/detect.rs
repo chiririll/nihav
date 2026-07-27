@@ -222,6 +222,14 @@ const DETECTORS: &[DetectConditions] = &[
                      ]
     },
     DetectConditions {
+        demux_name: "avi-x",
+        extensions: ".avx",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"RIFX") },
+                      CheckItem{offs: 8, cond: &CC::Str(b"AVI LIST")},
+                      CheckItem{offs: 20, cond: &CC::Str(b"hdrlavih")},
+                     ]
+    },
+    DetectConditions {
         demux_name: "wav",
         extensions: ".wav",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"RIFF") },
