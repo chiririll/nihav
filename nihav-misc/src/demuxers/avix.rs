@@ -583,12 +583,12 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
         if skip_size > self.state.movi_orig { return Err(DemuxerError::SeekError); }
         self.state.movi_size = self.state.movi_orig - skip_size;
 
-        let mut vstream = &mut self.state.streams[self.state.vstream];
+        let vstream = &mut self.state.streams[self.state.vstream];
         let frameno = vstream.seek_idx.iter().position(|&(_, off, _)| u64::from(off) == seek_info.pos).unwrap();
         vstream.cur_frame = frameno as u64;
 
         if self.state.astream != INVALID_STREAM {
-            let mut astream = &mut self.state.streams[self.state.astream];
+            let astream = &mut self.state.streams[self.state.astream];
             astream.cur_frame = u64::MAX;
             for &(ts, off, _) in astream.seek_idx.iter() {
                 astream.cur_frame = u64::from(ts);
