@@ -37,7 +37,8 @@ fn read_chunk_header(br: &mut dyn ByteIO) -> DemuxerResult<(u32, u64)> {
     let size            = br.read_u32be()?;
     let ctype           = br.read_u32be()?;
     if size == 0 {
-        Ok((ctype, br.left() as u64))
+        let left = br.left();
+        Ok((ctype, if left != -1 { left as u64 } else { u64::MAX }))
     } else if size == 1 {
         let size64      = br.read_u64be()?;
         validate!(size64 >= 16);
@@ -118,6 +119,7 @@ macro_rules! read_chunk_list {
                 let ret = read_chunk_header(self.src);
                 if ret.is_err() { break; }
                 let (ctype, size) = ret.unwrap();
+                let size = if size == u64::MAX { list_end - self.src.tell() } else { size };
                 if self.print_chunks {
                     print_cname(ctype, size, self.src.tell(), self.depth as u8);
                 }
@@ -153,6 +155,7 @@ macro_rules! read_chunk_list {
                 let ret = read_chunk_header(br);
                 if ret.is_err() { break; }
                 let (ctype, size) = ret.unwrap();
+                let size = if size == u64::MAX { list_end - br.tell() } else { size };
                 if self.print_chunks {
                     print_cname(ctype, size, br.tell(), self.depth + 1);
                 }
@@ -384,6 +387,7 @@ struct MOVDemuxer<'a> {
     duration:       u32,
     pal:            Option<Arc<[u8; 1024]>>,
     ver_m1:         bool,
+    file_size:      u64,
 
     moof_off:       u64,
 
@@ -730,6 +734,7 @@ impl<'a> MOVDemuxer<'a> {
             duration:       0,
             pal:            None,
             ver_m1:         false,
+            file_size:      u64::MAX,
 
             moof_off:       0,
 
@@ -741,10 +746,15 @@ impl<'a> MOVDemuxer<'a> {
     }
     fn read_root(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
         self.depth = 0;
-        while self.src.left() != 0 {
+        let cur_pos = self.src.tell();
+        self.src.seek(SeekFrom::End(0))?;
+        self.file_size = self.src.tell();
+        self.src.seek(SeekFrom::Start(cur_pos))?;
+        while self.src.tell() < self.file_size {
             let ret = read_chunk_header(self.src);
             if ret.is_err() { break; }
             let (ctype, size) = ret.unwrap();
+            let size = if size == u64::MAX { self.file_size - self.src.tell() } else { size };
             if self.print_chunks {
                 print_cname(ctype, size, self.src.tell(), 0);
             }
