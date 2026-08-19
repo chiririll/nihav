@@ -89,6 +89,7 @@ const ROOT_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"moov"), parse: read_moov },
     RootChunkHandler { ctype: mktag!(b"moof"), parse: read_moof },
     RootChunkHandler { ctype: mktag!(b"sidx"), parse: read_sidx },
+    RootChunkHandler { ctype: mktag!(b"mfra"), parse: skip_chunk_mov },
 ];
 
 fn print_cname(ctype: u32, size: u64, off: u64, depth: u8) {
