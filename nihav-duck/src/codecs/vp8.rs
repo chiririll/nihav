@@ -517,16 +517,16 @@ impl VP8Decoder {
 
     fn set_single_qmat(qmat: &mut [[i16; 16]; 3], y_dc_q: usize, y_ac_q: usize, y2_dc_q: usize, y2_ac_q: usize, uv_dc_q: usize, uv_ac_q: usize) {
         qmat[0][0] = DC_QUANTS[y_dc_q];
-        for i in 1..16 {
-            qmat[0][i] = AC_QUANTS[y_ac_q];
+        for qm in qmat[0].iter_mut().skip(1) {
+            *qm = AC_QUANTS[y_ac_q];
         }
         qmat[1][0] = DC_QUANTS[uv_dc_q].min(132);
-        for i in 1..16 {
-            qmat[1][i] = AC_QUANTS[uv_ac_q];
+        for qm in qmat[1].iter_mut().skip(1) {
+            *qm = AC_QUANTS[uv_ac_q];
         }
         qmat[2][0] = DC_QUANTS[y2_dc_q] * 2;
-        for i in 1..16 {
-            qmat[2][i] = (i32::from(AC_QUANTS[y2_ac_q]) * 155 / 100).max(8) as i16;
+        for qm in qmat[2].iter_mut().skip(1) {
+            *qm = (i32::from(AC_QUANTS[y2_ac_q]) * 155 / 100).max(8) as i16;
         }
     }
     fn set_qmat(&mut self, y_dc_q: usize, y_ac_q: usize, y2_dc_q: usize, y2_ac_q: usize, uv_dc_q: usize, uv_ac_q: usize) {

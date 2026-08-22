@@ -93,9 +93,9 @@ impl VP56Parser for VP5BR {
                 models[comp].raw_probs[1]       = bc.read_probability();
             }
         }
-        for comp in 0..2 {
-            for i in 0..7 {
-                if bc.read_prob(HAS_TREE_PROB[comp][i]) {
+        for (comp, tree_probs) in HAS_TREE_PROB.iter().enumerate() {
+            for (i, &prob) in tree_probs.iter().enumerate() {
+                if bc.read_prob(prob) {
                     models[comp].tree_probs[i]  = bc.read_probability();
                 }
             }
