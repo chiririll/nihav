@@ -49,8 +49,9 @@ impl<'a> DemuxCore<'a> for IVFDemuxer<'a> {
     }
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        while self.frameno < self.nframes {
-            let fsize                   = self.src.read_u32le()? as usize;
+        while self.nframes == 0 || self.frameno < self.nframes {
+            let fsize                   = self.src.read_u32le()
+                    .map_err(|err| if self.nframes == 0 { DemuxerError::EOF } else { DemuxerError::from(err) })? as usize;
             let tstamp                  = self.src.read_u64le()?;
             self.frameno += 1;
 
