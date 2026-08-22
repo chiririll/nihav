@@ -1274,8 +1274,13 @@ impl NADecoder for VP8Decoder {
             *start = data_start;
         }
         let mut bc_src = Vec::new();
+        let mut tail_buf = [0; 8];
+        let copy_len = src.len().min(4);
+        tail_buf[..copy_len].copy_from_slice(&src[src.len() - copy_len..]);
         for &off in part_offs.iter() {
-            bc_src.push(BoolCoder::new(&src[off..]).unwrap());
+            let tail_len = src.len() - off;
+            let bc_s = if tail_len >= 4 { &src[off..] } else { &tail_buf[4 - tail_len..] };
+            bc_src.push(BoolCoder::new(bc_s).unwrap());
         }
 
         let vinfo = NAVideoInfo::new(self.width, self.height, false, YUV420_FORMAT);
