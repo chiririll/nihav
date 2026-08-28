@@ -905,6 +905,7 @@ fn find_raw_yuv_fmt(compr: &[u8; 4], vhdr: &mut NAVideoInfo) -> bool {
             b"I420" | b"IYUV" => ("yuv420p", false),
             b"YV12" => ("yuv420p", true),
             b"YVU9" => ("yuv410p", true),
+            b"Y800" | b"Y8  " => ("grey", false),
             _ => return false,
         };
     if let Ok(fmt) = NAPixelFormaton::from_str(fmt_name) {
