@@ -56,7 +56,7 @@ impl MSBitmapInfo {
             if !(1..=32).contains(&self.bitcount) {
                 return Err("bitcount");
             }
-            if (self.bitcount <= 8 && (self.colors == 0 || self.colors > (1 << self.bitcount))) || (self.bitcount > 8 && self.colors != 0) {
+            if (self.bitcount <= 8 && !(&self.compression[..2] == b"Y8") && (self.colors == 0 || self.colors > (1 << self.bitcount))) || (self.bitcount > 8 && self.colors != 0) {
                 return Err("clr_used");
             }
             if self.clr_important as usize > self.colors {
