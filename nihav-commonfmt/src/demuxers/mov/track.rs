@@ -131,12 +131,15 @@ fn read_hdlr(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
             track.stream_type = StreamType::Audio;
         } else {
             track.stream_type = StreamType::Data;
+            track.handler = comp_subtype;
         }
     } else if comp_type == mktag!(b"dhlr") {
         track.stream_type = StreamType::Data;
+        track.handler = 0xFFFFFFF;
     } else {
         println!("Unknown stream type");
         track.stream_type = StreamType::Data;
+        track.handler = 0xFFFFFFF;
     }
 
     Ok(KNOWN_HDLR_SIZE)
@@ -381,6 +384,8 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                         name
                     } else if let Some(name) = find_codec_from_avi_fourcc(&fcc) {
                         name
+                    } else if &fcc == b"pdf " {
+                        "pdf"
                     } else {
                         "unknown"
                     };
@@ -549,9 +554,38 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 return Err(DemuxerError::InvalidData);
             },
             _ => {
-//todo put it all into extradata
-                let edata = None;
-                codec_info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
+                validate!(br.tell() <= end_pos);
+                let edata_size = (end_pos - br.tell()) as usize;
+                let edata = if edata_size > 0 {
+                        let mut buf = vec![0; edata_size];
+                        br.read_buf(&mut buf)?;
+                        Some(buf)
+                    } else { None };
+
+                const HANDLER_FLASH: u32 = mktag!(b"flsh");
+                const HANDLER_GENERIC: u32 = mktag!(b"gnrc");
+                const HANDLER_MUSIC: u32 = mktag!(b"musi");
+                const HANDLER_PANO: u32 = mktag!(b"pano");
+                const HANDLER_PANO2: u32 = mktag!(b"STpn");
+                const HANDLER_QTVR: u32 = mktag!(b"qtvr");
+                const HANDLER_QUARTZ: u32 = mktag!(b"qtz ");
+                const HANDLER_SPRITE: u32 = mktag!(b"sprt");
+                const HANDLER_TEXT: u32 = mktag!(b"text");
+                const HANDLER_TWEEN: u32 = mktag!(b"twen");
+                let name = match track.handler {
+                        HANDLER_FLASH => "flash",
+                        HANDLER_GENERIC => "generic-data",
+                        HANDLER_MUSIC => "qt-music",
+                        HANDLER_PANO => "panorama",
+                        HANDLER_PANO2 => "panorama2",
+                        HANDLER_QTVR => "qtvr",
+                        HANDLER_QUARTZ => "quartz",
+                        HANDLER_SPRITE => "qt-sprite",
+                        HANDLER_TEXT => "apple-text",
+                        HANDLER_TWEEN => "apple-tween",
+                        _ => "unknown"
+                    };
+                codec_info = NACodecInfo::new(name, NACodecTypeInfo::None, edata);
             },
         };
         track.pkt_demux.tb_num = track.tb_num;
@@ -932,6 +966,7 @@ pub struct Track {
     pub streams:        Vec<NAStream>,
     pub pal:            Option<Arc<[u8; 1024]>>,
     pub pkt_demux:      QTPacketDemuxer,
+    pub handler:        u32,
 
     pub moof_off:       u64,
 
@@ -954,6 +989,7 @@ impl Track {
             width:          0,
             height:         0,
             streams:        Vec::new(),
+            handler:        0,
             depth:          0,
             pal:            None,
             ver_m1:         false,
