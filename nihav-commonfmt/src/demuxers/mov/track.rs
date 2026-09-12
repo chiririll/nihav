@@ -576,6 +576,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 const HANDLER_PANO2: u32 = mktag!(b"STpn");
                 const HANDLER_QTVR: u32 = mktag!(b"qtvr");
                 const HANDLER_QUARTZ: u32 = mktag!(b"qtz ");
+                const HANDLER_SKIN: u32 = mktag!(b"skin");
                 const HANDLER_SPRITE: u32 = mktag!(b"sprt");
                 const HANDLER_TEXT: u32 = mktag!(b"text");
                 const HANDLER_TWEEN: u32 = mktag!(b"twen");
@@ -587,6 +588,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                         HANDLER_PANO2 => "panorama2",
                         HANDLER_QTVR => "qtvr",
                         HANDLER_QUARTZ => "quartz",
+                        HANDLER_SKIN => "apple-skin",
                         HANDLER_SPRITE => "qt-sprite",
                         HANDLER_TEXT => "apple-text",
                         HANDLER_TWEEN => "apple-tween",
