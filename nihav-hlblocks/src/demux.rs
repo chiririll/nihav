@@ -506,6 +506,35 @@ impl<'a> NAOptionHandler for DemuxerObject<'a> {
     }
 }
 
+fn check_pe(br: &mut dyn ByteIO) -> DecoderResult<u64> {
+    br.seek(SeekFrom::Start(0x3C))?;
+    let pe_off = br.read_u32le()?;
+    if pe_off < 0x40 { return Err(DecoderError::InvalidData); }
+    br.seek(SeekFrom::Start(pe_off.into()))?;
+    let tag = br.read_tag()?;
+    if &tag != b"PE\x00\x00" { return Err(DecoderError::InvalidData); }
+    br.read_u16le()?;
+    let nsections = usize::from(br.read_u16le()?);
+    if !(1..=255).contains(&nsections) { return Err(DecoderError::InvalidData); }
+    br.read_skip(12)?;
+    let optional_hdr_size = usize::from(br.read_u16le()?);
+    br.read_skip(optional_hdr_size + 2)?;
+
+    let mut pe_size = 0;
+    for _ in 0..nsections {
+        br.read_skip(16)?;
+        let size = br.read_u32le()?;
+        let offs = br.read_u32le()?;
+        br.read_skip(16)?;
+        if size > 0 {
+            pe_size = pe_size.max(u64::from(offs) + u64::from(size));
+        }
+    }
+    if pe_size == 0 { return Err(DecoderError::InvalidData); }
+
+    Ok(pe_size)
+}
+
 /// Checks input for various metadata tags.
 ///
 /// Music files often have various metadata (e.g. title, artist, genre etc) associated with them but not always being a part of the file/stream format but rather a generic extension prepended or appended to the elementary stream.
@@ -518,6 +547,15 @@ pub fn detect_tags(br: &mut dyn ByteIO, verbose: bool) -> (bool, u64, Option<u64
     let mut start = 0;
     let mut end = None;
 
+    // check for PE
+    if let Ok(0x4D5A) = br.peek_u16be() {
+        if let Ok(pe_end) = check_pe(br) {
+            return (false, pe_end, None);
+        }
+        if br.seek(SeekFrom::Start(0)).is_err() {
+            return (is_raw, start, None);
+        }
+    }
     // check for RIFF MP3 container
     {
         let mut buf = [0; 20];
