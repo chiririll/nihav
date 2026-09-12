@@ -471,6 +471,7 @@ static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     //(b"mpeg", "mpeg-video"),
     (b"mjpa", "mjpeg-a"),
     (b"mjpb", "mjpeg-b"),
+    (b"jpgi", "jpeg"),
     (b"SVQ1", "sorenson-video"),
     (b"svqi", "sorenson-video"),
     (b"SVQ3", "sorenson-video3"),
