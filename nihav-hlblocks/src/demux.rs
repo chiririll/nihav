@@ -518,6 +518,14 @@ pub fn detect_tags(br: &mut dyn ByteIO, verbose: bool) -> (bool, u64, Option<u64
     let mut start = 0;
     let mut end = None;
 
+    // check for RIFF MP3 container
+    {
+        let mut buf = [0; 20];
+        if br.peek_buf(&mut buf).is_ok() && &buf[..4] == b"RIFF" && &buf[8..16] == b"RMP3data" {
+            let size = read_u32le(&buf[16..]).unwrap_or_default();
+            return (true, 20, Some(u64::from(size) + 20));
+        }
+    }
     // check for ID3v{2-4}
     let mut buf = [0; 5];
     loop {
