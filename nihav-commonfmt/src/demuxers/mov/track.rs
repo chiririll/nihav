@@ -490,6 +490,8 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                         name
                     } else if let (true, Some(name)) = ((fcc[0] == b'm' && fcc[1] == b's'),  find_codec_from_wav_twocc(u16::from(fcc[2]) * 256 + u16::from(fcc[3]))) {
                         name
+                    } else if fcc == [0; 4] {
+                        "pcm"
                     } else {
                         "unknown"
                     };
