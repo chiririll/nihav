@@ -431,10 +431,15 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 }
                 let edata = if br.tell() < end_pos {
                         let edata_size  = br.read_u32be()? as usize;
-                        validate!(edata_size >= 4);
-                        let mut buf = vec![0; edata_size - 4];
-                                      br.read_buf(buf.as_mut_slice())?;
-                        Some(buf)
+                        let left = (end_pos - br.tell()) as usize;
+                        if edata_size > 0 || left > 8 {
+                            validate!(edata_size >= 4);
+                            let mut buf = vec![0; edata_size - 4];
+                                          br.read_buf(buf.as_mut_slice())?;
+                            Some(buf)
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     };
