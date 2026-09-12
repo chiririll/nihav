@@ -746,6 +746,10 @@ impl<'a> MOVDemuxer<'a> {
         }
     }
     fn read_root(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+        let mut old_flat_file = false;
+        let mut moov_seen = false;
+        let mut mdat_seen = false;
+
         self.depth = 0;
         let cur_pos = self.src.tell();
         self.src.seek(SeekFrom::End(0))?;
@@ -756,8 +760,20 @@ impl<'a> MOVDemuxer<'a> {
             if ret.is_err() { break; }
             let (ctype, size) = ret.unwrap();
             let size = if size == u64::MAX { self.file_size - self.src.tell() } else { size };
+            if size == 256-8 && ctype < 0x10000 {
+                println!("Probably an old flattened file, skipping garbage in the middle...");
+                self.src.read_skip(256 - 4)?;
+                old_flat_file = true;
+                continue;
+            }
             if self.print_chunks {
                 print_cname(ctype, size, self.src.tell(), 0);
+            }
+            if ctype == mktag!(b"moov") {
+                moov_seen = true;
+            }
+            if ctype == mktag!(b"mdat") {
+                mdat_seen = true;
             }
             if IGNORED_CHUNKS.contains(&ctype) {
                 self.src.skip64(size)?;
@@ -773,6 +789,9 @@ impl<'a> MOVDemuxer<'a> {
             }
             validate!(read_size <= size);
             self.src.skip64(size - read_size)?;
+            if old_flat_file && moov_seen && mdat_seen {
+                break;
+            }
         }
 //todo check if all needed chunks are found
         Ok(())
