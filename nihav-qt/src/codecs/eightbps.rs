@@ -92,7 +92,6 @@ impl NADecoder for PlanarRGBDecoder {
         let mut buf = bufinfo.get_vbuf().unwrap();
         let frm = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
 
-        let (size_data, rle_data) = src.split_at(self.height * 2 * planes);
         let mut pos = 0;
         let mut fdata = Frame {
                 data:   frm.data,
@@ -101,8 +100,21 @@ impl NADecoder for PlanarRGBDecoder {
                 stride: frm.stride[0],
                 step:   planes,
             };
-        for (planeno, line_sizes) in size_data.chunks_exact(self.height * 2).enumerate() {
-            pos = decode_plane(line_sizes, rle_data, pos, &mut fdata, planeno)?;
+        let plane_hdr_size = self.height * 2;
+        if read_u16be(&src).unwrap_or(0) != 1 {
+            let (size_data, rle_data) = src.split_at(plane_hdr_size * planes);
+            for (planeno, line_sizes) in size_data.chunks_exact(plane_hdr_size).enumerate() {
+                pos = decode_plane(line_sizes, rle_data, pos, &mut fdata, planeno)?;
+            }
+        } else {
+            for planeno in 0..planes {
+                validate!(2 + pos + plane_hdr_size < src.len());
+                validate!(read_u16be(&src[pos..]).unwrap_or(0) == 1);
+                pos += 2;
+                let (line_sizes, rle_data) = src[pos..].split_at(plane_hdr_size);
+                let rd_size = decode_plane(line_sizes, rle_data, 0, &mut fdata, planeno)?;
+                pos += plane_hdr_size + rd_size;
+            }
         }
 
         if self.depth == 8 {
