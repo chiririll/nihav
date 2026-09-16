@@ -97,6 +97,7 @@ impl TrackHandler for VideoTrackHandler {
         bw.write_u16be(1)?; // frame count
         let name: &[u8] = match &self.fcc {
                 b"raw " | b"j420" => b"Raw video",
+                b"8BPS" => b"Planar RGB",
                 b"jpeg" => b"Motion JPEG",
                 b"mjpa" => b"Motion JPEG A",
                 b"mjpb" => b"Motion JPEG B",

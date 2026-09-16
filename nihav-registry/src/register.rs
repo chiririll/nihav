@@ -198,6 +198,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio;    "ms-adpcm",      "MS ADPCM"),
     desc!(audio;    "ima-adpcm-ms",  "IMA ADPCM (MS variant)"),
 
+    desc!(video-ll; "8bps",                 "Planar RGB"),
     desc!(video;    "qt-smc",               "Apple Graphics"),
     desc!(video;    "qt-rle",               "Apple Animation"),
     desc!(video;    "apple-video",          "Apple video"),
@@ -457,6 +458,7 @@ static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
 ];
 
 static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
+    (b"8BPS", "8bps"),
     (b"cvid", "cinepak"),
     (b"jpeg", "jpeg"),
     (b"raw ", "rawvideo"),

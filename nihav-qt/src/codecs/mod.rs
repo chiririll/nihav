@@ -9,6 +9,9 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
+#[cfg(feature="decoder_8bps")]
+mod eightbps;
+
 #[cfg(feature="decoder_qdraw")]
 mod qdraw;
 
@@ -75,6 +78,8 @@ mod qdm2qmf;
 mod qdm2;
 
 const QT_CODECS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_8bps")]
+    DecoderInfo { name: "8bps", get_decoder: eightbps::get_decoder },
 #[cfg(feature="decoder_qdraw")]
     DecoderInfo { name: "qdraw", get_decoder: qdraw::get_decoder },
 #[cfg(feature="decoder_rle")]

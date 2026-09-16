@@ -27,6 +27,7 @@ all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
 all_video_decoders = [
+    "decoder_8bps",
     "decoder_rle",
     "decoder_smc",
     "decoder_rpza",
@@ -37,6 +38,7 @@ all_video_decoders = [
     "decoder_rawvid",
     "decoder_cdvideo"
 ]
+decoder_8bps = ["decoders"]
 decoder_rle = ["decoders"]
 decoder_smc = ["decoders"]
 decoder_rpza = ["decoders"]
