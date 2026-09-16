@@ -55,7 +55,8 @@ fn read_palette(br: &mut dyn ByteIO, size: u64, pal: &mut [u8; 1024]) -> Demuxer
     let palsize         = (br.read_u16be()? as usize) + 1;
     validate!(palsize <= 256);
     validate!(flags == 0 || flags == 0x4000 || flags == 0x8000);
-    validate!((palsize as u64) * 8 + 8 <= size);
+    let mut read_size = (palsize as u64) * 8 + 8;
+    validate!(read_size <= size);
     for i in 0..palsize {
         let a           = br.read_u16be()?;
         let r           = br.read_u16be()?;
@@ -70,8 +71,9 @@ fn read_palette(br: &mut dyn ByteIO, size: u64, pal: &mut [u8; 1024]) -> Demuxer
     }
     if flags == 0x4000 {
         br.read_skip(8)?;
+        read_size += 8;
     }
-    Ok(size)
+    Ok(read_size)
 }
 
 struct RootChunkHandler {
