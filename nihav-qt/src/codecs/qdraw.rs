@@ -2,6 +2,16 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_codec_support::codecs::HAMShuffler;
 
+const ARGB_FORMAT: NAPixelFormaton = NAPixelFormaton {
+        model: ColourModel::RGB(RGBSubmodel::RGB), components: 4,
+        comp_info: [
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 4 }),
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 4 }),
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 3, next_elem: 4 }),
+            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 4 }),
+            None ],
+        elem_size: 4, be: false, alpha: true, palette: false };
+
 trait ReadQDTypes {
     fn read_colour(&mut self) -> DecoderResult<[u8; 3]>;
     fn read_pattern(&mut self) -> DecoderResult<[u8; 8]>;
@@ -288,7 +298,93 @@ impl NADecoder for QDrawDecoder {
                 },
                 0x8200 => {
                     println!("QT data encountered");
-                    return Err(DecoderError::NotImplemented);
+                    let size            = br.read_u32be()? as usize;
+                    validate!(size > 0x9A && (br.left() as usize) >= size);
+                    let end = br.tell() + (size as u64);
+                                          br.read_skip(0x44)?;
+                    let desc_size       = br.read_u32be()? as usize;
+                    let desc_end = br.tell() + (desc_size as u64) - 4;
+                    validate!(desc_size >= 0x56 && desc_end < end);
+                    let fcc             = br.read_tag()?;
+                                          br.read_skip(12)?;
+                                          br.read_tag()?; // vendor = "appl"
+                                          br.read_skip(8)?; // quality
+                    let qwidth          = usize::from(br.read_u16be()?);
+                    let qheight         = usize::from(br.read_u16be()?);
+                                          br.read_skip(8)?; // dpi
+                    let data_size       = br.read_u32be()? as usize;
+                    validate!(data_size <= size - desc_size - 0x44);
+                                          br.read_u16be()?; // frame count
+                                          br.read_skip(32)?; // codec name
+                    let depth           = br.read_u16be()?;
+                    let ctable          = br.read_u16be()?;
+
+                                          br.seek(SeekFrom::Start(desc_end))?;
+                    validate!(br.tell() + (data_size as u64) <= end);
+                    let mut data = vec![0; data_size];
+                                          br.read_buf(&mut data)?;
+                                          br.seek(SeekFrom::Start(end))?;
+
+                    let mut decs = RegisteredDecoders::new();
+                    crate::qt_register_all_decoders(&mut decs);
+                    let cname = match &fcc {
+                            b"8BPS" => "8bps",
+                            b"cvid" => "cinepak",
+                            b"jpeg" => "jpeg",
+                            b"smc " => "qt-smc",
+                            b"rle " => "qt-rle",
+                            b"rpza" => "apple-video",
+                            b"kpcd" => "kodak-photocd",
+                            b"mjpa" => "mjpeg-a",
+                            b"mjpb" => "mjpeg-b",
+                            b"SVQ1" | b"svqi" => "sorenson-video",
+                            b"SVQ3" | b"svq3" => "sorenson-video3",
+                            _ => "unknown",
+                        };
+                    let decfunc = if let Some(df) = decs.find_decoder(cname) {
+                            df
+                        } else {
+                            println!("can't find {cname} decoder");
+                            return Err(DecoderError::NotImplemented);
+                        };
+                    let mut dec = (decfunc)();
+                    let mut dsupp = Box::new(NADecoderSupport::new());
+                    let fmt = match depth {
+                            1..=8 | 33..=40 => PAL8_FORMAT,
+                            15 | 16 => NAPixelFormaton::make_rgb16_fmt(5, 5, 5, true, true),
+                            24 => RGB24_FORMAT,
+                            32 => ARGB_FORMAT,
+                            _ => {
+                                println!("don't know what to do with depth {depth}");
+                                return Err(DecoderError::NotImplemented);
+                            },
+                        };
+                    let vinfo = NAVideoInfo::new(qwidth, qheight, false, fmt);
+                    let info = NACodecInfo::new("qdraw", NACodecTypeInfo::Video(vinfo), None);
+                    let stream = NAStream::new(StreamType::Video, 0, info, 1, 1, 0).into_ref();
+                    if let Err(err) = dec.init(&mut dsupp, stream.get_info()) {
+                        println!("Sub-decoder {cname} init error");
+                        return Err(err);
+                    }
+                    let fake_pkt = NAPacket::new(stream, NATimeInfo::new(None, None, None, 1, 1), true, data);
+                    let qtfrm = if let Ok(qf) = dec.decode(&mut dsupp, &fake_pkt) {
+                            qf
+                        } else {
+                            println!("Sub-decoder {cname} decode error");
+                            return Err(DecoderError::InvalidData);
+                        };
+
+                    let same = if let Some(vinfo) = qtfrm.get_buffer().get_video_info() {
+                            vinfo.width == self.width && vinfo.height == self.height// && vinfo.format == RGB24_FORMAT
+                        } else { false };
+                    if same {
+                        let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), qtfrm.get_buffer());
+                        frm.set_frame_type(FrameType::I);
+                        return Ok(frm.into_ref());
+                    } else {
+                        println!("decoded frame conversion is not implemented");
+                        return Err(DecoderError::NotImplemented);
+                    }
                 },
                 0x8000..=0x80FF => {
                     println!("unknown opcode {op:04X}");
