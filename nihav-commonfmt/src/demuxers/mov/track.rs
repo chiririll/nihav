@@ -582,6 +582,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                 const HANDLER_TWEEN: u32 = mktag!(b"twen");
                 let name = match track.handler {
                         HANDLER_FLASH => "flash",
+                        HANDLER_GENERIC if &fcc == b"@ppt" => "powerpoint",
                         HANDLER_GENERIC => "generic-data",
                         HANDLER_MUSIC => "qt-music",
                         HANDLER_PANO => "panorama",
