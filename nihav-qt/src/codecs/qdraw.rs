@@ -40,11 +40,14 @@ struct QDrawDecoder {
     hams:       HAMShuffler<u8>,
     width:      usize,
     height:     usize,
+    decs:       RegisteredDecoders,
 }
 
 impl QDrawDecoder {
     fn new() -> Self {
-        Self::default()
+        let mut decs = RegisteredDecoders::new();
+        crate::qt_register_all_decoders(&mut decs);
+        Self{ decs, ..Default::default() }
     }
 }
 
@@ -325,8 +328,6 @@ impl NADecoder for QDrawDecoder {
                                           br.read_buf(&mut data)?;
                                           br.seek(SeekFrom::Start(end))?;
 
-                    let mut decs = RegisteredDecoders::new();
-                    crate::qt_register_all_decoders(&mut decs);
                     let cname = match &fcc {
                             b"8BPS" => "8bps",
                             b"cvid" => "cinepak",
@@ -341,7 +342,7 @@ impl NADecoder for QDrawDecoder {
                             b"SVQ3" | b"svq3" => "sorenson-video3",
                             _ => "unknown",
                         };
-                    let decfunc = if let Some(df) = decs.find_decoder(cname) {
+                    let decfunc = if let Some(df) = self.decs.find_decoder(cname) {
                             df
                         } else {
                             println!("can't find {cname} decoder");
@@ -421,6 +422,14 @@ impl NAOptionHandler for QDrawDecoder {
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(QDrawDecoder::new())
+}
+
+pub fn get_qdraw_decoder_with_external_decreg(ref_decs: &RegisteredDecoders) -> Box<dyn NADecoder + Send> {
+    let mut decs = RegisteredDecoders::new();
+    for dec in ref_decs.iter() {
+        decs.add_decoder(*dec);
+    }
+    Box::new(QDrawDecoder{ decs, ..Default::default() })
 }
 
 #[cfg(test)]

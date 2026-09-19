@@ -13,7 +13,7 @@ macro_rules! validate {
 mod eightbps;
 
 #[cfg(feature="decoder_qdraw")]
-mod qdraw;
+pub(crate) mod qdraw;
 
 #[cfg(feature="decoder_rle")]
 mod rle;
