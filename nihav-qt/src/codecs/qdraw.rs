@@ -1,5 +1,6 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
+use nihav_core::scale::*;
 use nihav_codec_support::codecs::HAMShuffler;
 
 const ARGB_FORMAT: NAPixelFormaton = NAPixelFormaton {
@@ -300,7 +301,6 @@ impl NADecoder for QDrawDecoder {
                     return Err(DecoderError::InvalidData);
                 },
                 0x8200 => {
-                    println!("QT data encountered");
                     let size            = br.read_u32be()? as usize;
                     validate!(size > 0x9A && (br.left() as usize) >= size);
                     let end = br.tell() + (size as u64);
@@ -361,7 +361,7 @@ impl NADecoder for QDrawDecoder {
                             },
                         };
                     let vinfo = NAVideoInfo::new(qwidth, qheight, false, fmt);
-                    let info = NACodecInfo::new("qdraw", NACodecTypeInfo::Video(vinfo), None);
+                    let info = NACodecInfo::new(cname, NACodecTypeInfo::Video(vinfo), None);
                     let stream = NAStream::new(StreamType::Video, 0, info, 1, 1, 0).into_ref();
                     if let Err(err) = dec.init(&mut dsupp, stream.get_info()) {
                         println!("Sub-decoder {cname} init error");
@@ -378,14 +378,22 @@ impl NADecoder for QDrawDecoder {
                     let same = if let Some(vinfo) = qtfrm.get_buffer().get_video_info() {
                             vinfo.width == self.width && vinfo.height == self.height// && vinfo.format == RGB24_FORMAT
                         } else { false };
-                    if same {
-                        let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), qtfrm.get_buffer());
-                        frm.set_frame_type(FrameType::I);
-                        return Ok(frm.into_ref());
-                    } else {
-                        println!("decoded frame conversion is not implemented");
-                        return Err(DecoderError::NotImplemented);
-                    }
+                    let dbuf = if same {
+                            qtfrm.get_buffer()
+                        } else {
+                            let src_buf = qtfrm.get_buffer();
+                            let dst_vinfo = self.info.get_properties().get_video_info().unwrap();
+                            let mut out_pic = alloc_video_buffer(dst_vinfo, 0)?;
+                            let dec_fmt = get_scale_fmt_from_pic(&src_buf);
+                            let tgt_fmt = get_scale_fmt_from_pic(&out_pic);
+
+                            let mut scaler = NAScale::new(dec_fmt, tgt_fmt).map_err(|_| DecoderError::Bug)?;
+                            scaler.convert(&src_buf, &mut out_pic).map_err(|_| DecoderError::Bug)?;
+                            out_pic
+                        };
+                    let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), dbuf);
+                    frm.set_frame_type(FrameType::I);
+                    return Ok(frm.into_ref());
                 },
                 0x8000..=0x80FF => {
                     println!("unknown opcode {op:04X}");
