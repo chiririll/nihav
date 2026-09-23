@@ -120,7 +120,8 @@ impl RleDecoder {
 
         let stride = frm.stride[0];
         let mut doff = frm.offset[0] + start_line * stride;
-        for _ in start_line..end_line {
+        let awidth = (self.width + npixels - 1) & !(npixels - 1);
+        for _y in start_line..end_line {
             let mut x = 0;
             let mut skip_mode = true;
             while x < self.width {
@@ -130,7 +131,7 @@ impl RleDecoder {
                         return Ok(true);
                     } else {
                         let skip = (skip_code - 1) as usize;
-                        validate!(x + skip * npixels <= self.width);
+                        validate!(x + skip * npixels <= awidth);
                         x += skip * npixels;
                         has_skips = true;
                     }
@@ -146,7 +147,7 @@ impl RleDecoder {
                         break;
                     } else if rle_code < 0 {
                         let len = (-i16::from(rle_code)) as usize;
-                        validate!(x + len * npixels <= self.width);
+                        validate!(x + len * npixels <= awidth);
                         let val             = br.read_u32be()?;
                         unpack_pixels(val, &mut pix_buf, self.depth);
                         for _ in 0..len {
@@ -157,7 +158,7 @@ impl RleDecoder {
                         }
                     } else {
                         let len = rle_code as usize;
-                        validate!(x + len * npixels <= self.width);
+                        validate!(x + len * npixels <= awidth);
                         for _ in 0..len {
                             let val         = br.read_u32be()?;
                             unpack_pixels(val, &mut pix_buf, self.depth);
@@ -169,7 +170,7 @@ impl RleDecoder {
                     }
                 }
             }
-            if x == self.width {
+            if x >= self.width {
                 let eol                 = br.read_byte()? as i8;
                 validate!(eol == -1);
             }
