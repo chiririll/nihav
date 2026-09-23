@@ -334,12 +334,12 @@ impl NADecoder for QDrawDecoder {
                 0x0020 => { // line
                     let sx              = br.read_u16be()?;
                     let sy              = br.read_u16be()?;
-                    let dx              = br.read_u16le()?;
-                    let dy              = br.read_u16le()?;
+                    let dx              = br.read_u16be()?;
+                    let dy              = br.read_u16be()?;
                 },
                 0x0021 => { // line from
-                    let dx              = br.read_u16le()?;
-                    let dy              = br.read_u16le()?;
+                    let dx              = br.read_u16be()?;
+                    let dy              = br.read_u16be()?;
                 },
                 0x0022 => { // short line
                     let xpos            = br.read_u16be()?;
@@ -358,7 +358,17 @@ impl NADecoder for QDrawDecoder {
                                           br.read_skip(count)?;
                 },
                 0x0031 => { // paint rect
-                                          br.read_skip(8)?;
+                    let sy              = usize::from(br.read_u16be()?);
+                    let sx              = usize::from(br.read_u16be()?);
+                    let dy              = usize::from(br.read_u16be()?);
+                    let dx              = usize::from(br.read_u16be()?);
+                    validate!(sy < dy && sx < dx);
+                    for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
+                            .take(dy.min(self.height)).skip(sy) {
+                        for pix in dline.chunks_exact_mut(3).take(dx.min(self.width)).skip(sx) {
+                            pix.copy_from_slice(&fg_clr);
+                        }
+                    }
                 },
                 0x0098 => { // PackBits rect
                     decode_bits(&mut br, &mut frm, self.width, self.height, false, false)?;
