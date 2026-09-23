@@ -147,8 +147,36 @@ fn decode_bits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width: usi
             }
         },
         1 => {
-            println!("raw data");
-            return Err(DecoderError::NotImplemented);
+            match pixel_size {
+                8 => {
+                    for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
+                            .skip(cur_y).take(cur_h) {
+                        for pix in dline[cur_x * 3..].chunks_exact_mut(3).take(cur_w) {
+                            let idx = usize::from(br.read_byte()?);
+                            pix.copy_from_slice(&pal[idx * 3..][..3]);
+                        }
+                    }
+                },
+                24 => {
+                    for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
+                            .skip(cur_y).take(cur_h) {
+                        br.read_buf(&mut dline[cur_x * 3..][..cur_w * 3])?;
+                    }
+                },
+                32 => {
+                    for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
+                            .skip(cur_y).take(cur_h) {
+                        for pix in dline[cur_x * 3..].chunks_exact_mut(3).take(cur_w) {
+                            br.read_buf(pix)?;
+                            br.read_byte()?;
+                        }
+                    }
+                },
+                _ => {
+                    println!("raw {pixel_size}-bit data is not supported");
+                    return Err(DecoderError::NotImplemented);
+                }
+            }
         },
         2 => {
             validate!(pixel_size == 24 || pixel_size == 32);
