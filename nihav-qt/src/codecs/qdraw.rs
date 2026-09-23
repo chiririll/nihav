@@ -52,7 +52,11 @@ impl QDrawDecoder {
     }
 }
 
-fn decode_packbits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width: usize, height: usize, region: bool) -> DecoderResult<()> {
+fn decode_bits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width: usize, height: usize, region: bool, direct: bool) -> DecoderResult<()> {
+    if direct {
+        let handle                      = br.read_u32be()?;
+        validate!(handle == 0xFF);
+    }
     let row_bytes                       = br.read_u16be()?;
     validate!(row_bytes & 0x8000 != 0);
     let cur_y                           = usize::from(br.read_u16be()?);
@@ -63,9 +67,16 @@ fn decode_packbits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width:
     validate!(cur_y < cur_h && cur_h > 0 && cur_h <= height);
     let version                         = br.read_u16be()?;
     validate!(version == 0);
-    let pack_type                       = br.read_u16be()?;
-    if pack_type != 0 {
-        return Err(DecoderError::NotImplemented);
+    let mut pack_type                   = br.read_u16be()?;
+    if !direct {
+        if pack_type != 0 {
+            return Err(DecoderError::NotImplemented);
+        }
+        if (row_bytes & 0x7FFF) < 8 {
+            pack_type = 1;
+        }
+    } else {
+        validate!((0..=4).contains(&pack_type));
     }
     let _pack_size                      = br.read_u32be()?;
     let _h_res                          = br.read_u32be()?;
@@ -74,22 +85,24 @@ fn decode_packbits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width:
     let pixel_size                      = br.read_u16be()?;
     let cmp_count                       = usize::from(br.read_u16be()?);
     let cmp_size                        = br.read_u16be()?;
-    if pixel_type != 0 || pixel_size != 8 || cmp_count != 1 || cmp_size != 8 {
+    if !direct && (pixel_type != 0 || pixel_size != 8 || cmp_count != 1 || cmp_size != 8) {
         return Err(DecoderError::NotImplemented);
     }
     let _plane_bytes                    = br.read_u32be()?;
     let _pm_table                       = br.read_u32be()?;
     let _pm_reserved                    = br.read_u32be()?;
 
-    let _ctseed                         = br.read_u32be()?;
-    let _trans_index                    = br.read_u16be()?;
-    let ct_size                         = usize::from(br.read_u16be()?);
     let mut pal = [0; 768];
-    for _ in 0..=ct_size {
-        let idx                         = usize::from(br.read_u16be()?);
-        validate!(idx < 256);
-        let clr                         = br.read_colour()?;
-        pal[idx * 3..][..3].copy_from_slice(&clr);
+    if !direct {
+        let _ctseed                     = br.read_u32be()?;
+        let _trans_index                = br.read_u16be()?;
+        let ct_size                     = usize::from(br.read_u16be()?);
+        for _ in 0..=ct_size {
+            let idx                     = usize::from(br.read_u16be()?);
+            validate!(idx < 256);
+            let clr                     = br.read_colour()?;
+            pal[idx * 3..][..3].copy_from_slice(&clr);
+        }
     }
 
                                           br.read_skip(8)?; // src rect
@@ -101,38 +114,104 @@ fn decode_packbits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width:
                                           br.read_skip(mask_rgn_size - 2)?;
     }
 
-    if (row_bytes & 0x7FFF) >= 8 {
-        let line_end = cur_x + cur_w;
-        for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
-                .skip(cur_y).take(cur_h) {
-            let size = if (row_bytes & 0x7FFF) > 250 { br.read_u16be()? } else { u16::from(br.read_byte()?) };
+    match pack_type {
+        0 => {
+            let line_end = cur_x + cur_w;
+            for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
+                    .skip(cur_y).take(cur_h) {
+                let size = if (row_bytes & 0x7FFF) > 250 { br.read_u16be()? } else { u16::from(br.read_byte()?) };
 
-            let end = br.tell() + u64::from(size);
+                let end = br.tell() + u64::from(size);
 
-            let mut pos = cur_x;
-            while br.tell() < end {
-                let op                  = br.read_byte()?;
-                if (op & 0x80) != 0 {
-                    let pix             = br.read_byte()?;
-                    let len = 257 - usize::from(op);
-                    validate!(pos + len <= line_end);
-                    for dst in dline[pos * 3..].chunks_exact_mut(3).take(len) {
-                        dst.copy_from_slice(&pal[usize::from(pix) * 3..][..3]);
+                let mut pos = cur_x;
+                while br.tell() < end {
+                    let op                  = br.read_byte()?;
+                    if (op & 0x80) != 0 {
+                        let pix             = br.read_byte()?;
+                        let len = 257 - usize::from(op);
+                        validate!(pos + len <= line_end);
+                        for dst in dline[pos * 3..].chunks_exact_mut(3).take(len) {
+                            dst.copy_from_slice(&pal[usize::from(pix) * 3..][..3]);
+                        }
+                        pos += len;
+                    } else {
+                        let len = usize::from(op) + 1;
+                        validate!(pos + len <= line_end);
+                        for dst in dline[pos * 3..].chunks_exact_mut(3).take(len) {
+                            let pix         = br.read_byte()?;
+                            dst.copy_from_slice(&pal[usize::from(pix) * 3..][..3]);
+                        }
+                        pos += len;
                     }
-                    pos += len;
-                } else {
-                    let len = usize::from(op) + 1;
-                    validate!(pos + len <= line_end);
-                    for dst in dline[pos * 3..].chunks_exact_mut(3).take(len) {
-                        let pix         = br.read_byte()?;
-                        dst.copy_from_slice(&pal[usize::from(pix) * 3..][..3]);
-                    }
-                    pos += len;
                 }
             }
-        }
-    } else {
-unimplemented!() // unpacked case
+        },
+        1 => {
+            println!("raw data");
+            return Err(DecoderError::NotImplemented);
+        },
+        2 => {
+            validate!(pixel_size == 24 || pixel_size == 32);
+            for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
+                    .skip(cur_y).take(cur_h) {
+                br.read_buf(&mut dline[cur_x * 3..][..cur_w * 3])?;
+            }
+        },
+        3 => {
+            validate!(pixel_size == 16);
+            println!("16-bit DirectBits RLE");
+            return Err(DecoderError::NotImplemented);
+        },
+        4 => {
+            validate!(pixel_size == 32 && (3..=4).contains(&cmp_count));
+            let line_end = cur_x + cur_w;
+            let short_len = (row_bytes & 0x7FFF) < 250;
+            for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
+                    .skip(cur_y).take(cur_h) {
+                let mut pos = cur_x * 3;
+                let mut to_dec = line_end * cmp_count;
+                let data_size   = if !short_len { br.read_u16be()? } else { u16::from(br.read_byte()?) };
+                let line_data_end = br.tell() + u64::from(data_size);
+                let mut planes = 0;
+                'linedec: while br.tell() < line_data_end {
+                    let op = usize::from(br.read_byte()?);
+                    if op < 0x80 {
+                        let len = op + 1;
+                        validate!(len <= to_dec);
+                        for _ in 0..len {
+                            dline[pos] = br.read_byte()?;
+                            pos += 3;
+                            if pos >= line_end * 3 {
+                                pos -= line_end * 3 - 1;
+                                planes += 1;
+                                if planes == cmp_count.min(3) {
+                                    break 'linedec;
+                                }
+                            }
+                        }
+                        to_dec -= len;
+                    } else {
+                        let len = 257 - op;
+                        validate!(len <= to_dec);
+                        let clr = br.read_byte()?;
+                        for _ in 0..len {
+                            dline[pos] = clr;
+                            pos += 3;
+                            if pos >= line_end * 3 {
+                                pos -= line_end * 3 - 1;
+                                planes += 1;
+                                if planes == cmp_count.min(3) {
+                                    break 'linedec;
+                                }
+                            }
+                        }
+                        to_dec -= len;
+                    }
+                }
+                br.seek(SeekFrom::Start(line_data_end))?;
+            }
+        },
+        _ => unreachable!(),
     }
     Ok(())
 }
@@ -282,10 +361,16 @@ impl NADecoder for QDrawDecoder {
                                           br.read_skip(8)?;
                 },
                 0x0098 => { // PackBits rect
-                    decode_packbits(&mut br, &mut frm, self.width, self.height, false)?;
+                    decode_bits(&mut br, &mut frm, self.width, self.height, false, false)?;
                 },
-                0x009A => { // PackBits region
-                    decode_packbits(&mut br, &mut frm, self.width, self.height, true)?;
+                0x0099 => { // PackBits region
+                    decode_bits(&mut br, &mut frm, self.width, self.height, true,  false)?;
+                },
+                0x009A => { // DirectBits rect
+                    decode_bits(&mut br, &mut frm, self.width, self.height, false, true)?;
+                },
+                0x009B => { // DirectBits region
+                    decode_bits(&mut br, &mut frm, self.width, self.height, true,  true)?;
                 },
                 0x00A0 => { // short comment
                                           br.read_u16be()?;
