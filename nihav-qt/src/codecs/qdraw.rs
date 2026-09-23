@@ -455,7 +455,8 @@ impl NADecoder for QDrawDecoder {
                                 return Err(DecoderError::NotImplemented);
                             },
                         };
-                    let vinfo = NAVideoInfo::new(qwidth, qheight, false, fmt);
+                    let mut vinfo = NAVideoInfo::new(qwidth, qheight, false, fmt);
+                    vinfo.bits = (if depth > 32 { depth - 32 } else { depth }) as u8;
                     let info = NACodecInfo::new(cname, NACodecTypeInfo::Video(vinfo), None);
                     let stream = NAStream::new(StreamType::Video, 0, info, 1, 1, 0).into_ref();
                     if let Err(err) = dec.init(&mut dsupp, stream.get_info()) {
