@@ -59,12 +59,36 @@ fn decode_bits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width: usi
     }
     let row_bytes                       = br.read_u16be()?;
     validate!(row_bytes & 0x8000 != 0);
-    let cur_y                           = usize::from(br.read_u16be()?);
-    let cur_x                           = usize::from(br.read_u16be()?);
-    let cur_h                           = usize::from(br.read_u16be()?);
-    let cur_w                           = usize::from(br.read_u16be()?);
-    validate!(cur_x < cur_w && cur_w > 0 && cur_w <= width);
-    validate!(cur_y < cur_h && cur_h > 0 && cur_h <= height);
+    let mut src_y                       = usize::from(br.read_u16be()?);
+    let mut src_x                       = usize::from(br.read_u16be()?);
+    let mut dst_y                       = usize::from(br.read_u16be()?);
+    let mut dst_x                       = usize::from(br.read_u16be()?);
+    if (src_x & 0x8000) != 0 {
+        dst_x += 65536 - src_x;
+        src_x = 0;
+    }
+    if (src_y & 0x8000) != 0 {
+        dst_y += 65536 - src_y;
+        src_y = 0;
+    }
+
+    validate!(src_x < dst_x && src_y < dst_y);
+
+    if dst_x > width && src_x > 0 {
+        dst_x -= src_x;
+        src_x = 0;
+    }
+    if dst_y > height && src_y > 0 {
+        dst_y -= src_y;
+        src_y = 0;
+    }
+    let cur_x = src_x;
+    let cur_y = src_y;
+    let cur_w = dst_x - src_x;
+    let cur_h = dst_y - src_y;
+    validate!(cur_w <= width  && (cur_w & 0x8000) == 0);
+    validate!(cur_h <= height && (cur_h & 0x8000) == 0);
+
     let version                         = br.read_u16be()?;
     validate!(version == 0);
     let mut pack_type                   = br.read_u16be()?;
@@ -267,12 +291,36 @@ impl NADecoder for QDrawDecoder {
                                           br.read_skip(0x200)?;
         }
                                           br.read_u16be()?; // low 16 bits of size
-        let cur_y                       = usize::from(br.read_u16be()?);
-        let cur_x                       = usize::from(br.read_u16be()?);
-        let cur_h                       = usize::from(br.read_u16be()?);
-        let cur_w                       = usize::from(br.read_u16be()?);
-        validate!(cur_x < cur_w && cur_w - cur_x <= self.width);
-        validate!(cur_y < cur_h && cur_h - cur_y <= self.height);
+        let mut src_y                   = usize::from(br.read_u16be()?);
+        let mut src_x                   = usize::from(br.read_u16be()?);
+        let mut dst_y                   = usize::from(br.read_u16be()?);
+        let mut dst_x                   = usize::from(br.read_u16be()?);
+        if (src_x & 0x8000) != 0 {
+            dst_x += 65536 - src_x;
+            src_x = 0;
+        }
+        if (src_y & 0x8000) != 0 {
+            dst_y += 65536 - src_y;
+            src_y = 0;
+        }
+
+        validate!(src_x < dst_x && src_y < dst_y);
+
+        if dst_x > self.width && src_x > 0 {
+            dst_x -= src_x;
+            src_x = 0;
+        }
+        if dst_y > self.height && src_y > 0 {
+            dst_y -= src_y;
+            src_y = 0;
+        }
+        let cur_x = src_x;
+        let cur_y = src_y;
+        let cur_w = dst_x - src_x;
+        let cur_h = dst_y - src_y;
+        validate!(cur_w <= self.width  && (cur_w & 0x8000) == 0);
+        validate!(cur_h <= self.height && (cur_h & 0x8000) == 0);
+
         let version_op                  = br.read_u16be()?;
         validate!(version_op == 0x0011);
         let version                     = br.read_u16be()?;
