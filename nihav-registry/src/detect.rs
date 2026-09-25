@@ -241,7 +241,8 @@ const DETECTORS: &[DetectConditions] = &[
         extensions: ".mov",
         conditions: &[CheckItem{offs: 4, cond: &CC::Or(&CC::Or(&CC::Str(b"mdat"),
                                                                &CC::Str(b"moov")),
-                                                               &CC::Str(b"ftyp")) }],
+                                                       &CC::Or(&CC::Str(b"ftyp"),
+                                                               &CC::Str(b"free"))) }],
     },
     DetectConditions {
         demux_name: "gif",
