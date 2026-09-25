@@ -52,6 +52,32 @@ impl QDrawDecoder {
     }
 }
 
+fn decode_rle_line(br: &mut dyn ByteIO, dst: &mut [u8], short_len: bool) -> DecoderResult<()> {
+    let size = if !short_len { br.read_u16be()? } else { u16::from(br.read_byte()?) };
+    let end = br.tell() + u64::from(size);
+
+    let mut pos = 0;
+    while br.tell() < end {
+        let op                  = br.read_byte()?;
+        if (op & 0x80) != 0 {
+            let pix             = br.read_byte()?;
+            let len = 257 - usize::from(op);
+            validate!(pos + len <= dst.len());
+            for dst in dst[pos..][..len].iter_mut() {
+                *dst = pix;
+            }
+            pos += len;
+        } else {
+            let len = usize::from(op) + 1;
+            validate!(pos + len <= dst.len());
+                                  br.read_buf(&mut dst[pos..][..len])?;
+            pos += len;
+        }
+    }
+    validate!(br.tell() == end);
+    Ok(())
+}
+
 fn decode_bits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width: usize, height: usize, region: bool, direct: bool) -> DecoderResult<()> {
     if direct {
         let handle                      = br.read_u32be()?;
@@ -86,8 +112,8 @@ fn decode_bits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width: usi
     let cur_y = src_y;
     let cur_w = dst_x - src_x;
     let cur_h = dst_y - src_y;
-    validate!(cur_w <= width  && (cur_w & 0x8000) == 0);
-    validate!(cur_h <= height && (cur_h & 0x8000) == 0);
+    validate!(cur_w > 0 && (cur_w & 0x8000) == 0);
+    validate!(cur_h > 0 && (cur_h & 0x8000) == 0);
 
     let version                         = br.read_u16be()?;
     validate!(version == 0);
@@ -138,35 +164,16 @@ fn decode_bits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width: usi
                                           br.read_skip(mask_rgn_size - 2)?;
     }
 
+    let row_bytes = usize::from(row_bytes & 0x7FFF);
+    let short_len = row_bytes <= 250;
+    let mut linebuf = vec![0; if row_bytes == 0 { cur_w * cmp_count } else { row_bytes }];
     match pack_type {
         0 => {
-            let line_end = cur_x + cur_w;
             for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
                     .skip(cur_y).take(cur_h) {
-                let size = if (row_bytes & 0x7FFF) > 250 { br.read_u16be()? } else { u16::from(br.read_byte()?) };
-
-                let end = br.tell() + u64::from(size);
-
-                let mut pos = cur_x;
-                while br.tell() < end {
-                    let op                  = br.read_byte()?;
-                    if (op & 0x80) != 0 {
-                        let pix             = br.read_byte()?;
-                        let len = 257 - usize::from(op);
-                        validate!(pos + len <= line_end);
-                        for dst in dline[pos * 3..].chunks_exact_mut(3).take(len) {
-                            dst.copy_from_slice(&pal[usize::from(pix) * 3..][..3]);
-                        }
-                        pos += len;
-                    } else {
-                        let len = usize::from(op) + 1;
-                        validate!(pos + len <= line_end);
-                        for dst in dline[pos * 3..].chunks_exact_mut(3).take(len) {
-                            let pix         = br.read_byte()?;
-                            dst.copy_from_slice(&pal[usize::from(pix) * 3..][..3]);
-                        }
-                        pos += len;
-                    }
+                decode_rle_line(br, &mut linebuf, short_len)?;
+                for (pix, &idx) in dline.chunks_exact_mut(3).skip(cur_x).take(cur_w).zip(linebuf.iter()) {
+                    pix.copy_from_slice(&pal[usize::from(idx) * 3..][..3]);
                 }
             }
         },
@@ -211,56 +218,55 @@ fn decode_bits(br: &mut dyn ByteIO, frm: &mut NASimpleVideoFrame<u8>, width: usi
         },
         3 => {
             validate!(pixel_size == 16);
-            println!("16-bit DirectBits RLE");
-            return Err(DecoderError::NotImplemented);
+            for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
+                    .skip(cur_y).take(cur_h) {
+                let size = if !short_len { br.read_u16be()? } else { u16::from(br.read_byte()?) };
+                let end = br.tell() + u64::from(size);
+
+                let mut pos = 0;
+                while br.tell() < end {
+                    let op                  = br.read_byte()?;
+                    if (op & 0x80) != 0 {
+                        let pix0            = br.read_byte()?;
+                        let pix1            = br.read_byte()?;
+                        let len = (257 - usize::from(op)) * 2;
+                        validate!(pos + len <= linebuf.len());
+                        for dst in linebuf[pos..][..len].chunks_exact_mut(2) {
+                            dst[0] = pix0;
+                            dst[1] = pix1;
+                        }
+                        pos += len;
+                    } else {
+                        let len = (usize::from(op) + 1) * 2;
+                        validate!(pos + len <= linebuf.len());
+                                              br.read_buf(&mut linebuf[pos..][..len])?;
+                        pos += len;
+                    }
+                }
+                validate!(br.tell() == end);
+                for (dpix, spix) in dline.chunks_exact_mut(3).skip(cur_x).take(cur_h)
+                        .zip(linebuf.chunks_exact(2)) {
+                    let pix = read_u16be(spix).unwrap_or_default();
+                    dpix[0] = (((pix <<  1) >> 8) & 0xF8) as u8;
+                    dpix[1] = (((pix <<  6) >> 8) & 0xF8) as u8;
+                    dpix[2] = (((pix << 11) >> 8) & 0xF8) as u8;
+                    for el in dpix.iter_mut() {
+                        *el |= *el >> 5;
+                    }
+                }
+            }
         },
         4 => {
             validate!(pixel_size == 32 && (3..=4).contains(&cmp_count));
-            let line_end = cur_x + cur_w;
-            let short_len = (row_bytes & 0x7FFF) < 250;
             for dline in frm.data[frm.offset[0]..].chunks_exact_mut(frm.stride[0])
                     .skip(cur_y).take(cur_h) {
-                let mut pos = cur_x * 3;
-                let mut to_dec = line_end * cmp_count;
-                let data_size   = if !short_len { br.read_u16be()? } else { u16::from(br.read_byte()?) };
-                let line_data_end = br.tell() + u64::from(data_size);
-                let mut planes = 0;
-                'linedec: while br.tell() < line_data_end {
-                    let op = usize::from(br.read_byte()?);
-                    if op < 0x80 {
-                        let len = op + 1;
-                        validate!(len <= to_dec);
-                        for _ in 0..len {
-                            dline[pos] = br.read_byte()?;
-                            pos += 3;
-                            if pos >= line_end * 3 {
-                                pos -= line_end * 3 - 1;
-                                planes += 1;
-                                if planes == cmp_count.min(3) {
-                                    break 'linedec;
-                                }
-                            }
-                        }
-                        to_dec -= len;
-                    } else {
-                        let len = 257 - op;
-                        validate!(len <= to_dec);
-                        let clr = br.read_byte()?;
-                        for _ in 0..len {
-                            dline[pos] = clr;
-                            pos += 3;
-                            if pos >= line_end * 3 {
-                                pos -= line_end * 3 - 1;
-                                planes += 1;
-                                if planes == cmp_count.min(3) {
-                                    break 'linedec;
-                                }
-                            }
-                        }
-                        to_dec -= len;
+                decode_rle_line(br, &mut linebuf, short_len)?;
+                let src = if cmp_count == 3 { &linebuf } else { &linebuf[cur_w..] };
+                for (x, dpix) in dline.chunks_exact_mut(3).skip(cur_x).take(cur_w).enumerate() {
+                    for (plane, el) in dpix.iter_mut().enumerate() {
+                        *el = src[plane * cur_w + x];
                     }
                 }
-                br.seek(SeekFrom::Start(line_data_end))?;
             }
         },
         _ => unreachable!(),
