@@ -129,14 +129,14 @@ macro_rules! read_chunk_list {
                 if self.src.tell() + size > list_end {
                     break;
                 }
-                if IGNORED_CHUNKS.contains(&ctype) {
-                    self.src.skip64(size)?;
-                    continue;
-                }
+
                 let handler = $handlers.iter().find(|x| x.ctype == ctype);
                 let read_size;
                 if let Some(ref handler) = handler {
                     read_size = (handler.parse)(self, strmgr, size)?;
+                } else if IGNORED_CHUNKS.contains(&ctype) {
+                    self.src.skip64(size)?;
+                    continue;
                 } else {
                     println!("skipping unknown chunk {:08X} size {}", ctype, size);
                     read_size = 0;
@@ -205,6 +205,35 @@ fn read_sidx(_dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, _size: u64) -> 
     Ok(0)
 }
 
+fn parse_root_udta_payload(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, end: u64) -> DemuxerResult<()> {
+    while dmx.src.tell() + 8 < end {
+        let size            = dmx.src.read_u32be()?;
+        let tag             = dmx.src.read_u32be()?;
+        validate!(size >= 8 && dmx.src.tell() + u64::from(size - 8) <= end);
+        if tag == mktag!(b"NAVG") {
+            let dsize = size as usize - 8;
+            let edata = if dsize > 0 {
+                    let mut data = vec![0; dsize];
+                              dmx.src.read_buf(&mut data)?;
+                    Some(data)
+                } else { None };
+            let cinfo = NACodecInfo::new("qt-navigable", NACodecTypeInfo::None, edata);
+            strmgr.add_stream(NAStream::new(StreamType::Data, 65535, cinfo, 1, 600, 0));
+            break;
+        } else {
+                              dmx.src.read_skip((size - 8) as usize)?;
+        }
+    }
+    Ok(())
+}
+
+fn read_root_udta(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
+    let end = dmx.src.tell() + size;
+    let _ = parse_root_udta_payload(dmx, strmgr, end); // its parsing should not hinder anything
+    dmx.src.seek(SeekFrom::Start(end))?;
+    Ok(size)
+}
+
 fn read_moov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     dmx.read_moov(strmgr, size)?;
     Ok(size)
@@ -218,6 +247,7 @@ const MOOV_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"meta"), parse: read_meta },
     RootChunkHandler { ctype: mktag!(b"mvex"), parse: read_mvex },
     RootChunkHandler { ctype: mktag!(b"iods"), parse: skip_chunk_mov },
+    RootChunkHandler { ctype: mktag!(b"udta"), parse: read_root_udta },
 ];
 
 fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
