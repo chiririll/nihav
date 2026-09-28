@@ -296,8 +296,10 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
     let version             = br.read_byte()?;
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
-    let entries             = br.read_u32be()?;
+    let entries             = br.read_u32be()? as usize;
     validate!(entries > 0);
+    track.pal.clear();
+    track.pal.resize(entries, None);
     for desc_no in 0..entries {
         let estart = br.tell();
         let esize           = u64::from(br.read_u32be()?);
@@ -338,7 +340,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                     if depth <= 8 {
                         let mut pal = [0; 1024];
                         read_palette(br, max_pal_size, &mut pal)?;
-                        track.pal = Some(Arc::new(pal));
+                        track.pal[desc_no] = Some(Arc::new(pal));
                     } else {
                                       br.read_skip(max_pal_size as usize)?;
                     }
@@ -347,15 +349,15 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                         2 => {
                             let mut pal = [0; 1024];
                             pal[..4 * 4].copy_from_slice(&MOV_DEFAULT_PAL_2BIT);
-                            track.pal = Some(Arc::new(pal));
+                            track.pal[desc_no] = Some(Arc::new(pal));
                         },
                         4 => {
                             let mut pal = [0; 1024];
                             pal[..16 * 4].copy_from_slice(&MOV_DEFAULT_PAL_4BIT);
-                            track.pal = Some(Arc::new(pal));
+                            track.pal[desc_no] = Some(Arc::new(pal));
                         },
                         8 => {
-                            track.pal = Some(Arc::new(MOV_DEFAULT_PAL_8BIT));
+                            track.pal[desc_no] = Some(Arc::new(MOV_DEFAULT_PAL_8BIT));
                         },
                         _ => {},
                     };
@@ -377,7 +379,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
                         pal[i * 4 + 1] = clr;
                         pal[i * 4 + 2] = clr;
                     }
-                    track.pal = Some(Arc::new(pal));
+                    track.pal[desc_no] = Some(Arc::new(pal));
                 }
 // todo other atoms, put as extradata
                 let cname = if let Some(name) = find_codec_from_mov_video_fourcc(&fcc) {
@@ -602,7 +604,7 @@ fn read_stsd(track: &mut Track, br: &mut dyn ByteIO, size: u64) -> DemuxerResult
         track.pkt_demux.tb_den = track.tb_den;
         validate!(br.tell() <= end_pos);
         br.seek(SeekFrom::Start(end_pos))?;
-        track.streams.push(NAStream::new(track.stream_type, track.track_no | (desc_no << 16), codec_info, track.tb_num, track.tb_den, u64::from(track.pkt_demux.duration)));
+        track.streams.push(NAStream::new(track.stream_type, track.track_no | ((desc_no as u32) << 16), codec_info, track.tb_num, track.tb_den, u64::from(track.pkt_demux.duration)));
     }
     let read_size = br.tell() - start_pos;
     track.stsd_found = true;
@@ -974,7 +976,7 @@ pub struct Track {
     pub width:          usize,
     pub height:         usize,
     pub streams:        Vec<NAStream>,
-    pub pal:            Option<Arc<[u8; 1024]>>,
+    pub pal:            Vec<Option<Arc<[u8; 1024]>>>,
     pub pkt_demux:      QTPacketDemuxer,
     pub handler:        u32,
 
@@ -1001,7 +1003,7 @@ impl Track {
             streams:        Vec::new(),
             handler:        0,
             depth:          0,
-            pal:            None,
+            pal:            Vec::with_capacity(1),
             ver_m1:         false,
             pkt_demux:      QTPacketDemuxer::new(),
 
@@ -1069,7 +1071,7 @@ pub fn process_packet(src: &mut dyn ByteIO, strmgr: &StreamManager, track: &mut 
     let stream = stream.unwrap();
     src.seek(SeekFrom::Start(offset))?;
     let mut pkt = src.read_packet(stream, ts, first | is_kf, size)?;
-    if let Some(ref pal) = track.pal {
+    if let Some(ref pal) = track.pal[cur_desc] {
         let side_data = NASideData::Palette(first, pal.clone());
         pkt.add_side_data(side_data);
     }
