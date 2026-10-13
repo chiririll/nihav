@@ -93,7 +93,10 @@ impl BinkAudioDecoder {
         }
         let mut idx = 2;
         let mut band_idx = 0;
+        let (c0, c1) = (self.coeffs[0], self.coeffs[1]);
         self.coeffs = [0.0; 4096];
+        self.coeffs[0] = if self.use_dct { c0 * std::f32::consts::SQRT_2 } else { c0 };
+        self.coeffs[1] = c1;
         while idx < self.len {
             let width = if self.version_b {
                     16
@@ -199,7 +202,7 @@ impl NADecoder for BinkAudioDecoder {
             self.scale = if !self.use_dct {
                     1.0 / (32768.0 * (self.len as f32).sqrt())
                 } else {
-                    (2.0 / (self.len as f32)).sqrt() / 1024.0
+                    (4.0 / (self.len as f32)).sqrt() / 1024.0
                 };
             let s_srate = if single { srate } else { srate >> 1 } as usize;
             init_bands(s_srate, self.len, &mut self.num_bands, &mut self.bands);
