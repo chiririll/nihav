@@ -118,13 +118,20 @@ macro_rules! el {
         );
 }
 
-macro_rules! luma_filter {
+// Filter output is scaled by 16 (no rounding, so that two passes can be combined)
+macro_rules! luma_filter_raw {
     ($src: expr, $off: expr, $step: expr) => ({
             let t0 = el!($src, $off - 0 * $step) + el!($src, $off + 1 * $step);
             let t1 = el!($src, $off - 1 * $step) + el!($src, $off + 2 * $step);
             let t2 = el!($src, $off - 2 * $step) + el!($src, $off + 3 * $step);
-            (((t0 * 19) >> 1) - t1 * 2 + (t2 >> 1) + 8) >> 4
+            ((t0 * 19) >> 1) - t1 * 2 + (t2 >> 1)
         });
+}
+
+macro_rules! luma_filter {
+    ($src: expr, $off: expr, $step: expr) => (
+            (luma_filter_raw!($src, $off, $step) + 8) >> 4
+        );
 }
 
 macro_rules! chroma_interp {
@@ -335,13 +342,13 @@ impl Bink2DSP {
                 let mut tmp = [0i16; 21 * 16];
                 for out in tmp.chunks_mut(16) {
                     for i in 0..16 {
-                        out[i] = luma_filter!(ppix, poff - 2 * pstride + i, 1) as i16;
+                        out[i] = luma_filter_raw!(ppix, poff - 2 * pstride + i, 1) as i16;
                     }
                     poff += pstride;
                 }
                 for (row, out) in dst.chunks_mut(stride).take(16).enumerate() {
                     for i in 0..16 {
-                        out[i] = clip8(luma_filter!(tmp, (row + 2) * 16 + i, 16));
+                        out[i] = clip8((luma_filter_raw!(tmp, (row + 2) * 16 + i, 16) + 128) >> 8);
                     }
                 }
             },
