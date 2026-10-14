@@ -136,9 +136,9 @@ macro_rules! chroma_interp {
                 let e1 = el!($src, soff + i + $step);
                 out[i] = match $mode {
                         0 => e0,
-                        1 => (e0 * 3 + e1     + $shift) >> $shift,
-                        2 => (e0 * 2 + e1 * 2 + $shift) >> $shift,
-                        _ => (e0     + e1 * 3 + $shift) >> $shift,
+                        1 => (e0 * 3 + e1     + (1 << $shift >> 1)) >> $shift,
+                        2 => (e0 * 2 + e1 * 2 + (1 << $shift >> 1)) >> $shift,
+                        _ => (e0     + e1 * 3 + (1 << $shift >> 1)) >> $shift,
                     } as $ty;
             }
             soff += $sstride;
@@ -1530,7 +1530,7 @@ fn decode_luma_inter(br: &mut BitReader, codes: &Bink2Codes, prev_cbp: u32, q: u
     let dcs = &dcinfo.dcs;
     for i in 0..4 {
         decode_acs_4blocks(br, codes, &mut dst[i], BINK2_QUANT_INTER, q, cbp >> (i * 4))?;
-        for j in 0..4 { dst[i][j][0] = dcs[i * 4 + j] * 8; }
+        for j in 0..4 { dst[i][j][0] = dcs[i * 4 + j] * 8 + 32; }
     }
     Ok(cbp)
 }
@@ -1542,7 +1542,7 @@ fn decode_chroma_inter(br: &mut BitReader, codes: &Bink2Codes, prev_cbp: u32, q:
     dcinfo.predict_inter(min_dc, max_dc);
     let dcs = &dcinfo.dcs;
     decode_acs_4blocks(br, codes, dst, BINK2_QUANT_INTER, q, cbp)?;
-    for i in 0..4 { dst[i][0] = dcs[i] * 8; }
+    for i in 0..4 { dst[i][0] = dcs[i] * 8 + 32; }
     Ok(cbp)
 }
 
