@@ -29,7 +29,7 @@ struct BinkAudioDecoder {
     scale:      f32,
 }
 
-fn read_bink_float(br: &mut BitReader) -> DecoderResult<f32> {
+pub(super) fn read_bink_float(br: &mut BitReader) -> DecoderResult<f32> {
     /*let exp                                     = (br.read(5)? as i8) - 23;
     let mant                                    = br.read(23)? as u32;
     let sign                                    = br.read_bool()?;
@@ -51,7 +51,7 @@ fn read_bink_float(br: &mut BitReader) -> DecoderResult<f32> {
     Ok(f32::from_bits((sign << 31) | (nexp << 23) | nmant))
 }
 
-fn overlap(a: &[f32], b: &[f32], dst: &mut [f32], len: usize, step: usize) {
+pub(super) fn overlap(a: &[f32], b: &[f32], dst: &mut [f32], len: usize, step: usize) {
     for i in 0..len {
         dst[i] = (a[i] * ((len - i) as f32) + b[i * step] * (i as f32)) / (len as f32);
     }
