@@ -185,9 +185,11 @@ impl ChunkAccount {
             bw.write_u32be(self.sizes.len() as u32)?;
             bw.write_u32be_arr(&self.sizes)?;
         } else {
-            bw.write_u32be(1)?;
-            let tot_size = self.sizes.iter().sum();
-            bw.write_u32be(tot_size)?;
+            // One sample per audio frame, as stts counts them: the size of a frame and their number.
+            let frames: u32 = self.cmap.iter().sum();
+            let tot_size: u32 = self.sizes.iter().sum();
+            bw.write_u32be(if frames > 0 { tot_size / frames } else { 1 })?;
+            bw.write_u32be(frames)?;
         }
         Ok(())
     }

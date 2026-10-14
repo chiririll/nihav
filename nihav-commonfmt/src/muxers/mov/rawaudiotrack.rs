@@ -92,6 +92,7 @@ impl TrackHandler for RawAudioTrackHandler {
         let offset = bw.tell();
         ca.add_offset(offset);
         ca.add_chunk_samps(chunk_samples);
+        ca.add_size(src.len());
         self.sample += chunk_samples as u64;
         bw.write_buf(&src)?;
         Ok(())
