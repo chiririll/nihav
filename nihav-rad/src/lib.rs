@@ -8,6 +8,8 @@ extern crate nihav_codec_support;
 mod codecs;
 #[cfg(feature="decoders")]
 pub use crate::codecs::rad_register_all_decoders;
+#[cfg(feature="decoder_binkaud")]
+pub use crate::codecs::BinkAudioBlocks;
 #[cfg(feature="encoders")]
 pub use crate::codecs::rad_register_all_encoders;
 
